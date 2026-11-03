@@ -10,12 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.ProductEntity
-import kotlinx.coroutines.CoroutineScope
+import com.karyaku.kasir.data.local.ProductDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -37,7 +36,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Memanggil layar uji coba database
                     TestDatabaseScreen(
                         productDao = productDao,
                         isDarkMode = isDarkMode,
@@ -61,13 +59,12 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TestDatabaseScreen(
-    productDao: com.karyaku.kasir.data.local.ProductDao,
+    productDao: ProductDao,
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit,
     language: String,
     onToggleLanguage: () -> Unit
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     // Mengambil data dari database secara reaktif (Flow)
@@ -76,7 +73,6 @@ fun TestDatabaseScreen(
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp)
     ) {
-        // Tampilkan Status Pengaturan
         Text(
             text = "Bahasa: $language | Dark Mode: $isDarkMode",
             style = MaterialTheme.typography.bodyMedium
@@ -89,12 +85,12 @@ fun TestDatabaseScreen(
             Button(onClick = onToggleLanguage) { Text("Bahasa") }
         }
 
-        Divider(modifier = Modifier.padding(vertical = 16.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-        // Tombol untuk menyimpan data ke database SQLite
         Button(
             onClick = {
                 scope.launch(Dispatchers.IO) {
+                    // Menggunakan ProductEntity yang sudah di-import
                     val dummyProduct = ProductEntity(
                         name = "Kopi Susu ${(1..100).random()}",
                         price = 18000,
@@ -117,7 +113,6 @@ fun TestDatabaseScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Menampilkan List Produk
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -128,6 +123,7 @@ fun TestDatabaseScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
+                        // Properti name, price, stock sekarang akan dikenali
                         Text(text = product.name, style = MaterialTheme.typography.titleMedium)
                         Text(text = "Harga: Rp ${product.price}", style = MaterialTheme.typography.bodyMedium)
                         Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall)
