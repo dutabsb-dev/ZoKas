@@ -15,7 +15,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Inisialisasi Database
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
@@ -28,12 +27,14 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Memanggil ViewModel dengan Factory
                     val posViewModel: PosViewModel = viewModel(
-                        factory = PosViewModelFactory(database.productDao())
+                        // Masukkan productDao dan transactionDao ke Factory
+                        factory = PosViewModelFactory(
+                            database.productDao(), 
+                            database.transactionDao()
+                        )
                     )
                     
-                    // Panggil Layar Kasir
                     PosScreen(viewModel = posViewModel)
                 }
             }

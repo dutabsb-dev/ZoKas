@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.karyaku.kasir.data.local.ProductDao
 import com.karyaku.kasir.data.local.ProductEntity
+import com.karyaku.kasir.data.local.TransactionDao
+import com.karyaku.kasir.data.local.TransactionEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +18,11 @@ data class CartItem(
     var quantity: Int = 1
 )
 
-class PosViewModel(private val productDao: ProductDao) : ViewModel() {
+// Tambahkan TransactionDao di parameter ViewModel
+class PosViewModel(
+    private val productDao: ProductDao,
+    private val transactionDao: TransactionDao
+) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -32,7 +38,6 @@ class PosViewModel(private val productDao: ProductDao) : ViewModel() {
         }
     }
 
-    // FUNGSI BARU: Untuk menambah produk dummy sebagai bahan tes
     fun addDummyProduct() {
         viewModelScope.launch {
             val dummyNames = listOf("Kopi Susu", "Roti Bakar", "Nasi Goreng", "Es Teh Manis", "Kentang Goreng")
@@ -80,16 +85,42 @@ class PosViewModel(private val productDao: ProductDao) : ViewModel() {
         _cart.value = currentCart
     }
 
-    fun clearCart() {
-        _cart.value = emptyList()
+    fun getTotalPrice(): Long {
+        return _cart.value.sumOf { it.product.price * it.quantity }
+    }
+
+    // FUNGSI BARU: Proses Pembayaran dan Simpan ke Database
+    fun processPayment(cashReceived: Long, onSuccess: () -> Unit) {
+        val total = getTotalPrice()
+        val change = if (cashReceived >= total) cashReceived - total else 0
+
+        val transaction = TransactionEntity(
+            totalPrice = total,
+            cashReceived = cashReceived,
+            changeAmount = change
+        )
+
+        viewModelScope.launch {
+            // Simpan ke database
+            transactionDao.insertTransaction(transaction)
+            
+            // Kosongkan keranjang
+            _cart.value = emptyList()
+            
+            // Kembali ke UI
+            onSuccess()
+        }
     }
 }
 
-class PosViewModelFactory(private val productDao: ProductDao) : ViewModelProvider.Factory {
+class PosViewModelFactory(
+    private val productDao: ProductDao,
+    private val transactionDao: TransactionDao // Tambahkan ini
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PosViewModel(productDao) as T
+            return PosViewModel(productDao, transactionDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
