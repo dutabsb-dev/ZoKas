@@ -1,0 +1,4 @@
+<resources>
+    <!-- Kita gunakan tema dasar, nanti akan di-override oleh Compose Theme -->
+    <style name="Theme.AppKasir" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
