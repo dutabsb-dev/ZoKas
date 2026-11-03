@@ -18,22 +18,35 @@ data class CartItem(
     var quantity: Int = 1
 )
 
-// Tambahkan TransactionDao di parameter ViewModel
 class PosViewModel(
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao
 ) : ViewModel() {
 
+    // State untuk Produk
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
+    // State untuk Keranjang
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
 
+    // State untuk Riwayat Transaksi (INI YANG TADI HILANG)
+    private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
+    val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
+
     init {
+        // 1. Mengambil data produk dari database
         viewModelScope.launch {
             productDao.getAllProducts().collectLatest { productList ->
                 _products.value = productList
+            }
+        }
+        
+        // 2. Mengambil data riwayat transaksi dari database (DIPISAH DENGAN BENAR)
+        viewModelScope.launch {
+            transactionDao.getAllTransactions().collectLatest { txList ->
+                _transactions.value = txList
             }
         }
     }
@@ -89,7 +102,6 @@ class PosViewModel(
         return _cart.value.sumOf { it.product.price * it.quantity }
     }
 
-    // FUNGSI BARU: Proses Pembayaran dan Simpan ke Database
     fun processPayment(cashReceived: Long, onSuccess: () -> Unit) {
         val total = getTotalPrice()
         val change = if (cashReceived >= total) cashReceived - total else 0
@@ -101,13 +113,8 @@ class PosViewModel(
         )
 
         viewModelScope.launch {
-            // Simpan ke database
             transactionDao.insertTransaction(transaction)
-            
-            // Kosongkan keranjang
             _cart.value = emptyList()
-            
-            // Kembali ke UI
             onSuccess()
         }
     }
@@ -115,7 +122,7 @@ class PosViewModel(
 
 class PosViewModelFactory(
     private val productDao: ProductDao,
-    private val transactionDao: TransactionDao // Tambahkan ini
+    private val transactionDao: TransactionDao
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
