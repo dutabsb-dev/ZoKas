@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">POS App</string>
+    <string name="welcome_text">Welcome to POS App</string>
+    <string name="btn_dark_mode">Toggle Dark Mode</string>
+    <string name="btn_language">Ganti ke Bahasa Indonesia</string>
+    <string name="btn_language_en">Switch to English</string>
+</resources>

@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Aplikasi Kasir</string>
+    <string name="welcome_text">Selamat Datang di Aplikasi Kasir</string>
+    <string name="btn_dark_mode">Ubah Mode Gelap</string>
+    <string name="btn_language">Ganti ke Bahasa Indonesia</string>
+    <string name="btn_language_en">Switch to English</string>
 </resources>
