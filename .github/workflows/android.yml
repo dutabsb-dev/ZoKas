@@ -17,10 +17,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Gradle
+      - name: Install Official Gradle 8.7
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip
+          unzip -q gradle-8.7-bin.zip
+          echo "$PWD/gradle-8.7/bin" >> $GITHUB_PATH
 
       - name: Build Debug APK
         run: gradle assembleDebug
