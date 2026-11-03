@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-// Model untuk item di dalam keranjang
 data class CartItem(
     val product: ProductEntity,
     var quantity: Int = 1
@@ -19,16 +18,13 @@ data class CartItem(
 
 class PosViewModel(private val productDao: ProductDao) : ViewModel() {
 
-    // State untuk daftar produk dari database
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
-    // State untuk keranjang belanja
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
 
     init {
-        // Mengambil data produk dari database secara otomatis (Realtime)
         viewModelScope.launch {
             productDao.getAllProducts().collectLatest { productList ->
                 _products.value = productList
@@ -36,23 +32,33 @@ class PosViewModel(private val productDao: ProductDao) : ViewModel() {
         }
     }
 
-    // Fungsi saat produk ditekan
+    // FUNGSI BARU: Untuk menambah produk dummy sebagai bahan tes
+    fun addDummyProduct() {
+        viewModelScope.launch {
+            val dummyNames = listOf("Kopi Susu", "Roti Bakar", "Nasi Goreng", "Es Teh Manis", "Kentang Goreng")
+            val randomName = dummyNames.random()
+            val dummyProduct = ProductEntity(
+                name = "$randomName ${(1..100).random()}",
+                price = listOf(15000L, 20000L, 25000L, 5000L).random(),
+                stock = 50
+            )
+            productDao.insertProduct(dummyProduct)
+        }
+    }
+
     fun addToCart(product: ProductEntity) {
         val currentCart = _cart.value.toMutableList()
         val existingItemIndex = currentCart.indexOfFirst { it.product.id == product.id }
 
         if (existingItemIndex != -1) {
-            // Jika sudah ada, tambah kuantitasnya
             val existingItem = currentCart[existingItemIndex]
             currentCart[existingItemIndex] = existingItem.copy(quantity = existingItem.quantity + 1)
         } else {
-            // Jika belum ada, masukkan sebagai item baru
             currentCart.add(CartItem(product))
         }
         _cart.value = currentCart
     }
 
-    // Fungsi mengurangi kuantitas
     fun removeFromCart(product: ProductEntity) {
         val currentCart = _cart.value.toMutableList()
         val existingItemIndex = currentCart.indexOfFirst { it.product.id == product.id }
@@ -68,25 +74,17 @@ class PosViewModel(private val productDao: ProductDao) : ViewModel() {
         }
     }
 
-    // Fungsi untuk menghapus item sepenuhnya
     fun deleteItem(product: ProductEntity) {
         val currentCart = _cart.value.toMutableList()
         currentCart.removeAll { it.product.id == product.id }
         _cart.value = currentCart
     }
 
-    // Fungsi menghitung total harga
-    fun getTotalPrice(): Long {
-        return _cart.value.sumOf { it.product.price * it.quantity }
-    }
-    
-    // Fungsi untuk mengosongkan keranjang setelah bayar
     fun clearCart() {
         _cart.value = emptyList()
     }
 }
 
-// Factory untuk membuat ViewModel dengan parameter Database
 class PosViewModelFactory(private val productDao: ProductDao) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {

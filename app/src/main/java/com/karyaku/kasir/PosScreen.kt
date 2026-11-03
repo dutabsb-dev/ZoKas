@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -17,10 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,7 +29,6 @@ fun PosScreen(viewModel: PosViewModel) {
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val totalPrice = cart.sumOf { it.product.price * it.quantity }
     
-    // State untuk navigasi di HP (jika true, tampilkan keranjang)
     var showCartOnPhone by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -45,9 +41,14 @@ fun PosScreen(viewModel: PosViewModel) {
                 )
             )
         },
+        // TOMBOL MELAYANG BARU UNTUK TES DUMMY
+        floatingActionButton = {
+            FloatingActionButton(onClick = { viewModel.addDummyProduct() }) {
+                Icon(Icons.Default.Add, contentDescription = "Tambah Produk Dummy")
+            }
+        },
         bottomBar = {
-            // Tampilkan Ringkasan Total di bawah (Khusus HP)
-            if (cart.isNotEmpty()) {
+            if (cart.isNotEmpty() && !showCartOnPhone) {
                 BottomAppBar(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.height(72.dp)
@@ -72,17 +73,14 @@ fun PosScreen(viewModel: PosViewModel) {
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize().padding(paddingValues)
         ) {
-            // Jika lebar layar > 600dp (Tablet), bagi 2 layar
             val isTablet = maxWidth > 600.dp
 
             if (isTablet) {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    // Katalog Kiri (60% layar)
                     Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) {
                         ProductCatalog(products = products, onProductClick = { viewModel.addToCart(it) })
                     }
                     Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
-                    // Keranjang Kanan (40% layar)
                     Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
                         CartList(
                             cart = cart, 
@@ -90,14 +88,12 @@ fun PosScreen(viewModel: PosViewModel) {
                             onAdd = { viewModel.addToCart(it) },
                             onRemove = { viewModel.removeFromCart(it) },
                             onDelete = { viewModel.deleteItem(it) },
-                            onCheckout = { viewModel.clearCart() } // Sementara langsung kosongkan
+                            onCheckout = { viewModel.clearCart() }
                         )
                     }
                 }
             } else {
-                // Tampilan HP Biasa
                 if (showCartOnPhone) {
-                    // Jika mode lihat keranjang
                     Column(modifier = Modifier.fillMaxSize()) {
                         TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(8.dp)) {
                             Text("< Kembali ke Katalog")
@@ -115,7 +111,6 @@ fun PosScreen(viewModel: PosViewModel) {
                         )
                     }
                 } else {
-                    // Jika mode lihat katalog
                     ProductCatalog(products = products, onProductClick = { viewModel.addToCart(it) })
                 }
             }
@@ -127,11 +122,11 @@ fun PosScreen(viewModel: PosViewModel) {
 fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, onProductClick: (com.karyaku.kasir.data.local.ProductEntity) -> Unit) {
     if (products.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Belum ada produk di database.")
+            Text("Belum ada produk. Tekan tombol + di pojok kanan bawah untuk menambah data dummy.")
         }
     } else {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 140.dp), // Menyesuaikan ukuran layar
+            columns = GridCells.Adaptive(minSize = 140.dp),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -200,7 +195,6 @@ fun CartList(
                             Text("Rp ${item.product.price}", style = MaterialTheme.typography.bodyMedium)
                         }
                         
-                        // Tombol + dan -
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { onRemove(item.product) }) {
                                 Icon(Icons.Default.Remove, contentDescription = "Kurang")
