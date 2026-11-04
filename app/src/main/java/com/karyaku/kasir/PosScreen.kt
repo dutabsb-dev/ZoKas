@@ -38,6 +38,7 @@ fun formatRupiah(amount: Long): String {
     return format.format(amount).split(",")[0].replace("Rp", "Rp ")
 }
 
+// 1. ANOTASI UNTUK PosScreen (Menggunakan Scaffold & TopAppBar)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
@@ -50,8 +51,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     var showAddProductSheet by remember { mutableStateOf(false) }
     
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
-    
-    // State untuk Hapus Produk
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
 
     if (completedTransaction != null) {
@@ -87,7 +86,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
         )
     }
 
-    // Dialog Konfirmasi Hapus Produk
     if (productToDelete != null) {
         AlertDialog(
             onDismissRequest = { productToDelete = null },
@@ -102,9 +100,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { productToDelete = null }) {
-                    Text("Batal")
-                }
+                TextButton(onClick = { productToDelete = null }) { Text("Batal") }
             }
         )
     }
@@ -150,7 +146,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
                         ProductCatalog(
                             products = products, 
                             onProductClick = { viewModel.addToCart(it) },
-                            onProductLongClick = { productToDelete = it } // Panggil dialog hapus
+                            onProductLongClick = { productToDelete = it }
                         ) 
                     }
                     Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
@@ -168,7 +164,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
                     ProductCatalog(
                         products = products, 
                         onProductClick = { viewModel.addToCart(it) },
-                        onProductLongClick = { productToDelete = it } // Panggil dialog hapus
+                        onProductLongClick = { productToDelete = it }
                     )
                 }
             }
@@ -176,6 +172,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     }
 }
 
+// 2. ANOTASI UNTUK AddProductBottomSheet
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddProductBottomSheet(
     onDismiss: () -> Unit,
@@ -212,6 +210,8 @@ fun AddProductBottomSheet(
     }
 }
 
+// 3. ANOTASI UNTUK PaymentBottomSheet
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment: (Long) -> Unit) {
     val sheetState = rememberModalBottomSheetState()
@@ -259,7 +259,7 @@ fun ProductCatalog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
-                        .combinedClickable( // MENGGUNAKAN COMBINED CLICKABLE UNTUK TEKAN LAMA
+                        .combinedClickable(
                             onClick = { onProductClick(product) },
                             onLongClick = { onProductLongClick(product) }
                         ), 
