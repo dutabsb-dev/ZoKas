@@ -1,28 +1,20 @@
 package com.karyaku.kasir
 
-import android.Manifest
-import android.bluetooth.BluetoothDevice
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import com.karyaku.kasir.data.local.AuditLogEntity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -40,27 +32,9 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     auditLogs: List<AuditLogEntity>
 ) {
-    val context = LocalContext.current
-    val printerManager = remember { BluetoothPrinterManager(context) }
-    
     var storeName by remember { mutableStateOf(settingsManager.storeName) }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
-    var savedPrinterMac by remember { mutableStateOf(settingsManager.printerMacAddress) }
-    
-    var showPrinterDialog by remember { mutableStateOf(false) }
-    var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
-    
     val dateFormat = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val connectGranted = permissions[Manifest.permission.BLUETOOTH_CONNECT] ?: false
-        if (connectGranted) {
-            pairedPrinters = printerManager.getPairedPrinters()
-            showPrinterDialog = true
-        }
-    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -69,45 +43,6 @@ fun SettingsScreen(
     ) {
         item {
             Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-
-        // --- PENGATURAN PRINTER ---
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Printer Bluetooth", style = MaterialTheme.typography.titleMedium)
-                        Button(
-                            onClick = {
-                                try {
-                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                                        pairedPrinters = printerManager.getPairedPrinters()
-                                        showPrinterDialog = true
-                                    } else {
-                                        permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
-                                    }
-                                } catch (e: Exception) {
-                                    pairedPrinters = emptyList()
-                                    showPrinterDialog = true
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
-                        ) {
-                            Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Pilih")
-                        }
-                    }
-                    Text(
-                        text = if (savedPrinterMac != null) "Terhubung: $savedPrinterMac" else "Belum ada printer dipilih",
-                        fontSize = 12.sp,
-                        color = if (savedPrinterMac != null) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
         }
 
         // --- PENGATURAN TEMA & BAHASA ---
@@ -143,7 +78,6 @@ fun SettingsScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    // PERBAIKAN: Gunakan fillMaxWidth() dan textAlign
                     Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -167,7 +101,6 @@ fun SettingsScreen(
 
         // --- LOG AKTIVITAS (AUDIT TRAIL) ---
         item {
-            // PERBAIKAN: Gunakan fillMaxWidth() dan textAlign
             Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
         }
         
@@ -199,33 +132,5 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
-    }
-
-    // DIALOG PILIH PRINTER
-    if (showPrinterDialog) {
-        AlertDialog(
-            onDismissRequest = { showPrinterDialog = false },
-            title = { Text("Pilih Printer Bluetooth") },
-            text = {
-                if (pairedPrinters.isEmpty()) {
-                    Text("Tidak ada printer ditemukan. Pastikan printer sudah di-pairing di pengaturan Bluetooth HP Anda.")
-                } else {
-                    LazyColumn {
-                        items(pairedPrinters) { device ->
-                            TextButton(onClick = {
-                                settingsManager.printerMacAddress = device.address
-                                savedPrinterMac = device.address
-                                showPrinterDialog = false
-                            }) {
-                                Text("${device.name ?: "Unknown"} (${device.address})")
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showPrinterDialog = false }) { Text("Tutup") }
-            }
-        )
     }
 }
