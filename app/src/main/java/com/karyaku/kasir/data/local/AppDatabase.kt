@@ -5,11 +5,22 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [ProductEntity::class, TransactionEntity::class, UserEntity::class, AuditLogEntity::class], version = 4, exportSchema = false)
+// PERHATIKAN BARIS INI: ShiftEntity::class harus ada di dalam array
+@Database(
+    entities = [
+        ProductEntity::class, 
+        TransactionEntity::class, 
+        UserEntity::class, 
+        AuditLogEntity::class, 
+        ShiftEntity::class // <--- Ini yang tadi hilang/terlewat
+    ], 
+    version = 4, 
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun transactionDao(): TransactionDao
-    abstract fun userDao(): UserDao // Tambahan baru
+    abstract fun userDao(): UserDao
 
     companion object {
         @Volatile
@@ -22,7 +33,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pos_database"
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration() // Agar tidak crash saat update versi
                 .build()
                 INSTANCE = instance
                 instance

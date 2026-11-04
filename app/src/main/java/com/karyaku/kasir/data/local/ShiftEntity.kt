@@ -10,9 +10,9 @@ data class ShiftEntity(
     val userName: String,
     val startTime: Long = System.currentTimeMillis(),
     val endTime: Long? = null,
-    val openingCash: Long, // Modal awal
-    val expectedCash: Long = 0, // Uang yang seharusnya ada (sistem)
-    val closingCash: Long? = null, // Uang fisik yang dihitung kasir (blind closing)
-    val discrepancy: Long? = null, // Selisih
-    val status: String = "OPEN" // "OPEN" atau "CLOSED"
+    val openingCash: Long,
+    val expectedCash: Long = 0,
+    val closingCash: Long? = null,
+    val discrepancy: Long? = null,
+    val status: String = "OPEN"
 )
