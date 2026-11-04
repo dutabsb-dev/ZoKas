@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build APK and AAB
 
 on:
   workflow_dispatch:
@@ -23,11 +23,30 @@ jobs:
           unzip -q gradle-8.7-bin.zip
           echo "$PWD/gradle-8.7/bin" >> $GITHUB_PATH
 
-      - name: Build Debug APK
-        run: gradle assembleDebug
+      - name: Decode Keystore
+        env:
+          ENCODED_STRING: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$ENCODED_STRING" | base64 -d > app/zokas-release.jks
 
-      - name: Upload APK Artifact
+      # PERINTAH BARU: Membuat APK (assembleRelease) dan AAB (bundleRelease) sekaligus
+      - name: Build Release APK and AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle assembleRelease bundleRelease
+
+      # Upload APK (Untuk diinstal di HP)
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: zokas-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+
+      # Upload AAB (Untuk Google Play Store)
+      - name: Upload Release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: zokas-release-aab
+          path: app/build/outputs/bundle/release/app-release.aab
