@@ -1,5 +1,8 @@
 package com.karyaku.kasir
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -19,12 +22,23 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// Fungsi bantuan untuk mencari Activity asli dari Context Compose
+fun Context.findActivity(): Activity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    return null
+}
+
 @Composable
 fun HistoryScreen(
     transactions: List<TransactionEntity>,
     isPro: Boolean
 ) {
     val context = LocalContext.current
+    val activity = context.findActivity() // Ambil Activity aslinya
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -46,14 +60,20 @@ fun HistoryScreen(
                             action = Intent.ACTION_SEND
                             putExtra(Intent.EXTRA_TEXT, fullCsv)
                             type = "text/plain"
-                            // TAMBAHKAN FLAG INI UNTUK MENCEGAH CRASH
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) 
                         }
+                        
                         val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
-                        context.startActivity(shareIntent)
+                        
+                        // Gunakan Activity asli untuk memulai Intent
+                        if (activity != null) {
+                            activity.startActivity(shareIntent)
+                        } else {
+                            // Fallback jika activity tidak ditemukan
+                            shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(shareIntent)
+                        }
                         
                     } catch (e: Exception) {
-                        // Jika terjadi error, tampilkan pesan alih-alih menutup aplikasi
                         Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 },
