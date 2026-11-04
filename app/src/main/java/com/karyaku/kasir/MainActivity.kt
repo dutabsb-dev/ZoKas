@@ -22,6 +22,7 @@ import com.karyaku.kasir.data.local.UserEntity
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
                             viewModel = posViewModel,
                             settingsManager = settingsManager,
                             currentUser = currentUser!!,
-                            onLogout = { currentUser = null }, // Logout kembali ke Login
+                            onLogout = { currentUser = null },
                             isPro = isPro,
                             isDarkMode = isDarkMode,
                             onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
@@ -74,6 +75,7 @@ fun MainNavigation(
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
@@ -89,18 +91,18 @@ fun MainNavigation(
     ) { paddingValues ->
         androidx.compose.foundation.layout.Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                // KIRIM FUNGSI onLogout KE PosScreen
                 0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout)
                 1 -> HistoryScreen(transactions = transactions, isPro = isPro)
                 2 -> SettingsScreen(
                     settingsManager = settingsManager,
                     isPro = isPro,
-                    onUpgradeClick = { onUpgradeClick(); Toast.makeText(context, "Berhasil Upgrade ke Pro!", Toast.LENGTH_SHORT).show() },
+                    onUpgradeClick = { onUpgradeClick(); Toast.makeText(context, "Pro Aktif!", Toast.LENGTH_SHORT).show() },
                     isDarkMode = isDarkMode,
                     onToggleDarkMode = onToggleDarkMode,
                     language = language,
                     onToggleLanguage = onToggleLanguage,
-                    onLogout = onLogout // Tombol Logout untuk Owner juga ada di sini
+                    onLogout = onLogout,
+                    auditLogs = auditLogs
                 )
             }
         }

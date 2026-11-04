@@ -3,6 +3,7 @@ package com.karyaku.kasir
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,6 +11,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -53,24 +56,21 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
-    
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
-    
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
-    
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     
     var showOpenShiftDialog by remember { mutableStateOf(false) }
+    var showCloseShiftDialog by remember { mutableStateOf(false) }
     var modalAwal by remember { mutableStateOf("") }
 
     LaunchedEffect(activeShift) {
-        if (activeShift == null) {
-            showOpenShiftDialog = true
-        }
+        if (activeShift == null) showOpenShiftDialog = true
     }
 
+    // Dialog Buka Kasir
     if (showOpenShiftDialog) {
         AlertDialog(
             onDismissRequest = { },
@@ -79,23 +79,27 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 Column {
                     Text("Masukkan modal awal uang tunai di laci:")
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = modalAwal,
-                        onValueChange = { if (it.length <= 10) modalAwal = it },
-                        label = { Text("Modal Awal (Rp)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = modalAwal, onValueChange = { if (it.length <= 10) modalAwal = it }, label = { Text("Modal Awal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val modal = modalAwal.toLongOrNull() ?: 0L
-                        viewModel.openShift(currentUser, modal)
-                        showOpenShiftDialog = false
-                    }
-                ) { Text("BUKA KASIR") }
+                Button(onClick = {
+                    viewModel.openShift(currentUser, modalAwal.toLongOrNull() ?: 0L)
+                    showOpenShiftDialog = false
+                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("BUKA KASIR") }
+            }
+        )
+    }
+
+    // Dialog Tutup Kasir
+    if (showCloseShiftDialog) {
+        CloseShiftDialog(
+            onDismiss = { showCloseShiftDialog = false },
+            onConfirm = { uangFisik ->
+                viewModel.closeShift(currentUser, uangFisik) { selisih ->
+                    showCloseShiftDialog = false
+                    onLogout() // Logout setelah tutup kasir
+                }
             }
         )
     }
@@ -104,7 +108,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         ReceiptDialog(
             transaction = completedTransaction!!,
             storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
-            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro untuk kustom struk!",
+            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro!",
             onDismiss = { completedTransaction = null }
         )
     }
@@ -128,11 +132,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             productToEdit = productToEdit,
             onDismiss = { showProductForm = false; productToEdit = null },
             onSave = { name, price, stock ->
-                if (productToEdit == null) {
-                    viewModel.addProduct(name, price, stock, currentUser.id, currentUser.name)
-                } else {
-                    viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock), currentUser.id, currentUser.name)
-                }
+                if (productToEdit == null) viewModel.addProduct(name, price, stock, currentUser.id, currentUser.name)
+                else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock), currentUser.id, currentUser.name)
                 showProductForm = false
                 productToEdit = null
             }
@@ -145,24 +146,13 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             title = { Text(showActionDialogFor!!.name) },
             text = { Text("Pilih tindakan untuk produk ini:") },
             confirmButton = {
-                TextButton(onClick = {
-                    productToEdit = showActionDialogFor
-                    showProductForm = true
-                    showActionDialogFor = null
-                }) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit")
+                TextButton(onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null }) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = ZokasGreen); Spacer(modifier = Modifier.width(4.dp)); Text("Edit", color = ZokasGreen)
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    productToDelete = showActionDialogFor
-                    showActionDialogFor = null
-                }) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Hapus", color = Color.Red)
+                TextButton(onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null }) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red); Spacer(modifier = Modifier.width(4.dp)); Text("Hapus", color = Color.Red)
                 }
             }
         )
@@ -172,18 +162,11 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         AlertDialog(
             onDismissRequest = { productToDelete = null },
             title = { Text("Konfirmasi Hapus") },
-            text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}' secara permanen?") },
+            text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}'?") },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name)
-                    productToDelete = null
-                }) {
-                    Text("Ya, Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
+                TextButton(onClick = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }) { Text("Ya, Hapus", color = Color.Red) }
             },
-            dismissButton = {
-                TextButton(onClick = { productToDelete = null }) { Text("Batal") }
-            }
+            dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Batal") } }
         )
     }
 
@@ -201,44 +184,40 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showCloseShiftDialog = true }) {
+                        Icon(Icons.Default.Lock, contentDescription = "Tutup Kasir", tint = ZokasOrange)
+                    }
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = ZokasOrange)
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = MaterialTheme.colorScheme.error)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             )
         },
         floatingActionButton = {
-            // TOMBOL FAB 3D ORANGE
-            FloatingActionButton(
-                onClick = { productToEdit = null; showProductForm = true },
-                containerColor = Color.Transparent,
-                contentColor = Color.White,
+            Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .shadow(12.dp, RoundedCornerShape(50), spotColor = ZokasOrangeDark)
+                    .shadow(12.dp, CircleShape, spotColor = ZokasOrangeDark)
                     .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(ZokasOrange, ZokasOrangeDark)
-                        ),
-                        shape = RoundedCornerShape(50)
+                        brush = Brush.linearGradient(colors = listOf(ZokasOrange, ZokasOrangeDark)),
+                        shape = CircleShape
                     )
+                    .clickable { productToEdit = null; showProductForm = true },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Tambah Produk Baru", modifier = Modifier.size(32.dp))
+                Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Color.White, modifier = Modifier.size(32.dp))
             }
         },
         bottomBar = {
             if (cart.isNotEmpty() && !showCartOnPhone) {
-                BottomAppBar(containerColor = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.height(72.dp)) {
+                BottomAppBar(containerColor = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.height(72.dp)) {
                     Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text("Total (${cart.sumOf { it.quantity }} item)", fontSize = 12.sp, color = ZokasTextWhite)
+                            Text("Total (${cart.sumOf { it.quantity }} item)", fontSize = 12.sp)
                             Text(formatRupiah(totalPrice), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = ZokasOrange)
                         }
-                        Button(
-                            onClick = { showCartOnPhone = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                        ) { Text("Lihat Keranjang") }
+                        Button(onClick = { showCartOnPhone = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("Lihat Keranjang") }
                     }
                 }
             }
@@ -249,30 +228,20 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
             if (isTablet) {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
-                        ProductCatalog(
-                            products = products, 
-                            onProductClick = { viewModel.addToCart(it) },
-                            onProductLongClick = { showActionDialogFor = it }
-                        ) 
-                    }
-                    Divider(modifier = Modifier.fillMaxHeight().width(1.dp), color = ZokasSurfaceVariant)
+                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { ProductCatalog(products, { viewModel.addToCart(it) }, { showActionDialogFor = it }) }
+                    Divider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                     Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
-                        CartList(cart = cart, totalPrice = totalPrice, onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, onCheckout = { showPaymentSheet = true })
+                        CartList(cart, totalPrice, { viewModel.addToCart(it) }, { viewModel.removeFromCart(it) }, { viewModel.deleteItem(it) }, { showPaymentSheet = true })
                     }
                 }
             } else {
                 if (showCartOnPhone) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(8.dp)) { Text("< Kembali ke Katalog", color = ZokasOrange) }
-                        CartList(cart = cart, totalPrice = totalPrice, onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, onCheckout = { showPaymentSheet = true })
+                        CartList(cart, totalPrice, { viewModel.addToCart(it) }, { viewModel.removeFromCart(it) }, { viewModel.deleteItem(it) }, { showPaymentSheet = true })
                     }
                 } else {
-                    ProductCatalog(
-                        products = products, 
-                        onProductClick = { viewModel.addToCart(it) },
-                        onProductLongClick = { showActionDialogFor = it }
-                    )
+                    ProductCatalog(products, { viewModel.addToCart(it) }, { showActionDialogFor = it })
                 }
             }
         }
@@ -281,48 +250,28 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ProductCatalog(
-    products: List<ProductEntity>, 
-    onProductClick: (ProductEntity) -> Unit,
-    onProductLongClick: (ProductEntity) -> Unit
-) {
+fun ProductCatalog(products: List<ProductEntity>, onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit) {
     if (products.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Belum ada produk.", textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(32.dp), color = ZokasTextWhite)
-        }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada produk.", color = MaterialTheme.colorScheme.onSurface) }
     } else {
         LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 160.dp), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             items(products) { product ->
-                // KARTU PRODUK 3D DENGAN GRADASI HIJAU
-                Card(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
-                        .shadow(10.dp, RoundedCornerShape(20.dp), spotColor = Color.Black)
-                        .combinedClickable(
-                            onClick = { onProductClick(product) },
-                            onLongClick = { onProductLongClick(product) }
-                        ), 
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.Transparent
-                    ) 
+                        .shadow(8.dp, RoundedCornerShape(20.dp), spotColor = ZokasGreenDark)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            brush = Brush.linearGradient(colors = listOf(ZokasGreen, ZokasGreenDark))
+                        )
+                        .combinedClickable(onClick = { onProductClick(product) }, onLongClick = { onProductLongClick(product) })
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.linearGradient(
-                                    colors = listOf(ZokasGreenLight, ZokasGreenDark)
-                                )
-                            )
-                            .padding(16.dp), 
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(text = product.name, fontWeight = FontWeight.Bold, maxLines = 2, style = MaterialTheme.typography.titleMedium, color = ZokasTextWhite)
+                    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                        Text(text = product.name, fontWeight = FontWeight.Bold, maxLines = 2, style = MaterialTheme.typography.titleMedium, color = Color.White)
                         Spacer(modifier = Modifier.weight(1f))
                         Text(text = formatRupiah(product.price), style = MaterialTheme.typography.titleLarge, color = ZokasOrange, fontWeight = FontWeight.Bold)
-                        Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = ZokasTextWhite)
+                        Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -330,7 +279,6 @@ fun ProductCatalog(
     }
 }
 
-// --- FUNGSI BAWAH INI TIDAK BERUBAH DARI SEBELUMNYA, HANYA MENAMBAHKAN WARNA ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductFormBottomSheet(
@@ -343,9 +291,9 @@ fun ProductFormBottomSheet(
     var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
     var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = ZokasSurface) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ZokasTextWhite)
+            Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
@@ -378,26 +326,21 @@ fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = ZokasSurface) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Pembayaran Tunai", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ZokasTextWhite)
+            Text("Pembayaran Tunai", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = ZokasTextWhite)
+            Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineMedium, color = ZokasOrange, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))
             OutlinedTextField(value = cashInput, onValueChange = { if (it.length <= 10) cashInput = it }, label = { Text("Uang Diterima (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Kembalian:", style = MaterialTheme.typography.titleMedium, color = ZokasTextWhite)
-                Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) Color(0xFF4CAF50) else ZokasTextWhite)
+                Text("Kembalian:", style = MaterialTheme.typography.titleMedium)
+                Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface)
             }
             Spacer(modifier = Modifier.height(32.dp))
-            Button(
-                onClick = { onConfirmPayment(cashReceived) }, 
-                modifier = Modifier.fillMaxWidth().height(56.dp), 
-                enabled = cashReceived >= totalPrice && totalPrice > 0,
-                colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-            ) {
+            Button(onClick = { onConfirmPayment(cashReceived) }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = cashReceived >= totalPrice && totalPrice > 0, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
                 Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp)
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -408,39 +351,62 @@ fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment
 @Composable
 fun CartList(cart: List<CartItem>, totalPrice: Long, onAdd: (ProductEntity) -> Unit, onRemove: (ProductEntity) -> Unit, onDelete: (ProductEntity) -> Unit, onCheckout: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Keranjang Belanja", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ZokasTextWhite)
+        Text("Keranjang Belanja", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(16.dp))
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(cart) { item ->
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = ZokasSurfaceVariant)) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(item.product.name, fontWeight = FontWeight.Bold, color = ZokasTextWhite)
-                            Text(formatRupiah(item.product.price), style = MaterialTheme.typography.bodyMedium, color = ZokasTextWhite)
+                            Text(item.product.name, fontWeight = FontWeight.Bold)
+                            Text(formatRupiah(item.product.price), style = MaterialTheme.typography.bodyMedium)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { onRemove(item.product) }) { Icon(Icons.Default.Remove, contentDescription = "Kurang", tint = ZokasTextWhite) }
-                            Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 8.dp), fontWeight = FontWeight.Bold, color = ZokasTextWhite)
-                            IconButton(onClick = { onAdd(item.product) }) { Icon(Icons.Default.Add, contentDescription = "Tambah", tint = ZokasTextWhite) }
+                            IconButton(onClick = { onRemove(item.product) }) { Icon(Icons.Default.Remove, contentDescription = "Kurang") }
+                            Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 8.dp), fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { onAdd(item.product) }) { Icon(Icons.Default.Add, contentDescription = "Tambah") }
                             IconButton(onClick = { onDelete(item.product) }) { Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color.Red) }
                         }
                     }
                 }
             }
         }
-        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = ZokasSurfaceVariant)
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Total:", style = MaterialTheme.typography.titleLarge, color = ZokasTextWhite)
+            Text("Total:", style = MaterialTheme.typography.titleLarge)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ZokasOrange)
         }
         Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = onCheckout, 
-            modifier = Modifier.fillMaxWidth().height(56.dp), 
-            enabled = cart.isNotEmpty(),
-            colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-        ) {
+        Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = cart.isNotEmpty(), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
             Text("PROSES PEMBAYARAN", fontSize = 16.sp)
         }
     }
+}
+
+@Composable
+fun CloseShiftDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
+    var uangFisik by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tutup Kasir (Blind Closing)") },
+        text = {
+            Column {
+                Text("Masukkan jumlah uang fisik yang ada di laci saat ini (tanpa melihat sistem):")
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = uangFisik,
+                    onValueChange = { if (it.length <= 10) uangFisik = it },
+                    label = { Text("Total Uang Fisik (Rp)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(uangFisik.toLongOrNull() ?: 0L) }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                Text("TUTUP KASIR")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }

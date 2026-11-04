@@ -1,35 +1,51 @@
 package com.karyaku.kasir
 
 import android.content.res.Configuration
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color // <--- IMPORT INI DITAMBAHKAN
 import androidx.compose.ui.platform.LocalContext
 import java.util.Locale
 
-// Memaksa tema gelap agar warna 3D dan Hijau/Orange terlihat sempurna
-val ZokasColors = darkColorScheme(
+val ZokasLightColors = lightColorScheme(
+    primary = ZokasGreen,
+    onPrimary = Color.White,
+    primaryContainer = ZokasGreen, // TopBar Hijau
+    onPrimaryContainer = Color.White,
+    secondary = ZokasOrange,
+    onSecondary = Color.White,
+    background = LightBackground,
+    surface = LightSurface,
+    surfaceVariant = LightSurfaceVariant,
+    onSurface = LightText,
+    onSurfaceVariant = LightText
+)
+
+val ZokasDarkColors = darkColorScheme(
     primary = ZokasGreenLight,
-    onPrimary = ZokasTextWhite,
-    primaryContainer = ZokasGreenDark, // Warna TopBar
-    onPrimaryContainer = ZokasTextWhite,
-    secondary = ZokasOrange, // Warna Tombol/FAB
-    onSecondary = ZokasTextWhite,
-    background = ZokasBackground,
-    surface = ZokasSurface,
-    surfaceVariant = ZokasSurfaceVariant,
-    onSurface = ZokasTextWhite,
-    onSurfaceVariant = ZokasTextWhite
+    onPrimary = Color.White,
+    primaryContainer = ZokasGreen, // TopBar Hijau Gelap
+    onPrimaryContainer = Color.White,
+    secondary = ZokasOrange,
+    onSecondary = Color.White,
+    background = DarkBackground,
+    surface = DarkSurface,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurface = DarkText,
+    onSurfaceVariant = DarkText
 )
 
 @Composable
 fun PosTheme(
-    isDarkMode: Boolean = true, // Default ke true untuk efek 3D
+    isDarkMode: Boolean = false,
     language: String = "in",
     content: @Composable () -> Unit
 ) {
+    val colorScheme = if (isDarkMode) ZokasDarkColors else ZokasLightColors
+
     val context = LocalContext.current
     val configuration = Configuration(context.resources.configuration)
     configuration.setLocale(Locale(language))
@@ -39,7 +55,7 @@ fun PosTheme(
         LocalContext provides localizedContext
     ) {
         MaterialTheme(
-            colorScheme = ZokasColors, // Gunakan skema warna ZoKas
+            colorScheme = colorScheme,
             content = content
         )
     }

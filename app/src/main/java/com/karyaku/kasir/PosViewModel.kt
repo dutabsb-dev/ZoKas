@@ -27,9 +27,11 @@ class PosViewModel(
     private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
     val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
 
-    // State untuk Shift Kasir
     private val _activeShift = MutableStateFlow<ShiftEntity?>(null)
     val activeShift: StateFlow<ShiftEntity?> = _activeShift.asStateFlow()
+
+    private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
+    val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -39,76 +41,65 @@ class PosViewModel(
             }
             checkActiveShift()
         }
-        viewModelScope.launch {
-            productDao.getAllProducts().collectLatest { _products.value = it }
-        }
-        viewModelScope.launch {
-            transactionDao.getAllTransactions().collectLatest { _transactions.value = it }
-        }
+        viewModelScope.launch { productDao.getAllProducts().collectLatest { _products.value = it } }
+        viewModelScope.launch { transactionDao.getAllTransactions().collectLatest { _transactions.value = it } }
+        viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
     }
 
     fun checkActiveShift() {
-        viewModelScope.launch {
-            _activeShift.value = userDao.getActiveShift()
-        }
+        viewModelScope.launch { _activeShift.value = userDao.getActiveShift() }
     }
 
     suspend fun login(pin: String): UserEntity? {
         val user = userDao.loginByPin(pin)
-        if (user != null) {
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS"))
-        }
+        if (user != null) userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS"))
         return user
     }
 
-    // --- FUNGSI SHIFT KASIR ---
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch {
             val shift = ShiftEntity(userId = user.id, userName = user.name, openingCash = modalAwal)
             userDao.insertShift(shift)
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "OPEN_SHIFT: Modal Rp $modalAwal"))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "BUKA KASIR: Modal ${formatRupiah(modalAwal)}"))
             checkActiveShift()
         }
     }
 
-    fun closeShift(user: UserEntity, uangFisik: Long, onSuccess: () -> Unit) {
+    fun closeShift(user: UserEntity, uangFisik: Long, onSuccess: (Long) -> Unit) {
         viewModelScope.launch {
             val shift = _activeShift.value
             if (shift != null) {
-                // Hitung uang sistem: Modal Awal + Total Penjualan Tunai selama shift ini
-                // Untuk simplifikasi MVP, kita asumsikan semua transaksi di tabel adalah milik shift ini
                 val totalPenjualan = _transactions.value.filter { it.timestamp >= shift.startTime }.sumOf { it.totalPrice }
                 val uangSistem = shift.openingCash + totalPenjualan
                 val selisih = uangFisik - uangSistem
 
                 userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih)
-                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "CLOSE_SHIFT: Fisik Rp $uangFisik, Sistem Rp $uangSistem, Selisih Rp $selisih"))
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)}"))
                 
                 checkActiveShift()
-                onSuccess()
+                onSuccess(selisih)
             }
         }
     }
 
-    // --- FUNGSI PRODUK & TRANSAKSI ---
     fun addProduct(name: String, price: Long, stock: Int, userId: Long, userName: String) {
         viewModelScope.launch {
             productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock))
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "ADD_PRODUCT: $name"))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name"))
         }
     }
 
     fun updateProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch {
             productDao.insertProduct(product)
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "EDIT_PRODUCT: ${product.name}"))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "EDIT PRODUK: ${product.name}"))
         }
     }
 
     fun deleteProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch {
             productDao.deleteProduct(product)
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "DELETE_PRODUCT: ${product.name}"))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "HAPUS PRODUK: ${product.name}"))
         }
     }
 
@@ -152,7 +143,7 @@ class PosViewModel(
                 productDao.updateStock(item.product.id, sisa)
             }
             val newId = transactionDao.insertTransaction(transaction)
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "CHECKOUT: Rp $total"))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI: ${formatRupiah(total)}"))
             _cart.value = emptyList()
             onSuccess(newId)
         }
