@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android App Bundle (AAB)
 
 on:
   workflow_dispatch:
@@ -23,11 +23,23 @@ jobs:
           unzip -q gradle-8.7-bin.zip
           echo "$PWD/gradle-8.7/bin" >> $GITHUB_PATH
 
-      - name: Build Debug APK
-        run: gradle assembleDebug
+      # --- MEMBUAT FILE KEYSTORE DARI GITHUB SECRETS ---
+      # (Karena kita tidak bisa upload file manual, kita ubah ke base64 nanti)
+      - name: Decode Keystore
+        env:
+          ENCODED_STRING: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo $ENCODED_STRING | base64 -di > zokas-release.jks
 
-      - name: Upload APK Artifact
+      - name: Build Release AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle bundleRelease
+
+      - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: zokas-release-aab
+          path: app/build/outputs/bundle/release/app-release.aab
