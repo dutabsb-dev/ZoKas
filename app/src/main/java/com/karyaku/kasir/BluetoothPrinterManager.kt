@@ -11,22 +11,19 @@ import java.io.OutputStream
 import java.util.UUID
 
 class BluetoothPrinterManager(private val context: Context) {
-    private val adapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private val printerUUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     @SuppressLint("MissingPermission")
     fun getPairedPrinters(): List<BluetoothDevice> {
         return try {
+            // Ambil adapter di dalam try-catch agar jika HP tidak punya BT, tidak crash
+            val adapter = BluetoothAdapter.getDefaultAdapter()
             if (adapter != null && adapter.isEnabled) {
-                // Tambahkan ?.toList() untuk mencegah NullPointerException jika bondedDevices null
                 adapter.bondedDevices?.toList() ?: emptyList()
             } else {
                 emptyList()
             }
-        } catch (e: SecurityException) {
-            // Jika izin belum diberikan, kembalikan list kosong alih-alih crash
-            emptyList()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             emptyList()
         }
     }
@@ -35,7 +32,8 @@ class BluetoothPrinterManager(private val context: Context) {
     suspend fun printData(deviceAddress: String, data: ByteArray): Boolean = withContext(Dispatchers.IO) {
         var socket: BluetoothSocket? = null
         try {
-            val device = adapter?.getRemoteDevice(deviceAddress) ?: return@withContext false
+            val adapter = BluetoothAdapter.getDefaultAdapter() ?: return@withContext false
+            val device = adapter.getRemoteDevice(deviceAddress)
             socket = device.createRfcommSocketToServiceRecord(printerUUID)
             socket.connect()
             
@@ -44,9 +42,9 @@ class BluetoothPrinterManager(private val context: Context) {
             outputStream.flush()
             socket.close()
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
-            try { socket?.close() } catch (ex: Exception) {}
+            try { socket?.close() } catch (ex: Throwable) {}
             false
         }
     }

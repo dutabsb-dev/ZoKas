@@ -6,9 +6,9 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Star
@@ -62,134 +62,143 @@ fun SettingsScreen(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+    // GUNAKAN LAZYCOLUMN SEBAGAI ROOT UTAMA (ANTI CRASH)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        item {
+            Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
 
         // --- PENGATURAN PRINTER ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Printer Bluetooth", style = MaterialTheme.typography.titleMedium)
-                    Button(
-                        onClick = {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                                pairedPrinters = printerManager.getPairedPrinters()
-                                showPrinterDialog = true
-                            } else {
-                                permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
-                    ) {
-                        Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Pilih")
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Printer Bluetooth", style = MaterialTheme.typography.titleMedium)
+                        Button(
+                            onClick = {
+                                try {
+                                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                                        pairedPrinters = printerManager.getPairedPrinters()
+                                        showPrinterDialog = true
+                                    } else {
+                                        permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                                    }
+                                } catch (e: Exception) {
+                                    pairedPrinters = emptyList()
+                                    showPrinterDialog = true
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                        ) {
+                            Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Pilih")
+                        }
                     }
+                    Text(
+                        text = if (savedPrinterMac != null) "Terhubung: $savedPrinterMac" else "Belum ada printer dipilih",
+                        fontSize = 12.sp,
+                        color = if (savedPrinterMac != null) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Text(
-                    text = if (savedPrinterMac != null) "Terhubung: $savedPrinterMac" else "Belum ada printer dipilih",
-                    fontSize = 12.sp,
-                    color = if (savedPrinterMac != null) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
 
         // --- PENGATURAN TEMA & BAHASA ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Mode Gelap", style = MaterialTheme.typography.titleMedium)
-                    Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
-                }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bahasa", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
-                        Text(if (language == "in") "Indonesia" else "English")
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Mode Gelap", style = MaterialTheme.typography.titleMedium)
+                        Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Bahasa", style = MaterialTheme.typography.titleMedium)
+                        Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
+                            Text(if (language == "in") "Indonesia" else "English")
+                        }
                     }
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
 
         // --- STATUS PRO ---
-        if (isPro) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
-                    Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
-        } else {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
+        item {
+            if (isPro) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
+                            Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                        Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold)
+                    Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                }
+            } else {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                            Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
 
         // --- LOG AKTIVITAS (AUDIT TRAIL) ---
-        Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
-        Spacer(modifier = Modifier.height(8.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth().height(200.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            // PERBAIKAN: Menggunakan Column + forEach, BUKAN LazyColumn
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()) // Scroll internal untuk list log
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                if (auditLogs.isEmpty()) {
-                    Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally))
-                } else {
-                    auditLogs.forEach { log ->
-                        Text(
-                            text = "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-                    }
+        item {
+            Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+        }
+        
+        // Kita bisa langsung me-loop auditLogs menggunakan 'items' dari LazyColumn
+        if (auditLogs.isEmpty()) {
+            item {
+                Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray)
+            }
+        } else {
+            items(auditLogs) { log ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Text(
+                        text = "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}",
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(8.dp),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) {
-            Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold)
+        // --- TOMBOL LOGOUT ---
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
-        Spacer(modifier = Modifier.height(16.dp))
     }
 
     // DIALOG PILIH PRINTER
@@ -201,10 +210,8 @@ fun SettingsScreen(
                 if (pairedPrinters.isEmpty()) {
                     Text("Tidak ada printer ditemukan. Pastikan printer sudah di-pairing di pengaturan Bluetooth HP Anda.")
                 } else {
-                    // PERBAIKAN: LazyColumn di dalam AlertDialog aman karena tidak ada parent scroll
-                    androidx.compose.foundation.lazy.LazyColumn {
-                        items(pairedPrinters.size) { index ->
-                            val device = pairedPrinters[index]
+                    LazyColumn {
+                        items(pairedPrinters) { device ->
                             TextButton(onClick = {
                                 settingsManager.printerMacAddress = device.address
                                 savedPrinterMac = device.address
