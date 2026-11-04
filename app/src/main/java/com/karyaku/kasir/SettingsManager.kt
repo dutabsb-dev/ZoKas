@@ -20,7 +20,7 @@ class SettingsManager(context: Context) {
 
     // TAMBAHAN BARU: Pengaturan Nama Toko & Pesan Bawah (Khusus Pro)
     var storeName: String
-        get() = prefs.getString("STORE_NAME", "Aplikasi Kasir") ?: "Aplikasi Kasir"
+        get() = prefs.getString("STORE_NAME", "ZoKas") ?: "ZoKas"
         set(value) = prefs.edit().putString("STORE_NAME", value).apply()
 
     var storeFooter: String

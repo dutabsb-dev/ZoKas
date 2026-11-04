@@ -75,7 +75,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
             TopAppBar(
                 // Tampilkan nama toko jika Pro
                 title = { 
-                    Text(if (settingsManager.isPro) settingsManager.storeName else "Kasir Karyaku") 
+                    Text(if (settingsManager.isPro) settingsManager.storeName else "ZoKas") 
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
