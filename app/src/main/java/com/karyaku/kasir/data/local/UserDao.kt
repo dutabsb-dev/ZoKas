@@ -16,10 +16,19 @@ interface UserDao {
     @Query("SELECT * FROM users")
     suspend fun getAllUsersOnce(): List<UserEntity>
 
-    // Audit Logs
     @Insert
     suspend fun insertAuditLog(log: AuditLogEntity)
 
     @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC")
     fun getAllAuditLogs(): Flow<List<AuditLogEntity>>
+
+    // --- TAMBAHAN UNTUK SHIFT ---
+    @Insert
+    suspend fun insertShift(shift: ShiftEntity): Long
+
+    @Query("SELECT * FROM shifts WHERE status = 'OPEN' LIMIT 1")
+    suspend fun getActiveShift(): ShiftEntity?
+
+    @Query("UPDATE shifts SET endTime = :endTime, expectedCash = :expectedCash, closingCash = :closingCash, discrepancy = :discrepancy, status = 'CLOSED' WHERE id = :shiftId")
+    suspend fun closeShift(shiftId: Long, endTime: Long, expectedCash: Long, closingCash: Long, discrepancy: Long)
 }

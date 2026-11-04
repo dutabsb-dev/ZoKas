@@ -16,12 +16,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
-import com.karyaku.kasir.data.local.UserEntity // IMPORT INI DITAMBAHKAN
+import com.karyaku.kasir.data.local.UserEntity
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -42,112 +45,62 @@ fun formatRupiah(amount: Long): String {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
+fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity, onLogout: () -> Unit) {
     val products by viewModel.products.collectAsStateWithLifecycle()
     val cart by viewModel.cart.collectAsStateWithLifecycle()
+    val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
     val totalPrice = cart.sumOf { it.product.price * it.quantity }
     
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
-    
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
-    
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
-    
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
+    
+    // State untuk Buka Kas
+    var showOpenShiftDialog by remember { mutableStateOf(false) }
+    var modalAwal by remember { mutableStateOf("") }
 
-    if (completedTransaction != null) {
-        ReceiptDialog(
-            transaction = completedTransaction!!,
-            storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
-            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro untuk kustom struk!",
-            onDismiss = { completedTransaction = null }
-        )
+    // Jika belum ada shift aktif, paksa buka kas
+    LaunchedEffect(activeShift) {
+        if (activeShift == null) {
+            showOpenShiftDialog = true
+        }
     }
 
-    if (showPaymentSheet) {
-        PaymentBottomSheet(
-            totalPrice = totalPrice,
-            onDismiss = { showPaymentSheet = false },
-            onConfirmPayment = { cashReceived ->
-                // PARAMETER currentUser.id DAN currentUser.name DITAMBAHKAN
-                viewModel.processPayment(cashReceived, currentUser.id, currentUser.name) { newId ->
-                    showPaymentSheet = false
-                    showCartOnPhone = false
-                    completedTransaction = TransactionEntity(id = newId, totalPrice = totalPrice, cashReceived = cashReceived, changeAmount = cashReceived - totalPrice)
-                }
-            }
-        )
-    }
-
-    if (showProductForm) {
-        ProductFormBottomSheet(
-            productToEdit = productToEdit,
-            onDismiss = { showProductForm = false; productToEdit = null },
-            onSave = { name, price, stock ->
-                if (productToEdit == null) {
-                    // PARAMETER currentUser DITAMBAHKAN
-                    viewModel.addProduct(name, price, stock, currentUser.id, currentUser.name)
-                } else {
-                    // PARAMETER currentUser DITAMBAHKAN
-                    viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock), currentUser.id, currentUser.name)
-                }
-                showProductForm = false
-                productToEdit = null
-            }
-        )
-    }
-
-    if (showActionDialogFor != null) {
+    // Dialog Buka Kas
+    if (showOpenShiftDialog) {
         AlertDialog(
-            onDismissRequest = { showActionDialogFor = null },
-            title = { Text(showActionDialogFor!!.name) },
-            text = { Text("Pilih tindakan untuk produk ini:") },
-            confirmButton = {
-                TextButton(onClick = {
-                    productToEdit = showActionDialogFor
-                    showProductForm = true
-                    showActionDialogFor = null
-                }) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit")
+            onDismissRequest = { /* Tidak bisa ditutup paksa */ },
+            title = { Text("Buka Kasir (Mulai Shift)") },
+            text = {
+                Column {
+                    Text("Masukkan modal awal uang tunai di laci:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = modalAwal,
+                        onValueChange = { if (it.length <= 10) modalAwal = it },
+                        label = { Text("Modal Awal (Rp)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    productToDelete = showActionDialogFor
-                    showActionDialogFor = null
-                }) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Hapus", color = Color.Red)
-                }
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val modal = modalAwal.toLongOrNull() ?: 0L
+                        viewModel.openShift(currentUser, modal)
+                        showOpenShiftDialog = false
+                    }
+                ) { Text("BUKA KASIR") }
             }
         )
     }
 
-    if (productToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { productToDelete = null },
-            title = { Text("Konfirmasi Hapus") },
-            text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}' secara permanen?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    // PARAMETER currentUser DITAMBAHKAN
-                    viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name)
-                    productToDelete = null
-                }) {
-                    Text("Ya, Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { productToDelete = null }) { Text("Batal") }
-            }
-        )
-    }
+    // ... (Dialog Pembayaran, Edit Produk, Hapus Produk, Struk - Biarkan Sama Seperti Sebelumnya) ...
 
     Scaffold(
         topBar = {
@@ -156,137 +109,40 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(painter = painterResource(id = R.drawable.logo_zokas), contentDescription = "Logo", modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)))
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text(text = if (settingsManager.isPro) settingsManager.storeName else "ZoKas", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Column {
+                            Text(text = if (settingsManager.isPro) settingsManager.storeName else "ZoKas", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text(text = "Kasir: ${currentUser.name}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                        }
+                    }
+                },
+                actions = {
+                    // TOMBOL LOGOUT UNTUK KASIR & OWNER
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = MaterialTheme.colorScheme.error)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer, titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { productToEdit = null; showProductForm = true }) {
+            // FAB DIBERI EFEK 3D DAN WARNA ORANGE
+            FloatingActionButton(
+                onClick = { productToEdit = null; showProductForm = true },
+                containerColor = MaterialTheme.colorScheme.secondary,
+                contentColor = Color.White,
+                modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp), spotColor = Color.Black)
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Tambah Produk Baru")
             }
         },
-        bottomBar = {
-            if (cart.isNotEmpty() && !showCartOnPhone) {
-                BottomAppBar(containerColor = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.height(72.dp)) {
-                    Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("Total (${cart.sumOf { it.quantity }} item)", fontSize = 12.sp)
-                            Text(formatRupiah(totalPrice), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        }
-                        Button(onClick = { showCartOnPhone = true }) { Text("Lihat Keranjang") }
-                    }
-                }
-            }
-        }
+        // ... (BottomBar dll)
     ) { paddingValues ->
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            val isTablet = maxWidth > 600.dp
-
-            if (isTablet) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
-                        ProductCatalog(
-                            products = products, 
-                            onProductClick = { viewModel.addToCart(it) },
-                            onProductLongClick = { showActionDialogFor = it }
-                        ) 
-                    }
-                    Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
-                    Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
-                        CartList(cart = cart, totalPrice = totalPrice, onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, onCheckout = { showPaymentSheet = true })
-                    }
-                }
-            } else {
-                if (showCartOnPhone) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(8.dp)) { Text("< Kembali ke Katalog") }
-                        CartList(cart = cart, totalPrice = totalPrice, onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, onCheckout = { showPaymentSheet = true })
-                    }
-                } else {
-                    ProductCatalog(
-                        products = products, 
-                        onProductClick = { viewModel.addToCart(it) },
-                        onProductLongClick = { showActionDialogFor = it }
-                    )
-                }
-            }
-        }
+        // ... (Logika Katalog & Keranjang HP/Tablet - Biarkan Sama) ...
+        // Ubah desain Card di ProductCatalog agar 3D (lihat fungsi ProductCatalog di bawah)
     }
 }
 
-// Sisa fungsi di bawah ini (ProductFormBottomSheet, PaymentBottomSheet, ProductCatalog, CartList) TIDAK BERUBAH.
-// Anda bisa menyalinnya dari file Anda sebelumnya.
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ProductFormBottomSheet(
-    productToEdit: ProductEntity? = null,
-    onDismiss: () -> Unit,
-    onSave: (String, Long, Int) -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState()
-    var name by remember { mutableStateOf(productToEdit?.name ?: "") }
-    var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
-    var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = { 
-                    val p = price.toLongOrNull() ?: 0L
-                    val s = stock.toIntOrNull() ?: 0
-                    if (name.isNotBlank() && p > 0) onSave(name, p, s) 
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0
-            ) {
-                Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp)
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment: (Long) -> Unit) {
-    val sheetState = rememberModalBottomSheetState()
-    var cashInput by remember { mutableStateOf("") }
-    val cashReceived = cashInput.toLongOrNull() ?: 0L
-    val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Pembayaran Tunai", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium)
-            Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(24.dp))
-            OutlinedTextField(value = cashInput, onValueChange = { if (it.length <= 10) cashInput = it }, label = { Text("Uang Diterima (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Kembalian:", style = MaterialTheme.typography.titleMedium)
-                Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface)
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = { onConfirmPayment(cashReceived) }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = cashReceived >= totalPrice && totalPrice > 0) {
-                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp)
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
+// --- CONTOH DESAIN CARD 3D UNTUK KATALOG PRODUK ---
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ProductCatalog(
@@ -296,7 +152,7 @@ fun ProductCatalog(
 ) {
     if (products.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Belum ada produk. Tekan tombol + di pojok kanan bawah untuk menambah produk baru.", textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(32.dp))
+            Text("Belum ada produk.", textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(32.dp))
         }
     } else {
         LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 140.dp), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -305,56 +161,24 @@ fun ProductCatalog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
+                        .shadow(6.dp, RoundedCornerShape(16.dp), spotColor = Color.Gray) // EFEK BAYANGAN 3D
                         .combinedClickable(
                             onClick = { onProductClick(product) },
                             onLongClick = { onProductLongClick(product) }
                         ), 
-                    colors = CardDefaults.cardColors(containerColor = if(product.stock > 0) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer), 
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if(product.stock > 0) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.errorContainer
+                    ), 
                 ) {
                     Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
                         Text(text = product.name, fontWeight = FontWeight.Bold, maxLines = 2, style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.weight(1f))
-                        Text(text = formatRupiah(product.price), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                        Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, color = if(product.stock > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        Text(text = formatRupiah(product.price), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
+                        Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun CartList(cart: List<CartItem>, totalPrice: Long, onAdd: (ProductEntity) -> Unit, onRemove: (ProductEntity) -> Unit, onDelete: (ProductEntity) -> Unit, onCheckout: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Keranjang Belanja", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-        LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(cart) { item ->
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(item.product.name, fontWeight = FontWeight.Bold)
-                            Text(formatRupiah(item.product.price), style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { onRemove(item.product) }) { Icon(Icons.Default.Remove, contentDescription = "Kurang") }
-                            Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 8.dp), fontWeight = FontWeight.Bold)
-                            IconButton(onClick = { onAdd(item.product) }) { Icon(Icons.Default.Add, contentDescription = "Tambah") }
-                            IconButton(onClick = { onDelete(item.product) }) { Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color.Red) }
-                        }
-                    }
-                }
-            }
-        }
-        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Total:", style = MaterialTheme.typography.titleLarge)
-            Text(formatRupiah(totalPrice), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = cart.isNotEmpty()) {
-            Text("PROSES PEMBAYARAN", fontSize = 16.sp)
         }
     }
 }

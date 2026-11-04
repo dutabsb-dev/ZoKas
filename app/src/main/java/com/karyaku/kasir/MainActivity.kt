@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +22,6 @@ import com.karyaku.kasir.data.local.UserEntity
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
@@ -31,8 +29,6 @@ class MainActivity : ComponentActivity() {
             var isDarkMode by remember { mutableStateOf(settingsManager.isDarkMode) }
             var language by remember { mutableStateOf(settingsManager.language) }
             var isPro by remember { mutableStateOf(settingsManager.isPro) }
-            
-            // State untuk menyimpan user yang sedang login
             var currentUser by remember { mutableStateOf<UserEntity?>(null) }
 
             PosTheme(isDarkMode = isDarkMode, language = language) {
@@ -42,34 +38,19 @@ class MainActivity : ComponentActivity() {
                     )
 
                     if (currentUser == null) {
-                        // Tampilkan Layar Login
-                        LoginScreen(
-                            viewModel = posViewModel,
-                            onLoginSuccess = { user -> currentUser = user }
-                        )
+                        LoginScreen(viewModel = posViewModel, onLoginSuccess = { currentUser = it })
                     } else {
-                        // Tampilkan Layar Utama Kasir
                         MainNavigation(
                             viewModel = posViewModel,
                             settingsManager = settingsManager,
                             currentUser = currentUser!!,
-                            onLogout = { currentUser = null },
+                            onLogout = { currentUser = null }, // Logout kembali ke Login
                             isPro = isPro,
                             isDarkMode = isDarkMode,
-                            onToggleDarkMode = {
-                                isDarkMode = !isDarkMode
-                                settingsManager.isDarkMode = isDarkMode
-                            },
+                            onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
                             language = language,
-                            onToggleLanguage = {
-                                val newLang = if (language == "in") "en" else "in"
-                                language = newLang
-                                settingsManager.language = newLang
-                            },
-                            onUpgradeClick = {
-                                isPro = true
-                                settingsManager.isPro = true
-                            }
+                            onToggleLanguage = { val newLang = if (language == "in") "en" else "in"; language = newLang; settingsManager.language = newLang },
+                            onUpgradeClick = { isPro = true; settingsManager.isPro = true }
                         )
                     }
                 }
@@ -98,50 +79,28 @@ fun MainNavigation(
     Scaffold(
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Kasir") },
-                    label = { Text("Kasir") },
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.List, contentDescription = "Riwayat") },
-                    label = { Text("Riwayat") },
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 }
-                )
-                // HANYA OWNER YANG BISA AKSES PENGATURAN (RBAC)
+                NavigationBarItem(icon = { Icon(Icons.Default.Home, contentDescription = "Kasir") }, label = { Text("Kasir") }, selected = selectedTab == 0, onClick = { selectedTab = 0 })
+                NavigationBarItem(icon = { Icon(Icons.Default.List, contentDescription = "Riwayat") }, label = { Text("Riwayat") }, selected = selectedTab == 1, onClick = { selectedTab = 1 })
                 if (currentUser.role == "OWNER") {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") },
-                        label = { Text("Pengaturan") },
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 }
-                    )
+                    NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") }, label = { Text("Pengaturan") }, selected = selectedTab == 2, onClick = { selectedTab = 2 })
                 }
             }
         }
     ) { paddingValues ->
         androidx.compose.foundation.layout.Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> PosScreen(
-                    viewModel = viewModel, 
-                    settingsManager = settingsManager,
-                    currentUser = currentUser // Kirim data user
-                )
+                // KIRIM FUNGSI onLogout KE PosScreen
+                0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout)
                 1 -> HistoryScreen(transactions = transactions, isPro = isPro)
                 2 -> SettingsScreen(
                     settingsManager = settingsManager,
                     isPro = isPro,
-                    onUpgradeClick = {
-                        onUpgradeClick()
-                        Toast.makeText(context, "Berhasil Upgrade ke Pro!", Toast.LENGTH_SHORT).show()
-                    },
+                    onUpgradeClick = { onUpgradeClick(); Toast.makeText(context, "Berhasil Upgrade ke Pro!", Toast.LENGTH_SHORT).show() },
                     isDarkMode = isDarkMode,
                     onToggleDarkMode = onToggleDarkMode,
                     language = language,
                     onToggleLanguage = onToggleLanguage,
-                    onLogout = onLogout // Tambahkan tombol Logout
+                    onLogout = onLogout // Tombol Logout untuk Owner juga ada di sini
                 )
             }
         }
