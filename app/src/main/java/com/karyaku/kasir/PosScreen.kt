@@ -104,11 +104,12 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    if (completedTransaction != null) {
+        if (completedTransaction != null) {
         ReceiptDialog(
             transaction = completedTransaction!!,
             storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
             storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro!",
+            settingsManager = settingsManager, // <--- TAMBAHKAN BARIS INI
             onDismiss = { completedTransaction = null }
         )
     }

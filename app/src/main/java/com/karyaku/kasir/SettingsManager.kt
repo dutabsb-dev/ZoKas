@@ -18,7 +18,6 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("IS_PRO", false)
         set(value) = prefs.edit().putBoolean("IS_PRO", value).apply()
 
-    // TAMBAHAN BARU: Pengaturan Nama Toko & Pesan Bawah (Khusus Pro)
     var storeName: String
         get() = prefs.getString("STORE_NAME", "ZoKas") ?: "ZoKas"
         set(value) = prefs.edit().putString("STORE_NAME", value).apply()
@@ -26,4 +25,9 @@ class SettingsManager(context: Context) {
     var storeFooter: String
         get() = prefs.getString("STORE_FOOTER", "Terima kasih telah berbelanja!") ?: "Terima kasih telah berbelanja!"
         set(value) = prefs.edit().putString("STORE_FOOTER", value).apply()
+
+    // TAMBAHAN BARU: Menyimpan MAC Address Printer
+    var printerMacAddress: String?
+        get() = prefs.getString("PRINTER_MAC", null)
+        set(value) = prefs.edit().putString("PRINTER_MAC", value).apply()
 }
