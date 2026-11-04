@@ -62,7 +62,6 @@ fun SettingsScreen(
         }
     }
 
-    // GUNAKAN LAZYCOLUMN SEBAGAI ROOT UTAMA (ANTI CRASH)
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -144,7 +143,8 @@ fun SettingsScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    // PERBAIKAN: Gunakan fillMaxWidth() dan textAlign
+                    Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -167,10 +167,10 @@ fun SettingsScreen(
 
         // --- LOG AKTIVITAS (AUDIT TRAIL) ---
         item {
-            Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+            // PERBAIKAN: Gunakan fillMaxWidth() dan textAlign
+            Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
         }
         
-        // Kita bisa langsung me-loop auditLogs menggunakan 'items' dari LazyColumn
         if (auditLogs.isEmpty()) {
             item {
                 Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray)
