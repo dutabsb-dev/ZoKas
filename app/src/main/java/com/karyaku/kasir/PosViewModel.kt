@@ -45,15 +45,17 @@ class PosViewModel(
         }
     }
 
-    // FUNGSI BARU: Menambah produk asli
     fun addProduct(name: String, price: Long, stock: Int) {
         viewModelScope.launch {
-            val newProduct = ProductEntity(
-                name = name,
-                price = price,
-                stock = stock
-            )
+            val newProduct = ProductEntity(name = name, price = price, stock = stock)
             productDao.insertProduct(newProduct)
+        }
+    }
+
+    // FUNGSI BARU: Hapus produk
+    fun deleteProduct(product: ProductEntity) {
+        viewModelScope.launch {
+            productDao.deleteProduct(product)
         }
     }
 
@@ -63,9 +65,14 @@ class PosViewModel(
 
         if (existingItemIndex != -1) {
             val existingItem = currentCart[existingItemIndex]
-            currentCart[existingItemIndex] = existingItem.copy(quantity = existingItem.quantity + 1)
+            // Cek agar tidak melebihi stok yang ada
+            if (existingItem.quantity < existingItem.product.stock) {
+                currentCart[existingItemIndex] = existingItem.copy(quantity = existingItem.quantity + 1)
+            }
         } else {
-            currentCart.add(CartItem(product))
+            if (product.stock > 0) {
+                currentCart.add(CartItem(product))
+            }
         }
         _cart.value = currentCart
     }
@@ -95,6 +102,7 @@ class PosViewModel(
         return _cart.value.sumOf { it.product.price * it.quantity }
     }
 
+    // FUNGSI YANG DIPERBAIKI: Mengurangi stok saat bayar
     fun processPayment(cashReceived: Long, onSuccess: (Long) -> Unit) {
         val total = getTotalPrice()
         val change = if (cashReceived >= total) cashReceived - total else 0
@@ -106,8 +114,18 @@ class PosViewModel(
         )
 
         viewModelScope.launch {
+            // 1. KURANGI STOK PRODUK
+            _cart.value.forEach { cartItem ->
+                val sisaStok = (cartItem.product.stock - cartItem.quantity).coerceAtLeast(0)
+                productDao.updateStock(cartItem.product.id, sisaStok)
+            }
+
+            // 2. Simpan Transaksi
             val newId = transactionDao.insertTransaction(transaction)
+            
+            // 3. Kosongkan keranjang
             _cart.value = emptyList()
+            
             onSuccess(newId)
         }
     }

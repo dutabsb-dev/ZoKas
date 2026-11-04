@@ -1,8 +1,9 @@
 package com.karyaku.kasir
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import java.text.NumberFormat
 import java.util.Locale
@@ -45,9 +47,12 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
-    var showAddProductSheet by remember { mutableStateOf(false) } // State untuk form tambah produk
+    var showAddProductSheet by remember { mutableStateOf(false) }
     
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
+    
+    // State untuk Hapus Produk
+    var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
 
     if (completedTransaction != null) {
         ReceiptDialog(
@@ -72,13 +77,34 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
         )
     }
 
-    // Memanggil Form Tambah Produk
     if (showAddProductSheet) {
         AddProductBottomSheet(
             onDismiss = { showAddProductSheet = false },
             onSave = { name, price, stock ->
                 viewModel.addProduct(name, price, stock)
                 showAddProductSheet = false
+            }
+        )
+    }
+
+    // Dialog Konfirmasi Hapus Produk
+    if (productToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { productToDelete = null },
+            title = { Text("Hapus Produk") },
+            text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}' dari katalog?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteProduct(productToDelete!!)
+                    productToDelete = null
+                }) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { productToDelete = null }) {
+                    Text("Batal")
+                }
             }
         )
     }
@@ -97,7 +123,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
             )
         },
         floatingActionButton = {
-            // Tombol ini sekarang membuka form input produk asli
             FloatingActionButton(onClick = { showAddProductSheet = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Tambah Produk Baru")
             }
@@ -121,7 +146,13 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
 
             if (isTablet) {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { ProductCatalog(products = products, onProductClick = { viewModel.addToCart(it) }) }
+                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
+                        ProductCatalog(
+                            products = products, 
+                            onProductClick = { viewModel.addToCart(it) },
+                            onProductLongClick = { productToDelete = it } // Panggil dialog hapus
+                        ) 
+                    }
                     Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
                     Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
                         CartList(cart = cart, totalPrice = totalPrice, onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, onCheckout = { showPaymentSheet = true })
@@ -134,15 +165,17 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
                         CartList(cart = cart, totalPrice = totalPrice, onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, onCheckout = { showPaymentSheet = true })
                     }
                 } else {
-                    ProductCatalog(products = products, onProductClick = { viewModel.addToCart(it) })
+                    ProductCatalog(
+                        products = products, 
+                        onProductClick = { viewModel.addToCart(it) },
+                        onProductLongClick = { productToDelete = it } // Panggil dialog hapus
+                    )
                 }
             }
         }
     }
 }
 
-// --- KOMPONEN FORM TAMBAH PRODUK BARU ---
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddProductBottomSheet(
     onDismiss: () -> Unit,
@@ -157,27 +190,12 @@ fun AddProductBottomSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Tambah Produk Baru", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
-            
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
-            
-            OutlinedTextField(
-                value = price, onValueChange = { if (it.length <= 10) price = it },
-                label = { Text("Harga Jual (Rp)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(), singleLine = true
-            )
+            OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
-            
-            OutlinedTextField(
-                value = stock, onValueChange = { if (it.length <= 5) stock = it },
-                label = { Text("Stok Awal") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(), singleLine = true
-            )
-            
+            OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok Awal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(24.dp))
-            
             Button(
                 onClick = { 
                     val p = price.toLongOrNull() ?: 0L
@@ -194,7 +212,6 @@ fun AddProductBottomSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment: (Long) -> Unit) {
     val sheetState = rememberModalBottomSheetState()
@@ -224,8 +241,13 @@ fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, onProductClick: (com.karyaku.kasir.data.local.ProductEntity) -> Unit) {
+fun ProductCatalog(
+    products: List<ProductEntity>, 
+    onProductClick: (ProductEntity) -> Unit,
+    onProductLongClick: (ProductEntity) -> Unit
+) {
     if (products.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Belum ada produk. Tekan tombol + di pojok kanan bawah untuk menambah produk baru.", textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(32.dp))
@@ -233,12 +255,22 @@ fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, o
     } else {
         LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 140.dp), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(products) { product ->
-                Card(modifier = Modifier.fillMaxWidth().aspectRatio(1f).clickable { onProductClick(product) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .combinedClickable( // MENGGUNAKAN COMBINED CLICKABLE UNTUK TEKAN LAMA
+                            onClick = { onProductClick(product) },
+                            onLongClick = { onProductLongClick(product) }
+                        ), 
+                    colors = CardDefaults.cardColors(containerColor = if(product.stock > 0) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer), 
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
                     Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
                         Text(text = product.name, fontWeight = FontWeight.Bold, maxLines = 2, style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.weight(1f))
                         Text(text = formatRupiah(product.price), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                        Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall)
+                        Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, color = if(product.stock > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -247,7 +279,7 @@ fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, o
 }
 
 @Composable
-fun CartList(cart: List<CartItem>, totalPrice: Long, onAdd: (com.karyaku.kasir.data.local.ProductEntity) -> Unit, onRemove: (com.karyaku.kasir.data.local.ProductEntity) -> Unit, onDelete: (com.karyaku.kasir.data.local.ProductEntity) -> Unit, onCheckout: () -> Unit) {
+fun CartList(cart: List<CartItem>, totalPrice: Long, onAdd: (ProductEntity) -> Unit, onRemove: (ProductEntity) -> Unit, onDelete: (ProductEntity) -> Unit, onCheckout: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Keranjang Belanja", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
