@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
+import com.karyaku.kasir.data.local.UserEntity // IMPORT INI DITAMBAHKAN
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -38,20 +40,23 @@ fun formatRupiah(amount: Long): String {
     return format.format(amount).split(",")[0].replace("Rp", "Rp ")
 }
 
-// 1. ANOTASI UNTUK PosScreen (Menggunakan Scaffold & TopAppBar)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
+fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
     val products by viewModel.products.collectAsStateWithLifecycle()
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val totalPrice = cart.sumOf { it.product.price * it.quantity }
     
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
-    var showAddProductSheet by remember { mutableStateOf(false) }
+    
+    var showProductForm by remember { mutableStateOf(false) }
+    var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
+    
+    var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
+    var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
     
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
-    var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
 
     if (completedTransaction != null) {
         ReceiptDialog(
@@ -67,7 +72,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
             totalPrice = totalPrice,
             onDismiss = { showPaymentSheet = false },
             onConfirmPayment = { cashReceived ->
-                viewModel.processPayment(cashReceived) { newId ->
+                // PARAMETER currentUser.id DAN currentUser.name DITAMBAHKAN
+                viewModel.processPayment(cashReceived, currentUser.id, currentUser.name) { newId ->
                     showPaymentSheet = false
                     showCartOnPhone = false
                     completedTransaction = TransactionEntity(id = newId, totalPrice = totalPrice, cashReceived = cashReceived, changeAmount = cashReceived - totalPrice)
@@ -76,12 +82,49 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
         )
     }
 
-    if (showAddProductSheet) {
-        AddProductBottomSheet(
-            onDismiss = { showAddProductSheet = false },
+    if (showProductForm) {
+        ProductFormBottomSheet(
+            productToEdit = productToEdit,
+            onDismiss = { showProductForm = false; productToEdit = null },
             onSave = { name, price, stock ->
-                viewModel.addProduct(name, price, stock)
-                showAddProductSheet = false
+                if (productToEdit == null) {
+                    // PARAMETER currentUser DITAMBAHKAN
+                    viewModel.addProduct(name, price, stock, currentUser.id, currentUser.name)
+                } else {
+                    // PARAMETER currentUser DITAMBAHKAN
+                    viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock), currentUser.id, currentUser.name)
+                }
+                showProductForm = false
+                productToEdit = null
+            }
+        )
+    }
+
+    if (showActionDialogFor != null) {
+        AlertDialog(
+            onDismissRequest = { showActionDialogFor = null },
+            title = { Text(showActionDialogFor!!.name) },
+            text = { Text("Pilih tindakan untuk produk ini:") },
+            confirmButton = {
+                TextButton(onClick = {
+                    productToEdit = showActionDialogFor
+                    showProductForm = true
+                    showActionDialogFor = null
+                }) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Edit")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    productToDelete = showActionDialogFor
+                    showActionDialogFor = null
+                }) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Hapus", color = Color.Red)
+                }
             }
         )
     }
@@ -89,14 +132,15 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     if (productToDelete != null) {
         AlertDialog(
             onDismissRequest = { productToDelete = null },
-            title = { Text("Hapus Produk") },
-            text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}' dari katalog?") },
+            title = { Text("Konfirmasi Hapus") },
+            text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}' secara permanen?") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.deleteProduct(productToDelete!!)
+                    // PARAMETER currentUser DITAMBAHKAN
+                    viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name)
                     productToDelete = null
                 }) {
-                    Text("Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    Text("Ya, Hapus", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -119,7 +163,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddProductSheet = true }) {
+            FloatingActionButton(onClick = { productToEdit = null; showProductForm = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Tambah Produk Baru")
             }
         },
@@ -146,7 +190,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
                         ProductCatalog(
                             products = products, 
                             onProductClick = { viewModel.addToCart(it) },
-                            onProductLongClick = { productToDelete = it }
+                            onProductLongClick = { showActionDialogFor = it }
                         ) 
                     }
                     Divider(modifier = Modifier.fillMaxHeight().width(1.dp))
@@ -164,7 +208,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
                     ProductCatalog(
                         products = products, 
                         onProductClick = { viewModel.addToCart(it) },
-                        onProductLongClick = { productToDelete = it }
+                        onProductLongClick = { showActionDialogFor = it }
                     )
                 }
             }
@@ -172,27 +216,30 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     }
 }
 
-// 2. ANOTASI UNTUK AddProductBottomSheet
+// Sisa fungsi di bawah ini (ProductFormBottomSheet, PaymentBottomSheet, ProductCatalog, CartList) TIDAK BERUBAH.
+// Anda bisa menyalinnya dari file Anda sebelumnya.
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddProductBottomSheet(
+fun ProductFormBottomSheet(
+    productToEdit: ProductEntity? = null,
     onDismiss: () -> Unit,
     onSave: (String, Long, Int) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
-    var name by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var stock by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(productToEdit?.name ?: "") }
+    var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
+    var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Tambah Produk Baru", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok Awal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = { 
@@ -203,14 +250,13 @@ fun AddProductBottomSheet(
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0
             ) {
-                Text("SIMPAN PRODUK", fontSize = 16.sp)
+                Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp)
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-// 3. ANOTASI UNTUK PaymentBottomSheet
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment: (Long) -> Unit) {

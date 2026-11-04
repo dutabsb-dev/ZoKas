@@ -5,11 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-// Tambahkan TransactionEntity dan naikkan version menjadi 2
-@Database(entities = [ProductEntity::class, TransactionEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ProductEntity::class, TransactionEntity::class, UserEntity::class, AuditLogEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
-    abstract fun transactionDao(): TransactionDao // Tambahkan ini
+    abstract fun transactionDao(): TransactionDao
+    abstract fun userDao(): UserDao // Tambahan baru
 
     companion object {
         @Volatile
@@ -22,7 +22,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pos_database"
                 )
-                .fallbackToDestructiveMigration() // Agar tidak crash saat versi DB naik
+                .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
                 instance
