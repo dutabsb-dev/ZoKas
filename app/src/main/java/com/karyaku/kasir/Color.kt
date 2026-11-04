@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 // Aksen Utama
 val ZokasGreen = Color(0xFF1E3F20)
 val ZokasGreenLight = Color(0xFF2E5E32)
+val ZokasGreenDark = Color(0xFF0F2A11) // <--- TAMBAHKAN BARIS INI
 val ZokasOrange = Color(0xFFD35400)
 val ZokasOrangeDark = Color(0xFFA04000)
 
