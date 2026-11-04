@@ -18,33 +18,59 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.karyaku.kasir.data.local.TransactionEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PosScreen(viewModel: PosViewModel) {
+fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     val products by viewModel.products.collectAsStateWithLifecycle()
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val totalPrice = cart.sumOf { it.product.price * it.quantity }
     
     var showCartOnPhone by remember { mutableStateOf(false) }
-    
-    // State untuk Pop-up Pembayaran
     var showPaymentSheet by remember { mutableStateOf(false) }
+    
+    // State untuk menyimpan transaksi yang baru selesai (untuk struk)
+    var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
-    // Jika Pop-up Pembayaran terbuka
+    // Tampilkan Struk jika ada transaksi selesai
+    if (completedTransaction != null) {
+        ReceiptDialog(
+            transaction = completedTransaction!!,
+            storeName = if (settingsManager.isPro) settingsManager.storeName else "Aplikasi Kasir (Gratis)",
+            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro untuk kustom struk!",
+            onDismiss = { completedTransaction = null }
+        )
+    }
+
     if (showPaymentSheet) {
         PaymentBottomSheet(
             totalPrice = totalPrice,
             onDismiss = { showPaymentSheet = false },
             onConfirmPayment = { cashReceived ->
+                // Saat bayar, kita tangkap transaksinya
+                val total = totalPrice
+                val change = cashReceived - total
+                val newTx = TransactionEntity(
+                    totalPrice = total,
+                    cashReceived = cashReceived,
+                    changeAmount = change
+                )
+                
+                // Panggil ViewModel untuk simpan ke DB
                 viewModel.processPayment(cashReceived) {
                     showPaymentSheet = false
-                    showCartOnPhone = false // Kembali ke katalog setelah bayar
+                    showCartOnPhone = false
+                    // Set transaksi untuk memicu pop-up struk
+                    // (Kita gunakan ID 0 karena ID asli dibuat oleh database, 
+                    // di aplikasi nyata kita akan mengambil ID dari insert)
+                    completedTransaction = newTx 
                 }
             }
         )
@@ -106,7 +132,7 @@ fun PosScreen(viewModel: PosViewModel) {
                             onAdd = { viewModel.addToCart(it) },
                             onRemove = { viewModel.removeFromCart(it) },
                             onDelete = { viewModel.deleteItem(it) },
-                            onCheckout = { showPaymentSheet = true } // Buka Pop-up
+                            onCheckout = { showPaymentSheet = true }
                         )
                     }
                 }
@@ -122,7 +148,7 @@ fun PosScreen(viewModel: PosViewModel) {
                             onAdd = { viewModel.addToCart(it) },
                             onRemove = { viewModel.removeFromCart(it) },
                             onDelete = { viewModel.deleteItem(it) },
-                            onCheckout = { showPaymentSheet = true } // Buka Pop-up
+                            onCheckout = { showPaymentSheet = true }
                         )
                     }
                 } else {
@@ -133,7 +159,6 @@ fun PosScreen(viewModel: PosViewModel) {
     }
 }
 
-// --- KOMPONEN UI BARU: POP-UP PEMBAYARAN ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(
@@ -152,9 +177,7 @@ fun PaymentBottomSheet(
         sheetState = sheetState
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Pembayaran Tunai", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -167,7 +190,7 @@ fun PaymentBottomSheet(
 
             OutlinedTextField(
                 value = cashInput,
-                onValueChange = { if (it.length <= 10) cashInput = it }, // Batasi max 10 digit
+                onValueChange = { if (it.length <= 10) cashInput = it },
                 label = { Text("Uang Diterima (Rp)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),
@@ -194,17 +217,15 @@ fun PaymentBottomSheet(
             Button(
                 onClick = { onConfirmPayment(cashReceived) },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = cashReceived >= totalPrice && totalPrice > 0 // Hanya bisa bayar jika uang cukup
+                enabled = cashReceived >= totalPrice && totalPrice > 0
             ) {
                 Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp)
             }
-            
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-// --- KOMPONEN BAWAH (Tidak berubah) ---
 @Composable
 fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, onProductClick: (com.karyaku.kasir.data.local.ProductEntity) -> Unit) {
     if (products.isEmpty()) {
@@ -220,31 +241,17 @@ fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, o
         ) {
             items(products) { product ->
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clickable { onProductClick(product) },
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
+                    modifier = Modifier.fillMaxWidth().aspectRatio(1f).clickable { onProductClick(product) },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize().padding(12.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = product.name,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 2,
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Text(text = product.name, fontWeight = FontWeight.Bold, maxLines = 2, style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "Rp ${product.price}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Text(text = "Rp ${product.price}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
                         Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -268,10 +275,7 @@ fun CartList(
 
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(cart) { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -281,22 +285,11 @@ fun CartList(
                             Text(item.product.name, fontWeight = FontWeight.Bold)
                             Text("Rp ${item.product.price}", style = MaterialTheme.typography.bodyMedium)
                         }
-                        
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { onRemove(item.product) }) {
-                                Icon(Icons.Default.Remove, contentDescription = "Kurang")
-                            }
-                            Text(
-                                text = "${item.quantity}",
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                fontWeight = FontWeight.Bold
-                            )
-                            IconButton(onClick = { onAdd(item.product) }) {
-                                Icon(Icons.Default.Add, contentDescription = "Tambah")
-                            }
-                            IconButton(onClick = { onDelete(item.product) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color.Red)
-                            }
+                            IconButton(onClick = { onRemove(item.product) }) { Icon(Icons.Default.Remove, contentDescription = "Kurang") }
+                            Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 8.dp), fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { onAdd(item.product) }) { Icon(Icons.Default.Add, contentDescription = "Tambah") }
+                            IconButton(onClick = { onDelete(item.product) }) { Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color.Red) }
                         }
                     }
                 }
@@ -304,22 +297,12 @@ fun CartList(
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Total:", style = MaterialTheme.typography.titleLarge)
             Text("Rp $totalPrice", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onCheckout,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            enabled = cart.isNotEmpty()
-        ) {
+        Button(onClick = onCheckout, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = cart.isNotEmpty()) {
             Text("PROSES PEMBAYARAN", fontSize = 16.sp)
         }
     }

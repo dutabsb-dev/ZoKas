@@ -14,8 +14,16 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("LANGUAGE", "in") ?: "in"
         set(value) = prefs.edit().putString("LANGUAGE", value).apply()
 
-    // TAMBAHKAN INI: Status apakah pengguna sudah beli versi Pro
     var isPro: Boolean
         get() = prefs.getBoolean("IS_PRO", false)
         set(value) = prefs.edit().putBoolean("IS_PRO", value).apply()
+
+    // TAMBAHAN BARU: Pengaturan Nama Toko & Pesan Bawah (Khusus Pro)
+    var storeName: String
+        get() = prefs.getString("STORE_NAME", "Aplikasi Kasir") ?: "Aplikasi Kasir"
+        set(value) = prefs.edit().putString("STORE_NAME", value).apply()
+
+    var storeFooter: String
+        get() = prefs.getString("STORE_FOOTER", "Terima kasih telah berbelanja!") ?: "Terima kasih telah berbelanja!"
+        set(value) = prefs.edit().putString("STORE_FOOTER", value).apply()
 }

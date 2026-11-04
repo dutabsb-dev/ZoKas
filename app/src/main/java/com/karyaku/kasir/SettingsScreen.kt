@@ -1,12 +1,11 @@
 package com.karyaku.kasir
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,9 +16,14 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun SettingsScreen(
+    settingsManager: SettingsManager,
     isPro: Boolean,
     onUpgradeClick: () -> Unit
 ) {
+    // State untuk nama toko dan footer
+    var storeName by remember { mutableStateOf(settingsManager.storeName) }
+    var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -32,9 +36,8 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (isPro) {
-            // Tampilan jika sudah beli Pro
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), // Warna Emas
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -43,11 +46,40 @@ fun SettingsScreen(
                 ) {
                     Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
                     Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
-                    Text("Terima kasih telah mendukung UMKM!", color = Color.White, textAlign = TextAlign.Center)
                 }
             }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // FORM KUSTOMISASI STRUK (Khusus Pro)
+            Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            OutlinedTextField(
+                value = storeName,
+                onValueChange = { 
+                    storeName = it
+                    settingsManager.storeName = it 
+                },
+                label = { Text("Nama Toko") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            OutlinedTextField(
+                value = storeFooter,
+                onValueChange = { 
+                    storeFooter = it
+                    settingsManager.storeFooter = it 
+                },
+                label = { Text("Pesan Bawah Struk") },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 2
+            )
+
         } else {
-            // Tampilan jika masih Gratis
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 modifier = Modifier.fillMaxWidth()
@@ -58,7 +90,7 @@ fun SettingsScreen(
                 ) {
                     Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Upgrade ke Pro untuk membuka fitur ekspor laporan, kustom struk, dan backup data.", textAlign = TextAlign.Center)
+                    Text("Upgrade ke Pro untuk kustomisasi nama toko di struk, ekspor laporan, dan backup data.", textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = onUpgradeClick,

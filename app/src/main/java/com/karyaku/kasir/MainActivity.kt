@@ -31,20 +31,16 @@ class MainActivity : ComponentActivity() {
             var isPro by remember { mutableStateOf(settingsManager.isPro) }
 
             PosTheme(isDarkMode = isDarkMode, language = language) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val posViewModel: PosViewModel = viewModel(
                         factory = PosViewModelFactory(database.productDao(), database.transactionDao())
                     )
 
-                    // Navigasi Utama
                     MainNavigation(
                         viewModel = posViewModel,
+                        settingsManager = settingsManager, // Kirim settingsManager
                         isPro = isPro,
                         onUpgradeClick = {
-                            // Simulasi Pembelian Sukses
                             isPro = true
                             settingsManager.isPro = true
                         }
@@ -58,6 +54,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainNavigation(
     viewModel: PosViewModel,
+    settingsManager: SettingsManager,
     isPro: Boolean,
     onUpgradeClick: () -> Unit
 ) {
@@ -91,9 +88,10 @@ fun MainNavigation(
     ) { paddingValues ->
         androidx.compose.foundation.layout.Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> PosScreen(viewModel = viewModel)
+                0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager) // Kirim ke PosScreen
                 1 -> HistoryScreen(transactions = transactions)
                 2 -> SettingsScreen(
+                    settingsManager = settingsManager, // Kirim ke SettingsScreen
                     isPro = isPro,
                     onUpgradeClick = {
                         onUpgradeClick()
