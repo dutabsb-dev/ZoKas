@@ -18,7 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -36,10 +35,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
     
-    // State untuk menyimpan transaksi yang baru selesai (untuk struk)
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
-    // Tampilkan Struk jika ada transaksi selesai
     if (completedTransaction != null) {
         ReceiptDialog(
             transaction = completedTransaction!!,
@@ -54,23 +51,20 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
             totalPrice = totalPrice,
             onDismiss = { showPaymentSheet = false },
             onConfirmPayment = { cashReceived ->
-                // Saat bayar, kita tangkap transaksinya
                 val total = totalPrice
                 val change = cashReceived - total
-                val newTx = TransactionEntity(
-                    totalPrice = total,
-                    cashReceived = cashReceived,
-                    changeAmount = change
-                )
                 
-                // Panggil ViewModel untuk simpan ke DB
-                viewModel.processPayment(cashReceived) {
+                viewModel.processPayment(cashReceived) { newId ->
                     showPaymentSheet = false
                     showCartOnPhone = false
-                    // Set transaksi untuk memicu pop-up struk
-                    // (Kita gunakan ID 0 karena ID asli dibuat oleh database, 
-                    // di aplikasi nyata kita akan mengambil ID dari insert)
-                    completedTransaction = newTx 
+                    
+                    // Gunakan ID asli dari database, bukan 0
+                    completedTransaction = TransactionEntity(
+                        id = newId,
+                        totalPrice = total,
+                        cashReceived = cashReceived,
+                        changeAmount = change
+                    )
                 }
             }
         )
@@ -79,7 +73,10 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Kasir Karyaku") },
+                // Tampilkan nama toko jika Pro
+                title = { 
+                    Text(if (settingsManager.isPro) settingsManager.storeName else "Kasir Karyaku") 
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -159,6 +156,10 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager) {
     }
 }
 
+// ... (Fungsi PaymentBottomSheet, ProductCatalog, dan CartList biarkan sama seperti Batch 7)
+// Untuk menghemat tempat, saya tidak menulis ulang fungsi yang tidak berubah di bawah ini.
+// Pastikan Anda menyalin sisa kode dari Batch 7.
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(
@@ -172,53 +173,26 @@ fun PaymentBottomSheet(
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Pembayaran Tunai", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
-            
             Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium)
             Text("Rp $totalPrice", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            
             Spacer(modifier = Modifier.height(24.dp))
-
             OutlinedTextField(
-                value = cashInput,
-                onValueChange = { if (it.length <= 10) cashInput = it },
+                value = cashInput, onValueChange = { if (it.length <= 10) cashInput = it },
                 label = { Text("Uang Diterima (Rp)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                modifier = Modifier.fillMaxWidth(), singleLine = true
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Kembalian:", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = "Rp $change",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (change > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface
-                )
+                Text("Rp $change", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface)
             }
-
             Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = { onConfirmPayment(cashReceived) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = cashReceived >= totalPrice && totalPrice > 0
-            ) {
+            Button(onClick = { onConfirmPayment(cashReceived) }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = cashReceived >= totalPrice && totalPrice > 0) {
                 Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp)
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -240,15 +214,8 @@ fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, o
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(products) { product ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().aspectRatio(1f).clickable { onProductClick(product) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(12.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
+                Card(modifier = Modifier.fillMaxWidth().aspectRatio(1f).clickable { onProductClick(product) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+                    Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
                         Text(text = product.name, fontWeight = FontWeight.Bold, maxLines = 2, style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.weight(1f))
                         Text(text = "Rp ${product.price}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
@@ -261,26 +228,14 @@ fun ProductCatalog(products: List<com.karyaku.kasir.data.local.ProductEntity>, o
 }
 
 @Composable
-fun CartList(
-    cart: List<CartItem>,
-    totalPrice: Long,
-    onAdd: (com.karyaku.kasir.data.local.ProductEntity) -> Unit,
-    onRemove: (com.karyaku.kasir.data.local.ProductEntity) -> Unit,
-    onDelete: (com.karyaku.kasir.data.local.ProductEntity) -> Unit,
-    onCheckout: () -> Unit
-) {
+fun CartList(cart: List<CartItem>, totalPrice: Long, onAdd: (com.karyaku.kasir.data.local.ProductEntity) -> Unit, onRemove: (com.karyaku.kasir.data.local.ProductEntity) -> Unit, onDelete: (com.karyaku.kasir.data.local.ProductEntity) -> Unit, onCheckout: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Keranjang Belanja", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(cart) { item ->
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(item.product.name, fontWeight = FontWeight.Bold)
                             Text("Rp ${item.product.price}", style = MaterialTheme.typography.bodyMedium)
@@ -295,7 +250,6 @@ fun CartList(
                 }
             }
         }
-
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Total:", style = MaterialTheme.typography.titleLarge)

@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
 
                     MainNavigation(
                         viewModel = posViewModel,
-                        settingsManager = settingsManager, // Kirim settingsManager
+                        settingsManager = settingsManager,
                         isPro = isPro,
                         onUpgradeClick = {
                             isPro = true
@@ -88,10 +88,11 @@ fun MainNavigation(
     ) { paddingValues ->
         androidx.compose.foundation.layout.Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager) // Kirim ke PosScreen
-                1 -> HistoryScreen(transactions = transactions)
+                0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager)
+                // Kirim parameter isPro ke HistoryScreen
+                1 -> HistoryScreen(transactions = transactions, isPro = isPro)
                 2 -> SettingsScreen(
-                    settingsManager = settingsManager, // Kirim ke SettingsScreen
+                    settingsManager = settingsManager,
                     isPro = isPro,
                     onUpgradeClick = {
                         onUpgradeClick()
