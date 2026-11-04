@@ -6,8 +6,6 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -164,14 +162,25 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth().height(200.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            LazyColumn(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(auditLogs) { log ->
-                    Text(
-                        text = "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+            // PERBAIKAN: Menggunakan Column + forEach, BUKAN LazyColumn
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()) // Scroll internal untuk list log
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (auditLogs.isEmpty()) {
+                    Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally))
+                } else {
+                    auditLogs.forEach { log ->
+                        Text(
+                            text = "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                    }
                 }
             }
         }
@@ -192,8 +201,10 @@ fun SettingsScreen(
                 if (pairedPrinters.isEmpty()) {
                     Text("Tidak ada printer ditemukan. Pastikan printer sudah di-pairing di pengaturan Bluetooth HP Anda.")
                 } else {
-                    LazyColumn {
-                        items(pairedPrinters) { device ->
+                    // PERBAIKAN: LazyColumn di dalam AlertDialog aman karena tidak ada parent scroll
+                    androidx.compose.foundation.lazy.LazyColumn {
+                        items(pairedPrinters.size) { index ->
+                            val device = pairedPrinters[index]
                             TextButton(onClick = {
                                 settingsManager.printerMacAddress = device.address
                                 savedPrinterMac = device.address
