@@ -45,16 +45,15 @@ class PosViewModel(
         }
     }
 
-    fun addDummyProduct() {
+    // FUNGSI BARU: Menambah produk asli
+    fun addProduct(name: String, price: Long, stock: Int) {
         viewModelScope.launch {
-            val dummyNames = listOf("Kopi Susu", "Roti Bakar", "Nasi Goreng", "Es Teh Manis", "Kentang Goreng")
-            val randomName = dummyNames.random()
-            val dummyProduct = ProductEntity(
-                name = "$randomName ${(1..100).random()}",
-                price = listOf(15000L, 20000L, 25000L, 5000L).random(),
-                stock = 50
+            val newProduct = ProductEntity(
+                name = name,
+                price = price,
+                stock = stock
             )
-            productDao.insertProduct(dummyProduct)
+            productDao.insertProduct(newProduct)
         }
     }
 
@@ -96,7 +95,6 @@ class PosViewModel(
         return _cart.value.sumOf { it.product.price * it.quantity }
     }
 
-    // UPDATE: onSuccess sekarang mengirimkan Long (ID Transaksi)
     fun processPayment(cashReceived: Long, onSuccess: (Long) -> Unit) {
         val total = getTotalPrice()
         val change = if (cashReceived >= total) cashReceived - total else 0
@@ -108,12 +106,8 @@ class PosViewModel(
         )
 
         viewModelScope.launch {
-            // Tangkap ID yang baru dibuat oleh Database
             val newId = transactionDao.insertTransaction(transaction)
-            
             _cart.value = emptyList()
-            
-            // Kirim ID ke UI
             onSuccess(newId)
         }
     }

@@ -22,7 +22,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Fungsi bantuan untuk mencari Activity asli dari Context Compose
 fun Context.findActivity(): Activity? {
     var context = this
     while (context is ContextWrapper) {
@@ -38,41 +37,27 @@ fun HistoryScreen(
     isPro: Boolean
 ) {
     val context = LocalContext.current
-    val activity = context.findActivity() // Ambil Activity aslinya
+    val activity = context.findActivity()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         
-        // FITUR PRO: Tombol Ekspor CSV
         if (isPro && transactions.isNotEmpty()) {
             Button(
                 onClick = {
                     try {
-                        // Membuat teks CSV sederhana
                         val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian\n"
                         val csvData = transactions.joinToString("\n") { tx ->
                             "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount}"
                         }
                         val fullCsv = csvHeader + csvData
-
-                        // Intent untuk membagikan teks CSV
                         val sendIntent = Intent().apply {
                             action = Intent.ACTION_SEND
                             putExtra(Intent.EXTRA_TEXT, fullCsv)
                             type = "text/plain"
                         }
-                        
                         val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
-                        
-                        // Gunakan Activity asli untuk memulai Intent
-                        if (activity != null) {
-                            activity.startActivity(shareIntent)
-                        } else {
-                            // Fallback jika activity tidak ditemukan
-                            shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(shareIntent)
-                        }
-                        
+                        if (activity != null) activity.startActivity(shareIntent) else context.startActivity(shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     } catch (e: Exception) {
                         Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show()
                     }
@@ -88,11 +73,7 @@ fun HistoryScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
             ) {
-                Text(
-                    "Fitur Ekspor Laporan (CSV) hanya tersedia di Versi Pro.",
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
+                Text("Fitur Ekspor Laporan (CSV) hanya tersedia di Versi Pro.", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
 
@@ -101,27 +82,19 @@ fun HistoryScreen(
                 Text("Belum ada riwayat transaksi.")
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(transactions) { tx ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Struk #${tx.id}", fontWeight = FontWeight.Bold)
                                 Text(dateFormat.format(Date(tx.timestamp)))
                             }
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Total: Rp ${tx.totalPrice}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Tunai: Rp ${tx.cashReceived}")
-                            Text("Kembali: Rp ${tx.changeAmount}")
+                            // FORMAT RUPIAH DITERAPKAN DI SINI
+                            Text("Total: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Tunai: ${formatRupiah(tx.cashReceived)}")
+                            Text("Kembali: ${formatRupiah(tx.changeAmount)}")
                         }
                     }
                 }

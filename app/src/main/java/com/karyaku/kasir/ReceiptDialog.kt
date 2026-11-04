@@ -35,63 +35,29 @@ fun ReceiptDialog(
         },
         title = null,
         text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Desain Struk
-                Text(
-                    text = storeName,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "=========================",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
-                )
-                Text(
-                    text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
-                )
-                Text(
-                    text = "=========================",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
-                )
-                
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
+                Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 
+                // FORMAT RUPIAH DITERAPKAN DI SINI
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total Belanja", fontFamily = FontFamily.Monospace)
-                    Text("Rp ${transaction.totalPrice}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    Text(formatRupiah(transaction.totalPrice), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Tunai", fontFamily = FontFamily.Monospace)
-                    Text("Rp ${transaction.cashReceived}", fontFamily = FontFamily.Monospace)
+                    Text(formatRupiah(transaction.cashReceived), fontFamily = FontFamily.Monospace)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Kembalian", fontFamily = FontFamily.Monospace)
-                    Text("Rp ${transaction.changeAmount}", fontFamily = FontFamily.Monospace)
+                    Text(formatRupiah(transaction.changeAmount), fontFamily = FontFamily.Monospace)
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "=========================",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
-                )
-                Text(
-                    text = storeFooter,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
+                Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Text(text = storeFooter, fontFamily = FontFamily.Monospace, fontSize = 12.sp, textAlign = TextAlign.Center)
             }
         }
     )
