@@ -12,13 +12,21 @@ import java.util.UUID
 
 class BluetoothPrinterManager(private val context: Context) {
     private val adapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
-    private val printerUUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB") // Standar SPP Bluetooth
+    private val printerUUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     @SuppressLint("MissingPermission")
     fun getPairedPrinters(): List<BluetoothDevice> {
-        return if (adapter != null && adapter.isEnabled) {
-            adapter.bondedDevices.toList()
-        } else {
+        return try {
+            if (adapter != null && adapter.isEnabled) {
+                // Tambahkan ?.toList() untuk mencegah NullPointerException jika bondedDevices null
+                adapter.bondedDevices?.toList() ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: SecurityException) {
+            // Jika izin belum diberikan, kembalikan list kosong alih-alih crash
+            emptyList()
+        } catch (e: Exception) {
             emptyList()
         }
     }
@@ -44,9 +52,8 @@ class BluetoothPrinterManager(private val context: Context) {
     }
 }
 
-// Helper untuk membuat perintah ESC/POS
 object EscPosCommands {
-    val INIT = byteArrayOf(0x1B, 0x40) // Inisialisasi printer
+    val INIT = byteArrayOf(0x1B, 0x40)
     val ALIGN_LEFT = byteArrayOf(0x1B, 0x61, 0x00)
     val ALIGN_CENTER = byteArrayOf(0x1B, 0x61, 0x01)
     val ALIGN_RIGHT = byteArrayOf(0x1B, 0x61, 0x02)

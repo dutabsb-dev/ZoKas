@@ -54,7 +54,6 @@ fun SettingsScreen(
     
     val dateFormat = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
 
-    // Izin Bluetooth
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -80,14 +79,17 @@ fun SettingsScreen(
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Printer Bluetooth", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                            pairedPrinters = printerManager.getPairedPrinters()
-                            showPrinterDialog = true
-                        } else {
-                            permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
-                        }
-                    }) {
+                    Button(
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                                pairedPrinters = printerManager.getPairedPrinters()
+                                showPrinterDialog = true
+                            } else {
+                                permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                    ) {
                         Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Pilih")
@@ -103,7 +105,7 @@ fun SettingsScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- TEMA & BAHASA ---
+        // --- PENGATURAN TEMA & BAHASA ---
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -124,10 +126,61 @@ fun SettingsScreen(
         }
         
         Spacer(modifier = Modifier.height(24.dp))
-        
-        // ... (SISA KODE UI PRO & AUDIT LOG DI BAWAH INI SAMA SEPERTI SEBELUMNYA) ...
-        // ... (Silakan salin sisa UI Pro, Kustomisasi Struk, Audit Log, dan Tombol Logout dari file SettingsScreen.kt Anda sebelumnya) ...
 
+        // --- STATUS PRO ---
+        if (isPro) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
+                    Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+        } else {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                        Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- LOG AKTIVITAS (AUDIT TRAIL) ---
+        Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().height(200.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            LazyColumn(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(auditLogs) { log ->
+                    Text(
+                        text = "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) {
+            Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     // DIALOG PILIH PRINTER
@@ -146,7 +199,7 @@ fun SettingsScreen(
                                 savedPrinterMac = device.address
                                 showPrinterDialog = false
                             }) {
-                                Text("${device.name} (${device.address})")
+                                Text("${device.name ?: "Unknown"} (${device.address})")
                             }
                         }
                     }
