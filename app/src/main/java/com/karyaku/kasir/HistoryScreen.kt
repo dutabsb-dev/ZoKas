@@ -1,6 +1,7 @@
 package com.karyaku.kasir
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,7 +22,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     transactions: List<TransactionEntity>,
-    isPro: Boolean // Parameter baru
+    isPro: Boolean
 ) {
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
@@ -32,21 +33,29 @@ fun HistoryScreen(
         if (isPro && transactions.isNotEmpty()) {
             Button(
                 onClick = {
-                    // Membuat teks CSV sederhana
-                    val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian\n"
-                    val csvData = transactions.joinToString("\n") { tx ->
-                        "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount}"
-                    }
-                    val fullCsv = csvHeader + csvData
+                    try {
+                        // Membuat teks CSV sederhana
+                        val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian\n"
+                        val csvData = transactions.joinToString("\n") { tx ->
+                            "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount}"
+                        }
+                        val fullCsv = csvHeader + csvData
 
-                    // Intent untuk membagikan teks CSV
-                    val sendIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, fullCsv)
-                        type = "text/plain"
+                        // Intent untuk membagikan teks CSV
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, fullCsv)
+                            type = "text/plain"
+                            // TAMBAHKAN FLAG INI UNTUK MENCEGAH CRASH
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) 
+                        }
+                        val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
+                        context.startActivity(shareIntent)
+                        
+                    } catch (e: Exception) {
+                        // Jika terjadi error, tampilkan pesan alih-alih menutup aplikasi
+                        Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show()
                     }
-                    val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
-                    context.startActivity(shareIntent)
                 },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
             ) {
