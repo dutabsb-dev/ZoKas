@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.karyaku.kasir.data.local.TransactionEntity
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,7 +27,7 @@ fun ReceiptDialog(
     transaction: TransactionEntity,
     storeName: String,
     storeFooter: String,
-    settingsManager: SettingsManager, // Tambahkan parameter ini
+    settingsManager: SettingsManager, // Parameter ini ditambahkan
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -41,7 +42,9 @@ fun ReceiptDialog(
                 onClick = {
                     val mac = settingsManager.printerMacAddress
                     if (mac == null) {
-                        Toast.makeText(context, "Silakan pilih printer di menu Pengaturan terlebih dahulu", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Tidak ada printer terhubung. Silakan atur di menu Pengaturan.", Toast.LENGTH_LONG).show()
+                        // Untuk sementara kita tutup dialognya jika tidak ada printer
+                        // onDismiss() 
                     } else {
                         scope.launch {
                             // Generate Bytes untuk Printer
@@ -65,7 +68,7 @@ fun ReceiptDialog(
         title = null,
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Tampilan UI (Sama seperti sebelumnya)
+                // Tampilan UI Struk
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
@@ -91,38 +94,38 @@ fun ReceiptDialog(
     )
 }
 
-// FUNGSI UNTUK MERAKIT BYTES ESC/POS
+// FUNGSI YANG DIPERBAIKI MENGGUNAKAN ByteArrayOutputStream
 private fun generatePrintData(
     transaction: TransactionEntity,
     storeName: String,
     storeFooter: String,
     dateFormat: SimpleDateFormat
 ): ByteArray {
-    val output = mutableListOf<Byte>()
+    val output = ByteArrayOutputStream()
     
-    output.addAll(EscPosCommands.INIT.toList())
-    output.addAll(EscPosCommands.ALIGN_CENTER.toList())
+    output.write(EscPosCommands.INIT)
+    output.write(EscPosCommands.ALIGN_CENTER)
     
-    output.addAll(EscPosCommands.BOLD_ON.toList())
-    output.addAll("$storeName\n".toByteArray())
-    output.addAll(EscPosCommands.BOLD_OFF.toList())
+    output.write(EscPosCommands.BOLD_ON)
+    output.write("$storeName\n".toByteArray())
+    output.write(EscPosCommands.BOLD_OFF)
     
-    output.addAll("================================\n".toByteArray()) // 32 Karakter standar printer
-    output.addAll("ID: #${transaction.id}\n".toByteArray())
-    output.addAll("${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
-    output.addAll("================================\n".toByteArray())
+    output.write("================================\n".toByteArray()) // 32 Karakter standar printer
+    output.write("ID: #${transaction.id}\n".toByteArray())
+    output.write("${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
+    output.write("================================\n".toByteArray())
     
-    output.addAll(EscPosCommands.ALIGN_LEFT.toList())
-    output.addAll("Total  : ${formatRupiah(transaction.totalPrice)}\n".toByteArray())
-    output.addAll("Tunai  : ${formatRupiah(transaction.cashReceived)}\n".toByteArray())
-    output.addAll("Kembali: ${formatRupiah(transaction.changeAmount)}\n".toByteArray())
-    output.addAll("--------------------------------\n".toByteArray())
+    output.write(EscPosCommands.ALIGN_LEFT)
+    output.write("Total  : ${formatRupiah(transaction.totalPrice)}\n".toByteArray())
+    output.write("Tunai  : ${formatRupiah(transaction.cashReceived)}\n".toByteArray())
+    output.write("Kembali: ${formatRupiah(transaction.changeAmount)}\n".toByteArray())
+    output.write("--------------------------------\n".toByteArray())
     
-    output.addAll(EscPosCommands.ALIGN_CENTER.toList())
-    output.addAll("$storeFooter\n\n\n".toByteArray())
+    output.write(EscPosCommands.ALIGN_CENTER)
+    output.write("$storeFooter\n\n\n".toByteArray())
     
-    output.addAll(EscPosCommands.FEED_3.toList())
-    output.addAll(EscPosCommands.CUT_PAPER.toList()) // Perintah potong kertas
+    output.write(EscPosCommands.FEED_3)
+    output.write(EscPosCommands.CUT_PAPER) // Perintah potong kertas
     
     return output.toByteArray()
 }
