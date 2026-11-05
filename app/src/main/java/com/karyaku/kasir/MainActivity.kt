@@ -34,8 +34,15 @@ class MainActivity : ComponentActivity() {
 
             PosTheme(isDarkMode = isDarkMode, language = language) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    
+                    // PERBAIKAN: Tambahkan database.cashFlowDao() di dalam Factory
                     val posViewModel: PosViewModel = viewModel(
-                        factory = PosViewModelFactory(database.productDao(), database.transactionDao(), database.userDao())
+                        factory = PosViewModelFactory(
+                            database.productDao(), 
+                            database.transactionDao(), 
+                            database.userDao(),
+                            database.cashFlowDao() // <--- INI YANG TADI HILANG
+                        )
                     )
 
                     if (currentUser == null) {
