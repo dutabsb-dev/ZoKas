@@ -82,6 +82,13 @@ class PosViewModel(
         viewModelScope.launch { transactionItemDao.getBestSellers().collectLatest { _bestSellers.value = it } }
     }
 
+    fun updatePin(user: UserEntity, newPin: String) {
+        viewModelScope.launch {
+            userDao.updatePin(user.id, newPin)
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN: PIN berhasil diubah"))
+        }
+    }
+
     fun getLowStockProducts(): List<ProductEntity> {
         return _products.value.filter { it.stock <= 5 && it.stock >= 0 }
     }

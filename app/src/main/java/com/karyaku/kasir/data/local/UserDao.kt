@@ -16,13 +16,16 @@ interface UserDao {
     @Query("SELECT * FROM users")
     suspend fun getAllUsersOnce(): List<UserEntity>
 
+    // TAMBAHKAN FUNGSI INI UNTUK GANTI PIN
+    @Query("UPDATE users SET pin = :newPin WHERE id = :userId")
+    suspend fun updatePin(userId: Long, newPin: String)
+
     @Insert
     suspend fun insertAuditLog(log: AuditLogEntity)
 
     @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC")
     fun getAllAuditLogs(): Flow<List<AuditLogEntity>>
 
-    // --- TAMBAHAN UNTUK SHIFT ---
     @Insert
     suspend fun insertShift(shift: ShiftEntity): Long
 

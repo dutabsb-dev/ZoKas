@@ -136,7 +136,9 @@ fun MainNavigation(
                     language = language,
                     onToggleLanguage = onToggleLanguage,
                     onLogout = onLogout,
-                    auditLogs = auditLogs
+                    auditLogs = auditLogs,
+                    currentUser = currentUser,
+                    viewModel = viewModel
                 )
             }
         }

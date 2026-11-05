@@ -1,9 +1,11 @@
 package com.karyaku.kasir
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -11,11 +13,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.karyaku.kasir.data.local.AuditLogEntity
+import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,11 +36,28 @@ fun SettingsScreen(
     language: String,
     onToggleLanguage: () -> Unit,
     onLogout: () -> Unit,
-    auditLogs: List<AuditLogEntity>
+    auditLogs: List<AuditLogEntity>,
+    currentUser: UserEntity,
+    viewModel: PosViewModel // <--- Parameter ViewModel ditambahkan untuk Ganti PIN
 ) {
+    val context = LocalContext.current
     var storeName by remember { mutableStateOf(settingsManager.storeName) }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
     val dateFormat = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
+    
+    var showChangePinDialog by remember { mutableStateOf(false) }
+
+    if (showChangePinDialog) {
+        ChangePinDialog(
+            user = currentUser,
+            onDismiss = { showChangePinDialog = false },
+            onSave = { newPin ->
+                viewModel.updatePin(currentUser, newPin)
+                showChangePinDialog = false
+                Toast.makeText(context, "PIN berhasil diubah!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -62,6 +85,28 @@ fun SettingsScreen(
                         Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
                             Text(if (language == "in") "Indonesia" else "English")
                         }
+                    }
+                }
+            }
+        }
+        
+        // --- MANAJEMEN AKUN ---
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Manajemen Akun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Login sebagai: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { showChangePinDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                    ) {
+                        Text("Ubah PIN Keamanan")
                     }
                 }
             }
@@ -133,4 +178,59 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
+
+// DIALOG GANTI PIN
+@Composable
+fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var newPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ubah PIN Keamanan") },
+        text = {
+            Column {
+                Text("Masukkan PIN baru (6 digit):")
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = newPin,
+                    onValueChange = { if (it.length <= 6) { newPin = it; error = "" } },
+                    label = { Text("PIN Baru") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = confirmPin,
+                    onValueChange = { if (it.length <= 6) { confirmPin = it; error = "" } },
+                    label = { Text("Konfirmasi PIN Baru") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = error.isNotEmpty()
+                )
+                if (error.isNotEmpty()) {
+                    Text(error, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (newPin.length == 6 && newPin == confirmPin) {
+                        onSave(newPin)
+                    } else {
+                        error = "PIN harus 6 digit dan sama!"
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+            ) { Text("SIMPAN PIN") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }
