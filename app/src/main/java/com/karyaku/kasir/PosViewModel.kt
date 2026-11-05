@@ -18,11 +18,15 @@ class PosViewModel(
     private val userDao: UserDao,
     private val cashFlowDao: CashFlowDao,
     private val customerDao: CustomerDao,
-    private val transactionItemDao: TransactionItemDao // <--- Parameter Baru
+    private val transactionItemDao: TransactionItemDao
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
+
+    // State untuk Produk Terlaris
+    private val _bestSellers = MutableStateFlow<List<BestSellerData>>(emptyList())
+    val bestSellers: StateFlow<List<BestSellerData>> = _bestSellers.asStateFlow()
 
     private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
@@ -60,6 +64,12 @@ class PosViewModel(
         viewModelScope.launch { transactionDao.getAllTransactions().collectLatest { _transactions.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().collectLatest { _customers.value = it } }
+        viewModelScope.launch { transactionItemDao.getBestSellers().collectLatest { _bestSellers.value = it } }
+    }
+
+    // Fungsi untuk mendapatkan produk dengan stok menipis (<= 5)
+    fun getLowStockProducts(): List<ProductEntity> {
+        return _products.value.filter { it.stock <= 5 && it.stock >= 0 }
     }
 
     fun setSearchQuery(query: String) { _searchQuery.value = query }
@@ -72,7 +82,6 @@ class PosViewModel(
         }
     }
 
-    // Fungsi untuk mengambil rincian transaksi tertentu
     fun getTransactionItems(transactionId: Long): StateFlow<List<TransactionItemEntity>> {
         val itemsFlow = MutableStateFlow<List<TransactionItemEntity>>(emptyList())
         viewModelScope.launch {
@@ -190,7 +199,6 @@ class PosViewModel(
         return (subtotal - _discount.value).coerceAtLeast(0)
     }
 
-    // UPDATE PROCESS PAYMENT: SIMPAN RINCIAN BARANG
     fun processPayment(cashReceived: Long, userId: Long, userName: String, onSuccess: (Long) -> Unit) {
         val total = getTotalPrice()
         val change = if (cashReceived >= total) cashReceived - total else 0
@@ -204,10 +212,8 @@ class PosViewModel(
         )
 
         viewModelScope.launch {
-            // 1. Simpan Transaksi Utama
             val newId = transactionDao.insertTransaction(transaction)
             
-            // 2. Simpan Rincian Barang (TransactionItems)
             val itemEntities = _cart.value.map { cartItem ->
                 TransactionItemEntity(
                     transactionId = newId,
@@ -219,7 +225,6 @@ class PosViewModel(
             }
             transactionItemDao.insertTransactionItems(itemEntities)
 
-            // 3. Kurangi Stok
             _cart.value.forEach { item ->
                 val sisa = (item.product.stock - item.quantity).coerceAtLeast(0)
                 productDao.updateStock(item.product.id, sisa)
@@ -241,7 +246,7 @@ class PosViewModelFactory(
     private val userDao: UserDao,
     private val cashFlowDao: CashFlowDao,
     private val customerDao: CustomerDao,
-    private val transactionItemDao: TransactionItemDao // <--- Parameter Baru
+    private val transactionItemDao: TransactionItemDao
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
