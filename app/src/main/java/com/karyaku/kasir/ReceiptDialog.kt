@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.karyaku.kasir.data.local.TransactionEntity
+import com.karyaku.kasir.data.local.TransactionItemEntity
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
@@ -28,6 +29,7 @@ fun ReceiptDialog(
     storeName: String,
     storeFooter: String,
     settingsManager: SettingsManager,
+    items: List<TransactionItemEntity>? = null, // Parameter baru untuk rincian barang
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -42,10 +44,10 @@ fun ReceiptDialog(
                 onClick = {
                     val mac = settingsManager.printerMacAddress
                     if (mac == null) {
-                        Toast.makeText(context, "Tidak ada printer terhubung. Silakan atur di menu Pengaturan.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Tidak ada printer terhubung. Atur di Pengaturan.", Toast.LENGTH_LONG).show()
                     } else {
                         scope.launch {
-                            val printData = generatePrintData(transaction, storeName, storeFooter, dateFormat)
+                            val printData = generatePrintData(transaction, storeName, storeFooter, dateFormat, items)
                             val success = printerManager.printData(mac, printData)
                             if (success) {
                                 Toast.makeText(context, "Struk berhasil dicetak!", Toast.LENGTH_SHORT).show()
@@ -59,7 +61,7 @@ fun ReceiptDialog(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
             ) {
-                Text("SELESAI / CETAK STRUK")
+                Text("CETAK STRUK")
             }
         },
         title = null,
@@ -69,10 +71,21 @@ fun ReceiptDialog(
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                // TAMPILKAN NAMA PELANGGAN
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Rincian Barang (Jika ada)
+                if (items != null && items.isNotEmpty()) {
+                    items.forEach { item ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("${item.quantity}x ${item.productName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            Text(formatRupiah(item.subtotal), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        }
+                    }
+                    Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total Belanja", fontFamily = FontFamily.Monospace)
                     Text(formatRupiah(transaction.totalPrice), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
@@ -93,12 +106,12 @@ fun ReceiptDialog(
     )
 }
 
-// FUNGSI UNTUK MERAKIT BYTES ESC/POS
 private fun generatePrintData(
     transaction: TransactionEntity,
     storeName: String,
     storeFooter: String,
-    dateFormat: SimpleDateFormat
+    dateFormat: SimpleDateFormat,
+    items: List<TransactionItemEntity>?
 ): ByteArray {
     val output = ByteArrayOutputStream()
     
@@ -109,14 +122,24 @@ private fun generatePrintData(
     output.write("$storeName\n".toByteArray())
     output.write(EscPosCommands.BOLD_OFF)
     
-    output.write("================================\n".toByteArray()) // 32 Karakter standar printer
+    output.write("================================\n".toByteArray())
     output.write("ID: #${transaction.id}\n".toByteArray())
     output.write("${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
-    // TAMPILKAN NAMA PELANGGAN DI STRUK PRINTER
     output.write("Pelanggan: ${transaction.customerName}\n".toByteArray())
     output.write("================================\n".toByteArray())
     
     output.write(EscPosCommands.ALIGN_LEFT)
+    
+    // CETAK RINCIAN BARANG KE PRINTER
+    if (items != null && items.isNotEmpty()) {
+        items.forEach { item ->
+            output.write("${item.quantity}x ${item.productName}\n".toByteArray())
+            val priceStr = "  Rp ${item.subtotal}\n"
+            output.write(priceStr.toByteArray())
+        }
+        output.write("--------------------------------\n".toByteArray())
+    }
+
     output.write("Total  : ${formatRupiah(transaction.totalPrice)}\n".toByteArray())
     output.write("Tunai  : ${formatRupiah(transaction.cashReceived)}\n".toByteArray())
     output.write("Kembali: ${formatRupiah(transaction.changeAmount)}\n".toByteArray())
@@ -126,7 +149,7 @@ private fun generatePrintData(
     output.write("$storeFooter\n\n\n".toByteArray())
     
     output.write(EscPosCommands.FEED_3)
-    output.write(EscPosCommands.CUT_PAPER) // Perintah potong kertas
+    output.write(EscPosCommands.CUT_PAPER)
     
     return output.toByteArray()
 }

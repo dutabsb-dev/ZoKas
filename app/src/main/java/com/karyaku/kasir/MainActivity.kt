@@ -124,7 +124,8 @@ fun MainNavigation(
                 1 -> HistoryScreen(
                     transactions = transactions, 
                     isPro = isPro, 
-                    viewModel = viewModel // <--- Memastikan parameter viewModel dikirim
+                    viewModel = viewModel ,
+                    settingsManager = settingsManager
                 )
                 2 -> SettingsScreen(
                     settingsManager = settingsManager,
