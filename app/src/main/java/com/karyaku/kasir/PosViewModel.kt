@@ -17,7 +17,8 @@ class PosViewModel(
     private val transactionDao: TransactionDao,
     private val userDao: UserDao,
     private val cashFlowDao: CashFlowDao,
-    private val customerDao: CustomerDao // Parameter Baru
+    private val customerDao: CustomerDao,
+    private val transactionItemDao: TransactionItemDao // <--- Parameter Baru
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
@@ -35,7 +36,6 @@ class PosViewModel(
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
 
-    // State untuk Pelanggan yang dipilih
     private val _selectedCustomer = MutableStateFlow<CustomerEntity?>(null)
     val selectedCustomer: StateFlow<CustomerEntity?> = _selectedCustomer.asStateFlow()
 
@@ -64,13 +64,23 @@ class PosViewModel(
 
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setDiscount(amount: Long) { _discount.value = amount }
-    
-    // Fungsi Pelanggan
     fun setCustomer(customer: CustomerEntity?) { _selectedCustomer.value = customer }
+    
     fun addCustomer(name: String, phone: String) {
         viewModelScope.launch {
             customerDao.insertCustomer(CustomerEntity(name = name, phone = phone))
         }
+    }
+
+    // Fungsi untuk mengambil rincian transaksi tertentu
+    fun getTransactionItems(transactionId: Long): StateFlow<List<TransactionItemEntity>> {
+        val itemsFlow = MutableStateFlow<List<TransactionItemEntity>>(emptyList())
+        viewModelScope.launch {
+            transactionItemDao.getItemsByTransaction(transactionId).collectLatest {
+                itemsFlow.value = it
+            }
+        }
+        return itemsFlow.asStateFlow()
     }
 
     fun getFilteredProducts(): List<ProductEntity> {
@@ -180,6 +190,7 @@ class PosViewModel(
         return (subtotal - _discount.value).coerceAtLeast(0)
     }
 
+    // UPDATE PROCESS PAYMENT: SIMPAN RINCIAN BARANG
     fun processPayment(cashReceived: Long, userId: Long, userName: String, onSuccess: (Long) -> Unit) {
         val total = getTotalPrice()
         val change = if (cashReceived >= total) cashReceived - total else 0
@@ -193,16 +204,32 @@ class PosViewModel(
         )
 
         viewModelScope.launch {
+            // 1. Simpan Transaksi Utama
+            val newId = transactionDao.insertTransaction(transaction)
+            
+            // 2. Simpan Rincian Barang (TransactionItems)
+            val itemEntities = _cart.value.map { cartItem ->
+                TransactionItemEntity(
+                    transactionId = newId,
+                    productName = cartItem.product.name,
+                    price = cartItem.product.price,
+                    quantity = cartItem.quantity,
+                    subtotal = cartItem.product.price * cartItem.quantity
+                )
+            }
+            transactionItemDao.insertTransactionItems(itemEntities)
+
+            // 3. Kurangi Stok
             _cart.value.forEach { item ->
                 val sisa = (item.product.stock - item.quantity).coerceAtLeast(0)
                 productDao.updateStock(item.product.id, sisa)
             }
-            val newId = transactionDao.insertTransaction(transaction)
+            
             userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI: ${formatRupiah(total)} ($customerName)"))
             
             _cart.value = emptyList()
             _discount.value = 0
-            _selectedCustomer.value = null // Reset pelanggan
+            _selectedCustomer.value = null
             onSuccess(newId)
         }
     }
@@ -213,12 +240,13 @@ class PosViewModelFactory(
     private val transactionDao: TransactionDao,
     private val userDao: UserDao,
     private val cashFlowDao: CashFlowDao,
-    private val customerDao: CustomerDao // Parameter Baru
+    private val customerDao: CustomerDao,
+    private val transactionItemDao: TransactionItemDao // <--- Parameter Baru
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao, customerDao) as T
+            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao, customerDao, transactionItemDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

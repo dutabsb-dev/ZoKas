@@ -41,8 +41,9 @@ class MainActivity : ComponentActivity() {
                             database.productDao(), 
                             database.transactionDao(), 
                             database.userDao(),
-                            database.cashFlowDao(), // <--- INI YANG TADI HILANG
-                            database.customerDao()
+                            database.cashFlowDao(), 
+                            database.customerDao(),
+                            database.transactionItemDao()
                         )
                     )
 
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
                             currentUser = currentUser!!,
                             onLogout = { currentUser = null },
                             isPro = isPro,
+                            viewModel = viewModel,
                             isDarkMode = isDarkMode,
                             onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
                             language = language,
