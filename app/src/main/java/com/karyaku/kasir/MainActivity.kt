@@ -35,15 +35,15 @@ class MainActivity : ComponentActivity() {
             PosTheme(isDarkMode = isDarkMode, language = language) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     
-                    // PERBAIKAN: Tambahkan database.cashFlowDao() di dalam Factory
+                    // Inisialisasi ViewModel dengan SEMUA parameter yang dibutuhkan
                     val posViewModel: PosViewModel = viewModel(
                         factory = PosViewModelFactory(
                             database.productDao(), 
                             database.transactionDao(), 
                             database.userDao(),
-                            database.cashFlowDao(), 
+                            database.cashFlowDao(),
                             database.customerDao(),
-                            database.transactionItemDao()
+                            database.transactionItemDao() // Parameter ke-6
                         )
                     )
 
@@ -56,7 +56,6 @@ class MainActivity : ComponentActivity() {
                             currentUser = currentUser!!,
                             onLogout = { currentUser = null },
                             isPro = isPro,
-                            viewModel = viewModel,
                             isDarkMode = isDarkMode,
                             onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
                             language = language,
@@ -91,18 +90,42 @@ fun MainNavigation(
     Scaffold(
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(icon = { Icon(Icons.Default.Home, contentDescription = "Kasir") }, label = { Text("Kasir") }, selected = selectedTab == 0, onClick = { selectedTab = 0 })
-                NavigationBarItem(icon = { Icon(Icons.Default.List, contentDescription = "Riwayat") }, label = { Text("Riwayat") }, selected = selectedTab == 1, onClick = { selectedTab = 1 })
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Kasir") }, 
+                    label = { Text("Kasir") }, 
+                    selected = selectedTab == 0, 
+                    onClick = { selectedTab = 0 }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.List, contentDescription = "Riwayat") }, 
+                    label = { Text("Riwayat") }, 
+                    selected = selectedTab == 1, 
+                    onClick = { selectedTab = 1 }
+                )
                 if (currentUser.role == "OWNER") {
-                    NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") }, label = { Text("Pengaturan") }, selected = selectedTab == 2, onClick = { selectedTab = 2 })
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") }, 
+                        label = { Text("Pengaturan") }, 
+                        selected = selectedTab == 2, 
+                        onClick = { selectedTab = 2 }
+                    )
                 }
             }
         }
     ) { paddingValues ->
         androidx.compose.foundation.layout.Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout)
-                1 -> HistoryScreen(transactions = transactions, isPro = isPro)
+                0 -> PosScreen(
+                    viewModel = viewModel, 
+                    settingsManager = settingsManager, 
+                    currentUser = currentUser, 
+                    onLogout = onLogout
+                )
+                1 -> HistoryScreen(
+                    transactions = transactions, 
+                    isPro = isPro, 
+                    viewModel = viewModel // <--- Memastikan parameter viewModel dikirim
+                )
                 2 -> SettingsScreen(
                     settingsManager = settingsManager,
                     isPro = isPro,
