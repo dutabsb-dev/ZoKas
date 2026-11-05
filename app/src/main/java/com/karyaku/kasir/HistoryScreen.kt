@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle // <--- IMPORT INI YANG TADI HILANG
 import com.karyaku.kasir.data.local.TransactionEntity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -50,6 +50,7 @@ fun HistoryScreen(
     val activity = context.findActivity()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
+    // SEKARANG SUDAH BISA MEMBACA STATE DENGAN BENAR
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
     val lowStockProducts = viewModel.getLowStockProducts()
 
@@ -86,7 +87,7 @@ fun HistoryScreen(
             }
         }
 
-        // --- 2. PERINGATAN STOK MENIPIS (Jika ada) ---
+        // --- 2. PERINGATAN STOK MENIPIS ---
         if (lowStockProducts.isNotEmpty()) {
             item {
                 Card(
@@ -200,7 +201,7 @@ fun TransactionDetailDialog(
     onDismiss: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    val items by viewModel.getTransactionItems(transaction.id).collectAsState()
+    val items by viewModel.getTransactionItems(transaction.id).collectAsStateWithLifecycle() // <--- PERBAIKAN IMPORT DI SINI JUGA
     var showReceipt by remember { mutableStateOf(false) }
 
     if (showReceipt) {
