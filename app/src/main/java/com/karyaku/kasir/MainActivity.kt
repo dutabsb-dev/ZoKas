@@ -125,7 +125,8 @@ fun MainNavigation(
                     transactions = transactions, 
                     isPro = isPro, 
                     viewModel = viewModel ,
-                    settingsManager = settingsManager
+                    settingsManager = settingsManager,
+                    currentUser = currentUser
                 )
                 2 -> SettingsScreen(
                     settingsManager = settingsManager,

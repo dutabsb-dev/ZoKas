@@ -51,7 +51,6 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    // --- STATE BARU: FILTER REAKTIF (REAL-TIME) ---
     val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
         val categories = productList.map { it.category }.distinct()
         listOf("Semua") + categories
@@ -147,7 +146,7 @@ class PosViewModel(
         viewModelScope.launch {
             val shift = _activeShift.value
             if (shift != null) {
-                val totalPenjualan = _transactions.value.filter { it.timestamp >= shift.startTime }.sumOf { it.totalPrice }
+                val totalPenjualan = _transactions.value.filter { it.timestamp >= shift.startTime && it.status == "SUCCESS" }.sumOf { it.totalPrice }
                 val totalKasKeluar = cashFlowDao.getTotalCashOut(shift.id) ?: 0L
                 val totalKasMasuk = cashFlowDao.getTotalCashIn(shift.id) ?: 0L
                 val uangSistem = shift.openingCash + totalPenjualan + totalKasMasuk - totalKasKeluar
@@ -240,6 +239,43 @@ class PosViewModel(
             _discount.value = 0
             _selectedCustomer.value = null
             onSuccess(newId)
+        }
+    }
+
+    // FUNGSI BARU: VOID TRANSAKSI (Sudah dipindahkan ke DALAM class)
+    fun voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            // 1. Verifikasi PIN Supervisor
+            val supervisor = userDao.loginByPin(pinSupervisor)
+            if (supervisor == null || (supervisor.role != "OWNER" && supervisor.role != "SUPERVISOR")) {
+                onResult(false, "PIN Salah atau bukan Supervisor!")
+                return@launch
+            }
+
+            // 2. Ambil item transaksi untuk dikembalikan stoknya
+            val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
+            
+            // 3. Kembalikan stok produk
+            itemsToRestore.forEach { item ->
+                val product = _products.value.find { it.name == item.productName }
+                if (product != null) {
+                    productDao.updateStock(product.id, product.stock + item.quantity)
+                }
+            }
+
+            // 4. Ubah status transaksi menjadi VOIDED
+            transactionDao.voidTransaction(transaction.id)
+
+            // 5. Catat di Audit Log
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = currentUser.id, 
+                    userName = currentUser.name, 
+                    action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"
+                )
+            )
+
+            onResult(true, "Transaksi berhasil di-void dan stok dikembalikan.")
         }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Share
@@ -22,10 +23,14 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle // <--- IMPORT INI YANG TADI HILANG
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.TransactionEntity
+import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,30 +49,34 @@ fun HistoryScreen(
     transactions: List<TransactionEntity>,
     isPro: Boolean,
     viewModel: PosViewModel,
-    settingsManager: SettingsManager
+    settingsManager: SettingsManager,
+    currentUser: UserEntity // <--- Tambahkan parameter currentUser
 ) {
     val context = LocalContext.current
     val activity = context.findActivity()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
-    // SEKARANG SUDAH BISA MEMBACA STATE DENGAN BENAR
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
     val lowStockProducts = viewModel.getLowStockProducts()
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
+
+    // Hitung Omzet hanya dari transaksi yang SUCCESS
+    val validTransactions = transactions.filter { it.status == "SUCCESS" }
+    val totalOmzet = validTransactions.sumOf { it.totalPrice }
 
     if (selectedTransaction != null) {
         TransactionDetailDialog(
             transaction = selectedTransaction!!,
             viewModel = viewModel,
             settingsManager = settingsManager,
+            currentUser = currentUser, // Kirim currentUser ke dialog
             onDismiss = { selectedTransaction = null }
         )
     }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         
-        // --- 1. KARTU RINGKASAN OMZET ---
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)),
@@ -76,18 +85,17 @@ fun HistoryScreen(
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Total Omzet (Semua Waktu)", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                     Text(
-                        text = formatRupiah(transactions.sumOf { it.totalPrice }),
+                        text = formatRupiah(totalOmzet), // <--- Gunakan totalOmzet yang sudah difilter
                         color = ZokasOrange,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("${transactions.size} Transaksi", color = Color.White, fontSize = 12.sp)
+                    Text("${validTransactions.size} Transaksi Sukses", color = Color.White, fontSize = 12.sp)
                 }
             }
         }
 
-        // --- 2. PERINGATAN STOK MENIPIS ---
         if (lowStockProducts.isNotEmpty()) {
             item {
                 Card(
@@ -106,7 +114,6 @@ fun HistoryScreen(
             }
         }
 
-        // --- 3. PRODUK TERLARIS ---
         if (bestSellers.isNotEmpty()) {
             item {
                 Text("🏆 Top 5 Produk Terlaris", fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -129,15 +136,14 @@ fun HistoryScreen(
             }
         }
 
-        // --- 4. TOMBOL EKSPOR ---
         if (isPro && transactions.isNotEmpty()) {
             item {
                 Button(
                     onClick = {
                         try {
-                            val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian,Pelanggan\n"
+                            val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian,Pelanggan,Status\n"
                             val csvData = transactions.joinToString("\n") { tx ->
-                                "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount},${tx.customerName}"
+                                "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount},${tx.customerName},${tx.status}"
                             }
                             val fullCsv = csvHeader + csvData
                             val sendIntent = Intent().apply {
@@ -161,7 +167,6 @@ fun HistoryScreen(
             }
         }
 
-        // --- 5. DAFTAR RIWAYAT TRANSAKSI ---
         item {
             Text("Riwayat Transaksi Terakhir", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
@@ -174,18 +179,35 @@ fun HistoryScreen(
             }
         } else {
             items(transactions) { tx ->
+                val isVoided = tx.status == "VOIDED"
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { selectedTransaction = tx },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isVoided) Color(0xFFFFCDD2) else MaterialTheme.colorScheme.surfaceVariant // Merah muda jika void
+                    )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Struk #${tx.id}", fontWeight = FontWeight.Bold)
+                            Text(
+                                "Struk #${tx.id}", 
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
+                            )
                             Text(dateFormat.format(Date(tx.timestamp)))
                         }
                         Text("Pelanggan: ${tx.customerName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Total: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = ZokasOrange)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Total: ${formatRupiah(tx.totalPrice)}", 
+                                fontWeight = FontWeight.Bold, 
+                                color = if (isVoided) Color.Gray else ZokasOrange,
+                                textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
+                            )
+                            if (isVoided) {
+                                Text("VOID", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -198,11 +220,15 @@ fun TransactionDetailDialog(
     transaction: TransactionEntity,
     viewModel: PosViewModel,
     settingsManager: SettingsManager,
+    currentUser: UserEntity, // <--- Parameter Baru
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    val items by viewModel.getTransactionItems(transaction.id).collectAsStateWithLifecycle() // <--- PERBAIKAN IMPORT DI SINI JUGA
+    val items by viewModel.getTransactionItems(transaction.id).collectAsStateWithLifecycle()
+    
     var showReceipt by remember { mutableStateOf(false) }
+    var showVoidPinDialog by remember { mutableStateOf(false) } // State Dialog PIN Void
 
     if (showReceipt) {
         ReceiptDialog(
@@ -215,19 +241,51 @@ fun TransactionDetailDialog(
         )
     }
 
+    if (showVoidPinDialog) {
+        VoidPinDialog(
+            onDismiss = { showVoidPinDialog = false },
+            onConfirm = { pin ->
+                viewModel.voidTransaction(transaction, pin, currentUser) { success, message ->
+                    showVoidPinDialog = false
+                    if (success) {
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        onDismiss() // Tutup dialog detail jika berhasil
+                    } else {
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Button(onClick = { showReceipt = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("CETAK ULANG")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Tombol Void hanya muncul jika transaksi belum di-void
+                if (transaction.status == "SUCCESS") {
+                    Button(
+                        onClick = { showVoidPinDialog = true }, 
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("VOID (BATAL)")
+                    }
+                }
+                
+                Button(onClick = { showReceipt = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("CETAK")
+                }
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } },
         title = { Text("Rincian Transaksi #${transaction.id}") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                if (transaction.status == "VOIDED") {
+                    Text("TRANSAKSI INI TELAH DIBATALKAN (VOID)", color = Color.Red, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                }
                 Text("Tanggal: ${dateFormat.format(Date(transaction.timestamp))}", fontSize = 12.sp)
                 Text("Pelanggan: ${transaction.customerName}", fontSize = 12.sp)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -252,9 +310,40 @@ fun TransactionDetailDialog(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total:", fontWeight = FontWeight.Bold)
-                    Text(formatRupiah(transaction.totalPrice), fontWeight = FontWeight.Bold, color = ZokasOrange)
+                    Text(formatRupiah(transaction.totalPrice), fontWeight = FontWeight.Bold, color = if (transaction.status == "VOIDED") Color.Gray else ZokasOrange)
                 }
             }
         }
+    )
+}
+
+// DIALOG PIN UNTUK VOID
+@Composable
+fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Otorisasi Supervisor") },
+        text = {
+            Column {
+                Text("Masukkan PIN Supervisor/Owner untuk membatalkan transaksi ini:")
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { if (it.length <= 6) pin = it },
+                    label = { Text("PIN Supervisor") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(pin) }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
+                Text("BATALKAN TRANSAKSI")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
     )
 }
