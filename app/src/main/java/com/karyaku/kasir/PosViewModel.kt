@@ -4,10 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.karyaku.kasir.data.local.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class CartItem(val product: ProductEntity, var quantity: Int = 1)
@@ -30,7 +27,6 @@ class PosViewModel(
     private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
 
-    // State Baru: Kategori Terpilih
     private val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
@@ -54,6 +50,22 @@ class PosViewModel(
 
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
+
+    // --- STATE BARU: FILTER REAKTIF (REAL-TIME) ---
+    val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
+        val categories = productList.map { it.category }.distinct()
+        listOf("Semua") + categories
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("Semua"))
+
+    val filteredProducts: StateFlow<List<ProductEntity>> = combine(
+        _products, _searchQuery, _selectedCategory
+    ) { products, query, category ->
+        products.filter { product ->
+            val matchQuery = query.isBlank() || product.name.contains(query, ignoreCase = true)
+            val matchCategory = category == "Semua" || product.category == category
+            matchQuery && matchCategory
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -93,24 +105,6 @@ class PosViewModel(
             }
         }
         return itemsFlow.asStateFlow()
-    }
-
-    // LOGIKA FILTER DIPERBARUI (Pencarian + Kategori)
-    fun getFilteredProducts(): List<ProductEntity> {
-        val query = _searchQuery.value
-        val category = _selectedCategory.value
-        
-        return _products.value.filter { product ->
-            val matchQuery = query.isBlank() || product.name.contains(query, ignoreCase = true)
-            val matchCategory = category == "Semua" || product.category == category
-            matchQuery && matchCategory
-        }
-    }
-
-    // Mendapatkan daftar kategori unik untuk Filter Chips
-    fun getUniqueCategories(): List<String> {
-        val categories = _products.value.map { it.category }.distinct()
-        return listOf("Semua") + categories
     }
 
     fun checkActiveShift() {
@@ -161,7 +155,6 @@ class PosViewModel(
         }
     }
 
-    // UPDATE FUNGSI PRODUK (Tambahkan Kategori)
     fun addProduct(name: String, price: Long, stock: Int, category: String, userId: Long, userName: String) {
         viewModelScope.launch {
             productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock, category = category))
@@ -220,24 +213,12 @@ class PosViewModel(
         val change = if (cashReceived >= total) cashReceived - total else 0
         val customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum"
         
-        val transaction = TransactionEntity(
-            totalPrice = total, 
-            cashReceived = cashReceived, 
-            changeAmount = change,
-            customerName = customerName
-        )
+        val transaction = TransactionEntity(totalPrice = total, cashReceived = cashReceived, changeAmount = change, customerName = customerName)
 
         viewModelScope.launch {
             val newId = transactionDao.insertTransaction(transaction)
-            
             val itemEntities = _cart.value.map { cartItem ->
-                TransactionItemEntity(
-                    transactionId = newId,
-                    productName = cartItem.product.name,
-                    price = cartItem.product.price,
-                    quantity = cartItem.quantity,
-                    subtotal = cartItem.product.price * cartItem.quantity
-                )
+                TransactionItemEntity(transactionId = newId, productName = cartItem.product.name, price = cartItem.product.price, quantity = cartItem.quantity, subtotal = cartItem.product.price * cartItem.quantity)
             }
             transactionItemDao.insertTransactionItems(itemEntities)
 

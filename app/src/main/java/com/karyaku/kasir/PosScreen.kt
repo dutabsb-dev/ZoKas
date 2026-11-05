@@ -61,11 +61,11 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val discount by viewModel.discount.collectAsStateWithLifecycle()
     val customers by viewModel.customers.collectAsStateWithLifecycle()
     val selectedCustomer by viewModel.selectedCustomer.collectAsStateWithLifecycle()
-    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     
-    // Mengambil daftar produk yang sudah difilter & daftar kategori
-    val filteredProducts = viewModel.getFilteredProducts()
-    val categories = viewModel.getUniqueCategories()
+    // State Filter Realtime
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
+    val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
 
     val subtotal = cart.sumOf { it.product.price * it.quantity }
     val totalPrice = (subtotal - discount).coerceAtLeast(0)
@@ -89,7 +89,9 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         if (activeShift == null) showOpenShiftDialog = true
     }
 
-    // --- DIALOG-DIALOG ---
+    // ================= DIALOG - DIALOG =================
+    
+    // 1. Dialog Buka Kasir
     if (showOpenShiftDialog) {
         AlertDialog(
             onDismissRequest = { },
@@ -107,28 +109,47 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
+    // 2. Dialog Tutup Kasir
     if (showCloseShiftDialog) {
-        CloseShiftDialog(onDismiss = { showCloseShiftDialog = false }, onConfirm = { uangFisik -> viewModel.closeShift(currentUser, uangFisik) { showCloseShiftDialog = false; onLogout() } })
+        CloseShiftDialog(onDismiss = { showCloseShiftDialog = false }, onConfirm = { uangFisik -> 
+            viewModel.closeShift(currentUser, uangFisik) { 
+                showCloseShiftDialog = false
+                onLogout() 
+            } 
+        })
     }
 
+    // 3. Dialog Kas Masuk/Keluar
     if (showCashFlowDialog) {
-        CashFlowDialog(onDismiss = { showCashFlowDialog = false }, onSave = { type, amount, note -> viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false })
+        CashFlowDialog(onDismiss = { showCashFlowDialog = false }, onSave = { type, amount, note -> 
+            viewModel.addCashFlow(type, amount, note, currentUser)
+            showCashFlowDialog = false 
+        })
     }
 
+    // 4. Dialog Diskon
     if (showDiscountDialog) {
-        DiscountDialog(currentDiscount = discount, onDismiss = { showDiscountDialog = false }, onSave = { amount -> viewModel.setDiscount(amount); showDiscountDialog = false })
+        DiscountDialog(currentDiscount = discount, onDismiss = { showDiscountDialog = false }, onSave = { amount -> 
+            viewModel.setDiscount(amount)
+            showDiscountDialog = false 
+        })
     }
 
+    // 5. Dialog Pelanggan
     if (showCustomerDialog) {
         CustomerDialog(
             customers = customers, 
             selectedCustomer = selectedCustomer, 
             onDismiss = { showCustomerDialog = false }, 
-            onSelect = { customer -> viewModel.setCustomer(customer); showCustomerDialog = false }, 
+            onSelect = { customer -> 
+                viewModel.setCustomer(customer)
+                showCustomerDialog = false 
+            }, 
             onAddCustomer = { name, phone -> viewModel.addCustomer(name, phone) }
         )
     }
 
+    // 6. Dialog Struk Pembayaran
     if (completedTransaction != null) {
         ReceiptDialog(
             transaction = completedTransaction!!, 
@@ -139,6 +160,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
+    // 7. Bottom Sheet Pembayaran
     if (showPaymentSheet) {
         PaymentBottomSheet(
             totalPrice = totalPrice,
@@ -159,6 +181,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
+    // 8. Bottom Sheet Form Produk
     if (showProductForm) {
         ProductFormBottomSheet(
             productToEdit = productToEdit, 
@@ -172,27 +195,55 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
+    // 9. Dialog Aksi Produk (Edit/Hapus)
     if (showActionDialogFor != null) {
         AlertDialog(
             onDismissRequest = { showActionDialogFor = null },
             title = { Text(showActionDialogFor!!.name) },
             text = { Text("Pilih tindakan untuk produk ini:") },
-            confirmButton = { TextButton(onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null }) { Icon(Icons.Default.Edit, contentDescription = null, tint = ZokasGreen); Spacer(modifier = Modifier.width(4.dp)); Text("Edit", color = ZokasGreen) } },
-            dismissButton = { TextButton(onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null }) { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red); Spacer(modifier = Modifier.width(4.dp)); Text("Hapus", color = Color.Red) } }
+            confirmButton = { 
+                TextButton(onClick = { 
+                    productToEdit = showActionDialogFor
+                    showProductForm = true
+                    showActionDialogFor = null 
+                }) { 
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = ZokasGreen)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Edit", color = ZokasGreen) 
+                } 
+            },
+            dismissButton = { 
+                TextButton(onClick = { 
+                    productToDelete = showActionDialogFor
+                    showActionDialogFor = null 
+                }) { 
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Hapus", color = Color.Red) 
+                } 
+            }
         )
     }
 
+    // 10. Dialog Konfirmasi Hapus
     if (productToDelete != null) {
         AlertDialog(
             onDismissRequest = { productToDelete = null },
             title = { Text("Konfirmasi Hapus") },
             text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}'?") },
-            confirmButton = { TextButton(onClick = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }) { Text("Ya, Hapus", color = Color.Red) } },
+            confirmButton = { 
+                TextButton(onClick = { 
+                    viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name)
+                    productToDelete = null 
+                }) { 
+                    Text("Ya, Hapus", color = Color.Red) 
+                } 
+            },
             dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Batal") } }
         )
     }
 
-    // --- UI UTAMA ---
+    // ================= UI UTAMA =================
     Scaffold(
         topBar = {
             TopAppBar(
@@ -207,7 +258,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showCashFlowDialog = true }) { Icon(Icons.Default.Wallet, contentDescription = "Kas Keluar/Masuk", tint = ZokasOrange) }
+                    IconButton(onClick = { showCashFlowDialog = true }) { Icon(Icons.Default.Wallet, contentDescription = "Kas", tint = ZokasOrange) }
                     IconButton(onClick = { showCloseShiftDialog = true }) { Icon(Icons.Default.Lock, contentDescription = "Tutup Kasir", tint = ZokasOrange) }
                     IconButton(onClick = onLogout) { Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = MaterialTheme.colorScheme.error) }
                 },
@@ -293,7 +344,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     }
 }
 
-// --- KOMPONEN UI BAWAH INI ---
+// ================= KOMPONEN UI =================
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -308,7 +359,6 @@ fun ProductCatalog(
     onProductLongClick: (ProductEntity) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // SEARCH BAR
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
@@ -319,7 +369,6 @@ fun ProductCatalog(
             shape = RoundedCornerShape(12.dp)
         )
 
-        // FILTER KATEGORI (CHIPS)
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -340,15 +389,20 @@ fun ProductCatalog(
         if (products.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Produk tidak ditemukan.", color = MaterialTheme.colorScheme.onSurface) }
         } else {
-            LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 160.dp), contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(products) { product ->
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 160.dp), 
+                contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp), 
+                horizontalArrangement = Arrangement.spacedBy(16.dp), 
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(items = products, key = { it.id }) { product ->
                     Box(
                         modifier = Modifier.fillMaxWidth().aspectRatio(1f).shadow(8.dp, RoundedCornerShape(20.dp), spotColor = ZokasGreenDark)
                             .clip(RoundedCornerShape(20.dp)).background(brush = Brush.linearGradient(colors = listOf(ZokasGreen, ZokasGreenDark)))
                             .combinedClickable(onClick = { onProductClick(product) }, onLongClick = { onProductLongClick(product) })
                     ) {
                         Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                            Text(text = product.category, fontSize = 10.sp, color = Color.White.copy(alpha = 0.7f)) // Label Kategori
+                            Text(text = product.category, fontSize = 10.sp, color = Color.White.copy(alpha = 0.7f))
                             Text(text = product.name, fontWeight = FontWeight.Bold, maxLines = 2, style = MaterialTheme.typography.titleMedium, color = Color.White)
                             Spacer(modifier = Modifier.weight(1f))
                             Text(text = formatRupiah(product.price), style = MaterialTheme.typography.titleLarge, color = ZokasOrange, fontWeight = FontWeight.Bold)
