@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Wallet
@@ -40,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
+import com.karyaku.kasir.data.local.CustomerEntity
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -55,9 +57,10 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
     
-    // State Baru
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val discount by viewModel.discount.collectAsStateWithLifecycle()
+    val customers by viewModel.customers.collectAsStateWithLifecycle()
+    val selectedCustomer by viewModel.selectedCustomer.collectAsStateWithLifecycle()
     
     // Total Harga (Subtotal - Diskon)
     val subtotal = cart.sumOf { it.product.price * it.quantity }
@@ -74,7 +77,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     var showOpenShiftDialog by remember { mutableStateOf(false) }
     var showCloseShiftDialog by remember { mutableStateOf(false) }
     var showCashFlowDialog by remember { mutableStateOf(false) }
-    var showDiscountDialog by remember { mutableStateOf(false) } // State Dialog Diskon
+    var showDiscountDialog by remember { mutableStateOf(false) } 
+    var showCustomerDialog by remember { mutableStateOf(false) } // State Dialog Pelanggan
     var modalAwal by remember { mutableStateOf("") }
 
     LaunchedEffect(activeShift) {
@@ -106,12 +110,18 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         CashFlowDialog(onDismiss = { showCashFlowDialog = false }, onSave = { type, amount, note -> viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false })
     }
 
-    // DIALOG DISKON MANUAL
     if (showDiscountDialog) {
-        DiscountDialog(
-            currentDiscount = discount,
-            onDismiss = { showDiscountDialog = false },
-            onSave = { amount -> viewModel.setDiscount(amount); showDiscountDialog = false }
+        DiscountDialog(currentDiscount = discount, onDismiss = { showDiscountDialog = false }, onSave = { amount -> viewModel.setDiscount(amount); showDiscountDialog = false })
+    }
+
+    // DIALOG PELANGGAN
+    if (showCustomerDialog) {
+        CustomerDialog(
+            customers = customers,
+            selectedCustomer = selectedCustomer,
+            onDismiss = { showCustomerDialog = false },
+            onSelect = { customer -> viewModel.setCustomer(customer); showCustomerDialog = false },
+            onAddCustomer = { name, phone -> viewModel.addCustomer(name, phone) }
         )
     }
 
@@ -133,7 +143,13 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 viewModel.processPayment(cashReceived, currentUser.id, currentUser.name) { newId ->
                     showPaymentSheet = false
                     showCartOnPhone = false
-                    completedTransaction = TransactionEntity(id = newId, totalPrice = totalPrice, cashReceived = cashReceived, changeAmount = cashReceived - totalPrice)
+                    completedTransaction = TransactionEntity(
+                        id = newId, 
+                        totalPrice = totalPrice, 
+                        cashReceived = cashReceived, 
+                        changeAmount = cashReceived - totalPrice,
+                        customerName = selectedCustomer?.name ?: "Pelanggan Umum"
+                    )
                 }
             }
         )
@@ -229,6 +245,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
                         CartList(
                             cart = cart, subtotal = subtotal, discount = discount, totalPrice = totalPrice,
+                            selectedCustomer = selectedCustomer,
+                            onCustomerClick = { showCustomerDialog = true },
                             onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
                             onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }
                         )
@@ -240,6 +258,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(8.dp)) { Text("< Kembali ke Katalog", color = ZokasOrange) }
                         CartList(
                             cart = cart, subtotal = subtotal, discount = discount, totalPrice = totalPrice,
+                            selectedCustomer = selectedCustomer,
+                            onCustomerClick = { showCustomerDialog = true },
                             onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
                             onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }
                         )
@@ -258,12 +278,89 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     }
 }
 
-// DIALOG KAS KELUAR / MASUK (INI YANG TADI HILANG)
+// DIALOG PELANGGAN (BARU)
+@Composable
+fun CustomerDialog(
+    customers: List<CustomerEntity>,
+    selectedCustomer: CustomerEntity?,
+    onDismiss: () -> Unit,
+    onSelect: (CustomerEntity?) -> Unit,
+    onAddCustomer: (String, String) -> Unit
+) {
+    var showAddForm by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    var newPhone by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (showAddForm) "Tambah Pelanggan Baru" else "Pilih Pelanggan") },
+        text = {
+            if (showAddForm) {
+                Column {
+                    OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Nama Pelanggan") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = newPhone, onValueChange = { newPhone = it }, label = { Text("No. HP (Opsional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
+                }
+            } else {
+                Column {
+                    TextButton(onClick = { onSelect(null); onDismiss() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Pelanggan Umum (Tanpa Nama)", fontWeight = FontWeight.Bold, color = ZokasOrange)
+                    }
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (customers.isEmpty()) {
+                        Text("Belum ada data pelanggan.", color = Color.Gray, modifier = Modifier.padding(8.dp))
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                            items(customers) { customer ->
+                                TextButton(
+                                    onClick = { onSelect(customer); onDismiss() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                                ) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(customer.name, fontWeight = FontWeight.Bold)
+                                        Text(customer.phone, fontSize = 12.sp, color = Color.Gray)
+                                    }
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (showAddForm) {
+                Button(
+                    onClick = { 
+                        if (newName.isNotBlank()) {
+                            onAddCustomer(newName, if(newPhone.isBlank()) "-" else newPhone)
+                            showAddForm = false
+                            newName = ""
+                            newPhone = ""
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                ) { Text("SIMPAN") }
+            } else {
+                Button(onClick = { showAddForm = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
+                    Text("+ Pelanggan Baru")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Tutup") }
+        }
+    )
+}
+
+// DIALOG KAS KELUAR / MASUK
 @Composable
 fun CashFlowDialog(onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("OUT") } // Default Kas Keluar
+    var type by remember { mutableStateOf("OUT") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -271,40 +368,17 @@ fun CashFlowDialog(onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit
         text = {
             Column {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Button(
-                        onClick = { type = "OUT" },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") ZokasOrange else Color.Gray)
-                    ) { Text("Kas Keluar") }
-                    Button(
-                        onClick = { type = "IN" },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (type == "IN") ZokasGreen else Color.Gray)
-                    ) { Text("Kas Masuk") }
+                    Button(onClick = { type = "OUT" }, colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") ZokasOrange else Color.Gray)) { Text("Kas Keluar") }
+                    Button(onClick = { type = "IN" }, colors = ButtonDefaults.buttonColors(containerColor = if (type == "IN") ZokasGreen else Color.Gray)) { Text("Kas Masuk") }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { if (it.length <= 10) amount = it },
-                    label = { Text("Nominal (Rp)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = amount, onValueChange = { if (it.length <= 10) amount = it }, label = { Text("Nominal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("Keterangan (cth: Beli Galon)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Keterangan (cth: Beli Galon)") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val amt = amount.toLongOrNull() ?: 0L
-                    if (amt > 0 && note.isNotBlank()) onSave(type, amt, note)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") ZokasOrange else ZokasGreen)
-            ) { Text("SIMPAN") }
+            Button(onClick = { val amt = amount.toLongOrNull() ?: 0L; if (amt > 0 && note.isNotBlank()) onSave(type, amt, note) }, colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") ZokasOrange else ZokasGreen)) { Text("SIMPAN") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
@@ -321,18 +395,10 @@ fun DiscountDialog(currentDiscount: Long, onDismiss: () -> Unit, onSave: (Long) 
             Column {
                 Text("Masukkan nominal potongan harga (Rp):")
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { if (it.length <= 10) amount = it },
-                    label = { Text("Nominal Diskon") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(value = amount, onValueChange = { if (it.length <= 10) amount = it }, label = { Text("Nominal Diskon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = {
-            Button(onClick = { onSave(amount.toLongOrNull() ?: 0L) }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SIMPAN DISKON") }
-        },
+        confirmButton = { Button(onClick = { onSave(amount.toLongOrNull() ?: 0L) }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SIMPAN DISKON") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
 }
@@ -348,7 +414,6 @@ fun ProductCatalog(
     onProductLongClick: (ProductEntity) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // SEARCH BAR
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
@@ -436,12 +501,15 @@ fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment
     }
 }
 
+// UPDATE CARTLIST: Tambahkan Tombol Pilih Pelanggan
 @Composable
 fun CartList(
     cart: List<CartItem>, 
     subtotal: Long, 
     discount: Long, 
     totalPrice: Long, 
+    selectedCustomer: CustomerEntity?, 
+    onCustomerClick: () -> Unit,      
     onAdd: (ProductEntity) -> Unit, 
     onRemove: (ProductEntity) -> Unit, 
     onDelete: (ProductEntity) -> Unit, 
@@ -450,8 +518,24 @@ fun CartList(
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Keranjang Belanja", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         
+        // TOMBOL PELANGGAN
+        OutlinedButton(
+            onClick = onCustomerClick, 
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Icon(Icons.Default.Person, contentDescription = null, tint = ZokasOrange, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (selectedCustomer != null) "Pelanggan: ${selectedCustomer.name}" else "Pelanggan: Umum", 
+                fontWeight = FontWeight.Bold,
+                color = ZokasOrange
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(cart) { item ->
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -473,13 +557,11 @@ fun CartList(
         
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
         
-        // SUBTOTAL
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Subtotal:", style = MaterialTheme.typography.titleMedium)
             Text(formatRupiah(subtotal), style = MaterialTheme.typography.titleMedium)
         }
         
-        // DISKON
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Diskon:", style = MaterialTheme.typography.titleMedium)
@@ -490,7 +572,6 @@ fun CartList(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.surfaceVariant)
 
-        // TOTAL AKHIR
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Total:", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ZokasOrange)

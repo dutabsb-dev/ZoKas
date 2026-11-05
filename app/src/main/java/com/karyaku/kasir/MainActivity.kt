@@ -41,7 +41,8 @@ class MainActivity : ComponentActivity() {
                             database.productDao(), 
                             database.transactionDao(), 
                             database.userDao(),
-                            database.cashFlowDao() // <--- INI YANG TADI HILANG
+                            database.cashFlowDao(), // <--- INI YANG TADI HILANG
+                            database.customerDao()
                         )
                     )
 

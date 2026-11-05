@@ -16,13 +16,16 @@ class PosViewModel(
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao,
     private val userDao: UserDao,
-    private val cashFlowDao: CashFlowDao
+    private val cashFlowDao: CashFlowDao,
+    private val customerDao: CustomerDao // Parameter Baru
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
-    // --- STATE BARU: PENCARIAN & DISKON ---
+    private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
+    val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -31,6 +34,10 @@ class PosViewModel(
 
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
+
+    // State untuk Pelanggan yang dipilih
+    private val _selectedCustomer = MutableStateFlow<CustomerEntity?>(null)
+    val selectedCustomer: StateFlow<CustomerEntity?> = _selectedCustomer.asStateFlow()
 
     private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
     val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
@@ -52,13 +59,20 @@ class PosViewModel(
         viewModelScope.launch { productDao.getAllProducts().collectLatest { _products.value = it } }
         viewModelScope.launch { transactionDao.getAllTransactions().collectLatest { _transactions.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
+        viewModelScope.launch { customerDao.getAllCustomers().collectLatest { _customers.value = it } }
     }
 
-    // Fungsi untuk mengatur pencarian & diskon
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setDiscount(amount: Long) { _discount.value = amount }
+    
+    // Fungsi Pelanggan
+    fun setCustomer(customer: CustomerEntity?) { _selectedCustomer.value = customer }
+    fun addCustomer(name: String, phone: String) {
+        viewModelScope.launch {
+            customerDao.insertCustomer(CustomerEntity(name = name, phone = phone))
+        }
+    }
 
-    // Fungsi untuk mendapatkan produk yang sudah difilter berdasarkan pencarian
     fun getFilteredProducts(): List<ProductEntity> {
         val query = _searchQuery.value
         return if (query.isBlank()) _products.value 
@@ -161,7 +175,6 @@ class PosViewModel(
         _cart.value = _cart.value.toMutableList().also { it.removeAll { item -> item.product.id == product.id } }
     }
 
-    // LOGIKA TOTAL DIPERBARUI: Dikurangi Diskon
     fun getTotalPrice(): Long {
         val subtotal = _cart.value.sumOf { it.product.price * it.quantity }
         return (subtotal - _discount.value).coerceAtLeast(0)
@@ -170,7 +183,14 @@ class PosViewModel(
     fun processPayment(cashReceived: Long, userId: Long, userName: String, onSuccess: (Long) -> Unit) {
         val total = getTotalPrice()
         val change = if (cashReceived >= total) cashReceived - total else 0
-        val transaction = TransactionEntity(totalPrice = total, cashReceived = cashReceived, changeAmount = change)
+        val customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum"
+        
+        val transaction = TransactionEntity(
+            totalPrice = total, 
+            cashReceived = cashReceived, 
+            changeAmount = change,
+            customerName = customerName
+        )
 
         viewModelScope.launch {
             _cart.value.forEach { item ->
@@ -178,10 +198,11 @@ class PosViewModel(
                 productDao.updateStock(item.product.id, sisa)
             }
             val newId = transactionDao.insertTransaction(transaction)
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI: ${formatRupiah(total)}"))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI: ${formatRupiah(total)} ($customerName)"))
             
             _cart.value = emptyList()
-            _discount.value = 0 // Reset diskon setelah bayar
+            _discount.value = 0
+            _selectedCustomer.value = null // Reset pelanggan
             onSuccess(newId)
         }
     }
@@ -191,12 +212,13 @@ class PosViewModelFactory(
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao,
     private val userDao: UserDao,
-    private val cashFlowDao: CashFlowDao
+    private val cashFlowDao: CashFlowDao,
+    private val customerDao: CustomerDao // Parameter Baru
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao) as T
+            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao, customerDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

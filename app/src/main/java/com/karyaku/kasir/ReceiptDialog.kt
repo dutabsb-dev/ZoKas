@@ -27,7 +27,7 @@ fun ReceiptDialog(
     transaction: TransactionEntity,
     storeName: String,
     storeFooter: String,
-    settingsManager: SettingsManager, // Parameter ini ditambahkan
+    settingsManager: SettingsManager,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -43,11 +43,8 @@ fun ReceiptDialog(
                     val mac = settingsManager.printerMacAddress
                     if (mac == null) {
                         Toast.makeText(context, "Tidak ada printer terhubung. Silakan atur di menu Pengaturan.", Toast.LENGTH_LONG).show()
-                        // Untuk sementara kita tutup dialognya jika tidak ada printer
-                        // onDismiss() 
                     } else {
                         scope.launch {
-                            // Generate Bytes untuk Printer
                             val printData = generatePrintData(transaction, storeName, storeFooter, dateFormat)
                             val success = printerManager.printData(mac, printData)
                             if (success) {
@@ -72,6 +69,8 @@ fun ReceiptDialog(
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                // TAMPILKAN NAMA PELANGGAN
+                Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -94,7 +93,7 @@ fun ReceiptDialog(
     )
 }
 
-// FUNGSI YANG DIPERBAIKI MENGGUNAKAN ByteArrayOutputStream
+// FUNGSI UNTUK MERAKIT BYTES ESC/POS
 private fun generatePrintData(
     transaction: TransactionEntity,
     storeName: String,
@@ -113,6 +112,8 @@ private fun generatePrintData(
     output.write("================================\n".toByteArray()) // 32 Karakter standar printer
     output.write("ID: #${transaction.id}\n".toByteArray())
     output.write("${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
+    // TAMPILKAN NAMA PELANGGAN DI STRUK PRINTER
+    output.write("Pelanggan: ${transaction.customerName}\n".toByteArray())
     output.write("================================\n".toByteArray())
     
     output.write(EscPosCommands.ALIGN_LEFT)

@@ -12,9 +12,10 @@ import androidx.room.RoomDatabase
         UserEntity::class, 
         AuditLogEntity::class, 
         ShiftEntity::class,
-        CashFlowEntity::class // TAMBAHAN BARU
+        CashFlowEntity::class,
+        CustomerEntity::class // TAMBAHAN BARU
     ], 
-    version = 5, 
+    version = 6, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun userDao(): UserDao
     abstract fun cashFlowDao(): CashFlowDao // TAMBAHAN BARU
+    abstract fun customerDao(): CustomerDao
 
     companion object {
         @Volatile

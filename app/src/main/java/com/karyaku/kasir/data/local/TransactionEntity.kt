@@ -9,5 +9,6 @@ data class TransactionEntity(
     val timestamp: Long = System.currentTimeMillis(),
     val totalPrice: Long,
     val cashReceived: Long,
-    val changeAmount: Long
+    val changeAmount: Long,
+    val customerName: String = "Pelanggan Umum"
 )
