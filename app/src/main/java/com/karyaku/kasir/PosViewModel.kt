@@ -16,11 +16,18 @@ class PosViewModel(
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao,
     private val userDao: UserDao,
-    private val cashFlowDao: CashFlowDao // Parameter Baru
+    private val cashFlowDao: CashFlowDao
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
+
+    // --- STATE BARU: PENCARIAN & DISKON ---
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _discount = MutableStateFlow(0L)
+    val discount: StateFlow<Long> = _discount.asStateFlow()
 
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
@@ -47,6 +54,17 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
     }
 
+    // Fungsi untuk mengatur pencarian & diskon
+    fun setSearchQuery(query: String) { _searchQuery.value = query }
+    fun setDiscount(amount: Long) { _discount.value = amount }
+
+    // Fungsi untuk mendapatkan produk yang sudah difilter berdasarkan pencarian
+    fun getFilteredProducts(): List<ProductEntity> {
+        val query = _searchQuery.value
+        return if (query.isBlank()) _products.value 
+        else _products.value.filter { it.name.contains(query, ignoreCase = true) }
+    }
+
     fun checkActiveShift() {
         viewModelScope.launch { _activeShift.value = userDao.getActiveShift() }
     }
@@ -66,50 +84,28 @@ class PosViewModel(
         }
     }
 
-    // FUNGSI BARU: Catat Kas Keluar/Masuk
     fun addCashFlow(type: String, amount: Long, note: String, user: UserEntity) {
         viewModelScope.launch {
             val shift = _activeShift.value ?: return@launch
-            val cashFlow = CashFlowEntity(
-                shiftId = shift.id,
-                type = type,
-                amount = amount,
-                note = note,
-                userId = user.id,
-                userName = user.name
-            )
+            val cashFlow = CashFlowEntity(shiftId = shift.id, type = type, amount = amount, note = note, userId = user.id, userName = user.name)
             cashFlowDao.insertCashFlow(cashFlow)
             val actionText = if (type == "OUT") "KAS KELUAR: $note (${formatRupiah(amount)})" else "KAS MASUK: $note (${formatRupiah(amount)})"
             userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = actionText))
         }
     }
 
-    // LOGIKA TUTUP KASIR YANG DIPERBARUI (Menghitung Kas Keluar/Masuk)
     fun closeShift(user: UserEntity, uangFisik: Long, onSuccess: (Long) -> Unit) {
         viewModelScope.launch {
             val shift = _activeShift.value
             if (shift != null) {
-                // 1. Total Penjualan Tunai
                 val totalPenjualan = _transactions.value.filter { it.timestamp >= shift.startTime }.sumOf { it.totalPrice }
-                
-                // 2. Total Kas Keluar (Pengeluaran)
                 val totalKasKeluar = cashFlowDao.getTotalCashOut(shift.id) ?: 0L
-                
-                // 3. Total Kas Masuk Tambahan (Misal: tambah modal tengah shift)
                 val totalKasMasuk = cashFlowDao.getTotalCashIn(shift.id) ?: 0L
-
-                // 4. Uang Sistem = Modal Awal + Penjualan + Kas Masuk - Kas Keluar
                 val uangSistem = shift.openingCash + totalPenjualan + totalKasMasuk - totalKasKeluar
-                
-                // 5. Selisih
                 val selisih = uangFisik - uangSistem
 
                 userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih)
-                userDao.insertAuditLog(AuditLogEntity(
-                    userId = user.id, 
-                    userName = user.name, 
-                    action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)}"
-                ))
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)}"))
                 
                 checkActiveShift()
                 onSuccess(selisih)
@@ -165,7 +161,11 @@ class PosViewModel(
         _cart.value = _cart.value.toMutableList().also { it.removeAll { item -> item.product.id == product.id } }
     }
 
-    fun getTotalPrice(): Long = _cart.value.sumOf { it.product.price * it.quantity }
+    // LOGIKA TOTAL DIPERBARUI: Dikurangi Diskon
+    fun getTotalPrice(): Long {
+        val subtotal = _cart.value.sumOf { it.product.price * it.quantity }
+        return (subtotal - _discount.value).coerceAtLeast(0)
+    }
 
     fun processPayment(cashReceived: Long, userId: Long, userName: String, onSuccess: (Long) -> Unit) {
         val total = getTotalPrice()
@@ -179,7 +179,9 @@ class PosViewModel(
             }
             val newId = transactionDao.insertTransaction(transaction)
             userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI: ${formatRupiah(total)}"))
+            
             _cart.value = emptyList()
+            _discount.value = 0 // Reset diskon setelah bayar
             onSuccess(newId)
         }
     }
@@ -189,7 +191,7 @@ class PosViewModelFactory(
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao,
     private val userDao: UserDao,
-    private val cashFlowDao: CashFlowDao // Parameter Baru
+    private val cashFlowDao: CashFlowDao
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
