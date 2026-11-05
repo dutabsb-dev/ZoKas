@@ -15,7 +15,8 @@ data class CartItem(val product: ProductEntity, var quantity: Int = 1)
 class PosViewModel(
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao,
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val cashFlowDao: CashFlowDao // Parameter Baru
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
@@ -65,16 +66,50 @@ class PosViewModel(
         }
     }
 
+    // FUNGSI BARU: Catat Kas Keluar/Masuk
+    fun addCashFlow(type: String, amount: Long, note: String, user: UserEntity) {
+        viewModelScope.launch {
+            val shift = _activeShift.value ?: return@launch
+            val cashFlow = CashFlowEntity(
+                shiftId = shift.id,
+                type = type,
+                amount = amount,
+                note = note,
+                userId = user.id,
+                userName = user.name
+            )
+            cashFlowDao.insertCashFlow(cashFlow)
+            val actionText = if (type == "OUT") "KAS KELUAR: $note (${formatRupiah(amount)})" else "KAS MASUK: $note (${formatRupiah(amount)})"
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = actionText))
+        }
+    }
+
+    // LOGIKA TUTUP KASIR YANG DIPERBARUI (Menghitung Kas Keluar/Masuk)
     fun closeShift(user: UserEntity, uangFisik: Long, onSuccess: (Long) -> Unit) {
         viewModelScope.launch {
             val shift = _activeShift.value
             if (shift != null) {
+                // 1. Total Penjualan Tunai
                 val totalPenjualan = _transactions.value.filter { it.timestamp >= shift.startTime }.sumOf { it.totalPrice }
-                val uangSistem = shift.openingCash + totalPenjualan
+                
+                // 2. Total Kas Keluar (Pengeluaran)
+                val totalKasKeluar = cashFlowDao.getTotalCashOut(shift.id) ?: 0L
+                
+                // 3. Total Kas Masuk Tambahan (Misal: tambah modal tengah shift)
+                val totalKasMasuk = cashFlowDao.getTotalCashIn(shift.id) ?: 0L
+
+                // 4. Uang Sistem = Modal Awal + Penjualan + Kas Masuk - Kas Keluar
+                val uangSistem = shift.openingCash + totalPenjualan + totalKasMasuk - totalKasKeluar
+                
+                // 5. Selisih
                 val selisih = uangFisik - uangSistem
 
                 userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih)
-                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)}"))
+                userDao.insertAuditLog(AuditLogEntity(
+                    userId = user.id, 
+                    userName = user.name, 
+                    action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)}"
+                ))
                 
                 checkActiveShift()
                 onSuccess(selisih)
@@ -153,12 +188,13 @@ class PosViewModel(
 class PosViewModelFactory(
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao,
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val cashFlowDao: CashFlowDao // Parameter Baru
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PosViewModel(productDao, transactionDao, userDao) as T
+            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
