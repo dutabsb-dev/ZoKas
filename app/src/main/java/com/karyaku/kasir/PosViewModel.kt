@@ -24,12 +24,15 @@ class PosViewModel(
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
-    // State untuk Produk Terlaris
     private val _bestSellers = MutableStateFlow<List<BestSellerData>>(emptyList())
     val bestSellers: StateFlow<List<BestSellerData>> = _bestSellers.asStateFlow()
 
     private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
+
+    // State Baru: Kategori Terpilih
+    private val _selectedCategory = MutableStateFlow("Semua")
+    val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -67,12 +70,12 @@ class PosViewModel(
         viewModelScope.launch { transactionItemDao.getBestSellers().collectLatest { _bestSellers.value = it } }
     }
 
-    // Fungsi untuk mendapatkan produk dengan stok menipis (<= 5)
     fun getLowStockProducts(): List<ProductEntity> {
         return _products.value.filter { it.stock <= 5 && it.stock >= 0 }
     }
 
     fun setSearchQuery(query: String) { _searchQuery.value = query }
+    fun setCategory(category: String) { _selectedCategory.value = category }
     fun setDiscount(amount: Long) { _discount.value = amount }
     fun setCustomer(customer: CustomerEntity?) { _selectedCustomer.value = customer }
     
@@ -92,10 +95,22 @@ class PosViewModel(
         return itemsFlow.asStateFlow()
     }
 
+    // LOGIKA FILTER DIPERBARUI (Pencarian + Kategori)
     fun getFilteredProducts(): List<ProductEntity> {
         val query = _searchQuery.value
-        return if (query.isBlank()) _products.value 
-        else _products.value.filter { it.name.contains(query, ignoreCase = true) }
+        val category = _selectedCategory.value
+        
+        return _products.value.filter { product ->
+            val matchQuery = query.isBlank() || product.name.contains(query, ignoreCase = true)
+            val matchCategory = category == "Semua" || product.category == category
+            matchQuery && matchCategory
+        }
+    }
+
+    // Mendapatkan daftar kategori unik untuk Filter Chips
+    fun getUniqueCategories(): List<String> {
+        val categories = _products.value.map { it.category }.distinct()
+        return listOf("Semua") + categories
     }
 
     fun checkActiveShift() {
@@ -146,10 +161,11 @@ class PosViewModel(
         }
     }
 
-    fun addProduct(name: String, price: Long, stock: Int, userId: Long, userName: String) {
+    // UPDATE FUNGSI PRODUK (Tambahkan Kategori)
+    fun addProduct(name: String, price: Long, stock: Int, category: String, userId: Long, userName: String) {
         viewModelScope.launch {
-            productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock))
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name"))
+            productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock, category = category))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name ($category)"))
         }
     }
 

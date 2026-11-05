@@ -8,5 +8,6 @@ data class ProductEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val price: Long, // Harga dalam Rupiah (contoh: 15000)
-    val stock: Int = 0
+    val stock: Int = 0,
+    val category: String = "Umum"
 )
