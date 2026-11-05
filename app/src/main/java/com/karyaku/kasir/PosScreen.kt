@@ -218,7 +218,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 Row(modifier = Modifier.fillMaxSize()) {
                     Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
                         ProductCatalog(
-                            products = viewModel.getFilteredProducts(), // Menggunakan filtered products
+                            products = viewModel.getFilteredProducts(),
                             searchQuery = searchQuery,
                             onSearchChange = { viewModel.setSearchQuery(it) },
                             onProductClick = { viewModel.addToCart(it) },
@@ -256,6 +256,58 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             }
         }
     }
+}
+
+// DIALOG KAS KELUAR / MASUK (INI YANG TADI HILANG)
+@Composable
+fun CashFlowDialog(onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit) {
+    var amount by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("OUT") } // Default Kas Keluar
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Catat Kas Keluar / Masuk") },
+        text = {
+            Column {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Button(
+                        onClick = { type = "OUT" },
+                        colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") ZokasOrange else Color.Gray)
+                    ) { Text("Kas Keluar") }
+                    Button(
+                        onClick = { type = "IN" },
+                        colors = ButtonDefaults.buttonColors(containerColor = if (type == "IN") ZokasGreen else Color.Gray)
+                    ) { Text("Kas Masuk") }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { if (it.length <= 10) amount = it },
+                    label = { Text("Nominal (Rp)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Keterangan (cth: Beli Galon)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = amount.toLongOrNull() ?: 0L
+                    if (amt > 0 && note.isNotBlank()) onSave(type, amt, note)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") ZokasOrange else ZokasGreen)
+            ) { Text("SIMPAN") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }
 
 // DIALOG DISKON MANUAL
