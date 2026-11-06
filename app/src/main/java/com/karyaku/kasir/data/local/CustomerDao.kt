@@ -12,4 +12,8 @@ interface CustomerDao {
 
     @Query("SELECT * FROM customers ORDER BY name ASC")
     fun getAllCustomers(): Flow<List<CustomerEntity>>
+
+    // FUNGSI BARU: Update Poin Pelanggan
+    @Query("UPDATE customers SET points = :newPoints WHERE id = :customerId")
+    suspend fun updateCustomerPoints(customerId: Long, newPoints: Int)
 }

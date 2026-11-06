@@ -18,6 +18,9 @@ class PosViewModel(
     private val transactionItemDao: TransactionItemDao
 ) : ViewModel() {
 
+    private val _pointsUsed = MutableStateFlow(0)
+    val pointsUsed: StateFlow<Int> = _pointsUsed.asStateFlow()
+
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
@@ -95,8 +98,19 @@ class PosViewModel(
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setCategory(category: String) { _selectedCategory.value = category }
     fun setDiscount(amount: Long) { _discount.value = amount }
-    fun setCustomer(customer: CustomerEntity?) { _selectedCustomer.value = customer }
-    
+    fun setCustomer(customer: CustomerEntity?) { 
+        _selectedCustomer.value = customer 
+        _pointsUsed.value = 0 // Reset poin
+        _discount.value = 0   // Reset diskon
+    }
+    fun redeemPoints(pointsToRedeem: Int) {
+        val customer = _selectedCustomer.value ?: return
+        if (pointsToRedeem > 0 && pointsToRedeem <= customer.points) {
+            _pointsUsed.value = pointsToRedeem
+            // 1 Poin = Rp 1.000
+            _discount.value = (pointsToRedeem * 1000).toLong()
+        }
+    }
     fun addCustomer(name: String, phone: String) {
         viewModelScope.launch {
             customerDao.insertCustomer(CustomerEntity(name = name, phone = phone))
@@ -217,7 +231,8 @@ class PosViewModel(
     fun processPayment(cashReceived: Long, userId: Long, userName: String, onSuccess: (Long) -> Unit) {
         val total = getTotalPrice()
         val change = if (cashReceived >= total) cashReceived - total else 0
-        val customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum"
+        val customer = _selectedCustomer.value
+        val customerName = customer?.name ?: "Pelanggan Umum"
         
         val transaction = TransactionEntity(totalPrice = total, cashReceived = cashReceived, changeAmount = change, customerName = customerName)
 
@@ -233,10 +248,19 @@ class PosViewModel(
                 productDao.updateStock(item.product.id, sisa)
             }
             
+            if (customer != null) {
+                // Hitung poin baru: (Total Belanja / 10.000)
+                val earnedPoints = (total / 10000).toInt()
+                // Kurangi poin yang ditukar, tambah poin yang didapat
+                val finalPoints = (customer.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
+                customerDao.updateCustomerPoints(customer.id, finalPoints)
+            }
+            
             userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI: ${formatRupiah(total)} ($customerName)"))
             
             _cart.value = emptyList()
             _discount.value = 0
+            _pointsUsed.value = 0
             _selectedCustomer.value = null
             onSuccess(newId)
         }

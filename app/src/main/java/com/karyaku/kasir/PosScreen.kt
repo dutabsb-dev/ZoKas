@@ -66,7 +66,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
-
+    val pointsUsed by viewModel.pointsUsed.collectAsStateWithLifecycle()
     val subtotal = cart.sumOf { it.product.price * it.quantity }
     val totalPrice = (subtotal - discount).coerceAtLeast(0)
 
@@ -145,7 +145,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 viewModel.setCustomer(customer)
                 showCustomerDialog = false 
             }, 
-            onAddCustomer = { name, phone -> viewModel.addCustomer(name, phone) }
+            onAddCustomer = { name, phone -> viewModel.addCustomer(name, phone) },
+            onRedeemPoints = { points -> viewModel.redeemPoints(points) }
         )
     }
 
@@ -309,6 +310,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         CartList(
                             cart = cart, subtotal = subtotal, discount = discount, totalPrice = totalPrice,
                             selectedCustomer = selectedCustomer,
+                            pointsUsed = pointsUsed,
                             onCustomerClick = { showCustomerDialog = true },
                             onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
                             onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }
@@ -322,6 +324,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         CartList(
                             cart = cart, subtotal = subtotal, discount = discount, totalPrice = totalPrice,
                             selectedCustomer = selectedCustomer,
+                            pointsUsed = pointsUsed,
                             onCustomerClick = { showCustomerDialog = true },
                             onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
                             onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }
@@ -490,6 +493,7 @@ fun CartList(
     discount: Long, 
     totalPrice: Long, 
     selectedCustomer: CustomerEntity?, 
+    pointsUsed: Int,
     onCustomerClick: () -> Unit,      
     onAdd: (ProductEntity) -> Unit, 
     onRemove: (ProductEntity) -> Unit, 
@@ -504,8 +508,17 @@ fun CartList(
         OutlinedButton(onClick = onCustomerClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
             Icon(Icons.Default.Person, contentDescription = null, tint = ZokasOrange, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = if (selectedCustomer != null) "Pelanggan: ${selectedCustomer.name}" else "Pelanggan: Umum", fontWeight = FontWeight.Bold, color = ZokasOrange)
+            Text(
+                text = if (selectedCustomer != null) "Pelanggan: ${selectedCustomer.name}" else "Pelanggan: Umum", 
+                fontWeight = FontWeight.Bold, color = ZokasOrange
+            )
         }
+        
+        // TAMPILKAN INFO POIN JIKA ADA YANG DITUKAR
+        if (pointsUsed > 0) {
+            Text("Poin digunakan: $pointsUsed (Potongan ${formatRupiah((pointsUsed * 1000).toLong())})", color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+        
         Spacer(modifier = Modifier.height(12.dp))
 
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -562,45 +575,74 @@ fun CustomerDialog(
     selectedCustomer: CustomerEntity?,
     onDismiss: () -> Unit,
     onSelect: (CustomerEntity?) -> Unit,
-    onAddCustomer: (String, String) -> Unit
+    onAddCustomer: (String, String) -> Unit,
+    onRedeemPoints: (Int) -> Unit
 ) {
     var showAddForm by remember { mutableStateOf(false) }
+    var showRedeemForm by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var newPhone by remember { mutableStateOf("") }
+    var pointsToRedeem by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (showAddForm) "Tambah Pelanggan Baru" else "Pilih Pelanggan") },
-        text = {
-            if (showAddForm) {
-                Column {
-                    OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Nama Pelanggan") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = newPhone, onValueChange = { newPhone = it }, label = { Text("No. HP (Opsional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
+        title = { 
+            Text(
+                when {
+                    showAddForm -> "Tambah Pelanggan Baru"
+                    showRedeemForm -> "Tukar Poin Pelanggan"
+                    else -> "Pilih Pelanggan"
                 }
-            } else {
-                Column {
-                    TextButton(onClick = { onSelect(null); onDismiss() }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Pelanggan Umum (Tanpa Nama)", fontWeight = FontWeight.Bold, color = ZokasOrange)
+            ) 
+        },
+        text = {
+            when {
+                showAddForm -> {
+                    Column {
+                        OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Nama Pelanggan") }, modifier = Modifier.fillMaxWidth())
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(value = newPhone, onValueChange = { newPhone = it }, label = { Text("No. HP (Opsional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
                     }
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (customers.isEmpty()) {
-                        Text("Belum ada data pelanggan.", color = Color.Gray, modifier = Modifier.padding(8.dp))
-                    } else {
-                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                            items(customers) { customer ->
-                                TextButton(
-                                    onClick = { onSelect(customer); onDismiss() },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
-                                ) {
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text(customer.name, fontWeight = FontWeight.Bold)
-                                        Text(customer.phone, fontSize = 12.sp, color = Color.Gray)
+                }
+                showRedeemForm && selectedCustomer != null -> {
+                    Column {
+                        Text("Poin tersedia: ${selectedCustomer.points}")
+                        Text("1 Poin = Rp 1.000", fontSize = 12.sp, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = pointsToRedeem, 
+                            onValueChange = { if (it.length <= 5) pointsToRedeem = it }, 
+                            label = { Text("Jumlah Poin yang Ditukar") }, 
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                else -> {
+                    Column {
+                        TextButton(onClick = { onSelect(null); onDismiss() }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Pelanggan Umum (Tanpa Nama)", fontWeight = FontWeight.Bold, color = ZokasOrange)
+                        }
+                        HorizontalDivider()
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (customers.isEmpty()) {
+                            Text("Belum ada data pelanggan.", color = Color.Gray, modifier = Modifier.padding(8.dp))
+                        } else {
+                            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                                items(customers) { customer ->
+                                    TextButton(
+                                        onClick = { onSelect(customer); onDismiss() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                                    ) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            // TAMPILKAN POIN DI DAFTAR
+                                            Text("${customer.name} (${customer.points} Poin)", fontWeight = FontWeight.Bold) 
+                                            Text(customer.phone, fontSize = 12.sp, color = Color.Gray)
+                                        }
                                     }
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                                 }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                             }
                         }
                     }
@@ -608,22 +650,47 @@ fun CustomerDialog(
             }
         },
         confirmButton = {
-            if (showAddForm) {
-                Button(onClick = { 
-                    if (newName.isNotBlank()) {
-                        onAddCustomer(newName, if(newPhone.isBlank()) "-" else newPhone)
-                        showAddForm = false
-                        newName = ""
-                        newPhone = ""
+            when {
+                showAddForm -> {
+                    Button(onClick = { 
+                        if (newName.isNotBlank()) {
+                            onAddCustomer(newName, if(newPhone.isBlank()) "-" else newPhone)
+                            showAddForm = false
+                            newName = ""
+                            newPhone = ""
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SIMPAN") }
+                }
+                showRedeemForm && selectedCustomer != null -> {
+                    Button(onClick = { 
+                        val pts = pointsToRedeem.toIntOrNull() ?: 0
+                        if (pts > 0 && pts <= selectedCustomer.points) {
+                            onRedeemPoints(pts)
+                            onDismiss()
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("TUKAR POIN") }
+                }
+                else -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // TOMBOL TUKAR POIN MUNCUL JIKA PELANGGAN MEMILIKI POIN
+                        if (selectedCustomer != null && selectedCustomer.points > 0) {
+                            Button(onClick = { showRedeemForm = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                                Text("Tukar Poin")
+                            }
+                        }
+                        Button(onClick = { showAddForm = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
+                            Text("+ Pelanggan")
+                        }
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SIMPAN") }
-            } else {
-                Button(onClick = { showAddForm = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
-                    Text("+ Pelanggan Baru")
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
+        dismissButton = { 
+            TextButton(onClick = { 
+                if (showAddForm || showRedeemForm) { showAddForm = false; showRedeemForm = false } 
+                else onDismiss() 
+            }) { Text("Tutup") } 
+        }
     )
 }
 
