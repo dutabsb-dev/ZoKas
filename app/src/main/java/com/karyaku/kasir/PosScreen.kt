@@ -183,13 +183,13 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     }
 
     // 8. Bottom Sheet Form Produk
-    if (showProductForm) {
+        if (showProductForm) {
         ProductFormBottomSheet(
             productToEdit = productToEdit, 
             onDismiss = { showProductForm = false; productToEdit = null }, 
-            onSave = { name, price, stock, category ->
-                if (productToEdit == null) viewModel.addProduct(name, price, stock, category, currentUser.id, currentUser.name)
-                else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category), currentUser.id, currentUser.name)
+            onSave = { name, price, stock, category, costPrice -> // <--- Tambah costPrice
+                if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, currentUser.id, currentUser.name)
+                else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice), currentUser.id, currentUser.name)
                 showProductForm = false
                 productToEdit = null
             }
@@ -423,11 +423,12 @@ fun ProductCatalog(
 fun ProductFormBottomSheet(
     productToEdit: ProductEntity? = null, 
     onDismiss: () -> Unit, 
-    onSave: (String, Long, Int, String) -> Unit 
+    onSave: (String, Long, Int, String, Long) -> Unit // <--- Parameter Baru (costPrice)
 ) {
     val sheetState = rememberModalBottomSheetState()
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
     var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
+    var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") } // State HPP
     var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
     var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") } 
 
@@ -435,21 +436,34 @@ fun ProductFormBottomSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             
+            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori (cth: Minuman)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             
             Spacer(modifier = Modifier.height(8.dp))
+            // INPUT HARGA BELI (HPP)
+            OutlinedTextField(
+                value = costPrice, 
+                onValueChange = { if (it.length <= 10) costPrice = it }, 
+                label = { Text("Harga Beli / Modal (Rp)") }, 
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                modifier = Modifier.fillMaxWidth(), 
+                singleLine = true
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
+            
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
             
             Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = { 
                 val p = price.toLongOrNull() ?: 0L
+                val cp = costPrice.toLongOrNull() ?: 0L
                 val s = stock.toIntOrNull() ?: 0
-                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }) 
+                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp) 
             }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
                 Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp)
             }

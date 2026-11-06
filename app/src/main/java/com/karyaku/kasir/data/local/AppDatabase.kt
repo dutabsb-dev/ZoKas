@@ -16,7 +16,7 @@ import androidx.room.RoomDatabase
         CustomerEntity::class,
         TransactionItemEntity::class
     ], 
-    version = 10, 
+    version = 11, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

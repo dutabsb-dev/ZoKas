@@ -21,6 +21,9 @@ class PosViewModel(
     private val _pointsUsed = MutableStateFlow(0)
     val pointsUsed: StateFlow<Int> = _pointsUsed.asStateFlow()
 
+    private val _totalHpp = MutableStateFlow(0L)
+    val totalHpp: StateFlow<Long> = _totalHpp.asStateFlow()
+
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
@@ -77,6 +80,8 @@ class PosViewModel(
             }
             checkActiveShift()
         }
+        viewModelScope.launch { 
+        transactionItemDao.getTotalCostOfGoodsSold().collectLatest { _totalHpp.value = it ?: 0L } }
         viewModelScope.launch { productDao.getAllProducts().collectLatest { _products.value = it } }
         viewModelScope.launch { transactionDao.getAllTransactions().collectLatest { _transactions.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
@@ -175,9 +180,9 @@ class PosViewModel(
         }
     }
 
-    fun addProduct(name: String, price: Long, stock: Int, category: String, userId: Long, userName: String) {
+    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, userId: Long, userName: String) {
         viewModelScope.launch {
-            productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock, category = category))
+            productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock, category = category, costPrice = costPrice))
             userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name ($category)"))
         }
     }
@@ -238,8 +243,17 @@ class PosViewModel(
 
         viewModelScope.launch {
             val newId = transactionDao.insertTransaction(transaction)
+            
+            // Simpan rincian beserta HPP-nya
             val itemEntities = _cart.value.map { cartItem ->
-                TransactionItemEntity(transactionId = newId, productName = cartItem.product.name, price = cartItem.product.price, quantity = cartItem.quantity, subtotal = cartItem.product.price * cartItem.quantity)
+                TransactionItemEntity(
+                    transactionId = newId, 
+                    productName = cartItem.product.name, 
+                    price = cartItem.product.price, 
+                    costPrice = cartItem.product.costPrice, // <--- SIMPAN MODAL
+                    quantity = cartItem.quantity, 
+                    subtotal = cartItem.product.price * cartItem.quantity
+                )
             }
             transactionItemDao.insertTransactionItems(itemEntities)
 
@@ -249,9 +263,7 @@ class PosViewModel(
             }
             
             if (customer != null) {
-                // Hitung poin baru: (Total Belanja / 10.000)
                 val earnedPoints = (total / 10000).toInt()
-                // Kurangi poin yang ditukar, tambah poin yang didapat
                 val finalPoints = (customer.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
                 customerDao.updateCustomerPoints(customer.id, finalPoints)
             }

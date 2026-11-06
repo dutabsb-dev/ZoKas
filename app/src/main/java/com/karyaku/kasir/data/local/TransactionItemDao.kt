@@ -29,4 +29,7 @@ interface TransactionItemDao {
         LIMIT 5
     """)
     fun getBestSellers(): Flow<List<BestSellerData>>
+
+@Query("SELECT SUM(costPrice * quantity) FROM transaction_items")
+    fun getTotalCostOfGoodsSold(): Flow<Long?>
 }
