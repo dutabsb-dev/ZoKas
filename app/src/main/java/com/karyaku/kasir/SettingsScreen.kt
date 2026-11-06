@@ -1,14 +1,11 @@
 package com.karyaku.kasir
 
-import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -49,31 +46,6 @@ fun SettingsScreen(
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
     var showChangePinDialog by remember { mutableStateOf(false) }
-    var showRestartDialog by remember { mutableStateOf(false) }
-
-    val createBackupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri: Uri? ->
-        if (uri != null) {
-            if (BackupHelper.backupDatabase(context, uri)) {
-                Toast.makeText(context, "Backup berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Gagal melakukan backup.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    val restoreBackupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            if (BackupHelper.restoreDatabase(context, uri)) {
-                showRestartDialog = true
-            } else {
-                Toast.makeText(context, "Gagal memulihkan data.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
     if (showChangePinDialog) {
         ChangePinDialog(
@@ -87,149 +59,95 @@ fun SettingsScreen(
         )
     }
 
-    if (showRestartDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Restore Berhasil") },
-            text = { Text("Data berhasil dipulihkan. Aplikasi perlu ditutup dan dibuka kembali agar data ter-refresh.") },
-            confirmButton = {
-                Button(onClick = {
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                    Text("TUTUP APLIKASI")
-                }
-            }
-        )
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    // MENGGUNAKAN COLUMN + VERTICAL SCROLL (JAUH LEBIH STABIL DARI LAZYCOLUMN UNTUK HALAMAN STATIS)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item {
-            Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
+        Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 
         // --- PENGATURAN TEMA & BAHASA ---
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Mode Gelap", style = MaterialTheme.typography.titleMedium)
-                        Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Bahasa", style = MaterialTheme.typography.titleMedium)
-                        Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
-                            Text(if (language == "in") "Indonesia" else "English")
-                        }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Mode Gelap", style = MaterialTheme.typography.titleMedium)
+                    Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Bahasa", style = MaterialTheme.typography.titleMedium)
+                    Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
+                        Text(if (language == "in") "Indonesia" else "English")
                     }
                 }
             }
         }
         
         // --- MANAJEMEN AKUN ---
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Manajemen Akun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Login sebagai: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = { showChangePinDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                    ) {
-                        Text("Ubah PIN Keamanan")
-                    }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Manajemen Akun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Login sebagai: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { showChangePinDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                ) {
+                    Text("Ubah PIN Keamanan")
                 }
             }
         }
 
         // --- STATUS PRO ---
-        item {
-            if (isPro) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
-                            Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
-                }
-            } else {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
+        if (isPro) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                            Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold)
-                        }
+                        Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
+                        Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
             }
-        }
-
-        // --- BACKUP & RESTORE ---
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Data & Backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Cadangkan seluruh data produk, transaksi, dan pelanggan ke file.", fontSize = 12.sp, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
-                        ) {
-                            Text("BACKUP")
-                        }
-                        Button(
-                            onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                        ) {
-                            Text("RESTORE")
-                        }
+        } else {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                        Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
         // --- LOG AKTIVITAS (AUDIT TRAIL) ---
-        item {
-            Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-        }
+        Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
         
         if (auditLogs.isEmpty()) {
-            item {
-                Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray)
-            }
+            Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.fillMaxWidth())
         } else {
-            items(auditLogs) { log ->
+            // Gunakan forEach biasa karena Column sudah scrollable
+            auditLogs.forEach { log ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -245,16 +163,15 @@ fun SettingsScreen(
         }
 
         // --- TOMBOL LOGOUT ---
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) {
-                Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) {
+            Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold)
         }
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
+// DIALOG GANTI PIN
 @Composable
 fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var newPin by remember { mutableStateOf("") }
