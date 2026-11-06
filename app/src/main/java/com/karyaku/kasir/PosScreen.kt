@@ -583,6 +583,15 @@ fun CustomerDialog(
     var newName by remember { mutableStateOf("") }
     var newPhone by remember { mutableStateOf("") }
     var pointsToRedeem by remember { mutableStateOf("") }
+    
+    // State untuk Pencarian
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Filter pelanggan berdasarkan pencarian (Nama atau No HP)
+    val filteredCustomers = customers.filter { 
+        it.name.contains(searchQuery, ignoreCase = true) || 
+        it.phone.contains(searchQuery, ignoreCase = true) 
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -620,25 +629,38 @@ fun CustomerDialog(
                 }
                 else -> {
                     Column {
+                        // KOLOM PENCARIAN DITAMBAHKAN DI SINI
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            placeholder = { Text("Cari nama / no. HP...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
                         TextButton(onClick = { onSelect(null); onDismiss() }, modifier = Modifier.fillMaxWidth()) {
                             Text("Pelanggan Umum (Tanpa Nama)", fontWeight = FontWeight.Bold, color = ZokasOrange)
                         }
                         HorizontalDivider()
                         Spacer(modifier = Modifier.height(8.dp))
-                        if (customers.isEmpty()) {
-                            Text("Belum ada data pelanggan.", color = Color.Gray, modifier = Modifier.padding(8.dp))
+                        
+                        if (filteredCustomers.isEmpty()) {
+                            Text("Pelanggan tidak ditemukan.", color = Color.Gray, modifier = Modifier.padding(16.dp))
                         } else {
                             LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                                items(customers) { customer ->
+                                items(filteredCustomers) { customer ->
                                     TextButton(
                                         onClick = { onSelect(customer); onDismiss() },
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                                     ) {
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            // TAMPILKAN POIN DI DAFTAR
-                                            Text("${customer.name} (${customer.points} Poin)", fontWeight = FontWeight.Bold) 
-                                            Text(customer.phone, fontSize = 12.sp, color = Color.Gray)
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                            Text("${customer.name} (${customer.points} Poin)", fontWeight = FontWeight.Bold)
+                                            // Sembunyikan tanda '-' jika nomor HP kosong
+                                            val displayPhone = if (customer.phone == "-" || customer.phone.isBlank()) "" else customer.phone
+                                            Text(displayPhone, fontSize = 12.sp, color = Color.Gray)
                                         }
                                     }
                                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
@@ -672,7 +694,6 @@ fun CustomerDialog(
                 }
                 else -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // TOMBOL TUKAR POIN MUNCUL JIKA PELANGGAN MEMILIKI POIN
                         if (selectedCustomer != null && selectedCustomer.points > 0) {
                             Button(onClick = { showRedeemForm = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
                                 Text("Tukar Poin")
