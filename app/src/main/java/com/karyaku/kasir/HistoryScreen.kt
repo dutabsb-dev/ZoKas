@@ -62,7 +62,6 @@ fun HistoryScreen(
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
-    // Hitung Omzet & Laba Kotor
     val validTransactions = transactions.filter { it.status == "SUCCESS" }
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
     val labaKotor = totalOmzet - totalHpp
@@ -98,7 +97,6 @@ fun HistoryScreen(
                     
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
                     
-                    // BARIS LABA KOTOR & HPP
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Laba Kotor:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(labaKotor), color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -244,7 +242,10 @@ fun TransactionDetailDialog(
 ) {
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    val items by viewModel.getTransactionItems(transaction.id).collectAsStateWithLifecycle()
+    
+    // PERBAIKAN: Gunakan remember agar tidak membuat StateFlow baru terus-menerus (Memory Leak)
+    val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
+    val items by itemsFlow.collectAsStateWithLifecycle()
     
     var showReceipt by remember { mutableStateOf(false) }
     var showVoidPinDialog by remember { mutableStateOf(false) }
@@ -335,7 +336,6 @@ fun TransactionDetailDialog(
     )
 }
 
-// DIALOG PIN UNTUK VOID
 @Composable
 fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }

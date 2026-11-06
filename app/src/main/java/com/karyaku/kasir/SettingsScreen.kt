@@ -43,7 +43,7 @@ fun SettingsScreen(
     currentUser: UserEntity,
     viewModel: PosViewModel
 ) {
-    val context = LocalContext.current // HANYA DIDEKLARASIKAN SEKALI
+    val context = LocalContext.current
     var storeName by remember { mutableStateOf(settingsManager.storeName) }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
     val dateFormat = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
@@ -51,7 +51,7 @@ fun SettingsScreen(
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
-    // Launcher untuk Backup
+    // Launcher Backup
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
@@ -64,7 +64,7 @@ fun SettingsScreen(
         }
     }
 
-    // Launcher untuk Restore
+    // Launcher Restore
     val restoreBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -85,6 +85,21 @@ fun SettingsScreen(
                 viewModel.updatePin(currentUser, newPin)
                 showChangePinDialog = false
                 Toast.makeText(context, "PIN berhasil diubah!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (showRestartDialog) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Restore Berhasil") },
+            text = { Text("Data berhasil dipulihkan. Aplikasi perlu ditutup dan dibuka kembali agar data ter-refresh.") },
+            confirmButton = {
+                Button(onClick = {
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                    Text("TUTUP APLIKASI")
+                }
             }
         )
     }
@@ -239,22 +254,6 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
-    }
-
-    // DIALOG RESTART SETELAH RESTORE (DIPINDAHKAN KE LUAR LAZYCOLUMN, DI DALAM FUNGSI UTAMA)
-    if (showRestartDialog) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Restore Berhasil") },
-            text = { Text("Data berhasil dipulihkan. Aplikasi perlu ditutup dan dibuka kembali agar data ter-refresh.") },
-            confirmButton = {
-                Button(onClick = {
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                    Text("TUTUP APLIKASI")
-                }
-            }
-        )
     }
 }
 
