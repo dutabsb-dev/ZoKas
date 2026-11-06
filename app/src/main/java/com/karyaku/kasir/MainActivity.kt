@@ -19,9 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.UserEntity
 
-import androidx.appcompat.app.AppCompatActivity
-
-class MainActivity : ComponentActivity() { 
+class MainActivity : ComponentActivity() { // <--- PASTIKAN ComponentActivity
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
