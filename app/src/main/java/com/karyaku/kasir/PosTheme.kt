@@ -1,13 +1,13 @@
 package com.karyaku.kasir
 
 import android.content.res.Configuration
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
-import androidx.core.os.LocaleListCompat
+import androidx.compose.ui.platform.LocalContext
 import java.util.Locale
 
 val ZokasLightColors = lightColorScheme(
@@ -46,14 +46,17 @@ fun PosTheme(
 ) {
     val colorScheme = if (isDarkMode) ZokasDarkColors else ZokasLightColors
 
-    // PERBAIKAN: Menggunakan AppCompatDelegate, TIDAK membungkus LocalContext
-    val locales = LocaleListCompat.forLanguageTags(language)
-    if (AppCompatDelegate.getApplicationLocales() != locales) {
-        AppCompatDelegate.setApplicationLocales(locales)
-    }
+    val context = LocalContext.current
+    val configuration = Configuration(context.resources.configuration)
+    configuration.setLocale(Locale(language))
+    val localizedContext = context.createConfigurationContext(configuration)
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalContext provides localizedContext
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            content = content
+        )
+    }
 }

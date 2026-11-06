@@ -21,7 +21,7 @@ import com.karyaku.kasir.data.local.UserEntity
 
 import androidx.appcompat.app.AppCompatActivity
 
-class MainActivity : AppCompatActivity() { 
+class MainActivity : ComponentActivity() { 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         

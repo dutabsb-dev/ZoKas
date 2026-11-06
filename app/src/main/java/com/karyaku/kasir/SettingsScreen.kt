@@ -1,5 +1,8 @@
 package com.karyaku.kasir
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,6 +32,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// FUNGSI SAKTI UNTUK MENCARI ACTIVITY ASLI
+fun Context.findActivity(): Activity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is Activity) return context
+        context = context.baseContext
+    }
+    return null
+}
+
 @Composable
 fun SettingsScreen(
     settingsManager: SettingsManager,
@@ -43,7 +56,10 @@ fun SettingsScreen(
     currentUser: UserEntity,
     viewModel: PosViewModel
 ) {
+    // Gunakan Context Biasa, tapi Launcher akan mencari Activity aslinya
     val context = LocalContext.current
+    val activity = context.findActivity() 
+    
     var storeName by remember { mutableStateOf(settingsManager.storeName) }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
@@ -51,7 +67,7 @@ fun SettingsScreen(
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
-    // --- FITUR BACKUP & RESTORE ---
+    // LAUNCHER YANG AMAN DARI CRASH
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
@@ -183,7 +199,7 @@ fun SettingsScreen(
             }
         }
 
-        // --- DATA & BACKUP (YANG TADI HILANG) ---
+        // --- DATA & BACKUP ---
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -196,14 +212,20 @@ fun SettingsScreen(
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
+                        onClick = { 
+                            try { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") } 
+                            catch (e: Exception) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
+                        },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
                     ) {
                         Text("BACKUP")
                     }
                     Button(
-                        onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) },
+                        onClick = { 
+                            try { restoreBackupLauncher.launch(arrayOf("*/*")) } 
+                            catch (e: Exception) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
+                        },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
                     ) {
