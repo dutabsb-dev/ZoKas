@@ -19,7 +19,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.UserEntity
 
-class MainActivity : ComponentActivity() {
+import androidx.appcompat.app.AppCompatActivity
+
+class MainActivity : AppCompatActivity() { 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         

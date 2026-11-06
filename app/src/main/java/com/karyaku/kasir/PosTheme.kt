@@ -1,19 +1,19 @@
 package com.karyaku.kasir
 
 import android.content.res.Configuration
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.graphics.Color // <--- IMPORT INI DITAMBAHKAN
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.core.os.LocaleListCompat
 import java.util.Locale
 
 val ZokasLightColors = lightColorScheme(
     primary = ZokasGreen,
     onPrimary = Color.White,
-    primaryContainer = ZokasGreen, // TopBar Hijau
+    primaryContainer = ZokasGreen, 
     onPrimaryContainer = Color.White,
     secondary = ZokasOrange,
     onSecondary = Color.White,
@@ -27,7 +27,7 @@ val ZokasLightColors = lightColorScheme(
 val ZokasDarkColors = darkColorScheme(
     primary = ZokasGreenLight,
     onPrimary = Color.White,
-    primaryContainer = ZokasGreen, // TopBar Hijau Gelap
+    primaryContainer = ZokasGreen, 
     onPrimaryContainer = Color.White,
     secondary = ZokasOrange,
     onSecondary = Color.White,
@@ -46,17 +46,14 @@ fun PosTheme(
 ) {
     val colorScheme = if (isDarkMode) ZokasDarkColors else ZokasLightColors
 
-    val context = LocalContext.current
-    val configuration = Configuration(context.resources.configuration)
-    configuration.setLocale(Locale(language))
-    val localizedContext = context.createConfigurationContext(configuration)
-
-    CompositionLocalProvider(
-        LocalContext provides localizedContext
-    ) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            content = content
-        )
+    // PERBAIKAN: Menggunakan AppCompatDelegate, TIDAK membungkus LocalContext
+    val locales = LocaleListCompat.forLanguageTags(language)
+    if (AppCompatDelegate.getApplicationLocales() != locales) {
+        AppCompatDelegate.setApplicationLocales(locales)
     }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        content = content
+    )
 }
