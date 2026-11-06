@@ -10,5 +10,5 @@ data class ProductEntity(
     val price: Long,
     val stock: Int = 0,
     val category: String = "Umum",
-    val costPrice: Long = 0 // <--- TAMBAHKAN INI (Harga Beli/Modal)
+    val costPrice: Long = 0
 )

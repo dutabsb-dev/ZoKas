@@ -5,7 +5,6 @@ import androidx.room.Insert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
-// Class untuk menampung data barang terlaris
 data class BestSellerData(
     val productName: String,
     val totalQty: Int,
@@ -20,7 +19,6 @@ interface TransactionItemDao {
     @Query("SELECT * FROM transaction_items WHERE transactionId = :transactionId")
     fun getItemsByTransaction(transactionId: Long): Flow<List<TransactionItemEntity>>
 
-    // Fungsi untuk mengambil 5 produk terlaris (berdasarkan kuantitas terjual)
     @Query("""
         SELECT productName, SUM(quantity) as totalQty, SUM(subtotal) as totalRevenue 
         FROM transaction_items 
@@ -30,6 +28,6 @@ interface TransactionItemDao {
     """)
     fun getBestSellers(): Flow<List<BestSellerData>>
 
-@Query("SELECT SUM(costPrice * quantity) FROM transaction_items")
+    @Query("SELECT SUM(costPrice * quantity) FROM transaction_items")
     fun getTotalCostOfGoodsSold(): Flow<Long?>
 }
