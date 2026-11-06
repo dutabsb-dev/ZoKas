@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
 import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
@@ -62,6 +63,9 @@ fun SettingsScreen(
     
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
+    var showUserManagementDialog by remember { mutableStateOf(false) } // State Baru
+
+    val users by viewModel.users.collectAsStateWithLifecycle() // Ambil data users
 
     // Launcher Backup
     val createBackupLauncher = rememberLauncherForActivityResult(
@@ -82,7 +86,7 @@ fun SettingsScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.restoreDatabase(context, uri)) {
-                showRestartDialog = true // Tampilkan dialog restart jika sukses
+                showRestartDialog = true
             } else {
                 Toast.makeText(context, "Gagal memulihkan data.", Toast.LENGTH_SHORT).show()
             }
@@ -101,14 +105,25 @@ fun SettingsScreen(
         )
     }
 
+    // Dialog Manajemen Karyawan
+    if (showUserManagementDialog) {
+        UserManagementDialog(
+            users = users,
+            currentUser = currentUser,
+            onDismiss = { showUserManagementDialog = false },
+            onAddUser = { name, pin, role -> viewModel.addUser(name, pin, role, currentUser) },
+            onUpdateUser = { user -> viewModel.updateUser(user, currentUser) },
+            onDeleteUser = { user -> viewModel.deleteUser(user, currentUser) }
+        )
+    }
+
     if (showRestartDialog) {
         AlertDialog(
-            onDismissRequest = { }, // Wajib di-restart, tidak bisa ditutup biasa
+            onDismissRequest = { },
             title = { Text("Restore Berhasil") },
             text = { Text("Data berhasil dipulihkan. Aplikasi harus ditutup dan dibuka kembali agar data baru termuat sempurna.") },
             confirmButton = {
                 Button(onClick = {
-                    // Menutup aplikasi secara paksa agar Room Database me-reload file baru
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
                     Text("TUTUP APLIKASI SEKARANG")
@@ -156,13 +171,27 @@ fun SettingsScreen(
                 Text("Manajemen Akun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Login sebagai: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { showChangePinDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                ) {
-                    Text("Ubah PIN Keamanan")
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { showChangePinDialog = true },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                    ) {
+                        Text("Ubah PIN")
+                    }
+                    
+                    // Tombol Kelola Karyawan (Hanya untuk Owner)
+                    if (currentUser.role == "OWNER") {
+                        Button(
+                            onClick = { showUserManagementDialog = true },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                        ) {
+                            Text("Kelola Karyawan")
+                        }
+                    }
                 }
             }
         }

@@ -27,6 +27,10 @@ class PosViewModel(
     private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
 
+    // STATE BARU: Daftar Karyawan
+    private val _users = MutableStateFlow<List<UserEntity>>(emptyList())
+    val users: StateFlow<List<UserEntity>> = _users.asStateFlow()
+
     private val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
@@ -82,6 +86,29 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().collectLatest { _customers.value = it } }
         viewModelScope.launch { transactionItemDao.getBestSellers().collectLatest { _bestSellers.value = it } }
+        viewModelScope.launch { userDao.getAllUsers().collectLatest { _users.value = it } } // Observe Users
+    }
+
+    // --- FUNGSI MANAJEMEN KARYAWAN ---
+    fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) {
+        viewModelScope.launch {
+            userDao.insertUser(UserEntity(name = name, pin = pin, role = role))
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name ($role)"))
+        }
+    }
+
+    fun updateUser(user: UserEntity, adminUser: UserEntity) {
+        viewModelScope.launch {
+            userDao.updateUser(user)
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "EDIT KARYAWAN: ${user.name}"))
+        }
+    }
+
+    fun deleteUser(user: UserEntity, adminUser: UserEntity) {
+        viewModelScope.launch {
+            userDao.deleteUser(user)
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "HAPUS KARYAWAN: ${user.name}"))
+        }
     }
 
     fun getLowStockProducts(): List<ProductEntity> {
@@ -232,8 +259,6 @@ class PosViewModel(
         val change = if (cashReceived >= total) cashReceived - total else 0
         val customer = _selectedCustomer.value
         val customerName = customer?.name ?: "Pelanggan Umum"
-        
-        // HITUNG TOTAL MODAL (HPP) UNTUK DISIMPAN DI TRANSAKSI
         val totalCost = _cart.value.sumOf { it.product.costPrice * it.quantity }
 
         val transaction = TransactionEntity(
@@ -241,7 +266,7 @@ class PosViewModel(
             cashReceived = cashReceived, 
             changeAmount = change, 
             customerName = customerName,
-            totalCost = totalCost // <--- SIMPAN HPP
+            totalCost = totalCost
         )
 
         viewModelScope.launch {
