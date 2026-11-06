@@ -2,8 +2,8 @@ package com.karyaku.kasir
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity // <--- IMPORT BARU
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,7 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.UserEntity
 
-class MainActivity : ComponentActivity() { // <--- PASTIKAN ComponentActivity
+class MainActivity : AppCompatActivity() { // <--- UBAH KE APPCOMPATACTIVITY
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         

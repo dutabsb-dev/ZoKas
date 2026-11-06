@@ -9,7 +9,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.dbsbstudio.zokas" // Ganti ID Aplikasi (Wajib unik, tidak boleh sama dengan orang lain)
+        applicationId "com.dbsbstudio.zokas"
         minSdk 26
         targetSdk 34
         versionCode 1
@@ -19,10 +19,8 @@ android {
         vectorDrawables { useSupportLibrary true }
     }
 
-    // KONFIGURASI SIGNING UNTUK RILIS
     signingConfigs {
         release {
-            // Ini akan memanggil variabel rahasia dari GitHub
             storeFile file(System.getenv("KEYSTORE_FILE") ?: "zokas-release.jks")
             storePassword System.getenv("KEYSTORE_PASSWORD") ?: "zokas123"
             keyAlias System.getenv("KEY_ALIAS") ?: "zokas"
@@ -33,7 +31,7 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
-            minifyEnabled false // Bisa diubah true nanti untuk memperkecil ukuran
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -48,7 +46,9 @@ android {
 }
 
 dependencies {
-    // ... (SAMA PERSIS SEPERTI SEBELUMNYA) ...
+    // --- TAMBAHKAN BARIS INI UNTUK MEMPERBAIKI CRASH ---
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
     implementation platform('androidx.compose:compose-bom:2024.02.00')
