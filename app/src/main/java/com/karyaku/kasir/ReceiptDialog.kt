@@ -29,7 +29,7 @@ fun ReceiptDialog(
     storeName: String,
     storeFooter: String,
     settingsManager: SettingsManager,
-    items: List<TransactionItemEntity>? = null, // Parameter baru untuk rincian barang
+    items: List<TransactionItemEntity>? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -67,14 +67,12 @@ fun ReceiptDialog(
         title = null,
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Tampilan UI Struk
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 
-                // Rincian Barang (Jika ada)
                 if (items != null && items.isNotEmpty()) {
                     items.forEach { item ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -85,9 +83,23 @@ fun ReceiptDialog(
                     Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
 
+                val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
+                val diskon = subtotalItems - transaction.totalPrice
+
+                if (diskon > 0) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Subtotal", fontFamily = FontFamily.Monospace)
+                        Text(formatRupiah(subtotalItems), fontFamily = FontFamily.Monospace)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Diskon / Poin", fontFamily = FontFamily.Monospace)
+                        Text("- ${formatRupiah(diskon)}", fontFamily = FontFamily.Monospace)
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Total Belanja", fontFamily = FontFamily.Monospace)
+                    Text("Total Belanja", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                     Text(formatRupiah(transaction.totalPrice), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -130,13 +142,21 @@ private fun generatePrintData(
     
     output.write(EscPosCommands.ALIGN_LEFT)
     
-    // CETAK RINCIAN BARANG KE PRINTER
     if (items != null && items.isNotEmpty()) {
         items.forEach { item ->
             output.write("${item.quantity}x ${item.productName}\n".toByteArray())
             val priceStr = "  Rp ${item.subtotal}\n"
             output.write(priceStr.toByteArray())
         }
+        output.write("--------------------------------\n".toByteArray())
+    }
+
+    // TAMBAHKAN CETAK DISKON DI PRINTER
+    val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
+    val diskon = subtotalItems - transaction.totalPrice
+    if (diskon > 0) {
+        output.write("Subtotal: ${formatRupiah(subtotalItems)}\n".toByteArray())
+        output.write("Diskon  : -${formatRupiah(diskon)}\n".toByteArray())
         output.write("--------------------------------\n".toByteArray())
     }
 
