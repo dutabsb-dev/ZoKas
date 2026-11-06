@@ -1,8 +1,5 @@
 package com.karyaku.kasir
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -35,15 +32,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-fun Context.findActivity(): Activity? {
-    var context = this
-    while (context is ContextWrapper) {
-        if (context is Activity) return context
-        context = context.baseContext
-    }
-    return null
-}
-
 @Composable
 fun HistoryScreen(
     transactions: List<TransactionEntity>,
@@ -53,7 +41,7 @@ fun HistoryScreen(
     currentUser: UserEntity
 ) {
     val context = LocalContext.current
-    val activity = context.findActivity()
+    val activity = context.findActivity() // Mengambil fungsi dari SettingsScreen.kt
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
@@ -62,7 +50,6 @@ fun HistoryScreen(
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
-    // Hitung Omzet & Laba Kotor
     val validTransactions = transactions.filter { it.status == "SUCCESS" }
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
     val labaKotor = totalOmzet - totalHpp
@@ -244,7 +231,6 @@ fun TransactionDetailDialog(
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
     
-    // PERBAIKAN MEMORY LEAK
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val items by itemsFlow.collectAsStateWithLifecycle()
     
