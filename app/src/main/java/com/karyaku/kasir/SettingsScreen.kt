@@ -46,12 +46,11 @@ fun SettingsScreen(
     val context = LocalContext.current
     var storeName by remember { mutableStateOf(settingsManager.storeName) }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
-    val dateFormat = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
+    val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
-    // Launcher Backup
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
@@ -64,7 +63,6 @@ fun SettingsScreen(
         }
     }
 
-    // Launcher Restore
     val restoreBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -257,7 +255,6 @@ fun SettingsScreen(
     }
 }
 
-// DIALOG GANTI PIN (Berdiri Sendiri)
 @Composable
 fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var newPin by remember { mutableStateOf("") }

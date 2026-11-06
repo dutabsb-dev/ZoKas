@@ -35,7 +35,6 @@ class MainActivity : ComponentActivity() {
             PosTheme(isDarkMode = isDarkMode, language = language) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     
-                    // Inisialisasi ViewModel dengan SEMUA parameter yang dibutuhkan
                     val posViewModel: PosViewModel = viewModel(
                         factory = PosViewModelFactory(
                             database.productDao(), 
@@ -43,7 +42,7 @@ class MainActivity : ComponentActivity() {
                             database.userDao(),
                             database.cashFlowDao(),
                             database.customerDao(),
-                            database.transactionItemDao() // Parameter ke-6
+                            database.transactionItemDao()
                         )
                     )
 
@@ -90,44 +89,18 @@ fun MainNavigation(
     Scaffold(
         bottomBar = {
             NavigationBar {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Kasir") }, 
-                    label = { Text("Kasir") }, 
-                    selected = selectedTab == 0, 
-                    onClick = { selectedTab = 0 }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.List, contentDescription = "Riwayat") }, 
-                    label = { Text("Riwayat") }, 
-                    selected = selectedTab == 1, 
-                    onClick = { selectedTab = 1 }
-                )
+                NavigationBarItem(icon = { Icon(Icons.Default.Home, contentDescription = "Kasir") }, label = { Text("Kasir") }, selected = selectedTab == 0, onClick = { selectedTab = 0 })
+                NavigationBarItem(icon = { Icon(Icons.Default.List, contentDescription = "Riwayat") }, label = { Text("Riwayat") }, selected = selectedTab == 1, onClick = { selectedTab = 1 })
                 if (currentUser.role == "OWNER") {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") }, 
-                        label = { Text("Pengaturan") }, 
-                        selected = selectedTab == 2, 
-                        onClick = { selectedTab = 2 }
-                    )
+                    NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") }, label = { Text("Pengaturan") }, selected = selectedTab == 2, onClick = { selectedTab = 2 })
                 }
             }
         }
     ) { paddingValues ->
         androidx.compose.foundation.layout.Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> PosScreen(
-                    viewModel = viewModel, 
-                    settingsManager = settingsManager, 
-                    currentUser = currentUser, 
-                    onLogout = onLogout
-                )
-                1 -> HistoryScreen(
-                    transactions = transactions, 
-                    isPro = isPro, 
-                    viewModel = viewModel ,
-                    settingsManager = settingsManager,
-                    currentUser = currentUser
-                )
+                0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout)
+                1 -> HistoryScreen(transactions = transactions, isPro = isPro, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                 2 -> SettingsScreen(
                     settingsManager = settingsManager,
                     isPro = isPro,
