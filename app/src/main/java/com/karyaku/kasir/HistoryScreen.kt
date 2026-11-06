@@ -51,12 +51,19 @@ fun HistoryScreen(
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     
-    // State untuk Filter Tanggal
-    var dateFilter by remember { mutableStateOf("HARI_INI") } // HARI_INI, 7_HARI, 30_HARI, SEMUA
+    // State untuk Filter Tanggal (Ditambah BULAN_INI)
+    var dateFilter by remember { mutableStateOf("HARI_INI") }
 
     // Logika Filter Tanggal
-    val now = Calendar.getInstance().timeInMillis
     val startOfToday = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val startOfMonth = Calendar.getInstance().apply {
+        set(Calendar.DAY_OF_MONTH, 1)
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
@@ -66,6 +73,7 @@ fun HistoryScreen(
     val filteredTransactions = transactions.filter { tx ->
         when (dateFilter) {
             "HARI_INI" -> tx.timestamp >= startOfToday
+            "BULAN_INI" -> tx.timestamp >= startOfMonth
             "7_HARI" -> tx.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
             "30_HARI" -> tx.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
             else -> true
@@ -97,6 +105,7 @@ fun HistoryScreen(
             ) {
                 val filters = listOf(
                     "HARI_INI" to "Hari Ini",
+                    "BULAN_INI" to "Bulan Ini",
                     "7_HARI" to "7 Hari",
                     "30_HARI" to "30 Hari",
                     "SEMUA" to "Semua"
@@ -123,7 +132,7 @@ fun HistoryScreen(
                 colors = CardDefaults.cardColors(containerColor = ZokasGreen)
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Omzet ($dateFilter)", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                    Text("Total Omzet", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                     Text(
                         text = formatRupiah(totalOmzet),
                         color = ZokasOrange,
@@ -166,10 +175,10 @@ fun HistoryScreen(
             }
         }
 
-        // --- 3. PRODUK TERLARIS (Semua Waktu) ---
+        // --- 3. PRODUK TERLARIS ---
         if (bestSellers.isNotEmpty()) {
             item {
-                Text("🏆 Top 5 Produk Terlaris (Semua Waktu)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("🏆 Top 5 Produk Terlaris", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
             item {
                 Card(
@@ -216,7 +225,7 @@ fun HistoryScreen(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = "Ekspor")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ekspor Laporan ($dateFilter) ke CSV")
+                    Text("Ekspor Laporan ke Excel/CSV")
                 }
             }
         }
@@ -291,6 +300,8 @@ fun TransactionDetailDialog(
         ReceiptDialog(
             transaction = transaction,
             storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
+            storeAddress = if (settingsManager.isPro) settingsManager.storeAddress else "Alamat belum diatur",
+            storePhone = if (settingsManager.isPro) settingsManager.storePhone else "-",
             storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Terima kasih!",
             settingsManager = settingsManager,
             items = items,

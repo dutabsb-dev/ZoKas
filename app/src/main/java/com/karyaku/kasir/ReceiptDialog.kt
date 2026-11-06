@@ -27,6 +27,8 @@ import java.util.Locale
 fun ReceiptDialog(
     transaction: TransactionEntity,
     storeName: String,
+    storeAddress: String,
+    storePhone: String,
     storeFooter: String,
     settingsManager: SettingsManager,
     items: List<TransactionItemEntity>? = null,
@@ -47,7 +49,7 @@ fun ReceiptDialog(
                         Toast.makeText(context, "Tidak ada printer terhubung. Atur di Pengaturan.", Toast.LENGTH_LONG).show()
                     } else {
                         scope.launch {
-                            val printData = generatePrintData(transaction, storeName, storeFooter, dateFormat, items)
+                            val printData = generatePrintData(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
                             val success = printerManager.printData(mac, printData)
                             if (success) {
                                 Toast.makeText(context, "Struk berhasil dicetak!", Toast.LENGTH_SHORT).show()
@@ -67,12 +69,18 @@ fun ReceiptDialog(
         title = null,
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                
+                // HEADER TOKO
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
+                Text(text = storeAddress, fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
+                Text(text = "Telp: $storePhone", fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
+                
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 
+                // RINCIAN BARANG
                 if (items != null && items.isNotEmpty()) {
                     items.forEach { item ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -83,6 +91,7 @@ fun ReceiptDialog(
                     Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
 
+                // HITUNG SUBTOTAL & DISKON
                 val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
                 val diskon = subtotalItems - transaction.totalPrice
 
@@ -112,7 +121,7 @@ fun ReceiptDialog(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                Text(text = storeFooter, fontFamily = FontFamily.Monospace, fontSize = 12.sp, textAlign = TextAlign.Center)
+                Text(text = storeFooter, fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
             }
         }
     )
@@ -121,6 +130,8 @@ fun ReceiptDialog(
 private fun generatePrintData(
     transaction: TransactionEntity,
     storeName: String,
+    storeAddress: String,
+    storePhone: String,
     storeFooter: String,
     dateFormat: SimpleDateFormat,
     items: List<TransactionItemEntity>?
@@ -134,6 +145,8 @@ private fun generatePrintData(
     output.write("$storeName\n".toByteArray())
     output.write(EscPosCommands.BOLD_OFF)
     
+    output.write("$storeAddress\n".toByteArray())
+    output.write("Telp: $storePhone\n".toByteArray())
     output.write("================================\n".toByteArray())
     output.write("ID: #${transaction.id}\n".toByteArray())
     output.write("${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
@@ -151,7 +164,6 @@ private fun generatePrintData(
         output.write("--------------------------------\n".toByteArray())
     }
 
-    // TAMBAHKAN CETAK DISKON DI PRINTER
     val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
     val diskon = subtotalItems - transaction.totalPrice
     if (diskon > 0) {

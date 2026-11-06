@@ -59,15 +59,16 @@ fun SettingsScreen(
     val context = LocalContext.current
     var storeName by remember { mutableStateOf(settingsManager.storeName) }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
+    var storeAddress by remember { mutableStateOf(settingsManager.storeAddress) }
+    var storePhone by remember { mutableStateOf(settingsManager.storePhone) }
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
-    var showUserManagementDialog by remember { mutableStateOf(false) } // State Baru
+    var showUserManagementDialog by remember { mutableStateOf(false) }
 
-    val users by viewModel.users.collectAsStateWithLifecycle() // Ambil data users
+    val users by viewModel.users.collectAsStateWithLifecycle()
 
-    // Launcher Backup
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
@@ -80,7 +81,6 @@ fun SettingsScreen(
         }
     }
 
-    // Launcher Restore
     val restoreBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -105,7 +105,6 @@ fun SettingsScreen(
         )
     }
 
-    // Dialog Manajemen Karyawan
     if (showUserManagementDialog) {
         UserManagementDialog(
             users = users,
@@ -182,7 +181,6 @@ fun SettingsScreen(
                         Text("Ubah PIN")
                     }
                     
-                    // Tombol Kelola Karyawan (Hanya untuk Owner)
                     if (currentUser.role == "OWNER") {
                         Button(
                             onClick = { showUserManagementDialog = true },
@@ -196,7 +194,7 @@ fun SettingsScreen(
             }
         }
 
-        // --- STATUS PRO ---
+        // --- STATUS PRO & PROFIL TOKO ---
         if (isPro) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
@@ -206,9 +204,14 @@ fun SettingsScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Kustomisasi Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
+                Text("Profil Toko & Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                 Spacer(modifier = Modifier.height(8.dp))
+                
                 OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
             }
@@ -239,20 +242,14 @@ fun SettingsScreen(
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = { 
-                            try { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") } 
-                            catch (e: Exception) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
-                        },
+                        onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
                     ) {
                         Text("BACKUP")
                     }
                     Button(
-                        onClick = { 
-                            try { restoreBackupLauncher.launch(arrayOf("*/*")) } 
-                            catch (e: Exception) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
-                        },
+                        onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
                     ) {

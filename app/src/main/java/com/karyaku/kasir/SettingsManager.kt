@@ -26,7 +26,15 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("STORE_FOOTER", "Terima kasih telah berbelanja!") ?: "Terima kasih telah berbelanja!"
         set(value) = prefs.edit().putString("STORE_FOOTER", value).apply()
 
-    // TAMBAHAN BARU: Menyimpan MAC Address Printer
+    // TAMBAHAN BARU: Alamat & Telepon
+    var storeAddress: String
+        get() = prefs.getString("STORE_ADDRESS", "Jl. Raya UMKM No. 123") ?: "Jl. Raya UMKM No. 123"
+        set(value) = prefs.edit().putString("STORE_ADDRESS", value).apply()
+
+    var storePhone: String
+        get() = prefs.getString("STORE_PHONE", "081234567890") ?: "081234567890"
+        set(value) = prefs.edit().putString("STORE_PHONE", value).apply()
+
     var printerMacAddress: String?
         get() = prefs.getString("PRINTER_MAC", null)
         set(value) = prefs.edit().putString("PRINTER_MAC", value).apply()
