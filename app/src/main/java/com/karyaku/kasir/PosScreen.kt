@@ -151,12 +151,14 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     }
 
     // 6. Dialog Struk Pembayaran
-    if (completedTransaction != null) {
+       if (completedTransaction != null) {
         ReceiptDialog(
-            transaction = completedTransaction!!, 
-            storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)", 
-            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro!", 
-            settingsManager = settingsManager, 
+            transaction = completedTransaction!!,
+            storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
+            storeAddress = if (settingsManager.isPro) settingsManager.storeAddress else "Alamat belum diatur", // <--- TAMBAHAN
+            storePhone = if (settingsManager.isPro) settingsManager.storePhone else "-", // <--- TAMBAHAN
+            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro!",
+            settingsManager = settingsManager,
             onDismiss = { completedTransaction = null }
         )
     }
