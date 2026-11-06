@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -41,17 +43,39 @@ fun HistoryScreen(
     currentUser: UserEntity
 ) {
     val context = LocalContext.current
-    val activity = context.findActivity() // Mengambil fungsi dari SettingsScreen.kt
+    val activity = context.findActivity()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
     val lowStockProducts = viewModel.getLowStockProducts()
-    val totalHpp by viewModel.totalHpp.collectAsStateWithLifecycle()
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
+    
+    // State untuk Filter Tanggal
+    var dateFilter by remember { mutableStateOf("HARI_INI") } // HARI_INI, 7_HARI, 30_HARI, SEMUA
 
-    val validTransactions = transactions.filter { it.status == "SUCCESS" }
+    // Logika Filter Tanggal
+    val now = Calendar.getInstance().timeInMillis
+    val startOfToday = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val filteredTransactions = transactions.filter { tx ->
+        when (dateFilter) {
+            "HARI_INI" -> tx.timestamp >= startOfToday
+            "7_HARI" -> tx.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
+            "30_HARI" -> tx.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
+            else -> true
+        }
+    }
+
+    // Hitung Omzet & Laba dari data yang sudah difilter
+    val validTransactions = filteredTransactions.filter { it.status == "SUCCESS" }
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
+    val totalHpp = validTransactions.sumOf { it.totalCost }
     val labaKotor = totalOmzet - totalHpp
 
     if (selectedTransaction != null) {
@@ -66,6 +90,32 @@ fun HistoryScreen(
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         
+        // --- FILTER TANGGAL ---
+        item {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val filters = listOf(
+                    "HARI_INI" to "Hari Ini",
+                    "7_HARI" to "7 Hari",
+                    "30_HARI" to "30 Hari",
+                    "SEMUA" to "Semua"
+                )
+                items(filters.size) { index ->
+                    val (key, label) = filters[index]
+                    FilterChip(
+                        selected = dateFilter == key,
+                        onClick = { dateFilter = key },
+                        label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = ZokasGreen,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+        }
+
         // --- 1. KARTU OMZET & LABA ---
         item {
             Card(
@@ -73,7 +123,7 @@ fun HistoryScreen(
                 colors = CardDefaults.cardColors(containerColor = ZokasGreen)
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Omzet (Semua Waktu)", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                    Text("Total Omzet ($dateFilter)", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                     Text(
                         text = formatRupiah(totalOmzet),
                         color = ZokasOrange,
@@ -116,10 +166,10 @@ fun HistoryScreen(
             }
         }
 
-        // --- 3. PRODUK TERLARIS ---
+        // --- 3. PRODUK TERLARIS (Semua Waktu) ---
         if (bestSellers.isNotEmpty()) {
             item {
-                Text("🏆 Top 5 Produk Terlaris", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("🏆 Top 5 Produk Terlaris (Semua Waktu)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
             item {
                 Card(
@@ -140,13 +190,13 @@ fun HistoryScreen(
         }
 
         // --- 4. EKSPOR CSV ---
-        if (isPro && transactions.isNotEmpty()) {
+        if (isPro && filteredTransactions.isNotEmpty()) {
             item {
                 Button(
                     onClick = {
                         try {
                             val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian,Pelanggan,Status\n"
-                            val csvData = transactions.joinToString("\n") { tx ->
+                            val csvData = filteredTransactions.joinToString("\n") { tx ->
                                 "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount},${tx.customerName},${tx.status}"
                             }
                             val fullCsv = csvHeader + csvData
@@ -166,24 +216,24 @@ fun HistoryScreen(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = "Ekspor")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ekspor Laporan ke Excel/CSV")
+                    Text("Ekspor Laporan ($dateFilter) ke CSV")
                 }
             }
         }
 
         // --- 5. DAFTAR RIWAYAT ---
         item {
-            Text("Riwayat Transaksi Terakhir", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Riwayat Transaksi", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
 
-        if (transactions.isEmpty()) {
+        if (filteredTransactions.isEmpty()) {
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text("Belum ada riwayat transaksi.")
+                    Text("Tidak ada transaksi pada periode ini.")
                 }
             }
         } else {
-            items(transactions) { tx ->
+            items(filteredTransactions) { tx ->
                 val isVoided = tx.status == "VOIDED"
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { selectedTransaction = tx },

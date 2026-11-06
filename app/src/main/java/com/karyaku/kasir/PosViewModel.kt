@@ -18,12 +18,6 @@ class PosViewModel(
     private val transactionItemDao: TransactionItemDao
 ) : ViewModel() {
 
-    private val _pointsUsed = MutableStateFlow(0)
-    val pointsUsed: StateFlow<Int> = _pointsUsed.asStateFlow()
-
-    private val _totalHpp = MutableStateFlow(0L)
-    val totalHpp: StateFlow<Long> = _totalHpp.asStateFlow()
-
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
@@ -47,6 +41,9 @@ class PosViewModel(
 
     private val _selectedCustomer = MutableStateFlow<CustomerEntity?>(null)
     val selectedCustomer: StateFlow<CustomerEntity?> = _selectedCustomer.asStateFlow()
+
+    private val _pointsUsed = MutableStateFlow(0)
+    val pointsUsed: StateFlow<Int> = _pointsUsed.asStateFlow()
 
     private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
     val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
@@ -80,20 +77,11 @@ class PosViewModel(
             }
             checkActiveShift()
         }
-        viewModelScope.launch { 
-        transactionItemDao.getTotalCostOfGoodsSold().collectLatest { _totalHpp.value = it ?: 0L } }
         viewModelScope.launch { productDao.getAllProducts().collectLatest { _products.value = it } }
         viewModelScope.launch { transactionDao.getAllTransactions().collectLatest { _transactions.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().collectLatest { _customers.value = it } }
         viewModelScope.launch { transactionItemDao.getBestSellers().collectLatest { _bestSellers.value = it } }
-    }
-
-    fun updatePin(user: UserEntity, newPin: String) {
-        viewModelScope.launch {
-            userDao.updatePin(user.id, newPin)
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN: PIN berhasil diubah"))
-        }
     }
 
     fun getLowStockProducts(): List<ProductEntity> {
@@ -105,14 +93,13 @@ class PosViewModel(
     fun setDiscount(amount: Long) { _discount.value = amount }
     fun setCustomer(customer: CustomerEntity?) { 
         _selectedCustomer.value = customer 
-        _pointsUsed.value = 0 // Reset poin
-        _discount.value = 0   // Reset diskon
+        _pointsUsed.value = 0
+        _discount.value = 0   
     }
     fun redeemPoints(pointsToRedeem: Int) {
         val customer = _selectedCustomer.value ?: return
         if (pointsToRedeem > 0 && pointsToRedeem <= customer.points) {
             _pointsUsed.value = pointsToRedeem
-            // 1 Poin = Rp 1.000
             _discount.value = (pointsToRedeem * 1000).toLong()
         }
     }
@@ -140,6 +127,13 @@ class PosViewModel(
         val user = userDao.loginByPin(pin)
         if (user != null) userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS"))
         return user
+    }
+
+    fun updatePin(user: UserEntity, newPin: String) {
+        viewModelScope.launch {
+            userDao.updatePin(user.id, newPin)
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN: PIN berhasil diubah"))
+        }
     }
 
     fun openShift(user: UserEntity, modalAwal: Long) {
@@ -239,21 +233,21 @@ class PosViewModel(
         val customer = _selectedCustomer.value
         val customerName = customer?.name ?: "Pelanggan Umum"
         
-        val transaction = TransactionEntity(totalPrice = total, cashReceived = cashReceived, changeAmount = change, customerName = customerName)
+        // HITUNG TOTAL MODAL (HPP) UNTUK DISIMPAN DI TRANSAKSI
+        val totalCost = _cart.value.sumOf { it.product.costPrice * it.quantity }
+
+        val transaction = TransactionEntity(
+            totalPrice = total, 
+            cashReceived = cashReceived, 
+            changeAmount = change, 
+            customerName = customerName,
+            totalCost = totalCost // <--- SIMPAN HPP
+        )
 
         viewModelScope.launch {
             val newId = transactionDao.insertTransaction(transaction)
-            
-            // Simpan rincian beserta HPP-nya
             val itemEntities = _cart.value.map { cartItem ->
-                TransactionItemEntity(
-                    transactionId = newId, 
-                    productName = cartItem.product.name, 
-                    price = cartItem.product.price, 
-                    costPrice = cartItem.product.costPrice, // <--- SIMPAN MODAL
-                    quantity = cartItem.quantity, 
-                    subtotal = cartItem.product.price * cartItem.quantity
-                )
+                TransactionItemEntity(transactionId = newId, productName = cartItem.product.name, price = cartItem.product.price, quantity = cartItem.quantity, subtotal = cartItem.product.price * cartItem.quantity, costPrice = cartItem.product.costPrice)
             }
             transactionItemDao.insertTransactionItems(itemEntities)
 
@@ -278,20 +272,16 @@ class PosViewModel(
         }
     }
 
-    // FUNGSI BARU: VOID TRANSAKSI (Sudah dipindahkan ke DALAM class)
     fun voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
-            // 1. Verifikasi PIN Supervisor
             val supervisor = userDao.loginByPin(pinSupervisor)
             if (supervisor == null || (supervisor.role != "OWNER" && supervisor.role != "SUPERVISOR")) {
                 onResult(false, "PIN Salah atau bukan Supervisor!")
                 return@launch
             }
 
-            // 2. Ambil item transaksi untuk dikembalikan stoknya
             val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
             
-            // 3. Kembalikan stok produk
             itemsToRestore.forEach { item ->
                 val product = _products.value.find { it.name == item.productName }
                 if (product != null) {
@@ -299,10 +289,7 @@ class PosViewModel(
                 }
             }
 
-            // 4. Ubah status transaksi menjadi VOIDED
             transactionDao.voidTransaction(transaction.id)
-
-            // 5. Catat di Audit Log
             userDao.insertAuditLog(
                 AuditLogEntity(
                     userId = currentUser.id, 
@@ -310,7 +297,6 @@ class PosViewModel(
                     action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"
                 )
             )
-
             onResult(true, "Transaksi berhasil di-void dan stok dikembalikan.")
         }
     }

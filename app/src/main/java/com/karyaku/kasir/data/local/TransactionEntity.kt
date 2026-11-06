@@ -11,5 +11,6 @@ data class TransactionEntity(
     val cashReceived: Long,
     val changeAmount: Long,
     val customerName: String = "Pelanggan Umum",
-    val status: String = "SUCCESS"
+    val status: String = "SUCCESS",
+    val totalCost: Long = 0 // <--- KOLOM BARU: Total Modal (HPP)
 )
