@@ -257,7 +257,7 @@ fun SettingsScreen(
     }
 }
 
-// DIALOG GANTI PIN
+// DIALOG GANTI PIN (Berdiri Sendiri)
 @Composable
 fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var newPin by remember { mutableStateOf("") }
