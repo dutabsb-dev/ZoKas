@@ -42,5 +42,13 @@ abstract class AppDatabase : RoomDatabase() {
                 instance
             }
         }
+
+        // FUNGSI BARU: Untuk menutup dan mereset database saat proses Restore
+        fun closeAndResetDatabase() {
+            synchronized(this) {
+                INSTANCE?.close()
+                INSTANCE = null
+            }
+        }
     }
 }

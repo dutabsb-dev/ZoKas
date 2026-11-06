@@ -32,7 +32,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// FUNGSI INI HANYA ADA DI SettingsScreen.kt
 fun Context.findActivity(): Activity? {
     var context = this
     while (context is ContextWrapper) {
@@ -64,7 +63,7 @@ fun SettingsScreen(
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
-    // --- FITUR BACKUP & RESTORE ---
+    // Launcher Backup
     val createBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
@@ -77,12 +76,13 @@ fun SettingsScreen(
         }
     }
 
+    // Launcher Restore
     val restoreBackupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.restoreDatabase(context, uri)) {
-                showRestartDialog = true
+                showRestartDialog = true // Tampilkan dialog restart jika sukses
             } else {
                 Toast.makeText(context, "Gagal memulihkan data.", Toast.LENGTH_SHORT).show()
             }
@@ -103,14 +103,15 @@ fun SettingsScreen(
 
     if (showRestartDialog) {
         AlertDialog(
-            onDismissRequest = { },
+            onDismissRequest = { }, // Wajib di-restart, tidak bisa ditutup biasa
             title = { Text("Restore Berhasil") },
-            text = { Text("Data berhasil dipulihkan. Aplikasi perlu ditutup dan dibuka kembali agar data ter-refresh.") },
+            text = { Text("Data berhasil dipulihkan. Aplikasi harus ditutup dan dibuka kembali agar data baru termuat sempurna.") },
             confirmButton = {
                 Button(onClick = {
+                    // Menutup aplikasi secara paksa agar Room Database me-reload file baru
                     android.os.Process.killProcess(android.os.Process.myPid())
                 }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                    Text("TUTUP APLIKASI")
+                    Text("TUTUP APLIKASI SEKARANG")
                 }
             }
         )
@@ -262,7 +263,6 @@ fun SettingsScreen(
     }
 }
 
-// DIALOG GANTI PIN
 @Composable
 fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var newPin by remember { mutableStateOf("") }
