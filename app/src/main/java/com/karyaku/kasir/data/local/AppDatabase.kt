@@ -14,9 +14,11 @@ import androidx.room.RoomDatabase
         ShiftEntity::class,
         CashFlowEntity::class,
         CustomerEntity::class,
-        TransactionItemEntity::class
+        TransactionItemEntity::class,
+        VoucherEntity::class,    // TAMBAHAN
+        HoldOrderEntity::class   // TAMBAHAN
     ], 
-    version = 12, 
+    version = 13, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +28,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cashFlowDao(): CashFlowDao
     abstract fun customerDao(): CustomerDao
     abstract fun transactionItemDao(): TransactionItemDao
+    abstract fun voucherDao(): VoucherDao       // TAMBAHAN
+    abstract fun holdOrderDao(): HoldOrderDao   // TAMBAHAN
 
     companion object {
         @Volatile
@@ -43,7 +47,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // FUNGSI BARU: Untuk menutup dan mereset database saat proses Restore
         fun closeAndResetDatabase() {
             synchronized(this) {
                 INSTANCE?.close()

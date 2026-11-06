@@ -12,5 +12,7 @@ data class TransactionEntity(
     val changeAmount: Long,
     val customerName: String = "Pelanggan Umum",
     val status: String = "SUCCESS",
-    val totalCost: Long = 0 // <--- KOLOM BARU: Total Modal (HPP)
+    val totalCost: Long = 0,
+    val tableName: String = "Take-Away", // <--- TAMBAHAN
+    val voucherCode: String = ""        // <--- TAMBAHAN
 )

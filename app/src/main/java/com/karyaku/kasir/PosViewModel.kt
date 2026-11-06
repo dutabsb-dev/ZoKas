@@ -15,7 +15,9 @@ class PosViewModel(
     private val userDao: UserDao,
     private val cashFlowDao: CashFlowDao,
     private val customerDao: CustomerDao,
-    private val transactionItemDao: TransactionItemDao
+    private val transactionItemDao: TransactionItemDao,
+    private val voucherDao: VoucherDao,
+    private val holdOrderDao: HoldOrderDao
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
