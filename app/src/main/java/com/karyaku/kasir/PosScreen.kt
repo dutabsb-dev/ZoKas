@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,7 +46,6 @@ import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
 import com.karyaku.kasir.data.local.CustomerEntity
-import com.karyaku.kasir.data.local.HoldOrderEntity
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -69,13 +67,11 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val customers by viewModel.customers.collectAsStateWithLifecycle()
     val selectedCustomer by viewModel.selectedCustomer.collectAsStateWithLifecycle()
     
-    // State Filter Realtime
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val pointsUsed by viewModel.pointsUsed.collectAsStateWithLifecycle()
     
-    // State F&B Baru
     val holdOrders by viewModel.holdOrders.collectAsStateWithLifecycle()
     val voucherDiscount by viewModel.voucherDiscount.collectAsStateWithLifecycle()
     val appliedVoucher by viewModel.appliedVoucher.collectAsStateWithLifecycle()
@@ -84,7 +80,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val subtotal = cart.sumOf { it.product.price * it.quantity }
     val totalPrice = (subtotal - discount - voucherDiscount).coerceAtLeast(0)
     
-    // State UI untuk Dialog
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
     var showProductForm by remember { mutableStateOf(false) }
@@ -100,7 +95,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     var showCustomerDialog by remember { mutableStateOf(false) }
     var modalAwal by remember { mutableStateOf("") }
 
-    // State UI F&B Baru
     var showHoldDialog by remember { mutableStateOf(false) }
     var showTableSelector by remember { mutableStateOf(false) }
     var showVoucherDialog by remember { mutableStateOf(false) }
@@ -112,7 +106,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     // ================= DIALOG - DIALOG =================
     
-    // 1. Dialog Buka Kasir
     if (showOpenShiftDialog) {
         AlertDialog(
             onDismissRequest = { },
@@ -130,7 +123,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 2. Dialog Tutup Kasir
     if (showCloseShiftDialog) {
         CloseShiftDialog(onDismiss = { showCloseShiftDialog = false }, onConfirm = { uangFisik -> 
             viewModel.closeShift(currentUser, uangFisik) { 
@@ -140,7 +132,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         })
     }
 
-    // 3. Dialog Kas Masuk/Keluar
     if (showCashFlowDialog) {
         CashFlowDialog(onDismiss = { showCashFlowDialog = false }, onSave = { type, amount, note -> 
             viewModel.addCashFlow(type, amount, note, currentUser)
@@ -148,7 +139,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         })
     }
 
-    // 4. Dialog Diskon
     if (showDiscountDialog) {
         DiscountDialog(currentDiscount = discount, onDismiss = { showDiscountDialog = false }, onSave = { amount -> 
             viewModel.setDiscount(amount)
@@ -156,7 +146,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         })
     }
 
-    // 5. Dialog Pelanggan
     if (showCustomerDialog) {
         CustomerDialog(
             customers = customers, 
@@ -171,7 +160,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
     
-    // 6. Dialog Pilih Meja
     if (showTableSelector) {
         TableSelectorDialog(
             currentTable = selectedTable,
@@ -180,7 +168,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 7. Dialog Voucher
     if (showVoucherDialog) {
         VoucherDialog(
             currentCode = appliedVoucher,
@@ -198,7 +185,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 8. Dialog Parkir Pesanan
     if (showHoldDialog) {
         HoldOrderDialog(
             holdOrders = holdOrders,
@@ -210,7 +196,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 9. Dialog Struk Pembayaran
     if (completedTransaction != null) {
         ReceiptDialog(
             transaction = completedTransaction!!,
@@ -223,7 +208,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 10. Bottom Sheet Pembayaran
     if (showPaymentSheet) {
         val totalToPay = if (isSplitBillMode) {
             cart.filter { it.isSelectedForSplit }.sumOf { it.product.price * it.quantity }
@@ -253,7 +237,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 11. Bottom Sheet Form Produk
     if (showProductForm) {
         ProductFormBottomSheet(
             productToEdit = productToEdit, 
@@ -267,7 +250,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 12. Dialog Aksi Produk (Edit/Hapus)
     if (showActionDialogFor != null) {
         AlertDialog(
             onDismissRequest = { showActionDialogFor = null },
@@ -297,7 +279,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         )
     }
 
-    // 13. Dialog Konfirmasi Hapus
     if (productToDelete != null) {
         AlertDialog(
             onDismissRequest = { productToDelete = null },
@@ -330,7 +311,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     }
                 },
                 actions = {
-                    // Tombol Parkir (List Icon)
                     IconButton(onClick = { showHoldDialog = true }) { Icon(Icons.Default.List, contentDescription = "Parkir", tint = ZokasGreen) }
                     IconButton(onClick = { showCashFlowDialog = true }) { Icon(Icons.Default.Wallet, contentDescription = "Kas", tint = ZokasOrange) }
                     IconButton(onClick = { showCloseShiftDialog = true }) { Icon(Icons.Default.Lock, contentDescription = "Tutup Kasir", tint = ZokasOrange) }
@@ -695,7 +675,6 @@ fun CartList(
     onCheckout: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // Header: Table & Hold
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             OutlinedButton(onClick = onTableClick, modifier = Modifier.weight(1f).padding(end = 4.dp), shape = RoundedCornerShape(8.dp)) {
                 Text(selectedTable, fontWeight = FontWeight.Bold, color = ZokasOrange)
