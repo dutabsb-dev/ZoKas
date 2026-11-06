@@ -8,7 +8,7 @@ data class UserEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val pin: String,
-    val role: String // "OWNER" atau "CASHIER"
+    val role: String 
 )
 
 @Entity(tableName = "audit_logs")

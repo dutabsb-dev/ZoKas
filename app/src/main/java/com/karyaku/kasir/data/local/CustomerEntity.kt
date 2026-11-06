@@ -8,6 +8,6 @@ data class CustomerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val phone: String = "-",
-    val points: Int = 0, // <--- TAMBAHKAN KOLOM POIN
+    val points: Int = 0,
     val createdAt: Long = System.currentTimeMillis()
 )

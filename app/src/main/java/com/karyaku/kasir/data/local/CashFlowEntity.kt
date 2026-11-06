@@ -6,10 +6,10 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "cash_flows")
 data class CashFlowEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val shiftId: Long, // Terhubung ke shift yang sedang aktif
-    val type: String, // "IN" (Kas Masuk / Tambah Modal) atau "OUT" (Kas Keluar)
+    val shiftId: Long,
+    val type: String, 
     val amount: Long,
-    val note: String, // Contoh: "Beli Galon", "Bayar Kurir"
+    val note: String, 
     val timestamp: Long = System.currentTimeMillis(),
     val userId: Long,
     val userName: String
