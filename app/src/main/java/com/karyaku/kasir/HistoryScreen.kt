@@ -2,6 +2,7 @@ package com.karyaku.kasir
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -50,24 +53,14 @@ fun HistoryScreen(
     val lowStockProducts = viewModel.getLowStockProducts()
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
-    
-    // State untuk Filter Tanggal (Ditambah BULAN_INI)
     var dateFilter by remember { mutableStateOf("HARI_INI") }
 
-    // Logika Filter Tanggal
     val startOfToday = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
     val startOfMonth = Calendar.getInstance().apply {
-        set(Calendar.DAY_OF_MONTH, 1)
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
+        set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
     val filteredTransactions = transactions.filter { tx ->
@@ -80,7 +73,6 @@ fun HistoryScreen(
         }
     }
 
-    // Hitung Omzet & Laba dari data yang sudah difilter
     val validTransactions = filteredTransactions.filter { it.status == "SUCCESS" }
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
     val totalHpp = validTransactions.sumOf { it.totalCost }
@@ -98,52 +90,27 @@ fun HistoryScreen(
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         
-        // --- FILTER TANGGAL ---
         item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val filters = listOf(
-                    "HARI_INI" to "Hari Ini",
-                    "BULAN_INI" to "Bulan Ini",
-                    "7_HARI" to "7 Hari",
-                    "30_HARI" to "30 Hari",
-                    "SEMUA" to "Semua"
-                )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val filters = listOf("HARI_INI" to "Hari Ini", "BULAN_INI" to "Bulan Ini", "7_HARI" to "7 Hari", "30_HARI" to "30 Hari", "SEMUA" to "Semua")
                 items(filters.size) { index ->
                     val (key, label) = filters[index]
                     FilterChip(
-                        selected = dateFilter == key,
-                        onClick = { dateFilter = key },
-                        label = { Text(label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = ZokasGreen,
-                            selectedLabelColor = Color.White
-                        )
+                        selected = dateFilter == key, onClick = { dateFilter = key }, label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = ZokasGreen, selectedLabelColor = Color.White)
                     )
                 }
             }
         }
 
-        // --- 1. KARTU OMZET & LABA ---
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)),
-                colors = CardDefaults.cardColors(containerColor = ZokasGreen)
-            ) {
+            Card(modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)), colors = CardDefaults.cardColors(containerColor = ZokasGreen)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Total Omzet", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
-                    Text(
-                        text = formatRupiah(totalOmzet),
-                        color = ZokasOrange,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = formatRupiah(totalOmzet), color = ZokasOrange, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("${validTransactions.size} Transaksi Sukses", color = Color.White, fontSize = 12.sp)
-                    
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
-                    
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Laba Kotor:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(labaKotor), color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -156,13 +123,38 @@ fun HistoryScreen(
             }
         }
 
-        // --- 2. PERINGATAN STOK MENIPIS ---
+        // GRAFIK PENJUALAN 7 HARI TERAKHIR
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Grafik 7 Hari Terakhir", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                        val days = 7
+                        val barWidth = size.width / (days * 2)
+                        val dailySales = (0 until days).map { i ->
+                            val start = Calendar.getInstance().apply {
+                                add(Calendar.DAY_OF_YEAR, -i); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
+                            }.timeInMillis
+                            val end = start + 86400000L
+                            transactions.filter { it.timestamp in start..end && it.status == "SUCCESS" }.sumOf { it.totalPrice }
+                        }.reversed()
+                        
+                        val maxSale = dailySales.maxOrNull() ?: 1L
+                        if (maxSale == 0L) return@Canvas
+                        dailySales.forEachIndexed { index, sale ->
+                            val barHeight = (sale.toFloat() / maxSale.toFloat()) * size.height
+                            val x = (index * 2.5f * barWidth) + barWidth
+                            drawRect(color = if (sale > 0) ZokasGreen else Color.LightGray, topLeft = Offset(x, size.height - barHeight), size = Size(barWidth, barHeight))
+                        }
+                    }
+                }
+            }
+        }
+
         if (lowStockProducts.isNotEmpty()) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.width(12.dp))
@@ -175,16 +167,10 @@ fun HistoryScreen(
             }
         }
 
-        // --- 3. PRODUK TERLARIS ---
         if (bestSellers.isNotEmpty()) {
+            item { Text("🏆 Top 5 Produk Terlaris", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             item {
-                Text("🏆 Top 5 Produk Terlaris", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         bestSellers.forEachIndexed { index, item ->
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -198,7 +184,6 @@ fun HistoryScreen(
             }
         }
 
-        // --- 4. EKSPOR CSV ---
         if (isPro && filteredTransactions.isNotEmpty()) {
             item {
                 Button(
@@ -209,68 +194,39 @@ fun HistoryScreen(
                                 "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount},${tx.customerName},${tx.status}"
                             }
                             val fullCsv = csvHeader + csvData
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, fullCsv)
-                                type = "text/plain"
-                            }
+                            val sendIntent = Intent().apply { action = Intent.ACTION_SEND; putExtra(Intent.EXTRA_TEXT, fullCsv); type = "text/plain" }
                             val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
                             if (activity != null) activity.startActivity(shareIntent) else context.startActivity(shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
+                        } catch (e: Exception) { Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show() }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                    modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
                 ) {
-                    Icon(Icons.Default.Share, contentDescription = "Ekspor")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ekspor Laporan ke Excel/CSV")
+                    Icon(Icons.Default.Share, contentDescription = "Ekspor"); Spacer(modifier = Modifier.width(8.dp)); Text("Ekspor Laporan ke Excel/CSV")
                 }
             }
         }
 
-        // --- 5. DAFTAR RIWAYAT ---
-        item {
-            Text("Riwayat Transaksi", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        }
+        item { Text("Riwayat Transaksi", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
 
         if (filteredTransactions.isEmpty()) {
-            item {
-                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text("Tidak ada transaksi pada periode ini.")
-                }
-            }
+            item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("Tidak ada transaksi pada periode ini.") } }
         } else {
             items(filteredTransactions) { tx ->
                 val isVoided = tx.status == "VOIDED"
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { selectedTransaction = tx },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isVoided) Color(0xFFFFCDD2) else MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    colors = CardDefaults.cardColors(containerColor = if (isVoided) Color(0xFFFFCDD2) else MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(
-                                "Struk #${tx.id}", 
-                                fontWeight = FontWeight.Bold,
-                                textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
-                            )
+                            Text("Struk #${tx.id}", fontWeight = FontWeight.Bold, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
                             Text(dateFormat.format(Date(tx.timestamp)))
                         }
                         Text("Pelanggan: ${tx.customerName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Total: ${formatRupiah(tx.totalPrice)}", 
-                                fontWeight = FontWeight.Bold, 
-                                color = if (isVoided) Color.Gray else ZokasOrange,
-                                textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
-                            )
-                            if (isVoided) {
-                                Text("VOID", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
+                            Text("Total: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = if (isVoided) Color.Gray else ZokasOrange, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
+                            if (isVoided) Text("VOID", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }

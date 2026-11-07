@@ -97,7 +97,6 @@ fun UserManagementDialog(
                                     IconButton(onClick = { userToEdit = user; showForm = true }) {
                                         Icon(Icons.Default.Edit, contentDescription = "Edit", tint = ZokasGreen)
                                     }
-                                    // Hanya Owner yang bisa menghapus, dan tidak bisa menghapus dirinya sendiri
                                     if (currentUser.role == "OWNER" && currentUser.id != user.id) {
                                         IconButton(onClick = { userToDelete = user }) {
                                             Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = Color.Red)
@@ -151,7 +150,6 @@ fun UserFormDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Hanya Owner yang bisa mengubah Role
                 if (currentUser.role == "OWNER") {
                     Text("Pilih Role:", fontSize = 12.sp)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {

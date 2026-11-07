@@ -37,6 +37,9 @@ class PosViewModel(
     private val _holdOrders = MutableStateFlow<List<HoldOrderEntity>>(emptyList())
     val holdOrders: StateFlow<List<HoldOrderEntity>> = _holdOrders.asStateFlow()
 
+    private val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
+    val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
+
     private val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
@@ -106,6 +109,7 @@ class PosViewModel(
         viewModelScope.launch { transactionItemDao.getBestSellers().collectLatest { _bestSellers.value = it } }
         viewModelScope.launch { userDao.getAllUsers().collectLatest { _users.value = it } }
         viewModelScope.launch { holdOrderDao.getAllHoldOrders().collectLatest { _holdOrders.value = it } }
+        viewModelScope.launch { userDao.getAllShifts().collectLatest { _shifts.value = it } }
     }
 
     fun setTable(table: String) { _selectedTable.value = table }
@@ -167,6 +171,14 @@ class PosViewModel(
                 _appliedVoucher.value = ""
                 onResult(false, "Kode voucher tidak valid.")
             }
+        }
+    }
+
+    fun addStock(product: ProductEntity, qtyToAdd: Int, user: UserEntity) {
+        viewModelScope.launch {
+            val newStock = product.stock + qtyToAdd
+            productDao.updateStock(product.id, newStock)
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "RESTOCK: ${product.name} +$qtyToAdd"))
         }
     }
 

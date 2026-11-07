@@ -24,7 +24,6 @@ interface UserDao {
     @Query("SELECT * FROM users")
     suspend fun getAllUsersOnce(): List<UserEntity>
 
-    // FUNGSI BARU: Mengambil daftar user secara realtime untuk UI
     @Query("SELECT * FROM users ORDER BY role DESC, name ASC")
     fun getAllUsers(): Flow<List<UserEntity>>
 
@@ -45,4 +44,8 @@ interface UserDao {
 
     @Query("UPDATE shifts SET endTime = :endTime, expectedCash = :expectedCash, closingCash = :closingCash, discrepancy = :discrepancy, status = 'CLOSED' WHERE id = :shiftId")
     suspend fun closeShift(shiftId: Long, endTime: Long, expectedCash: Long, closingCash: Long, discrepancy: Long)
+    
+    // TAMBAHAN UNTUK RIWAYAT SHIFT
+    @Query("SELECT * FROM shifts ORDER BY startTime DESC")
+    fun getAllShifts(): Flow<List<ShiftEntity>>
 }

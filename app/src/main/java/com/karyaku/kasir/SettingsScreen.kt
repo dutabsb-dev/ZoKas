@@ -1,18 +1,24 @@
 package com.karyaku.kasir
 
+import android.Manifest
 import android.app.Activity
+import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,6 +32,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -66,135 +73,143 @@ fun SettingsScreen(
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
     var showUserManagementDialog by remember { mutableStateOf(false) }
-
+    var showShiftHistory by remember { mutableStateOf(false) }
+    
     val users by viewModel.users.collectAsStateWithLifecycle()
+    val shifts by viewModel.shifts.collectAsStateWithLifecycle()
+    
+    val printerManager = remember { BluetoothPrinterManager(context) }
+    var savedPrinterMac by remember { mutableStateOf(settingsManager.printerMacAddress) }
+    var showPrinterDialog by remember { mutableStateOf(false) }
+    var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
-    val createBackupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri: Uri? ->
-        if (uri != null) {
-            if (BackupHelper.backupDatabase(context, uri)) {
-                Toast.makeText(context, "Backup berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Gagal melakukan backup.", Toast.LENGTH_SHORT).show()
-            }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
+        if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
+            pairedPrinters = printerManager.getPairedPrinters()
+            showPrinterDialog = true
         }
     }
 
-    val restoreBackupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
+    val createBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
         if (uri != null) {
-            if (BackupHelper.restoreDatabase(context, uri)) {
-                showRestartDialog = true
-            } else {
-                Toast.makeText(context, "Gagal memulihkan data.", Toast.LENGTH_SHORT).show()
-            }
+            if (BackupHelper.backupDatabase(context, uri)) Toast.makeText(context, "Backup berhasil!", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, "Gagal backup.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val restoreBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            if (BackupHelper.restoreDatabase(context, uri)) showRestartDialog = true
+            else Toast.makeText(context, "Gagal restore.", Toast.LENGTH_SHORT).show()
         }
     }
 
     if (showChangePinDialog) {
-        ChangePinDialog(
-            user = currentUser,
-            onDismiss = { showChangePinDialog = false },
-            onSave = { newPin ->
-                viewModel.updatePin(currentUser, newPin)
-                showChangePinDialog = false
-                Toast.makeText(context, "PIN berhasil diubah!", Toast.LENGTH_SHORT).show()
-            }
-        )
+        ChangePinDialog(user = currentUser, onDismiss = { showChangePinDialog = false }, onSave = { newPin ->
+            viewModel.updatePin(currentUser, newPin); showChangePinDialog = false; Toast.makeText(context, "PIN diubah!", Toast.LENGTH_SHORT).show()
+        })
     }
 
     if (showUserManagementDialog) {
         UserManagementDialog(
-            users = users,
-            currentUser = currentUser,
-            onDismiss = { showUserManagementDialog = false },
+            users = users, currentUser = currentUser, onDismiss = { showUserManagementDialog = false },
             onAddUser = { name, pin, role -> viewModel.addUser(name, pin, role, currentUser) },
             onUpdateUser = { user -> viewModel.updateUser(user, currentUser) },
             onDeleteUser = { user -> viewModel.deleteUser(user, currentUser) }
         )
     }
+    
+    if (showShiftHistory) {
+        ShiftHistoryDialog(shifts = shifts, onDismiss = { showShiftHistory = false })
+    }
 
-    if (showRestartDialog) {
+    if (showPrinterDialog) {
         AlertDialog(
-            onDismissRequest = { },
-            title = { Text("Restore Berhasil") },
-            text = { Text("Data berhasil dipulihkan. Aplikasi harus ditutup dan dibuka kembali agar data baru termuat sempurna.") },
-            confirmButton = {
-                Button(onClick = {
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                    Text("TUTUP APLIKASI SEKARANG")
+            onDismissRequest = { showPrinterDialog = false },
+            title = { Text("Pilih Printer Bluetooth") },
+            text = {
+                if (pairedPrinters.isEmpty()) Text("Tidak ada printer. Pastikan sudah pairing di HP.")
+                else {
+                    LazyColumn {
+                        items(pairedPrinters) { device ->
+                            TextButton(onClick = {
+                                settingsManager.printerMacAddress = device.address
+                                savedPrinterMac = device.address
+                                showPrinterDialog = false
+                            }) { Text("${device.name} (${device.address})") }
+                        }
+                    }
                 }
-            }
+            },
+            confirmButton = { TextButton(onClick = { showPrinterDialog = false }) { Text("Tutup") } }
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    if (showRestartDialog) {
+        AlertDialog(
+            onDismissRequest = { }, title = { Text("Restore Berhasil") },
+            text = { Text("Aplikasi harus ditutup dan dibuka kembali.") },
+            confirmButton = { Button(onClick = { android.os.Process.killProcess(android.os.Process.myPid()) }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("TUTUP") } }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 
-        // --- PENGATURAN TEMA & BAHASA ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
+        // TEMA & BAHASA
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Mode Gelap", style = MaterialTheme.typography.titleMedium)
-                    Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
+                    Text("Mode Gelap", style = MaterialTheme.typography.titleMedium); Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
                 }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Bahasa", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
-                        Text(if (language == "in") "Indonesia" else "English")
-                    }
+                    Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text(if (language == "in") "Indonesia" else "English") }
                 }
             }
         }
         
-        // --- MANAJEMEN AKUN ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
+        // MANAJEMEN AKUN
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Manajemen Akun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Login sebagai: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(12.dp))
-                
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { showChangePinDialog = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                    ) {
-                        Text("Ubah PIN")
-                    }
-                    
+                    Button(onClick = { showChangePinDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("Ubah PIN") }
                     if (currentUser.role == "OWNER") {
-                        Button(
-                            onClick = { showUserManagementDialog = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
-                        ) {
-                            Text("Kelola Karyawan")
-                        }
+                        Button(onClick = { showUserManagementDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("Kelola Karyawan") }
                     }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = { showShiftHistory = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
+                    Text("LIHAT RIWAYAT SHIFT KASIR")
                 }
             }
         }
 
-        // --- STATUS PRO & PROFIL TOKO ---
+        // PRINTER
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Printer Thermal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(if (savedPrinterMac != null) "Terhubung: $savedPrinterMac" else "Belum ada printer", fontSize = 12.sp, color = if(savedPrinterMac != null) Color(0xFF4CAF50) else Color.Gray)
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                            pairedPrinters = printerManager.getPairedPrinters(); showPrinterDialog = true
+                        } else {
+                            permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                        }
+                    }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                ) { Text("PILIH PRINTER") }
+            }
+        }
+
+        // STATUS PRO & PROFIL TOKO
         if (isPro) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
@@ -206,7 +221,6 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Profil Toko & Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                 Spacer(modifier = Modifier.height(8.dp))
-                
                 OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
@@ -222,74 +236,42 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
-                        Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold)
-                    }
+                    Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold) }
                 }
             }
         }
 
-        // --- DATA & BACKUP ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
+        // DATA & BACKUP
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Data & Backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("Cadangkan seluruh data produk, transaksi, dan pelanggan ke file.", fontSize = 12.sp, color = Color.Gray)
+                Text("Cadangkan seluruh data ke file.", fontSize = 12.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(12.dp))
-                
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
-                    ) {
-                        Text("BACKUP")
-                    }
-                    Button(
-                        onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                    ) {
-                        Text("RESTORE")
-                    }
+                    Button(onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("BACKUP") }
+                    Button(onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("RESTORE") }
                 }
             }
         }
 
-        // --- LOG AKTIVITAS (AUDIT TRAIL) ---
+        // LOG AKTIVITAS
         Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-        
-        if (auditLogs.isEmpty()) {
-            Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.fillMaxWidth())
-        } else {
+        if (auditLogs.isEmpty()) Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.fillMaxWidth())
+        else {
             auditLogs.forEach { log ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Text(
-                        text = "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}",
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(8.dp),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
 
-        // --- TOMBOL LOGOUT ---
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) {
-            Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold)
-        }
+        Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold) }
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
-@Composable
 fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var newPin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
