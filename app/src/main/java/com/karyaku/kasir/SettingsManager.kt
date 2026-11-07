@@ -4,42 +4,59 @@ import android.content.Context
 import android.content.SharedPreferences
 
 class SettingsManager(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
-
-    var isDarkMode: Boolean
-        get() = prefs.getBoolean("DARK_MODE", false)
-        set(value) = prefs.edit().putBoolean("DARK_MODE", value).apply()
-
-    var language: String
-        get() = prefs.getString("LANGUAGE", "in") ?: "in"
-        set(value) = prefs.edit().putString("LANGUAGE", value).apply()
+    private val prefs: SharedPreferences = context.getSharedPreferences("zokas_prefs", Context.MODE_PRIVATE)
 
     var isPro: Boolean
-        get() = prefs.getBoolean("IS_PRO", false)
-        set(value) = prefs.edit().putBoolean("IS_PRO", value).apply()
+        get() = prefs.getBoolean("is_pro", false)
+        set(value) = prefs.edit().putBoolean("is_pro", value).apply()
 
-    var storeName: String
-        get() = prefs.getString("STORE_NAME", "ZoKas") ?: "ZoKas"
-        set(value) = prefs.edit().putString("STORE_NAME", value).apply()
+    var isDarkMode: Boolean
+        get() = prefs.getBoolean("dark_mode", false)
+        set(value) = prefs.edit().putBoolean("dark_mode", value).apply()
 
-    var storeFooter: String
-        get() = prefs.getString("STORE_FOOTER", "Terima kasih telah berbelanja!") ?: "Terima kasih telah berbelanja!"
-        set(value) = prefs.edit().putString("STORE_FOOTER", value).apply()
+    var language: String
+        get() = prefs.getString("language", "in") ?: "in"
+        set(value) = prefs.edit().putString("language", value).apply()
 
-    var storeAddress: String
-        get() = prefs.getString("STORE_ADDRESS", "Jl. Raya UMKM No. 123") ?: "Jl. Raya UMKM No. 123"
-        set(value) = prefs.edit().putString("STORE_ADDRESS", value).apply()
+    var storeName: String?
+        get() = prefs.getString("store_name", "ZoKas Store")
+        set(value) = prefs.edit().putString("store_name", value).apply()
 
-    var storePhone: String
-        get() = prefs.getString("STORE_PHONE", "081234567890") ?: "081234567890"
-        set(value) = prefs.edit().putString("STORE_PHONE", value).apply()
+    var storeAddress: String?
+        get() = prefs.getString("store_address", "Jl. Raya UMKM No. 123")
+        set(value) = prefs.edit().putString("store_address", value).apply()
+
+    var storePhone: String?
+        get() = prefs.getString("store_phone", "081234567890")
+        set(value) = prefs.edit().putString("store_phone", value).apply()
+
+    var storeFooter: String?
+        get() = prefs.getString("store_footer", "Terima kasih telah berbelanja!")
+        set(value) = prefs.edit().putString("store_footer", value).apply()
+
+    var taxPercent: Double
+        get() = prefs.getFloat("tax_percent", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("tax_percent", value.toFloat()).apply()
 
     var printerMacAddress: String?
-        get() = prefs.getString("PRINTER_MAC", null)
-        set(value) = prefs.edit().putString("PRINTER_MAC", value).apply()
+        get() = prefs.getString("printer_mac", null)
+        set(value) = prefs.edit().putString("printer_mac", value).apply()
 
-    // TAMBAHAN BARU: Persentase Pajak (Default 0% karena UMKM sering tidak memungut pajak)
-    var taxPercent: Double
-        get() = prefs.getFloat("TAX_PERCENT", 0f).toDouble()
-        set(value) = prefs.edit().putFloat("TAX_PERCENT", value.toFloat()).apply()
+    // FITUR BARU: Printer Dapur
+    var kitchenPrinterMacAddress: String?
+        get() = prefs.getString("kitchen_printer_mac", null)
+        set(value) = prefs.edit().putString("kitchen_printer_mac", value).apply()
+
+    // FITUR BARU: Happy Hour
+    var happyHourStart: String
+        get() = prefs.getString("happy_start", "17:00") ?: "17:00"
+        set(value) = prefs.edit().putString("happy_start", value).apply()
+
+    var happyHourEnd: String
+        get() = prefs.getString("happy_end", "19:00") ?: "19:00"
+        set(value) = prefs.edit().putString("happy_end", value).apply()
+
+    var happyHourDiscount: Double
+        get() = prefs.getFloat("happy_discount", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("happy_discount", value.toFloat()).apply()
 }

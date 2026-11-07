@@ -40,7 +40,13 @@ import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
 import com.karyaku.kasir.data.local.CustomerEntity
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 fun formatRupiah(amount: Long): String {
@@ -53,6 +59,8 @@ fun formatRupiah(amount: Long): String {
 fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity, onLogout: () -> Unit) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
+    val printerManager = remember { BluetoothPrinterManager(context) }
     
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
@@ -65,7 +73,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val pointsUsed by viewModel.pointsUsed.collectAsStateWithLifecycle()
     val holdOrders by viewModel.holdOrders.collectAsStateWithLifecycle()
-    val occupiedTables by viewModel.occupiedTables.collectAsStateWithLifecycle() // FITUR BARU
+    val occupiedTables by viewModel.occupiedTables.collectAsStateWithLifecycle() 
     val voucherDiscount by viewModel.voucherDiscount.collectAsStateWithLifecycle()
     val appliedVoucher by viewModel.appliedVoucher.collectAsStateWithLifecycle()
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
@@ -73,9 +81,25 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val taxPercent by viewModel.taxPercent.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.setTaxPercent(settingsManager.taxPercent) }
 
+    // FITUR HAPPY HOUR
+    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    val currentMinute = Calendar.getInstance().get(Calendar.MINUTE)
+    val currentTimeString = String.format(Locale.getDefault(), "%02d:%02d", currentHour, currentMinute)
+    
+    val isHappyHour = remember(currentTimeString, settingsManager.happyHourDiscount) {
+        if (settingsManager.happyHourDiscount > 0) {
+            currentTimeString >= settingsManager.happyHourStart && currentTimeString <= settingsManager.happyHourEnd
+        } else false
+    }
+
     val subtotal = cart.sumOf { it.product.price * it.quantity }
-    val taxAmount = ((subtotal - discount - voucherDiscount) * (taxPercent / 100.0)).toLong()
-    val totalPrice = (subtotal + taxAmount - discount - voucherDiscount).coerceAtLeast(0)
+    
+    // Kalkulasi Happy Hour
+    val happyHourDiscountAmount = if (isHappyHour) ((subtotal * settingsManager.happyHourDiscount) / 100).toLong() else 0L
+    val totalDiscount = discount + happyHourDiscountAmount
+    
+    val taxAmount = ((subtotal - totalDiscount - voucherDiscount) * (taxPercent / 100.0)).toLong()
+    val totalPrice = (subtotal + taxAmount - totalDiscount - voucherDiscount).coerceAtLeast(0)
     
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
@@ -83,8 +107,9 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToWaste by remember { mutableStateOf<ProductEntity?>(null) } // WASTE LOG
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToEditNotes by remember { mutableStateOf<ProductEntity?>(null) } // FITUR BARU
+    var productToEditNotes by remember { mutableStateOf<ProductEntity?>(null) } // NOTES
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     
     var showOpenShiftDialog by remember { mutableStateOf(false) }
@@ -93,6 +118,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     var showDiscountDialog by remember { mutableStateOf(false) } 
     var showCustomerDialog by remember { mutableStateOf(false) }
     var modalAwal by remember { mutableStateOf("") }
+    var showDrawerConfirm by remember { mutableStateOf(false) } // MANUAL CASH DRAWER
 
     var showHoldDialog by remember { mutableStateOf(false) }
     var showTableSelector by remember { mutableStateOf(false) }
@@ -103,7 +129,73 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         if (activeShift == null) showOpenShiftDialog = true
     }
 
-    // DIALOG EDIT NOTES (FITUR BARU)
+    // TRIGGER KITCHEN PRINTER SAAT TRANSAKSI SELESAI
+    LaunchedEffect(completedTransaction) {
+        if (completedTransaction != null) {
+            val kitchenMac = settingsManager.kitchenPrinterMacAddress
+            if (kitchenMac != null) {
+                scope.launch {
+                    val kitchenData = generateKitchenTicket(completedTransaction!!, viewModel)
+                    printerManager.printData(kitchenMac, kitchenData)
+                }
+            }
+        }
+    }
+
+    // DIALOG KONFIRMASI BUKA LACI MANUAL
+    if (showDrawerConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDrawerConfirm = false },
+            title = { Text("Buka Laci Kasir") },
+            text = { Text("Apakah Anda yakin ingin membuka laci tanpa transaksi? Aktivitas ini akan dicatat di Audit Log.") },
+            confirmButton = {
+                Button(onClick = { 
+                    viewModel.logCashDrawerOpen(currentUser)
+                    Toast.makeText(context, "Laci dibuka. Log tercatat.", Toast.LENGTH_SHORT).show()
+                    showDrawerConfirm = false 
+                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("BUKA LACI") }
+            },
+            dismissButton = { TextButton(onClick = { showDrawerConfirm = false }) { Text("Batal") } }
+        )
+    }
+
+    // DIALOG WASTE LOG (BARANG RUSAK)
+    if (productToWaste != null) {
+        var qty by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { productToWaste = null },
+            title = { Text("Catat Barang Rusak") },
+            text = {
+                Column {
+                    Text("Produk: ${productToWaste!!.name}")
+                    Text("Stok saat ini: ${productToWaste!!.stock}")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = qty, 
+                        onValueChange = { if (it.length <= 5) qty = it }, 
+                        label = { Text("Jumlah Rusak (pcs)") }, 
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { 
+                    val q = qty.toIntOrNull() ?: 0
+                    if (q > 0 && q <= productToWaste!!.stock) {
+                        viewModel.recordWaste(productToWaste!!, q, currentUser)
+                        Toast.makeText(context, "Barang rusak dicatat.", Toast.LENGTH_SHORT).show()
+                        productToWaste = null 
+                    } else {
+                        Toast.makeText(context, "Jumlah tidak valid!", Toast.LENGTH_SHORT).show()
+                    }
+                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("CATAT RUSAK") }
+            },
+            dismissButton = { TextButton(onClick = { productToWaste = null }) { Text("Batal") } }
+        )
+    }
+
+    // DIALOG EDIT NOTES
     if (productToEditNotes != null) {
         var notes by remember { mutableStateOf(cart.find { it.product.id == productToEditNotes!!.id }?.notes ?: "") }
         AlertDialog(
@@ -113,12 +205,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 Column {
                     Text("Tambahkan catatan untuk ${productToEditNotes!!.name}:")
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = notes, 
-                        onValueChange = { notes = it }, 
-                        label = { Text("Cth: Less Ice, Extra Shot") }, 
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Cth: Less Ice, Extra Shot") }, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
@@ -150,88 +237,49 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     if (showCloseShiftDialog) {
         CloseShiftDialog(onDismiss = { showCloseShiftDialog = false }, onConfirm = { uangFisik ->
-            viewModel.closeShift(currentUser, uangFisik) {
-                showCloseShiftDialog = false
-                onLogout()
-            }
+            viewModel.closeShift(currentUser, uangFisik) { showCloseShiftDialog = false; onLogout() }
         })
     }
-
     if (showCashFlowDialog) {
         CashFlowDialog(onDismiss = { showCashFlowDialog = false }, onSave = { type, amount, note ->
-            viewModel.addCashFlow(type, amount, note, currentUser)
-            showCashFlowDialog = false
+            viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false
         })
     }
-
     if (showDiscountDialog) {
         DiscountDialog(currentDiscount = discount, onDismiss = { showDiscountDialog = false }, onSave = { amount ->
-            viewModel.setDiscount(amount)
-            showDiscountDialog = false
+            viewModel.setDiscount(amount); showDiscountDialog = false
         })
     }
-
     if (showCustomerDialog) {
         CustomerDialog(
-            customers = customers,
-            selectedCustomer = selectedCustomer,
-            onDismiss = { showCustomerDialog = false },
-            onSelect = { customer ->
-                viewModel.setCustomer(customer)
-                showCustomerDialog = false
-            },
+            customers = customers, selectedCustomer = selectedCustomer, onDismiss = { showCustomerDialog = false },
+            onSelect = { viewModel.setCustomer(it); showCustomerDialog = false },
             onAddCustomer = { name, phone -> viewModel.addCustomer(name, phone) },
             onRedeemPoints = { points -> viewModel.redeemPoints(points) }
         )
     }
-    
     if (showTableSelector) {
-        TableSelectorDialog(
-            currentTable = selectedTable, 
-            occupiedTables = occupiedTables, // FITUR BARU: Peta Meja
-            onDismiss = { showTableSelector = false }, 
-            onSelect = { viewModel.setTable(it) }
-        )
+        TableSelectorDialog(currentTable = selectedTable, occupiedTables = occupiedTables, onDismiss = { showTableSelector = false }, onSelect = { viewModel.setTable(it) })
     }
-
     if (showVoucherDialog) {
         VoucherDialog(
-            currentCode = appliedVoucher,
-            onDismiss = { showVoucherDialog = false },
-            onApply = { code ->
-                viewModel.applyVoucher(code) { success, msg ->
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                    if (success) showVoucherDialog = false
-                }
-            },
-            onRemove = {
-                viewModel.applyVoucher("") { _, _ -> }
-                showVoucherDialog = false
-            }
+            currentCode = appliedVoucher, onDismiss = { showVoucherDialog = false },
+            onApply = { code -> viewModel.applyVoucher(code) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) showVoucherDialog = false } },
+            onRemove = { viewModel.applyVoucher("") { _, _ -> }; showVoucherDialog = false }
         )
     }
-
     if (showHoldDialog) {
-        HoldOrderDialog(
-            holdOrders = holdOrders,
-            onDismiss = { showHoldDialog = false },
-            onResume = { order ->
-                viewModel.resumeHoldOrder(order)
-                showHoldDialog = false
-            }
-        )
+        HoldOrderDialog(holdOrders = holdOrders, onDismiss = { showHoldDialog = false }, onResume = { viewModel.resumeHoldOrder(it); showHoldDialog = false })
     }
 
     if (completedTransaction != null) {
         ReceiptDialog(
-            transaction = completedTransaction!!,
-            viewModel = viewModel,
-            storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
-            storeAddress = if (settingsManager.isPro) settingsManager.storeAddress else "Alamat belum diatur",
-            storePhone = if (settingsManager.isPro) settingsManager.storePhone else "-",
-            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Upgrade ke Pro!",
-            settingsManager = settingsManager,
-            onDismiss = { completedTransaction = null }
+            transaction = completedTransaction!!, viewModel = viewModel,
+            storeName = if (settingsManager.isPro) settingsManager.storeName ?: "" else "ZoKas (Gratis)",
+            storeAddress = if (settingsManager.isPro) settingsManager.storeAddress ?: "" else "",
+            storePhone = if (settingsManager.isPro) settingsManager.storePhone ?: "" else "",
+            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter ?: "" else "",
+            settingsManager = settingsManager, onDismiss = { completedTransaction = null }
         )
     }
 
@@ -241,10 +289,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         } else {
             totalPrice
         }
-        
         PaymentBottomSheet(
-            totalPrice = totalToPay,
-            onDismiss = { showPaymentSheet = false },
+            totalPrice = totalToPay, onDismiss = { showPaymentSheet = false },
             onConfirmPayment = { cashReceived, method ->
                 viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method) { newTransaction ->
                     showPaymentSheet = false
@@ -258,59 +304,50 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     if (showProductForm) {
         ProductFormBottomSheet(
-            productToEdit = productToEdit, 
-            onDismiss = { showProductForm = false; productToEdit = null }, 
-            onSave = { name, price, stock, category, costPrice, barcode -> 
+            productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null },
+            onSave = { name, price, stock, category, costPrice, barcode ->
                 if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, currentUser.id, currentUser.name)
                 else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode), currentUser.id, currentUser.name)
-                showProductForm = false
-                productToEdit = null
+                showProductForm = false; productToEdit = null
             }
         )
     }
 
     if (productToRestock != null) {
-        StockOpnameDialog(
-            product = productToRestock!!,
-            onDismiss = { productToRestock = null },
-            onSave = { qty ->
-                viewModel.addStock(productToRestock!!, qty, currentUser)
-                productToRestock = null
-                Toast.makeText(context, "Stok berhasil ditambah!", Toast.LENGTH_SHORT).show()
-            }
-        )
+        StockOpnameDialog(product = productToRestock!!, onDismiss = { productToRestock = null }, onSave = { qty ->
+            viewModel.addStock(productToRestock!!, qty, currentUser); productToRestock = null
+            Toast.makeText(context, "Stok berhasil ditambah!", Toast.LENGTH_SHORT).show()
+        })
     }
 
+    // DIALOG AKSI PRODUK (EDIT, RESTOCK, WASTE, HAPUS)
     if (showActionDialogFor != null) {
         AlertDialog(
             onDismissRequest = { showActionDialogFor = null },
             title = { Text(showActionDialogFor!!.name) },
             text = { Text("Pilih tindakan untuk produk ini:") },
             confirmButton = { 
-                TextButton(onClick = { 
-                    productToEdit = showActionDialogFor
-                    showProductForm = true
-                    showActionDialogFor = null 
-                }) { 
+                TextButton(onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null }) { 
                     Icon(Icons.Default.Edit, contentDescription = null, tint = ZokasGreen)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Edit", color = ZokasGreen) 
                 } 
             },
             dismissButton = { 
-                Row {
-                    TextButton(onClick = { 
-                        productToRestock = showActionDialogFor
-                        showActionDialogFor = null 
-                    }) { 
-                        Icon(Icons.Default.Add, contentDescription = null, tint = ZokasOrange)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Restock", color = ZokasOrange) 
+                Column(horizontalAlignment = Alignment.End) {
+                    Row {
+                        TextButton(onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null }) { 
+                            Icon(Icons.Default.Add, contentDescription = null, tint = ZokasOrange)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Restock", color = ZokasOrange) 
+                        }
+                        TextButton(onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null }) { 
+                            Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color.Red)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Rusak", color = Color.Red) 
+                        }
                     }
-                    TextButton(onClick = { 
-                        productToDelete = showActionDialogFor
-                        showActionDialogFor = null 
-                    }) { 
+                    TextButton(onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null }) { 
                         Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Hapus", color = Color.Red) 
@@ -325,19 +362,11 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             onDismissRequest = { productToDelete = null },
             title = { Text("Konfirmasi Hapus") },
             text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}'?") },
-            confirmButton = { 
-                TextButton(onClick = { 
-                    viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name)
-                    productToDelete = null 
-                }) { 
-                    Text("Ya, Hapus", color = Color.Red) 
-                } 
-            },
+            confirmButton = { TextButton(onClick = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }) { Text("Ya, Hapus", color = Color.Red) } },
             dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Batal") } }
         )
     }
 
-    // ================= UI UTAMA =================
     Scaffold(
         topBar = {
             TopAppBar(
@@ -346,15 +375,16 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         Image(painter = painterResource(id = R.drawable.logo_zokas), contentDescription = "Logo", modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)))
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(text = if (settingsManager.isPro) settingsManager.storeName else "ZoKas", 
-    fontWeight = FontWeight.Bold, 
-    fontSize = 18.sp,
-    color = ZokasOrange)
+                            Text(text = if (settingsManager.isPro) settingsManager.storeName ?: "" else "ZoKas", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = ZokasOrange)
                             Text(text = "Kasir: ${currentUser.name}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
                         }
                     }
                 },
                 actions = {
+                    // TOMBOL BUKA LACI MANUAL
+                    if (currentUser.role == "OWNER" || currentUser.role == "SUPERVISOR") {
+                        IconButton(onClick = { showDrawerConfirm = true }) { Icon(Icons.Default.Money, contentDescription = "Buka Laci", tint = Color.Green) }
+                    }
                     IconButton(onClick = { showHoldDialog = true }) { Icon(Icons.Default.List, contentDescription = "Parkir", tint = ZokasGreen) }
                     IconButton(onClick = { showCashFlowDialog = true }) { Icon(Icons.Default.Wallet, contentDescription = "Kas", tint = ZokasOrange) }
                     IconButton(onClick = { showCloseShiftDialog = true }) { Icon(Icons.Default.Lock, contentDescription = "Tutup Kasir", tint = ZokasOrange) }
@@ -385,71 +415,65 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             }
         }
     ) { paddingValues ->
-        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            val isTablet = maxWidth > 600.dp
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // BANNER HAPPY HOUR
+            if (isHappyHour) {
+                Box(modifier = Modifier.fillMaxWidth().background(Color.Red).padding(8.dp), contentAlignment = Alignment.Center) {
+                    Text("🔥 HAPPY HOUR AKTIF! Diskon ${settingsManager.happyHourDiscount}% 🔥", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
 
-            if (isTablet) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val isTablet = maxWidth > 600.dp
+                if (isTablet) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
+                            ProductCatalog(
+                                products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
+                                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
+                                onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it },
+                                onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } }
+                            ) 
+                        }
+                        VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                        Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
+                            CartList(
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice,
+                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
+                                appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode,
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it) },
+                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
+                                onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
+                                onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it }
+                            )
+                        }
+                    }
+                } else {
+                    if (showCartOnPhone) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(8.dp)) { Text("< Kembali ke Katalog", color = ZokasOrange) }
+                            CartList(
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice,
+                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
+                                appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode,
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it) },
+                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
+                                onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
+                                onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it }
+                            )
+                        }
+                    } else {
                         ProductCatalog(
                             products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
                             onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
                             onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it },
-                            onBarcodeScan = { barcode -> 
-                                viewModel.processBarcodeScan(barcode) { success, msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                    if (success) keyboardController?.hide()
-                                }
-                            }
-                        ) 
-                    }
-                    VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                    Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
-                        CartList(
-                            cart = cart, subtotal = subtotal, discount = discount, taxAmount = taxAmount, totalPrice = totalPrice,
-                            selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
-                            appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode,
-                            onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it) },
-                            onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
-                            onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
-                            onViewHoldClick = { showHoldDialog = true },
-                            onCustomerClick = { showCustomerDialog = true },
-                            onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
-                            onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true },
-                            onEditNotes = { productToEditNotes = it }
+                            onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } }
                         )
                     }
-                }
-            } else {
-                if (showCartOnPhone) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(8.dp)) { Text("< Kembali ke Katalog", color = ZokasOrange) }
-                        CartList(
-                            cart = cart, subtotal = subtotal, discount = discount, taxAmount = taxAmount, totalPrice = totalPrice,
-                            selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
-                            appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode,
-                            onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it) },
-                            onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
-                            onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
-                            onViewHoldClick = { showHoldDialog = true },
-                            onCustomerClick = { showCustomerDialog = true },
-                            onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
-                            onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true },
-                            onEditNotes = { productToEditNotes = it }
-                        )
-                    }
-                } else {
-                    ProductCatalog(
-                        products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
-                        onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
-                        onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it },
-                        onBarcodeScan = { barcode -> 
-                            viewModel.processBarcodeScan(barcode) { success, msg ->
-                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                if (success) keyboardController?.hide()
-                            }
-                        }
-                    )
                 }
             }
         }
@@ -1031,4 +1055,34 @@ fun CloseShiftDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
         confirmButton = { Button(onClick = { onConfirm(uangFisik.toLongOrNull() ?: 0L) }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("TUTUP KASIR") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
+}
+
+// FUNGSI BANTUAN: Cetak Tiket Dapur
+private suspend fun generateKitchenTicket(transaction: TransactionEntity, viewModel: PosViewModel): ByteArray {
+    val items = viewModel.getTransactionItems(transaction.id).first()
+    val output = ByteArrayOutputStream()
+    val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    
+    output.write(EscPosCommands.INIT)
+    output.write(EscPosCommands.ALIGN_CENTER)
+    output.write(EscPosCommands.BOLD_ON)
+    output.write("TIKET DAPUR\n".toByteArray())
+    output.write(EscPosCommands.BOLD_OFF)
+    output.write("================\n".toByteArray())
+    output.write("ID: #${transaction.id} | ${transaction.tableName}\n".toByteArray())
+    output.write("Kasir: ${transaction.cashierName}\n".toByteArray())
+    output.write("Waktu: ${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
+    output.write("================\n".toByteArray())
+    output.write(EscPosCommands.ALIGN_LEFT)
+    
+    items.forEach {
+        output.write("${it.quantity}x ${it.productName}\n".toByteArray())
+        if (it.notes.isNotEmpty()) {
+            output.write("  *Cat: ${it.notes}\n".toByteArray())
+        }
+    }
+    output.write("\n\n\n".toByteArray())
+    output.write(EscPosCommands.FEED_3)
+    output.write(EscPosCommands.CUT_PAPER)
+    return output.toByteArray()
 }

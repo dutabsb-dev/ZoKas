@@ -68,6 +68,11 @@ fun SettingsScreen(
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var csvDataToExport by remember { mutableStateOf("") }
     
+    // HAPPY HOUR STATE
+    var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
+    var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
+    var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
+    
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
     var showChangePinDialog by remember { mutableStateOf(false) }
@@ -80,13 +85,23 @@ fun SettingsScreen(
     
     val printerManager = remember { BluetoothPrinterManager(context) }
     var savedPrinterMac by remember { mutableStateOf(settingsManager.printerMacAddress) }
+    var savedKitchenMac by remember { mutableStateOf(settingsManager.kitchenPrinterMacAddress) }
     var showPrinterDialog by remember { mutableStateOf(false) }
+    var showKitchenDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
         if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
             pairedPrinters = printerManager.getPairedPrinters()
             showPrinterDialog = true
+        }
+    }
+    
+    // Launcher khusus untuk memilih printer dapur
+    val kitchenPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
+        if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
+            pairedPrinters = printerManager.getPairedPrinters()
+            showKitchenDialog = true
         }
     }
 
@@ -104,31 +119,23 @@ fun SettingsScreen(
         }
     }
 
-    // LAUNCHER CSV EXPORT
     val createCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
         if (uri != null) {
             try {
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(csvDataToExport.toByteArray())
-                }
+                context.contentResolver.openOutputStream(uri)?.use { outputStream -> outputStream.write(csvDataToExport.toByteArray()) }
                 Toast.makeText(context, "Produk berhasil diekspor!", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+            } catch (e: Exception) { Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_SHORT).show() }
         }
     }
 
-    // LAUNCHER CSV IMPORT
     val openCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             try {
                 val csvText = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
-                viewModel.importProductsFromCsv(csvText) { count ->
-                    Toast.makeText(context, "$count Produk berhasil diimpor!", Toast.LENGTH_LONG).show()
+                viewModel.importProductsFromCsv(csvText) { inserts, updates ->
+                    Toast.makeText(context, "Import Selesai! $inserts Baru, $updates Diperbarui.", Toast.LENGTH_LONG).show()
                 }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Gagal impor: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+            } catch (e: Exception) { Toast.makeText(context, "Gagal impor: ${e.message}", Toast.LENGTH_SHORT).show() }
         }
     }
 
@@ -151,25 +158,41 @@ fun SettingsScreen(
         ShiftHistoryDialog(shifts = shifts, onDismiss = { showShiftHistory = false })
     }
 
+    // DIALOG PRINTER UTAMA
     if (showPrinterDialog) {
         AlertDialog(
             onDismissRequest = { showPrinterDialog = false },
-            title = { Text("Pilih Printer Bluetooth") },
+            title = { Text("Pilih Printer Kasir") },
             text = {
                 if (pairedPrinters.isEmpty()) Text("Tidak ada printer. Pastikan sudah pairing di HP.")
                 else {
                     LazyColumn {
                         items(pairedPrinters) { device ->
-                            TextButton(onClick = {
-                                settingsManager.printerMacAddress = device.address
-                                savedPrinterMac = device.address
-                                showPrinterDialog = false
-                            }) { Text("${device.name} (${device.address})") }
+                            TextButton(onClick = { settingsManager.printerMacAddress = device.address; savedPrinterMac = device.address; showPrinterDialog = false }) { Text("${device.name} (${device.address})") }
                         }
                     }
                 }
             },
             confirmButton = { TextButton(onClick = { showPrinterDialog = false }) { Text("Tutup") } }
+        )
+    }
+    
+    // DIALOG PRINTER DAPUR
+    if (showKitchenDialog) {
+        AlertDialog(
+            onDismissRequest = { showKitchenDialog = false },
+            title = { Text("Pilih Printer Dapur") },
+            text = {
+                if (pairedPrinters.isEmpty()) Text("Tidak ada printer.")
+                else {
+                    LazyColumn {
+                        items(pairedPrinters) { device ->
+                            TextButton(onClick = { settingsManager.kitchenPrinterMacAddress = device.address; savedKitchenMac = device.address; showKitchenDialog = false }) { Text("${device.name} (${device.address})") }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showKitchenDialog = false }) { Text("Tutup") } }
         )
     }
 
@@ -224,22 +247,31 @@ fun SettingsScreen(
             }
         }
 
+        // HARDWARE: PRINTER KASIR & DAPUR
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Printer Thermal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Printer Kasir", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(if (savedPrinterMac != null) "Terhubung: $savedPrinterMac" else "Belum ada printer", fontSize = 12.sp, color = if(savedPrinterMac != null) Color(0xFF4CAF50) else Color.Gray)
-                    Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = {
                             if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
                                 pairedPrinters = printerManager.getPairedPrinters(); showPrinterDialog = true
-                            } else {
-                                permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
-                            }
-                        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                    ) { Text("PILIH PRINTER") }
+                            } else { permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)) }
+                        }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                    ) { Text("PILIH PRINTER KASIR") }
+                    
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    
+                    Text("Printer Dapur (KDS)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(if (savedKitchenMac != null) "Terhubung: $savedKitchenMac" else "Belum ada printer dapur", fontSize = 12.sp, color = if(savedKitchenMac != null) Color(0xFF4CAF50) else Color.Gray)
+                    Button(
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                                pairedPrinters = printerManager.getPairedPrinters(); showKitchenDialog = true
+                            } else { kitchenPermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)) }
+                        }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                    ) { Text("PILIH PRINTER DAPUR") }
                 }
             }
         }
@@ -267,17 +299,35 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = taxPercent, 
-                        onValueChange = { 
-                            taxPercent = it
-                            val tax = it.toDoubleOrNull() ?: 0.0
-                            settingsManager.taxPercent = tax
-                            viewModel.setTaxPercent(tax)
-                        }, 
-                        label = { Text("Pajak (%) cth: 11") }, 
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
-                        modifier = Modifier.fillMaxWidth(), 
-                        singleLine = true
+                        onValueChange = { taxPercent = it; val tax = it.toDoubleOrNull() ?: 0.0; settingsManager.taxPercent = tax; viewModel.setTaxPercent(tax) }, 
+                        label = { Text("Pajak (%) cth: 11") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true
                     )
+                }
+            }
+            
+            // PENGATURAN HAPPY HOUR
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Happy Hour Promo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Diskon otomatis pada jam tertentu.", fontSize = 12.sp, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = hhStart, onValueChange = { hhStart = it; settingsManager.happyHourStart = it }, 
+                                label = { Text("Mulai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = hhEnd, onValueChange = { hhEnd = it; settingsManager.happyHourEnd = it }, 
+                                label = { Text("Selesai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = hhDiscount, onValueChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 }, 
+                            label = { Text("Diskon (%) cth: 10") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true
+                        )
+                    }
                 }
             }
         } else {
@@ -309,7 +359,6 @@ fun SettingsScreen(
             }
         }
 
-        // BULK IMPORT/EXPORT CSV (FITUR BARU)
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -319,18 +368,12 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
-                            onClick = { 
-                                csvDataToExport = viewModel.exportProductsToCsv()
-                                createCsvLauncher.launch("Zokas_Produk_${System.currentTimeMillis()}.csv") 
-                            }, 
-                            modifier = Modifier.weight(1f), 
-                            colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                            onClick = { csvDataToExport = viewModel.exportProductsToCsv(); createCsvLauncher.launch("Zokas_Produk_${System.currentTimeMillis()}.csv") }, 
+                            modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
                         ) { Text("EKSPOR CSV") }
-                        
                         Button(
                             onClick = { openCsvLauncher.launch(arrayOf("text/*", "text/csv", "application/csv")) }, 
-                            modifier = Modifier.weight(1f), 
-                            colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                            modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
                         ) { Text("IMPOR CSV") }
                     }
                 }
@@ -371,39 +414,22 @@ fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) ->
                 Text("Masukkan PIN baru (6 digit):")
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = newPin,
-                    onValueChange = { if (it.length <= 6) { newPin = it; error = "" } },
-                    label = { Text("PIN Baru") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    value = newPin, onValueChange = { if (it.length <= 6) { newPin = it; error = "" } },
+                    label = { Text("PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = confirmPin,
-                    onValueChange = { if (it.length <= 6) { confirmPin = it; error = "" } },
-                    label = { Text("Konfirmasi PIN Baru") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = error.isNotEmpty()
+                    value = confirmPin, onValueChange = { if (it.length <= 6) { confirmPin = it; error = "" } },
+                    label = { Text("Konfirmasi PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, isError = error.isNotEmpty()
                 )
-                if (error.isNotEmpty()) {
-                    Text(error, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                }
+                if (error.isNotEmpty()) { Text(error, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
             }
         },
         confirmButton = {
             Button(
-                onClick = {
-                    if (newPin.length == 6 && newPin == confirmPin) {
-                        onSave(newPin)
-                    } else {
-                        error = "PIN harus 6 digit dan sama!"
-                    }
-                },
+                onClick = { if (newPin.length == 6 && newPin == confirmPin) { onSave(newPin) } else { error = "PIN harus 6 digit dan sama!" } },
                 colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
             ) { Text("SIMPAN PIN") }
         },
