@@ -8,7 +8,9 @@ import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +38,7 @@ import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 fun Context.findActivity(): Activity? {
     var context = this
@@ -61,7 +64,6 @@ fun SettingsScreen(
     viewModel: PosViewModel
 ) {
     val context = LocalContext.current
-    // FIX: Tambahkan ?: "" untuk menghindari crash jika SharedPreferences mengembalikan null
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
@@ -83,7 +85,8 @@ fun SettingsScreen(
     var showPrinterDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
-    val permissionLauncher = registerForActivityResultSafe(
+    // GANTI DENGAN rememberSafeLauncher
+    val permissionLauncher = rememberSafeLauncher(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
         if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
@@ -92,8 +95,8 @@ fun SettingsScreen(
         }
     }
 
-    // GANTI createBackupLauncher
-    val createBackupLauncher = registerForActivityResultSafe(
+    // GANTI DENGAN rememberSafeLauncher
+    val createBackupLauncher = rememberSafeLauncher(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
         if (uri != null) {
@@ -102,8 +105,8 @@ fun SettingsScreen(
         }
     }
 
-    // GANTI restoreBackupLauncher
-    val restoreBackupLauncher = registerForActivityResultSafe(
+    // GANTI DENGAN rememberSafeLauncher
+    val restoreBackupLauncher = rememberSafeLauncher(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
@@ -111,6 +114,7 @@ fun SettingsScreen(
             else Toast.makeText(context, "Gagal restore.", Toast.LENGTH_SHORT).show()
         }
     }
+
     if (showChangePinDialog) {
         ChangePinDialog(user = currentUser, onDismiss = { showChangePinDialog = false }, onSave = { newPin ->
             viewModel.updatePin(currentUser, newPin); showChangePinDialog = false; Toast.makeText(context, "PIN diubah!", Toast.LENGTH_SHORT).show()
@@ -160,7 +164,6 @@ fun SettingsScreen(
         )
     }
 
-    // FIX BESAR: Mengubah Column menjadi LazyColumn untuk mencegah Out of Memory (OOM) saat Log banyak
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -294,7 +297,6 @@ fun SettingsScreen(
         if (auditLogs.isEmpty()) {
             item { Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.fillMaxWidth()) }
         } else {
-            // FIX: Menggunakan items() di dalam LazyColumn agar tidak OOM/Force Close jika log ribuan
             items(auditLogs) { log ->
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)

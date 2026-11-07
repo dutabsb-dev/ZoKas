@@ -1,14 +1,16 @@
 package com.karyaku.kasir
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.ActivityResultRegistryOwner
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -45,19 +47,34 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-// FUNGSI BANTUAN BARU: Mengambil registry langsung dari Context
+// FUNGSI BANTUAN BARU: Mencari Activity dengan aman tanpa ClassCastException
 @Composable
-fun <I, O> registerForActivityResultSafe(
-    contract: androidx.activity.result.contract.ActivityResultContract<I, O>,
+fun <I, O> rememberSafeLauncher(
+    contract: ActivityResultContract<I, O>,
     onResult: (O) -> Unit
 ): ActivityResultLauncher<I> {
-    val owner = LocalContext.current as ActivityResultRegistryOwner
-    val activityResultRegistry = owner.activityResultRegistry
+    val context = LocalContext.current
+    val activity = remember(context) {
+        var ctx = context
+        while (ctx is ContextWrapper) {
+            if (ctx is ComponentActivity) return@remember ctx
+            ctx = ctx.baseContext
+        }
+        null
+    } ?: error("Cannot find ComponentActivity in context hierarchy")
+
+    val registry = activity.activityResultRegistry
     val currentOnResult = rememberUpdatedState(onResult)
     val key = remember { UUID.randomUUID().toString() }
-    return remember {
-        activityResultRegistry.register(key, contract) { currentOnResult.value(it) }
+
+    val launcher = remember(key) {
+        registry.register(key, contract) { currentOnResult.value(it) }
     }
+    
+    DisposableEffect(key) {
+        onDispose { registry.unregister(key) }
+    }
+    return launcher
 }
 
 @Composable
@@ -85,9 +102,9 @@ fun HistoryScreen(
     var dateFilter by remember { mutableStateOf("HARI_INI") }
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
-
-    // FIX UTAMA: Menggunakan registerForActivityResultSafe, bukan rememberLauncherForActivityResult
-    val createPdfLauncher = registerForActivityResultSafe(
+    
+    // FIX: Menggunakan rememberSafeLauncher, bukan rememberLauncherForActivityResult
+    val createPdfLauncher = rememberSafeLauncher(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri: Uri? ->
         if (uri != null) {
