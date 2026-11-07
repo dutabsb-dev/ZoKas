@@ -134,7 +134,6 @@ fun HistoryScreen(
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
 
-                    // FITUR BARU: Rincian Pembayaran
                     val totalCash = validTransactions.filter { it.paymentMethod == "CASH" }.sumOf { it.totalPrice }
                     val totalBon = validTransactions.filter { it.paymentMethod == "BON" }.sumOf { it.totalPrice }
                     
@@ -332,13 +331,14 @@ fun TransactionDetailDialog(
     var showPayBonDialog by remember { mutableStateOf(false) }
 
     if (showReceipt) {
+        // FIXED: Menambahkan ?: "" pada storeName, storeAddress, dll agar tidak Type Mismatch String? ke String
         ReceiptDialog(
             transaction = transaction,
             viewModel = viewModel,
-            storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
-            storeAddress = if (settingsManager.isPro) settingsManager.storeAddress else "Alamat belum diatur",
-            storePhone = if (settingsManager.isPro) settingsManager.storePhone else "-",
-            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Terima kasih!",
+            storeName = if (settingsManager.isPro) (settingsManager.storeName ?: "ZoKas") else "ZoKas (Gratis)",
+            storeAddress = if (settingsManager.isPro) (settingsManager.storeAddress ?: "Alamat belum diatur") else "Alamat belum diatur",
+            storePhone = if (settingsManager.isPro) (settingsManager.storePhone ?: "-") else "-",
+            storeFooter = if (settingsManager.isPro) (settingsManager.storeFooter ?: "Terima kasih!") else "Terima kasih!",
             settingsManager = settingsManager,
             onDismiss = { showReceipt = false }
         )
