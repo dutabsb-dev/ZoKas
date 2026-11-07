@@ -22,7 +22,6 @@ import com.karyaku.kasir.data.local.UserEntity
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
@@ -34,7 +33,6 @@ class MainActivity : ComponentActivity() {
 
             PosTheme(isDarkMode = isDarkMode, language = language) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    
                     val posViewModel: PosViewModel = viewModel(
                         factory = PosViewModelFactory(
                             database.productDao(), 
@@ -43,8 +41,8 @@ class MainActivity : ComponentActivity() {
                             database.cashFlowDao(),
                             database.customerDao(),
                             database.transactionItemDao(),
-                            database.voucherDao(),     // <--- TAMBAHAN
-                            database.holdOrderDao()    // <--- TAMBAHAN
+                            database.voucherDao(),
+                            database.holdOrderDao()
                         )
                     )
 
@@ -60,7 +58,11 @@ class MainActivity : ComponentActivity() {
                             isDarkMode = isDarkMode,
                             onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
                             language = language,
-                            onToggleLanguage = { val newLang = if (language == "in") "en" else "in"; language = newLang; settingsManager.language = newLang },
+                            onToggleLanguage = { 
+                                val newLang = if (language == "in") "en" else "in"
+                                language = newLang
+                                settingsManager.language = newLang 
+                            },
                             onUpgradeClick = { isPro = true; settingsManager.isPro = true }
                         )
                     }

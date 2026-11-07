@@ -1,6 +1,9 @@
 package com.karyaku.kasir
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -15,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -53,23 +55,25 @@ fun HistoryScreen(
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
-    val lowStockProducts = viewModel.getLowStockProducts()
-    val inventoryValue by viewModel.inventoryValue.collectAsStateWithLifecycle() // State Nilai Aset
+    val inventoryValue by viewModel.inventoryValue.collectAsStateWithLifecycle()
+    val netProfit by viewModel.netProfit.collectAsStateWithLifecycle()
+    val products by viewModel.products.collectAsStateWithLifecycle()
+
+    // FIX: lowStockProducts reaktif — dihitung ulang saat products berubah
+    val lowStockProducts = remember(products) {
+        products.filter { it.stock <= 5 && it.stock >= 0 }
+    }
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var dateFilter by remember { mutableStateOf("HARI_INI") }
 
-    // State & Launcher PDF Export
+    // FIX: state + launcher untuk ekspor PDF
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     val createPdfLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/pdf")
-    ) { uri: Uri? ->
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
         if (uri != null) {
-            if (PdfExportHelper.exportTransactionsToPdf(context, transactionsToExport, uri)) {
-                Toast.makeText(context, "Laporan PDF berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Gagal mengekspor PDF.", Toast.LENGTH_SHORT).show()
-            }
+            exportTransactionsToPdf(context, uri, transactionsToExport, dateFormat)
         }
     }
 
@@ -107,7 +111,7 @@ fun HistoryScreen(
     }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        
+
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val filters = listOf("HARI_INI" to "Hari Ini", "BULAN_INI" to "Bulan Ini", "7_HARI" to "7 Hari", "30_HARI" to "30 Hari", "SEMUA" to "Semua")
@@ -121,7 +125,6 @@ fun HistoryScreen(
             }
         }
 
-        // KARTU OMZET
         item {
             Card(modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)), colors = CardDefaults.cardColors(containerColor = ZokasGreen)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -129,11 +132,19 @@ fun HistoryScreen(
                     Text(text = formatRupiah(totalOmzet), color = ZokasOrange, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("${validTransactions.size} Transaksi Sukses", color = Color.White, fontSize = 12.sp)
+
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
+
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Laba Kotor:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(labaKotor), color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Laba Bersih (Setelah Kas Keluar):", color = Color.White, fontSize = 14.sp)
+                        Text(formatRupiah(netProfit), color = Color(0xFF00E676), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total Modal (HPP):", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                         Text(formatRupiah(totalHpp), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
@@ -142,7 +153,6 @@ fun HistoryScreen(
             }
         }
 
-        // KARTU NILAI ASET INVENTARIS (FITUR BARU)
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -155,7 +165,6 @@ fun HistoryScreen(
             }
         }
 
-        // GRAFIK PENJUALAN (FIX BUG GRAFIK KOSONG)
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -163,7 +172,10 @@ fun HistoryScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
                         val days = 7
-                        val barWidth = size.width / (days * 2)
+                        // FIX: perhitungan x & barWidth agar tidak keluar canvas
+                        val slotWidth = size.width / days
+                        val barWidth = slotWidth * 0.6f
+
                         val dailySales = (0 until days).map { i ->
                             val start = Calendar.getInstance().apply {
                                 add(Calendar.DAY_OF_YEAR, -i); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
@@ -171,15 +183,19 @@ fun HistoryScreen(
                             val end = start + 86400000L
                             transactions.filter { it.timestamp in start..end && it.status == "SUCCESS" }.sumOf { it.totalPrice }
                         }.reversed()
-                        
+
                         val maxSale = dailySales.maxOrNull() ?: 0L
-                        val effectiveMax = if (maxSale == 0L) 1L else maxSale // Mencegah pembagian dengan nol
-                        
+                        val effectiveMax = if (maxSale == 0L) 1L else maxSale
+
                         dailySales.forEachIndexed { index, sale ->
-                            // Pastikan batang memiliki tinggi minimal 5px jika ada penjualan
                             val barHeight = if (sale > 0) ((sale.toFloat() / effectiveMax) * size.height).coerceAtLeast(10f) else 0f
-                            val x = (index * 2.5f * barWidth) + barWidth
-                            drawRect(color = if (sale > 0) ZokasGreen else Color.LightGray, topLeft = Offset(x, size.height - barHeight), size = Size(barWidth, barHeight))
+                            val x = index * slotWidth + (slotWidth - barWidth) / 2f
+
+                            drawRect(
+                                color = if (sale > 0) ZokasGreen else Color.LightGray,
+                                topLeft = Offset(x, size.height - barHeight),
+                                size = Size(barWidth, barHeight)
+                            )
                         }
                     }
                 }
@@ -218,7 +234,6 @@ fun HistoryScreen(
             }
         }
 
-        // TOMBOL EKSPOR CSV & PDF
         if (isPro && filteredTransactions.isNotEmpty()) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -241,6 +256,7 @@ fun HistoryScreen(
                     }
                     Button(
                         onClick = {
+                            // FIX: assign data ke state, lalu buka file picker
                             transactionsToExport = filteredTransactions
                             createPdfLauncher.launch("Zokas_Laporan_${System.currentTimeMillis()}.pdf")
                         },
@@ -283,7 +299,6 @@ fun HistoryScreen(
     }
 }
 
-// (Fungsi TransactionDetailDialog dan VoidPinDialog tetap sama persis seperti yang Anda kirimkan sebelumnya)
 @Composable
 fun TransactionDetailDialog(
     transaction: TransactionEntity,
@@ -294,24 +309,26 @@ fun TransactionDetailDialog(
 ) {
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    
+
+    // FIX: getTransactionItems sekarang returns Flow, pakai initialValue
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
-    val items by itemsFlow.collectAsStateWithLifecycle()
-    
+    val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+
     var showReceipt by remember { mutableStateOf(false) }
     var showVoidPinDialog by remember { mutableStateOf(false) }
     var showRefundPinDialog by remember { mutableStateOf(false) }
     var showPayBonDialog by remember { mutableStateOf(false) }
 
     if (showReceipt) {
+        // FIX: signature ReceiptDialog — kirim viewModel, hapus items
         ReceiptDialog(
             transaction = transaction,
+            viewModel = viewModel,
             storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
             storeAddress = if (settingsManager.isPro) settingsManager.storeAddress else "Alamat belum diatur",
             storePhone = if (settingsManager.isPro) settingsManager.storePhone else "-",
             storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Terima kasih!",
             settingsManager = settingsManager,
-            items = items,
             onDismiss = { showReceipt = false }
         )
     }
@@ -346,7 +363,7 @@ fun TransactionDetailDialog(
                 }
             },
             confirmButton = {
-                Button(onClick = { 
+                Button(onClick = {
                     viewModel.refundTransaction(transaction, pin, currentUser) { success: Boolean, msg: String ->
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         if (success) onDismiss()
@@ -370,7 +387,7 @@ fun TransactionDetailDialog(
                 }
             },
             confirmButton = {
-                Button(onClick = { 
+                Button(onClick = {
                     val c = cash.toLongOrNull() ?: 0L
                     if (c >= transaction.totalPrice) {
                         viewModel.payUnpaidTransaction(transaction, c) {
@@ -393,22 +410,22 @@ fun TransactionDetailDialog(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (transaction.status == "SUCCESS" && currentUser.role == "OWNER") {
                     Button(
-                        onClick = { showRefundPinDialog = true }, 
+                        onClick = { showRefundPinDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                     ) {
                         Text("REFUND")
                     }
                 }
-                
+
                 if (transaction.status == "UNPAID") {
                     Button(
-                        onClick = { showPayBonDialog = true }, 
+                        onClick = { showPayBonDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
                     ) {
                         Text("BAYAR BON")
                     }
                 }
-                
+
                 Button(onClick = { showReceipt = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
                     Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -430,7 +447,7 @@ fun TransactionDetailDialog(
                 Text("Pelanggan: ${transaction.customerName}", fontSize = 12.sp)
                 Text("Kasir: ${transaction.cashierName} | ${transaction.tableName}", fontSize = 12.sp)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                
+
                 if (items.isEmpty()) {
                     Text("Memuat rincian...", fontSize = 12.sp, color = Color.Gray)
                 } else {
@@ -447,7 +464,7 @@ fun TransactionDetailDialog(
                         }
                     }
                 }
-                
+
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total:", fontWeight = FontWeight.Bold)
@@ -486,4 +503,60 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
     )
+}
+
+/**
+ * Helper: ekspor daftar transaksi ke PDF memakai API built-in Android
+ * (PdfDocument) tanpa library eksternal. Otomatis paginasi.
+ */
+private fun exportTransactionsToPdf(
+    context: Context,
+    uri: Uri,
+    transactions: List<TransactionEntity>,
+    dateFormat: SimpleDateFormat
+) {
+    try {
+        val pdfDocument = PdfDocument()
+        val textPaint = Paint().apply {
+            textSize = 10f
+            color = android.graphics.Color.BLACK
+        }
+        val headerPaint = Paint().apply {
+            textSize = 14f
+            isFakeBoldText = true
+            color = android.graphics.Color.BLACK
+        }
+
+        var pageNumber = 1
+        var page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
+        var canvas = page.canvas
+        var y = 40f
+
+        canvas.drawText("Laporan Transaksi ZoKas", 40f, y, headerPaint); y += 18f
+        canvas.drawText("Dicetak: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint); y += 16f
+        canvas.drawText("Jumlah: ${transactions.size} transaksi", 40f, y, textPaint); y += 20f
+        canvas.drawText("----------------------------------------------", 40f, y, textPaint); y += 16f
+        canvas.drawText("ID | Tanggal | Total | Status", 40f, y, headerPaint); y += 16f
+        canvas.drawText("----------------------------------------------", 40f, y, textPaint); y += 16f
+
+        transactions.forEach { tx ->
+            if (y > 810f) {
+                pdfDocument.finishPage(page)
+                pageNumber++
+                page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
+                canvas = page.canvas
+                y = 40f
+            }
+            val line = "#${tx.id} | ${dateFormat.format(Date(tx.timestamp))} | ${formatRupiah(tx.totalPrice)} | ${tx.status}"
+            canvas.drawText(line, 40f, y, textPaint)
+            y += 16f
+        }
+
+        pdfDocument.finishPage(page)
+        context.contentResolver.openOutputStream(uri)?.use { pdfDocument.writeTo(it) }
+        pdfDocument.close()
+        Toast.makeText(context, "PDF berhasil diekspor", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Gagal ekspor PDF: ${e.message}", Toast.LENGTH_LONG).show()
+    }
 }

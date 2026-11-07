@@ -8,8 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.TransactionItemEntity
 import kotlinx.coroutines.launch
@@ -30,18 +30,22 @@ import java.util.Locale
 @Composable
 fun ReceiptDialog(
     transaction: TransactionEntity,
+    viewModel: PosViewModel, // <--- Parameter ViewModel ditambahkan
     storeName: String,
     storeAddress: String,
     storePhone: String,
     storeFooter: String,
     settingsManager: SettingsManager,
-    items: List<TransactionItemEntity>? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val printerManager = BluetoothPrinterManager(context)
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+
+    // AMBIL DATA ITEMS LANGSUNG DARI DB BERDASARKAN ID
+    val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
+    val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -112,7 +116,10 @@ fun ReceiptDialog(
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 
-                if (items != null && items.isNotEmpty()) {
+                // LOADING STATE JIKA ITEMS BELUM MUNCUL
+                if (items.isEmpty()) {
+                    Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = Color.Gray)
+                } else {
                     items.forEach { item ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("${item.quantity}x ${item.productName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
@@ -122,7 +129,7 @@ fun ReceiptDialog(
                     Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
 
-                val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
+                val subtotalItems = items.sumOf { it.subtotal }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Subtotal", fontFamily = FontFamily.Monospace)
                     Text(formatRupiah(subtotalItems), fontFamily = FontFamily.Monospace)
@@ -149,7 +156,6 @@ fun ReceiptDialog(
                     Text(formatRupiah(transaction.totalPrice), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 }
                 
-                // FIX BUG BON: Tampilkan Tunai & Kembalian jika cashReceived > 0
                 if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
                     Text("METODE: BON (BELUM BAYAR)", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color.Red)
                 } else {
