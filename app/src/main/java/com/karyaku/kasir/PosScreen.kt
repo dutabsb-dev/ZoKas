@@ -74,8 +74,10 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val appliedVoucher by viewModel.appliedVoucher.collectAsStateWithLifecycle()
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
     
+    val taxPercent = remember { mutableStateOf(settingsManager.taxPercent) }
     val subtotal = cart.sumOf { it.product.price * it.quantity }
-    val totalPrice = (subtotal - discount - voucherDiscount).coerceAtLeast(0)
+    val taxAmount = ((subtotal - discount - voucherDiscount) * (taxPercent.value / 100.0)).toLong()
+    val totalPrice = (subtotal + taxAmount - discount - voucherDiscount).coerceAtLeast(0)
     
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
@@ -211,18 +213,19 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         PaymentBottomSheet(
             totalPrice = totalToPay,
             onDismiss = { showPaymentSheet = false },
-            onConfirmPayment = { cashReceived ->
-                viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode) { newId ->
+            onConfirmPayment = { cashReceived, method ->
+                viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method) { newId ->
                     showPaymentSheet = false
                     if (!isSplitBillMode) showCartOnPhone = false
                     
                     completedTransaction = TransactionEntity(
                         id = newId, 
                         totalPrice = totalToPay, 
-                        cashReceived = cashReceived, 
-                        changeAmount = cashReceived - totalToPay, 
+                        cashReceived = if (method == "BON") 0L else cashReceived, 
+                        changeAmount = if (method == "BON") 0L else (cashReceived - totalToPay), 
                         customerName = selectedCustomer?.name ?: "Pelanggan Umum",
-                        tableName = selectedTable
+                        tableName = selectedTable,
+                        paymentMethod = method
                     )
                     if (isSplitBillMode) isSplitBillMode = false
                 }
@@ -371,7 +374,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     Divider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                     Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
                         CartList(
-                            cart = cart, subtotal = subtotal, discount = discount, totalPrice = totalPrice,
+                            cart = cart, subtotal = subtotal, discount = discount, taxAmount = taxAmount, totalPrice = totalPrice,
                             selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                             appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode,
                             onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it) },
@@ -389,7 +392,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     Column(modifier = Modifier.fillMaxSize()) {
                         TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(8.dp)) { Text("< Kembali ke Katalog", color = ZokasOrange) }
                         CartList(
-                            cart = cart, subtotal = subtotal, discount = discount, totalPrice = totalPrice,
+                            cart = cart, subtotal = subtotal, discount = discount, taxAmount = taxAmount, totalPrice = totalPrice,
                             selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                             appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode,
                             onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it) },
@@ -500,27 +503,57 @@ fun ProductFormBottomSheet(productToEdit: ProductEntity? = null, onDismiss: () -
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment: (Long) -> Unit) {
+fun PaymentBottomSheet(
+    totalPrice: Long, 
+    onDismiss: () -> Unit, 
+    onConfirmPayment: (Long, String) -> Unit
+) {
     val sheetState = rememberModalBottomSheetState()
     var cashInput by remember { mutableStateOf("") }
+    var paymentMethod by remember { mutableStateOf("CASH") }
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Pembayaran Tunai", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Pembayaran", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineMedium, color = ZokasOrange, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))
-            OutlinedTextField(value = cashInput, onValueChange = { if (it.length <= 10) cashInput = it }, label = { Text("Uang Diterima (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Kembalian:", style = MaterialTheme.typography.titleMedium)
-                Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface)
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Button(
+                    onClick = { paymentMethod = "CASH" },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (paymentMethod == "CASH") ZokasGreen else Color.Gray)
+                ) { Text("TUNAI") }
+                Button(
+                    onClick = { paymentMethod = "BON" },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (paymentMethod == "BON") ZokasOrange else Color.Gray)
+                ) { Text("BON (KASBON)") }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (paymentMethod == "CASH") {
+                OutlinedTextField(value = cashInput, onValueChange = { if (it.length <= 10) cashInput = it }, label = { Text("Uang Diterima (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Kembalian:", style = MaterialTheme.typography.titleMedium)
+                    Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface)
+                }
+            } else {
+                Text("Transaksi akan dicatat sebagai BON (Belum Lunas).", color = Color.Red, fontSize = 12.sp)
+            }
+            
             Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = { onConfirmPayment(cashReceived) }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = cashReceived >= totalPrice && totalPrice > 0, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp) }
+            Button(
+                onClick = { onConfirmPayment(if (paymentMethod == "BON") 0L else cashReceived, paymentMethod) }, 
+                modifier = Modifier.fillMaxWidth().height(56.dp), 
+                enabled = (paymentMethod == "BON") || (cashReceived >= totalPrice && totalPrice > 0), 
+                colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+            ) { 
+                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp) 
+            }
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -528,7 +561,8 @@ fun PaymentBottomSheet(totalPrice: Long, onDismiss: () -> Unit, onConfirmPayment
 
 @Composable
 fun CartList(
-    cart: List<CartItem>, subtotal: Long, discount: Long, totalPrice: Long, selectedCustomer: CustomerEntity?, pointsUsed: Int,
+    cart: List<CartItem>, subtotal: Long, discount: Long, taxAmount: Long, totalPrice: Long, 
+    selectedCustomer: CustomerEntity?, pointsUsed: Int,
     selectedTable: String, appliedVoucher: String, voucherDiscount: Long, isSplitBillMode: Boolean,
     onToggleSplitMode: () -> Unit, onToggleSplitSelection: (ProductEntity) -> Unit, onTableClick: () -> Unit, onVoucherClick: () -> Unit,
     onHoldClick: () -> Unit, onViewHoldClick: () -> Unit, onCustomerClick: () -> Unit, onAdd: (ProductEntity) -> Unit, 
@@ -603,6 +637,15 @@ fun CartList(
         TextButton(onClick = onVoucherClick, modifier = Modifier.align(Alignment.End)) { 
             Text(if (appliedVoucher.isEmpty()) "+ Gunakan Voucher" else "Ganti Voucher", color = ZokasGreen) 
         }
+        
+        // BARIS PAJAK BARU
+        if (taxAmount > 0) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Pajak:", style = MaterialTheme.typography.titleMedium)
+                Text("+ ${formatRupiah(taxAmount)}", style = MaterialTheme.typography.titleMedium, color = ZokasOrange)
+            }
+        }
+        
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.surfaceVariant)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Total:", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)

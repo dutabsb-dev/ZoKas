@@ -67,6 +67,9 @@ fun SettingsScreen(
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress) }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone) }
+    // STATE PAJAK BARU
+    var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
+    
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
     var showChangePinDialog by remember { mutableStateOf(false) }
@@ -227,6 +230,22 @@ fun SettingsScreen(
                 OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                
+                // INPUT PAJAK (BARU)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = taxPercent, 
+                    onValueChange = { 
+                        taxPercent = it
+                        val tax = it.toDoubleOrNull() ?: 0.0
+                        settingsManager.taxPercent = tax
+                        viewModel.setTaxPercent(tax)
+                    }, 
+                    label = { Text("Pajak (%) cth: 11") }, 
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                    modifier = Modifier.fillMaxWidth(), 
+                    singleLine = true
+                )
             }
         } else {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
@@ -271,7 +290,7 @@ fun SettingsScreen(
     }
 }
 
-@Composable // <--- INI YANG TADI HILANG
+@Composable
 fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var newPin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }

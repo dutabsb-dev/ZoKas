@@ -26,7 +26,6 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("STORE_FOOTER", "Terima kasih telah berbelanja!") ?: "Terima kasih telah berbelanja!"
         set(value) = prefs.edit().putString("STORE_FOOTER", value).apply()
 
-    // TAMBAHAN BARU: Alamat & Telepon
     var storeAddress: String
         get() = prefs.getString("STORE_ADDRESS", "Jl. Raya UMKM No. 123") ?: "Jl. Raya UMKM No. 123"
         set(value) = prefs.edit().putString("STORE_ADDRESS", value).apply()
@@ -38,4 +37,9 @@ class SettingsManager(context: Context) {
     var printerMacAddress: String?
         get() = prefs.getString("PRINTER_MAC", null)
         set(value) = prefs.edit().putString("PRINTER_MAC", value).apply()
+
+    // TAMBAHAN BARU: Persentase Pajak (Default 0% karena UMKM sering tidak memungut pajak)
+    var taxPercent: Double
+        get() = prefs.getFloat("TAX_PERCENT", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("TAX_PERCENT", value.toFloat()).apply()
 }

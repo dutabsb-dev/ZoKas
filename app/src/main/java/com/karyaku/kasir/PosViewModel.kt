@@ -76,6 +76,14 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
+    // State Pajak
+    var taxPercent: Double = 0.0
+        private set
+
+    fun setTaxPercent(value: Double) {
+        taxPercent = value
+    }
+
     val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
         val categories = productList.map { it.category }.distinct()
         listOf("Semua") + categories
@@ -351,32 +359,48 @@ class PosViewModel(
         }
     }
 
-    fun getTotalPrice(): Long {
-        val subtotal = _cart.value.sumOf { it.product.price * it.quantity }
-        return (subtotal - _discount.value - _voucherDiscount.value).coerceAtLeast(0)
+    fun getSubtotal(): Long {
+        return _cart.value.sumOf { it.product.price * it.quantity }
     }
 
-    fun processPayment(cashReceived: Long, userId: Long, userName: String, isSplitBill: Boolean = false, onSuccess: (Long) -> Unit) {
+    fun getTaxAmount(): Long {
+        val subtotal = getSubtotal() - _discount.value - _voucherDiscount.value
+        return (subtotal * (taxPercent / 100)).toLong()
+    }
+
+    fun getTotalPrice(): Long {
+        val subtotal = getSubtotal()
+        val tax = getTaxAmount()
+        return (subtotal + tax - _discount.value - _voucherDiscount.value).coerceAtLeast(0)
+    }
+
+    fun processPayment(cashReceived: Long, userId: Long, userName: String, isSplitBill: Boolean = false, paymentMethod: String = "CASH", onSuccess: (Long) -> Unit) {
         val itemsToProcess = if (isSplitBill) _cart.value.filter { it.isSelectedForSplit } else _cart.value
         
         if (itemsToProcess.isEmpty()) return
 
         val subtotal = itemsToProcess.sumOf { it.product.price * it.quantity }
+        val taxAmount = if (isSplitBill) 0L else getTaxAmount()
         val currentDiscount = if (isSplitBill) 0L else (_discount.value + _voucherDiscount.value)
         
-        val total = (subtotal - currentDiscount).coerceAtLeast(0)
-        val change = if (cashReceived >= total) cashReceived - total else 0
+        val total = (subtotal + taxAmount - currentDiscount).coerceAtLeast(0)
+        val change = if (paymentMethod == "CASH" && cashReceived >= total) cashReceived - total else 0
         val customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum"
         val totalCost = itemsToProcess.sumOf { it.product.costPrice * it.quantity }
+        val status = if (paymentMethod == "BON") "UNPAID" else "SUCCESS"
 
         val transaction = TransactionEntity(
             totalPrice = total, 
-            cashReceived = cashReceived, 
+            cashReceived = if (paymentMethod == "BON") 0L else cashReceived, 
             changeAmount = change, 
             customerName = customerName,
             totalCost = totalCost,
             tableName = _selectedTable.value,
-            voucherCode = if (isSplitBill) "" else _appliedVoucher.value
+            voucherCode = if (isSplitBill) "" else _appliedVoucher.value,
+            taxAmount = taxAmount,
+            paymentMethod = paymentMethod,
+            status = status,
+            cashierName = userName
         )
 
         viewModelScope.launch {
@@ -401,7 +425,7 @@ class PosViewModel(
                 customerDao.updateCustomerPoints(customer.id, finalPoints)
             }
             
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI: ${formatRupiah(total)} ($customerName) ${if(isSplitBill) "[SPLIT]" else ""}"))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI ($paymentMethod): ${formatRupiah(total)} ($customerName) ${if(isSplitBill) "[SPLIT]" else ""}"))
             
             if (isSplitBill) {
                 val remainingCart = _cart.value.filter { !it.isSelectedForSplit }
@@ -418,7 +442,8 @@ class PosViewModel(
         }
     }
 
-    fun voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
+    // LOGIKA REFUND
+    fun refundTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             val supervisor = userDao.loginByPin(pinSupervisor)
             if (supervisor == null || (supervisor.role != "OWNER" && supervisor.role != "SUPERVISOR")) {
@@ -435,15 +460,25 @@ class PosViewModel(
                 }
             }
 
-            transactionDao.voidTransaction(transaction.id)
+            transactionDao.refundTransaction(transaction.id)
             userDao.insertAuditLog(
                 AuditLogEntity(
                     userId = currentUser.id, 
                     userName = currentUser.name, 
-                    action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"
+                    action = "REFUND TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"
                 )
             )
-            onResult(true, "Transaksi berhasil di-void dan stok dikembalikan.")
+            onResult(true, "Transaksi berhasil di-refund dan stok dikembalikan.")
+        }
+    }
+    
+    // LOGIKA BAYAR BON
+    fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val change = if (cashReceived >= transaction.totalPrice) cashReceived - transaction.totalPrice else 0
+            transactionDao.payUnpaidTransaction(transaction.id, cashReceived, change)
+            userDao.insertAuditLog(AuditLogEntity(userId = 0, userName = "Sistem", action = "PELUNASAN BON #${transaction.id}: ${formatRupiah(transaction.totalPrice)}"))
+            onSuccess()
         }
     }
 }

@@ -213,9 +213,10 @@ fun HistoryScreen(
         } else {
             items(filteredTransactions) { tx ->
                 val isVoided = tx.status == "VOIDED"
+                val isUnpaid = tx.status == "UNPAID"
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { selectedTransaction = tx },
-                    colors = CardDefaults.cardColors(containerColor = if (isVoided) Color(0xFFFFCDD2) else MaterialTheme.colorScheme.surfaceVariant)
+                    colors = CardDefaults.cardColors(containerColor = if (isVoided) Color(0xFFFFCDD2) else if (isUnpaid) Color(0xFFFFF9C4) else MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -227,6 +228,7 @@ fun HistoryScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("Total: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = if (isVoided) Color.Gray else ZokasOrange, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
                             if (isVoided) Text("VOID", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            if (isUnpaid) Text("BON", color = ZokasOrange, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }
@@ -251,6 +253,8 @@ fun TransactionDetailDialog(
     
     var showReceipt by remember { mutableStateOf(false) }
     var showVoidPinDialog by remember { mutableStateOf(false) }
+    var showRefundPinDialog by remember { mutableStateOf(false) }
+    var showPayBonDialog by remember { mutableStateOf(false) }
 
     if (showReceipt) {
         ReceiptDialog(
@@ -282,16 +286,79 @@ fun TransactionDetailDialog(
         )
     }
 
+    if (showRefundPinDialog) {
+        var pin by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showRefundPinDialog = false },
+            title = { Text("Otorisasi Refund") },
+            text = {
+                Column {
+                    Text("Masukkan PIN Supervisor/Owner:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = pin, onValueChange = { pin = it }, label = { Text("PIN") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation())
+                }
+            },
+            confirmButton = {
+                Button(onClick = { 
+                    viewModel.refundTransaction(transaction, pin, currentUser) { success, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        if (success) onDismiss()
+                    }
+                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("REFUND") }
+            },
+            dismissButton = { TextButton(onClick = { showRefundPinDialog = false }) { Text("Batal") } }
+        )
+    }
+
+    if (showPayBonDialog) {
+        var cash by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showPayBonDialog = false },
+            title = { Text("Pelunasan Bon") },
+            text = {
+                Column {
+                    Text("Total Tagihan: ${formatRupiah(transaction.totalPrice)}")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = cash, onValueChange = { cash = it }, label = { Text("Uang Diterima") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                }
+            },
+            confirmButton = {
+                Button(onClick = { 
+                    val c = cash.toLongOrNull() ?: 0L
+                    if (c >= transaction.totalPrice) {
+                        viewModel.payUnpaidTransaction(transaction, c) {
+                            Toast.makeText(context, "Bon berhasil dilunasi!", Toast.LENGTH_SHORT).show()
+                            showPayBonDialog = false
+                            onDismiss()
+                        }
+                    } else {
+                        Toast.makeText(context, "Uang kurang!", Toast.LENGTH_SHORT).show()
+                    }
+                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("BAYAR") }
+            },
+            dismissButton = { TextButton(onClick = { showPayBonDialog = false }) { Text("Batal") } }
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (transaction.status == "SUCCESS") {
+                if (transaction.status == "SUCCESS" && currentUser.role == "OWNER") {
                     Button(
-                        onClick = { showVoidPinDialog = true }, 
+                        onClick = { showRefundPinDialog = true }, 
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                     ) {
-                        Text("VOID (BATAL)")
+                        Text("REFUND")
+                    }
+                }
+                
+                if (transaction.status == "UNPAID") {
+                    Button(
+                        onClick = { showPayBonDialog = true }, 
+                        colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                    ) {
+                        Text("BAYAR BON")
                     }
                 }
                 
@@ -309,8 +376,12 @@ fun TransactionDetailDialog(
                 if (transaction.status == "VOIDED") {
                     Text("TRANSAKSI INI TELAH DIBATALKAN (VOID)", color = Color.Red, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 }
+                if (transaction.status == "UNPAID") {
+                    Text("TRANSAKSI INI BELUM DIBAYAR (BON)", color = ZokasOrange, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                }
                 Text("Tanggal: ${dateFormat.format(Date(transaction.timestamp))}", fontSize = 12.sp)
                 Text("Pelanggan: ${transaction.customerName}", fontSize = 12.sp)
+                Text("Kasir: ${transaction.cashierName} | ${transaction.tableName}", fontSize = 12.sp)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 
                 if (items.isEmpty()) {

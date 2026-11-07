@@ -13,7 +13,13 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
-    // TAMBAHKAN FUNGSI INI UNTUK MENGUBAH STATUS JADI VOID
     @Query("UPDATE transactions SET status = 'VOIDED' WHERE id = :transactionId")
     suspend fun voidTransaction(transactionId: Long)
+
+    // FUNGSI BARU: REFUND & BAYAR BON
+    @Query("UPDATE transactions SET status = 'REFUNDED' WHERE id = :transactionId")
+    suspend fun refundTransaction(transactionId: Long)
+
+    @Query("UPDATE transactions SET status = 'SUCCESS', paymentMethod = 'CASH', cashReceived = :amount, changeAmount = :change WHERE id = :transactionId")
+    suspend fun payUnpaidTransaction(transactionId: Long, amount: Long, change: Long)
 }

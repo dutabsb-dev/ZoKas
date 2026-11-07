@@ -11,8 +11,11 @@ data class TransactionEntity(
     val cashReceived: Long,
     val changeAmount: Long,
     val customerName: String = "Pelanggan Umum",
-    val status: String = "SUCCESS",
+    val status: String = "SUCCESS", // SUCCESS, VOIDED, REFUNDED, UNPAID
     val totalCost: Long = 0,
-    val tableName: String = "Take-Away", // <--- TAMBAHAN
-    val voucherCode: String = ""        // <--- TAMBAHAN
+    val tableName: String = "Take-Away",
+    val voucherCode: String = "",
+    val taxAmount: Long = 0,          // <--- TAMBAHAN PAJAK
+    val paymentMethod: String = "CASH", // CASH, BON, QRIS
+    val cashierName: String = "Kasir"   // <--- TAMBAHAN UNTUK LAPORAN KASIR
 )
