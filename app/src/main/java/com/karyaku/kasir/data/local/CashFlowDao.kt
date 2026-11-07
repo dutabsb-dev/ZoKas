@@ -10,15 +10,13 @@ interface CashFlowDao {
     @Insert
     suspend fun insertCashFlow(cashFlow: CashFlowEntity)
 
-    // Ambil semua kas keluar/masuk berdasarkan Shift ID
-    @Query("SELECT * FROM cash_flows WHERE shiftId = :shiftId ORDER BY timestamp DESC")
-    fun getCashFlowByShift(shiftId: Long): Flow<List<CashFlowEntity>>
+    // TAMBAHKAN FUNGSI INI UNTUK MEMPERBAIKI ERROR BUILD
+    @Query("SELECT * FROM cash_flows ORDER BY timestamp DESC")
+    fun getAllCashFlows(): Flow<List<CashFlowEntity>>
 
-    // Hitung total kas keluar (OUT) pada shift berjalan
-    @Query("SELECT SUM(amount) FROM cash_flows WHERE shiftId = :shiftId AND type = 'OUT'")
+    @Query("SELECT SUM(amount) FROM cash_flows WHERE type = 'OUT' AND shiftId = :shiftId")
     suspend fun getTotalCashOut(shiftId: Long): Long?
 
-    // Hitung total kas masuk tambahan (IN) pada shift berjalan
-    @Query("SELECT SUM(amount) FROM cash_flows WHERE shiftId = :shiftId AND type = 'IN'")
+    @Query("SELECT SUM(amount) FROM cash_flows WHERE type = 'IN' AND shiftId = :shiftId")
     suspend fun getTotalCashIn(shiftId: Long): Long?
 }

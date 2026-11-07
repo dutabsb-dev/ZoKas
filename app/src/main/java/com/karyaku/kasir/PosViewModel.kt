@@ -80,7 +80,11 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    val netProfit: StateFlow<Long> = combine(_transactions, cashFlowDao.getAllCashFlows()) { txList, cashFlows ->
+    // FIX: Menambahkan tipe generic eksplisit pada combine
+    val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, Long>(
+        _transactions, 
+        cashFlowDao.getAllCashFlows()
+    ) { txList, cashFlows ->
         val labaKotor = txList.filter { it.status == "SUCCESS" }.sumOf { it.totalPrice - it.totalCost }
         val totalKasKeluar = cashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
         labaKotor - totalKasKeluar
@@ -221,7 +225,6 @@ class PosViewModel(
         }
     }
 
-    // FIX: Kembalikan Flow langsung dari DAO untuk menghindari memory leak collector
     fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> {
         return transactionItemDao.getItemsByTransaction(transactionId)
     }
@@ -366,7 +369,6 @@ class PosViewModel(
         return (subtotal + tax - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
     }
 
-    // FIX: onSuccess sekarang mengirim TransactionEntity LENGKAP (bukan hanya ID)
     fun processPayment(
         cashReceived: Long,
         userId: Long,
