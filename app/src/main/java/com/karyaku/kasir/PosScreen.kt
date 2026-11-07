@@ -25,7 +25,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -164,11 +163,12 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
                 )
-                ActionMenuItem(icon = Icons.Outlined.Edit, title = "Edit Produk", subtitle = "Ubah detail", color = ZokasGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
-                ActionMenuItem(icon = Icons.Outlined.AddBox, title = "Tambah Stok", subtitle = "Restock barang", color = ZokasOrange, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
-                ActionMenuItem(icon = Icons.Outlined.DeleteForever, title = "Barang Rusak", subtitle = "Catat waste/expired", color = Color(0xFFF57C00), onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
+                // FIX: Menggunakan Icons.Default.* yang tersedia di library core
+                ActionMenuItem(icon = Icons.Default.Edit, title = "Edit Produk", subtitle = "Ubah detail", color = ZokasGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
+                ActionMenuItem(icon = Icons.Default.Add, title = "Tambah Stok", subtitle = "Restock barang", color = ZokasOrange, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
+                ActionMenuItem(icon = Icons.Default.Delete, title = "Barang Rusak", subtitle = "Catat waste/expired", color = Color(0xFFF57C00), onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-                ActionMenuItem(icon = Icons.Outlined.Delete, title = "Hapus Produk", subtitle = "Hapus permanen", color = Color.Red, onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null })
+                ActionMenuItem(icon = Icons.Default.Delete, title = "Hapus Produk", subtitle = "Hapus permanen", color = Color.Red, onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null })
             }
         }
     }
@@ -176,7 +176,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     if (showDrawerConfirm) {
         AlertDialog(
             onDismissRequest = { showDrawerConfirm = false },
-            icon = { Icon(Icons.Default.PointOfSale, contentDescription = null) },
+            icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
             title = { Text("Buka Laci Kasir") },
             text = { Text("Buka laci tanpa transaksi? Aktivitas ini akan dicatat.") },
             confirmButton = {
@@ -190,7 +190,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         var qty by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { productToWaste = null },
-            icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Color.Red) },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red) },
             title = { Text("Catat Barang Rusak") },
             text = {
                 Column {
@@ -214,7 +214,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         var notes by remember { mutableStateOf(cart.find { it.product.id == productToEditNotes!!.id }?.notes ?: "") }
         AlertDialog(
             onDismissRequest = { productToEditNotes = null },
-            icon = { Icon(Icons.Default.EditNote, contentDescription = null) },
+            icon = { Icon(Icons.Default.Edit, contentDescription = null) },
             title = { Text("Catatan Pesanan") },
             text = {
                 Column {
@@ -233,7 +233,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     if (showOpenShiftDialog) {
         AlertDialog(
             onDismissRequest = { },
-            icon = { Icon(Icons.Default.LockOpen, contentDescription = null, tint = ZokasGreen) },
+            icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = ZokasGreen) },
             title = { Text("Buka Kasir") },
             text = {
                 Column {
@@ -323,9 +323,10 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        // FIX: Menggunakan ikon standar
                         DropdownMenuItem(
                             text = { Text("Buka Laci (No Sale)") },
-                            leadingIcon = { Icon(Icons.Default.PointOfSale, tint = ZokasGreen) },
+                            leadingIcon = { Icon(Icons.Default.ShoppingCart, tint = ZokasGreen) },
                             onClick = { showDrawerConfirm = true; showMenu = false }
                         )
                         DropdownMenuItem(
@@ -335,7 +336,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         )
                         DropdownMenuItem(
                             text = { Text("Kas Keluar / Masuk") },
-                            leadingIcon = { Icon(Icons.Default.Wallet, tint = ZokasOrange) },
+                            leadingIcon = { Icon(Icons.Default.AccountBox, tint = ZokasOrange) },
                             onClick = { showCashFlowDialog = true; showMenu = false }
                         )
                         DropdownMenuItem(
@@ -382,7 +383,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             AnimatedVisibility(visible = isHappyHour, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(colors = listOf(Color.Red, Color(0xFFFF5722)))).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        // FIX: Menggunakan Icons.Default.Star
+                        Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("HAPPY HOUR! Diskon ${settingsManager.happyHourDiscount}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
@@ -432,7 +434,20 @@ fun ActionMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
 @Composable
 fun ProductCatalog(products: List<ProductEntity>, categories: List<String>, selectedCategory: String, onCategorySelect: (String) -> Unit, searchQuery: String, onSearchChange: (String) -> Unit, onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit, onBarcodeScan: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
-        OutlinedTextField(value = searchQuery, onValueChange = onSearchChange, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), placeholder = { Text("Cari produk / scan barcode...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, trailingIcon = { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = ZokasGreen) }, singleLine = true, shape = RoundedCornerShape(16.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ZokasGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { if (searchQuery.isNotBlank()) { onBarcodeScan(searchQuery); onSearchChange("") } }))
+        OutlinedTextField(
+            value = searchQuery, 
+            onValueChange = onSearchChange, 
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), 
+            placeholder = { Text("Cari produk / scan barcode...") }, 
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, 
+            // FIX: Menggunakan Icons.Default.Search untuk pengganti QrCodeScanner
+            trailingIcon = { Icon(Icons.Default.Search, contentDescription = "Scan", tint = ZokasGreen) }, 
+            singleLine = true, 
+            shape = RoundedCornerShape(16.dp), 
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ZokasGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), 
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), 
+            keyboardActions = KeyboardActions(onDone = { if (searchQuery.isNotBlank()) { onBarcodeScan(searchQuery); onSearchChange("") } })
+        )
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(categories) { category ->
                 FilterChip(selected = category == selectedCategory, onClick = { onCategorySelect(category) }, label = { Text(category, fontWeight = if(category == selectedCategory) FontWeight.Bold else FontWeight.Normal) }, shape = RoundedCornerShape(12.dp), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = ZokasGreen, selectedLabelColor = Color.White, containerColor = MaterialTheme.colorScheme.surface))
@@ -454,7 +469,8 @@ fun ProductCatalog(products: List<ProductEntity>, categories: List<String>, sele
                             Column {
                                 Text(text = formatRupiah(product.price), style = MaterialTheme.typography.titleLarge, color = ZokasOrange, fontWeight = FontWeight.Black)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Inventory, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp)); Spacer(modifier = Modifier.width(4.dp)); Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
+                                    // FIX: Menggunakan Icons.Default.List untuk pengganti Inventory
+                                    Icon(Icons.Default.List, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp)); Spacer(modifier = Modifier.width(4.dp)); Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
                                 }
                             }
                         }
@@ -512,6 +528,7 @@ fun CartList(
                         }
                         
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // FIX: Menggunakan Icons.Default.Edit untuk pengganti EditNote
                             IconButton(onClick = { onEditNotes(item.product) }, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Edit, contentDescription = "Edit Catatan", tint = ZokasGreen, modifier = Modifier.size(16.dp)) }
                             IconButton(onClick = { onRemove(item.product) }, modifier = Modifier.size(28.dp)) { Icon(Icons.Default.Remove, contentDescription = "Kurang", modifier = Modifier.size(16.dp)) }
                             Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -702,7 +719,7 @@ private suspend fun generateKitchenTicket(transaction: TransactionEntity, viewMo
 fun TableSelectorDialog(currentTable: String, occupiedTables: List<String>, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     val tables = listOf("Take-Away", "Meja 1", "Meja 2", "Meja 3", "Meja 4", "Meja 5")
     AlertDialog(
-        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.TableRestaurant, contentDescription = null, tint = ZokasOrange) },
+        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.List, contentDescription = null, tint = ZokasOrange) },
         title = { Text("Pilih Meja") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -722,7 +739,7 @@ fun TableSelectorDialog(currentTable: String, occupiedTables: List<String>, onDi
 fun VoucherDialog(currentCode: String, onDismiss: () -> Unit, onApply: (String) -> Unit, onRemove: () -> Unit) {
     var code by remember { mutableStateOf(currentCode) }
     AlertDialog(
-        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.ConfirmationNumber, contentDescription = null, tint = ZokasGreen) },
+        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.Star, contentDescription = null, tint = ZokasGreen) },
         title = { Text("Gunakan Voucher") },
         text = { Column { OutlinedTextField(value = code, onValueChange = { code = it.uppercase() }, label = { Text("Kode Voucher") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)) } },
         confirmButton = { Button(onClick = { onApply(code) }, enabled = code.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("TERAPKAN") } },
@@ -741,7 +758,7 @@ fun CustomerDialog(customers: List<CustomerEntity>, selectedCustomer: CustomerEn
     val filteredCustomers = customers.filter { it.name.contains(searchQuery, ignoreCase = true) || it.phone.contains(searchQuery, ignoreCase = true) }
 
     AlertDialog(
-        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.People, contentDescription = null, tint = ZokasOrange) },
+        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.Person, contentDescription = null, tint = ZokasOrange) },
         title = { Text(when { showAddForm -> "Tambah Pelanggan"; showRedeemForm -> "Tukar Poin"; else -> "Pilih Pelanggan" }) },
         text = {
             when {
@@ -773,7 +790,7 @@ fun CashFlowDialog(onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit
     var note by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("OUT") }
     AlertDialog(
-        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.Wallet, contentDescription = null, tint = ZokasOrange) }, title = { Text("Kas Keluar / Masuk") },
+        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = ZokasOrange) }, title = { Text("Kas Keluar / Masuk") },
         text = {
             Column {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { type = "OUT" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") ZokasOrange else Color.Gray)) { Text("Keluar") }; Button(onClick = { type = "IN" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (type == "IN") ZokasGreen else Color.Gray)) { Text("Masuk") } }
@@ -792,7 +809,7 @@ fun CashFlowDialog(onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit
 fun DiscountDialog(currentDiscount: Long, onDismiss: () -> Unit, onSave: (Long) -> Unit) {
     var amount by remember { mutableStateOf(if (currentDiscount > 0) currentDiscount.toString() else "") }
     AlertDialog(
-        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.LocalOffer, contentDescription = null, tint = ZokasGreen) }, title = { Text("Diskon Manual") },
+        onDismissRequest = onDismiss, icon = { Icon(Icons.Default.Star, contentDescription = null, tint = ZokasGreen) }, title = { Text("Diskon Manual") },
         text = { Column { Text("Masukkan nominal:"); Spacer(modifier = Modifier.height(8.dp)); OutlinedTextField(value = amount, onValueChange = { if (it.length <= 10) amount = it }, label = { Text("Nominal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) } },
         confirmButton = { Button(onClick = { onSave(amount.toLongOrNull() ?: 0L) }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SIMPAN") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
