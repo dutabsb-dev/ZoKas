@@ -7,6 +7,8 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -41,6 +43,22 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
+
+// FUNGSI BANTUAN BARU: Mengambil registry langsung dari Context
+@Composable
+fun <I, O> registerForActivityResultSafe(
+    contract: androidx.activity.result.contract.ActivityResultContract<I, O>,
+    onResult: (O) -> Unit
+): ActivityResultLauncher<I> {
+    val owner = LocalContext.current as ActivityResultRegistryOwner
+    val activityResultRegistry = owner.activityResultRegistry
+    val currentOnResult = rememberUpdatedState(onResult)
+    val key = remember { UUID.randomUUID().toString() }
+    return remember {
+        activityResultRegistry.register(key, contract) { currentOnResult.value(it) }
+    }
+}
 
 @Composable
 fun HistoryScreen(
@@ -67,9 +85,11 @@ fun HistoryScreen(
     var dateFilter by remember { mutableStateOf("HARI_INI") }
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
-    val createPdfLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/pdf")
-    ) { uri ->
+
+    // FIX UTAMA: Menggunakan registerForActivityResultSafe, bukan rememberLauncherForActivityResult
+    val createPdfLauncher = registerForActivityResultSafe(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri: Uri? ->
         if (uri != null) {
             exportTransactionsToPdf(context, uri, transactionsToExport, dateFormat)
         }
@@ -269,7 +289,6 @@ fun HistoryScreen(
         if (filteredTransactions.isEmpty()) {
             item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("Tidak ada transaksi pada periode ini.") } }
         } else {
-            // FIX: Menghapus key = { it.id } untuk mencegah crash "Duplicate Key" jika ada data korup
             items(filteredTransactions) { tx ->
                 val isVoided = tx.status == "VOIDED"
                 val isUnpaid = tx.status == "UNPAID"

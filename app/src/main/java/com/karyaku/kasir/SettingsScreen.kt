@@ -83,27 +83,34 @@ fun SettingsScreen(
     var showPrinterDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
+    val permissionLauncher = registerForActivityResultSafe(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
         if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
             pairedPrinters = printerManager.getPairedPrinters()
             showPrinterDialog = true
         }
     }
 
-    val createBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
+    // GANTI createBackupLauncher
+    val createBackupLauncher = registerForActivityResultSafe(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.backupDatabase(context, uri)) Toast.makeText(context, "Backup berhasil!", Toast.LENGTH_SHORT).show()
             else Toast.makeText(context, "Gagal backup.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    val restoreBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+    // GANTI restoreBackupLauncher
+    val restoreBackupLauncher = registerForActivityResultSafe(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.restoreDatabase(context, uri)) showRestartDialog = true
             else Toast.makeText(context, "Gagal restore.", Toast.LENGTH_SHORT).show()
         }
     }
-
     if (showChangePinDialog) {
         ChangePinDialog(user = currentUser, onDismiss = { showChangePinDialog = false }, onSave = { newPin ->
             viewModel.updatePin(currentUser, newPin); showChangePinDialog = false; Toast.makeText(context, "PIN diubah!", Toast.LENGTH_SHORT).show()
