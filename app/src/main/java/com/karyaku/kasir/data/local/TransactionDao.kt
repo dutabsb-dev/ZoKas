@@ -16,10 +16,10 @@ interface TransactionDao {
     @Query("UPDATE transactions SET status = 'VOIDED' WHERE id = :transactionId")
     suspend fun voidTransaction(transactionId: Long)
 
-    // FUNGSI BARU: REFUND & BAYAR BON
     @Query("UPDATE transactions SET status = 'REFUNDED' WHERE id = :transactionId")
     suspend fun refundTransaction(transactionId: Long)
 
-    @Query("UPDATE transactions SET status = 'SUCCESS', paymentMethod = 'CASH', cashReceived = :amount, changeAmount = :change WHERE id = :transactionId")
-    suspend fun payUnpaidTransaction(transactionId: Long, amount: Long, change: Long)
+    // FUNGSI INI YANG TADI HILANG/MISMATCH
+    @Query("UPDATE transactions SET status = 'SUCCESS', paymentMethod = 'CASH', cashReceived = :cashReceived, changeAmount = :changeAmount WHERE id = :transactionId")
+    suspend fun updateTransactionStatus(transactionId: Long, cashReceived: Long, changeAmount: Long)
 }

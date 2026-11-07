@@ -25,7 +25,7 @@ class PosViewModel(
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
-    // STATE BARU: Total Nilai Aset (Stok * Harga Beli)
+    // STATE NILAI ASET GUDANG
     val inventoryValue: StateFlow<Long> = _products.map { products ->
         products.sumOf { it.stock * it.costPrice }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
@@ -387,7 +387,6 @@ class PosViewModel(
         val customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum"
         val totalCost = itemsToProcess.sumOf { it.product.costPrice * it.quantity }
 
-        // PERBAIKAN: Tambahkan taxAmount dan cashierName
         val transaction = TransactionEntity(
             totalPrice = total, 
             cashReceived = if (method == "BON") 0L else cashReceived, 
@@ -457,7 +456,8 @@ class PosViewModel(
     fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
         viewModelScope.launch {
             val change = (cashReceived - transaction.totalPrice).coerceAtLeast(0L)
-            transactionDao.updateTransactionStatus(transaction.id, "SUCCESS", cashReceived, change)
+            // MEMANGGIL FUNGSI YANG SUDAH DIPERBAIKI
+            transactionDao.updateTransactionStatus(transaction.id, cashReceived, change)
             onSuccess()
         }
     }
@@ -478,7 +478,6 @@ class PosViewModel(
                 }
             }
 
-            // GUNAKAN FUNGSI REFUND DI DAO
             transactionDao.refundTransaction(transaction.id)
             userDao.insertAuditLog(
                 AuditLogEntity(
