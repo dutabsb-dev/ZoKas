@@ -13,10 +13,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -63,11 +61,11 @@ fun SettingsScreen(
     viewModel: PosViewModel
 ) {
     val context = LocalContext.current
+    // FIX: Tambahkan ?: "" untuk menghindari crash jika SharedPreferences mengembalikan null
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
-    // FIX: Pastikan tidak crash jika taxPercent null
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
@@ -155,138 +153,153 @@ fun SettingsScreen(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    // FIX BESAR: Mengubah Column menjadi LazyColumn untuk mencegah Out of Memory (OOM) saat Log banyak
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item { Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
 
-        // TEMA & BAHASA
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Mode Gelap", style = MaterialTheme.typography.titleMedium); Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
-                }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Bahasa", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text(if (language == "in") "Indonesia" else "English") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Mode Gelap", style = MaterialTheme.typography.titleMedium); Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Bahasa", style = MaterialTheme.typography.titleMedium)
+                        Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text(if (language == "in") "Indonesia" else "English") }
+                    }
                 }
             }
         }
         
-        // MANAJEMEN AKUN
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Manajemen Akun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Login sebagai: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { showChangePinDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("Ubah PIN") }
-                    if (currentUser.role == "OWNER") {
-                        Button(onClick = { showUserManagementDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("Kelola Karyawan") }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { showShiftHistory = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
-                    Text("LIHAT RIWAYAT SHIFT KASIR")
-                }
-            }
-        }
-
-        // PRINTER
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Printer Thermal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(if (savedPrinterMac != null) "Terhubung: $savedPrinterMac" else "Belum ada printer", fontSize = 12.sp, color = if(savedPrinterMac != null) Color(0xFF4CAF50) else Color.Gray)
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                            pairedPrinters = printerManager.getPairedPrinters(); showPrinterDialog = true
-                        } else {
-                            permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Manajemen Akun", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Login sebagai: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { showChangePinDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("Ubah PIN") }
+                        if (currentUser.role == "OWNER") {
+                            Button(onClick = { showUserManagementDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("Kelola Karyawan") }
                         }
-                    }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                ) { Text("PILIH PRINTER") }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(onClick = { showShiftHistory = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) {
+                        Text("LIHAT RIWAYAT SHIFT KASIR")
+                    }
+                }
             }
         }
 
-        // STATUS PRO & PROFIL TOKO
-        if (isPro) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
-                        Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
-                    }
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Printer Thermal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(if (savedPrinterMac != null) "Terhubung: $savedPrinterMac" else "Belum ada printer", fontSize = 12.sp, color = if(savedPrinterMac != null) Color(0xFF4CAF50) else Color.Gray)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                                pairedPrinters = printerManager.getPairedPrinters(); showPrinterDialog = true
+                            } else {
+                                permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                            }
+                        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                    ) { Text("PILIH PRINTER") }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Profil Toko & Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
-                
-                // INPUT PAJAK (BARU)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = taxPercent, 
-                    onValueChange = { 
-                        taxPercent = it
-                        val tax = it.toDoubleOrNull() ?: 0.0
-                        settingsManager.taxPercent = tax
-                        viewModel.setTaxPercent(tax)
-                    }, 
-                    label = { Text("Pajak (%) cth: 11") }, 
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
-                    modifier = Modifier.fillMaxWidth(), 
-                    singleLine = true
-                )
+            }
+        }
+
+        if (isPro) {
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
+                            Text("VERSI PRO AKTIF", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Profil Toko & Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = taxPercent, 
+                        onValueChange = { 
+                            taxPercent = it
+                            val tax = it.toDoubleOrNull() ?: 0.0
+                            settingsManager.taxPercent = tax
+                            viewModel.setTaxPercent(tax)
+                        }, 
+                        label = { Text("Pajak (%) cth: 11") }, 
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                        modifier = Modifier.fillMaxWidth(), 
+                        singleLine = true
+                    )
+                }
             }
         } else {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold) }
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Upgrade ke Pro untuk kustom struk & ekspor CSV.", textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("Beli Versi Pro - Rp 10.000", fontWeight = FontWeight.Bold) }
+                    }
                 }
             }
         }
 
-        // DATA & BACKUP
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Data & Backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Cadangkan seluruh data ke file.", fontSize = 12.sp, color = Color.Gray)
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("BACKUP") }
-                    Button(onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("RESTORE") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Data & Backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Cadangkan seluruh data ke file.", fontSize = 12.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("BACKUP") }
+                        Button(onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("RESTORE") }
+                    }
                 }
             }
         }
 
-        // LOG AKTIVITAS
-        Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-        if (auditLogs.isEmpty()) Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.fillMaxWidth())
-        else {
-            auditLogs.forEach { log ->
+        item { Text("Log Aktivitas (Audit)", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start) }
+        
+        if (auditLogs.isEmpty()) {
+            item { Text("Belum ada aktivitas.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.fillMaxWidth()) }
+        } else {
+            // FIX: Menggunakan items() di dalam LazyColumn agar tidak OOM/Force Close jika log ribuan
+            items(auditLogs) { log ->
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold) }
-        Spacer(modifier = Modifier.height(32.dp))
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(50.dp)) { Text("LOGOUT (KELUAR)", fontWeight = FontWeight.Bold) }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 }
 

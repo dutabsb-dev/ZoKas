@@ -269,8 +269,8 @@ fun HistoryScreen(
         if (filteredTransactions.isEmpty()) {
             item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("Tidak ada transaksi pada periode ini.") } }
         } else {
-            // FIX PENTING: Tambahkan key = { it.id } agar Compose tidak crash
-            items(filteredTransactions, key = { it.id }) { tx ->
+            // FIX: Menghapus key = { it.id } untuk mencegah crash "Duplicate Key" jika ada data korup
+            items(filteredTransactions) { tx ->
                 val isVoided = tx.status == "VOIDED"
                 val isUnpaid = tx.status == "UNPAID"
                 Card(
@@ -319,10 +319,10 @@ fun TransactionDetailDialog(
         ReceiptDialog(
             transaction = transaction,
             viewModel = viewModel,
-            storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
-            storeAddress = if (settingsManager.isPro) settingsManager.storeAddress else "Alamat belum diatur",
-            storePhone = if (settingsManager.isPro) settingsManager.storePhone else "-",
-            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Terima kasih!",
+            storeName = if (settingsManager.isPro) (settingsManager.storeName ?: "ZoKas") else "ZoKas (Gratis)",
+            storeAddress = if (settingsManager.isPro) (settingsManager.storeAddress ?: "Alamat belum diatur") else "Alamat belum diatur",
+            storePhone = if (settingsManager.isPro) (settingsManager.storePhone ?: "-") else "-",
+            storeFooter = if (settingsManager.isPro) (settingsManager.storeFooter ?: "Terima kasih!") else "Terima kasih!",
             settingsManager = settingsManager,
             onDismiss = { showReceipt = false }
         )
