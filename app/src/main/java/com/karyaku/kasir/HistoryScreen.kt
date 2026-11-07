@@ -273,7 +273,7 @@ fun TransactionDetailDialog(
         VoidPinDialog(
             onDismiss = { showVoidPinDialog = false },
             onConfirm = { pin ->
-                viewModel.voidTransaction(transaction, pin, currentUser) { success, message ->
+                viewModel.voidTransaction(transaction, pin, currentUser) { success: Boolean, message: String ->
                     showVoidPinDialog = false
                     if (success) {
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -300,7 +300,7 @@ fun TransactionDetailDialog(
             },
             confirmButton = {
                 Button(onClick = { 
-                    viewModel.refundTransaction(transaction, pin, currentUser) { success, msg ->
+                    viewModel.refundTransaction(transaction, pin, currentUser) { success: Boolean, msg: String ->
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         if (success) onDismiss()
                     }

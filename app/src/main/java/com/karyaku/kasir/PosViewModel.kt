@@ -76,7 +76,6 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    // State Pajak
     var taxPercent: Double = 0.0
         private set
 
@@ -442,7 +441,6 @@ class PosViewModel(
         }
     }
 
-    // LOGIKA REFUND
     fun refundTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             val supervisor = userDao.loginByPin(pinSupervisor)
@@ -472,13 +470,42 @@ class PosViewModel(
         }
     }
     
-    // LOGIKA BAYAR BON
     fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
         viewModelScope.launch {
             val change = if (cashReceived >= transaction.totalPrice) cashReceived - transaction.totalPrice else 0
             transactionDao.payUnpaidTransaction(transaction.id, cashReceived, change)
             userDao.insertAuditLog(AuditLogEntity(userId = 0, userName = "Sistem", action = "PELUNASAN BON #${transaction.id}: ${formatRupiah(transaction.totalPrice)}"))
             onSuccess()
+        }
+    }
+
+    // FUNGSI VOID YANG TADI HILANG
+    fun voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val supervisor = userDao.loginByPin(pinSupervisor)
+            if (supervisor == null || (supervisor.role != "OWNER" && supervisor.role != "SUPERVISOR")) {
+                onResult(false, "PIN Salah atau bukan Supervisor!")
+                return@launch
+            }
+
+            val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
+            
+            itemsToRestore.forEach { item ->
+                val product = _products.value.find { it.name == item.productName }
+                if (product != null) {
+                    productDao.updateStock(product.id, product.stock + item.quantity)
+                }
+            }
+
+            transactionDao.voidTransaction(transaction.id)
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = currentUser.id, 
+                    userName = currentUser.name, 
+                    action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"
+                )
+            )
+            onResult(true, "Transaksi berhasil di-void dan stok dikembalikan.")
         }
     }
 }
