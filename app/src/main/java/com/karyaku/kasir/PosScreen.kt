@@ -163,7 +163,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
                 )
-                // FIX: Menggunakan Icons.Default.* yang tersedia di library core
                 ActionMenuItem(icon = Icons.Default.Edit, title = "Edit Produk", subtitle = "Ubah detail", color = ZokasGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
                 ActionMenuItem(icon = Icons.Default.Add, title = "Tambah Stok", subtitle = "Restock barang", color = ZokasOrange, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
                 ActionMenuItem(icon = Icons.Default.Delete, title = "Barang Rusak", subtitle = "Catat waste/expired", color = Color(0xFFF57C00), onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
@@ -323,31 +322,31 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
-                        // FIX: Menggunakan ikon standar
+                        // FIX: Menambahkan contentDescription = null secara eksplisit
                         DropdownMenuItem(
                             text = { Text("Buka Laci (No Sale)") },
-                            leadingIcon = { Icon(Icons.Default.ShoppingCart, tint = ZokasGreen) },
+                            leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = ZokasGreen) },
                             onClick = { showDrawerConfirm = true; showMenu = false }
                         )
                         DropdownMenuItem(
                             text = { Text("Pesanan Parkir") },
-                            leadingIcon = { Icon(Icons.Default.List, tint = ZokasGreen) },
+                            leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = ZokasGreen) },
                             onClick = { showHoldDialog = true; showMenu = false }
                         )
                         DropdownMenuItem(
                             text = { Text("Kas Keluar / Masuk") },
-                            leadingIcon = { Icon(Icons.Default.AccountBox, tint = ZokasOrange) },
+                            leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = ZokasOrange) },
                             onClick = { showCashFlowDialog = true; showMenu = false }
                         )
                         DropdownMenuItem(
                             text = { Text("Tutup Kasir") },
-                            leadingIcon = { Icon(Icons.Default.Lock, tint = ZokasOrange) },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = ZokasOrange) },
                             onClick = { showCloseShiftDialog = true; showMenu = false }
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
                             text = { Text("Logout", color = Color.Red) },
-                            leadingIcon = { Icon(Icons.Default.ExitToApp, tint = Color.Red) },
+                            leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red) },
                             onClick = { onLogout(); showMenu = false }
                         )
                     }
@@ -383,7 +382,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             AnimatedVisibility(visible = isHappyHour, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(colors = listOf(Color.Red, Color(0xFFFF5722)))).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // FIX: Menggunakan Icons.Default.Star
                         Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("HAPPY HOUR! Diskon ${settingsManager.happyHourDiscount}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -440,8 +438,7 @@ fun ProductCatalog(products: List<ProductEntity>, categories: List<String>, sele
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), 
             placeholder = { Text("Cari produk / scan barcode...") }, 
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, 
-            // FIX: Menggunakan Icons.Default.Search untuk pengganti QrCodeScanner
-            trailingIcon = { Icon(Icons.Default.Search, contentDescription = "Scan", tint = ZokasGreen) }, 
+            trailingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, 
             singleLine = true, 
             shape = RoundedCornerShape(16.dp), 
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ZokasGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), 
@@ -469,7 +466,6 @@ fun ProductCatalog(products: List<ProductEntity>, categories: List<String>, sele
                             Column {
                                 Text(text = formatRupiah(product.price), style = MaterialTheme.typography.titleLarge, color = ZokasOrange, fontWeight = FontWeight.Black)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    // FIX: Menggunakan Icons.Default.List untuk pengganti Inventory
                                     Icon(Icons.Default.List, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp)); Spacer(modifier = Modifier.width(4.dp)); Text(text = "Stok: ${product.stock}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
                                 }
                             }
