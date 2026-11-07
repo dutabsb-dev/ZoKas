@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -179,14 +180,20 @@ fun HistoryScreen(
             }
         }
 
+        // GRAFIK PROFESIONAL (RESPONSIF)
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Grafik 7 Hari Terakhir", fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
+                    Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
                         val days = 7
-                        val slotWidth = size.width / days
+                        val paddingLeft = 30f
+                        val paddingBottom = 40f
+                        val chartWidth = size.width - paddingLeft
+                        val chartHeight = size.height - paddingBottom
+                        
+                        val slotWidth = chartWidth / days
                         val barWidth = slotWidth * 0.6f
 
                         val dailySales = (0 until days).map { i ->
@@ -200,14 +207,36 @@ fun HistoryScreen(
                         val maxSale = dailySales.maxOrNull() ?: 0L
                         val effectiveMax = if (maxSale == 0L) 1L else maxSale
 
-                        dailySales.forEachIndexed { index, sale ->
-                            val barHeight = if (sale > 0) ((sale.toFloat() / effectiveMax) * size.height).coerceAtLeast(10f) else 0f
-                            val x = index * slotWidth + (slotWidth - barWidth) / 2f
+                        // Gambar Sumbu
+                        val axisColor = Color.LightGray
+                        drawLine(color = axisColor, start = Offset(paddingLeft, 0f), end = Offset(paddingLeft, chartHeight), strokeWidth = 2f) // Y
+                        drawLine(color = axisColor, start = Offset(paddingLeft, chartHeight), end = Offset(size.width, chartHeight), strokeWidth = 2f) // X
 
+                        val textPaint = android.graphics.Paint().apply { 
+                            color = android.graphics.Color.GRAY
+                            textSize = 24f 
+                            textAlign = android.graphics.Paint.Align.CENTER
+                        }
+                        val dateFormatShort = SimpleDateFormat("dd/MM", Locale.getDefault())
+
+                        dailySales.forEachIndexed { index, sale ->
+                            val x = paddingLeft + index * slotWidth + (slotWidth - barWidth) / 2f
+                            val barHeight = (sale.toFloat() / effectiveMax) * chartHeight
+                            
+                            // Gambar Batang
                             drawRect(
-                                color = if (sale > 0) ZokasGreen else Color.LightGray,
-                                topLeft = Offset(x, size.height - barHeight),
+                                color = ZokasGreen,
+                                topLeft = Offset(x, chartHeight - barHeight),
                                 size = Size(barWidth, barHeight)
+                            )
+                            
+                            // Gambar Tanggal
+                            val dateStr = dateFormatShort.format(Date(System.currentTimeMillis() - (days - 1 - index) * 86400000L))
+                            drawContext.canvas.nativeCanvas.drawText(
+                                dateStr,
+                                x + (barWidth / 2),
+                                size.height - 10f,
+                                textPaint
                             )
                         }
                     }
@@ -331,7 +360,6 @@ fun TransactionDetailDialog(
     var showPayBonDialog by remember { mutableStateOf(false) }
 
     if (showReceipt) {
-        // FIXED: Menambahkan ?: "" pada storeName, storeAddress, dll agar tidak Type Mismatch String? ke String
         ReceiptDialog(
             transaction = transaction,
             viewModel = viewModel,
