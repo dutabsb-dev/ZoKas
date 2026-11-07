@@ -8,9 +8,6 @@ import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,7 +35,6 @@ import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 fun Context.findActivity(): Activity? {
     var context = this
@@ -85,7 +81,6 @@ fun SettingsScreen(
     var showPrinterDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
-    // GANTI DENGAN rememberSafeLauncher
     val permissionLauncher = rememberSafeLauncher(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
@@ -95,7 +90,6 @@ fun SettingsScreen(
         }
     }
 
-    // GANTI DENGAN rememberSafeLauncher
     val createBackupLauncher = rememberSafeLauncher(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
@@ -105,7 +99,6 @@ fun SettingsScreen(
         }
     }
 
-    // GANTI DENGAN rememberSafeLauncher
     val restoreBackupLauncher = rememberSafeLauncher(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
