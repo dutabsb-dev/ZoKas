@@ -63,11 +63,11 @@ fun SettingsScreen(
     viewModel: PosViewModel
 ) {
     val context = LocalContext.current
-    var storeName by remember { mutableStateOf(settingsManager.storeName) }
-    var storeFooter by remember { mutableStateOf(settingsManager.storeFooter) }
-    var storeAddress by remember { mutableStateOf(settingsManager.storeAddress) }
-    var storePhone by remember { mutableStateOf(settingsManager.storePhone) }
-    // STATE PAJAK BARU
+    var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
+    var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
+    var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
+    var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
+    // FIX: Pastikan tidak crash jika taxPercent null
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }

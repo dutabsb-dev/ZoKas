@@ -59,7 +59,6 @@ fun HistoryScreen(
     val netProfit by viewModel.netProfit.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
 
-    // FIX: lowStockProducts reaktif — dihitung ulang saat products berubah
     val lowStockProducts = remember(products) {
         products.filter { it.stock <= 5 && it.stock >= 0 }
     }
@@ -67,7 +66,6 @@ fun HistoryScreen(
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var dateFilter by remember { mutableStateOf("HARI_INI") }
 
-    // FIX: state + launcher untuk ekspor PDF
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     val createPdfLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/pdf")
@@ -141,7 +139,7 @@ fun HistoryScreen(
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Laba Bersih (Setelah Kas Keluar):", color = Color.White, fontSize = 14.sp)
+                        Text("Laba Bersih:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(netProfit), color = Color(0xFF00E676), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
@@ -172,7 +170,6 @@ fun HistoryScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
                         val days = 7
-                        // FIX: perhitungan x & barWidth agar tidak keluar canvas
                         val slotWidth = size.width / days
                         val barWidth = slotWidth * 0.6f
 
@@ -256,7 +253,6 @@ fun HistoryScreen(
                     }
                     Button(
                         onClick = {
-                            // FIX: assign data ke state, lalu buka file picker
                             transactionsToExport = filteredTransactions
                             createPdfLauncher.launch("Zokas_Laporan_${System.currentTimeMillis()}.pdf")
                         },
@@ -273,7 +269,8 @@ fun HistoryScreen(
         if (filteredTransactions.isEmpty()) {
             item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("Tidak ada transaksi pada periode ini.") } }
         } else {
-            items(filteredTransactions) { tx ->
+            // FIX PENTING: Tambahkan key = { it.id } agar Compose tidak crash
+            items(filteredTransactions, key = { it.id }) { tx ->
                 val isVoided = tx.status == "VOIDED"
                 val isUnpaid = tx.status == "UNPAID"
                 Card(
@@ -310,7 +307,6 @@ fun TransactionDetailDialog(
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-    // FIX: getTransactionItems sekarang returns Flow, pakai initialValue
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -320,7 +316,6 @@ fun TransactionDetailDialog(
     var showPayBonDialog by remember { mutableStateOf(false) }
 
     if (showReceipt) {
-        // FIX: signature ReceiptDialog — kirim viewModel, hapus items
         ReceiptDialog(
             transaction = transaction,
             viewModel = viewModel,
@@ -505,10 +500,6 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     )
 }
 
-/**
- * Helper: ekspor daftar transaksi ke PDF memakai API built-in Android
- * (PdfDocument) tanpa library eksternal. Otomatis paginasi.
- */
 private fun exportTransactionsToPdf(
     context: Context,
     uri: Uri,

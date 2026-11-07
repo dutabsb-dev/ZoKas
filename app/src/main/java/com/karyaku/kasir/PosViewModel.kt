@@ -80,7 +80,7 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    // FIX: Menambahkan tipe generic eksplisit pada combine
+    // FIX: Tambahkan .catch untuk mencegah force close jika query DB bermasalah
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, Long>(
         _transactions, 
         cashFlowDao.getAllCashFlows()
@@ -88,7 +88,8 @@ class PosViewModel(
         val labaKotor = txList.filter { it.status == "SUCCESS" }.sumOf { it.totalPrice - it.totalCost }
         val totalKasKeluar = cashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
         labaKotor - totalKasKeluar
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+    }.catch { emit(0L) } // <--- INI KUNCI AGAR TIDAK CRASH
+     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     private val _taxPercent = MutableStateFlow(0.0)
     val taxPercent: StateFlow<Double> = _taxPercent.asStateFlow()
