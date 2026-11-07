@@ -8,6 +8,7 @@ import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -81,27 +82,24 @@ fun SettingsScreen(
     var showPrinterDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
-    val permissionLauncher = rememberSafeLauncher(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { perms ->
+    // KEMBALI KE STANDAR COMPOSE
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
         if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
             pairedPrinters = printerManager.getPairedPrinters()
             showPrinterDialog = true
         }
     }
 
-    val createBackupLauncher = rememberSafeLauncher(
-        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri: Uri? ->
+    // KEMBALI KE STANDAR COMPOSE
+    val createBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.backupDatabase(context, uri)) Toast.makeText(context, "Backup berhasil!", Toast.LENGTH_SHORT).show()
             else Toast.makeText(context, "Gagal backup.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    val restoreBackupLauncher = rememberSafeLauncher(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
+    // KEMBALI KE STANDAR COMPOSE
+    val restoreBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.restoreDatabase(context, uri)) showRestartDialog = true
             else Toast.makeText(context, "Gagal restore.", Toast.LENGTH_SHORT).show()

@@ -3,6 +3,7 @@ package com.karyaku.kasir
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivityResultRegistryOwner // TAMBAHKAN IMPORT INI
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,45 +27,50 @@ class MainActivity : ComponentActivity() {
         val settingsManager = SettingsManager(this)
 
         setContent {
-            var isDarkMode by remember { mutableStateOf(settingsManager.isDarkMode) }
-            var language by remember { mutableStateOf(settingsManager.language) }
-            var isPro by remember { mutableStateOf(settingsManager.isPro) }
-            var currentUser by remember { mutableStateOf<UserEntity?>(null) }
+            // FIX UTAMA: Suntikkan LocalActivityResultRegistryOwner secara eksplisit
+            CompositionLocalProvider(
+                LocalActivityResultRegistryOwner provides this@MainActivity
+            ) {
+                var isDarkMode by remember { mutableStateOf(settingsManager.isDarkMode) }
+                var language by remember { mutableStateOf(settingsManager.language) }
+                var isPro by remember { mutableStateOf(settingsManager.isPro) }
+                var currentUser by remember { mutableStateOf<UserEntity?>(null) }
 
-            PosTheme(isDarkMode = isDarkMode, language = language) {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    val posViewModel: PosViewModel = viewModel(
-                        factory = PosViewModelFactory(
-                            database.productDao(), 
-                            database.transactionDao(), 
-                            database.userDao(),
-                            database.cashFlowDao(),
-                            database.customerDao(),
-                            database.transactionItemDao(),
-                            database.voucherDao(),
-                            database.holdOrderDao()
+                PosTheme(isDarkMode = isDarkMode, language = language) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        val posViewModel: PosViewModel = viewModel(
+                            factory = PosViewModelFactory(
+                                database.productDao(), 
+                                database.transactionDao(), 
+                                database.userDao(),
+                                database.cashFlowDao(),
+                                database.customerDao(),
+                                database.transactionItemDao(),
+                                database.voucherDao(),
+                                database.holdOrderDao()
+                            )
                         )
-                    )
 
-                    if (currentUser == null) {
-                        LoginScreen(viewModel = posViewModel, onLoginSuccess = { currentUser = it })
-                    } else {
-                        MainNavigation(
-                            viewModel = posViewModel,
-                            settingsManager = settingsManager,
-                            currentUser = currentUser!!,
-                            onLogout = { currentUser = null },
-                            isPro = isPro,
-                            isDarkMode = isDarkMode,
-                            onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
-                            language = language,
-                            onToggleLanguage = { 
-                                val newLang = if (language == "in") "en" else "in"
-                                language = newLang
-                                settingsManager.language = newLang 
-                            },
-                            onUpgradeClick = { isPro = true; settingsManager.isPro = true }
-                        )
+                        if (currentUser == null) {
+                            LoginScreen(viewModel = posViewModel, onLoginSuccess = { currentUser = it })
+                        } else {
+                            MainNavigation(
+                                viewModel = posViewModel,
+                                settingsManager = settingsManager,
+                                currentUser = currentUser!!,
+                                onLogout = { currentUser = null },
+                                isPro = isPro,
+                                isDarkMode = isDarkMode,
+                                onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
+                                language = language,
+                                onToggleLanguage = { 
+                                    val newLang = if (language == "in") "en" else "in"
+                                    language = newLang
+                                    settingsManager.language = newLang 
+                                },
+                                onUpgradeClick = { isPro = true; settingsManager.isPro = true }
+                            )
+                        }
                     }
                 }
             }

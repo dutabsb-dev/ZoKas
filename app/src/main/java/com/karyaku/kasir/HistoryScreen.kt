@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -67,7 +68,8 @@ fun HistoryScreen(
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
-    val createPdfLauncher = rememberSafeLauncher(
+    // KEMBALI KE STANDAR COMPOSE
+    val createPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri: Uri? ->
         if (uri != null) {
