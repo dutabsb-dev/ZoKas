@@ -66,6 +66,7 @@ fun SettingsScreen(
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
+    var csvDataToExport by remember { mutableStateOf("") }
     
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
@@ -82,7 +83,6 @@ fun SettingsScreen(
     var showPrinterDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
-    // KEMBALI KE STANDAR COMPOSE
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
         if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
             pairedPrinters = printerManager.getPairedPrinters()
@@ -90,7 +90,6 @@ fun SettingsScreen(
         }
     }
 
-    // KEMBALI KE STANDAR COMPOSE
     val createBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.backupDatabase(context, uri)) Toast.makeText(context, "Backup berhasil!", Toast.LENGTH_SHORT).show()
@@ -98,11 +97,38 @@ fun SettingsScreen(
         }
     }
 
-    // KEMBALI KE STANDAR COMPOSE
     val restoreBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             if (BackupHelper.restoreDatabase(context, uri)) showRestartDialog = true
             else Toast.makeText(context, "Gagal restore.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // LAUNCHER CSV EXPORT
+    val createCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(csvDataToExport.toByteArray())
+                }
+                Toast.makeText(context, "Produk berhasil diekspor!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // LAUNCHER CSV IMPORT
+    val openCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val csvText = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+                viewModel.importProductsFromCsv(csvText) { count ->
+                    Toast.makeText(context, "$count Produk berhasil diimpor!", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Gagal impor: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -278,6 +304,34 @@ fun SettingsScreen(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("BACKUP") }
                         Button(onClick = { restoreBackupLauncher.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("RESTORE") }
+                    }
+                }
+            }
+        }
+
+        // BULK IMPORT/EXPORT CSV (FITUR BARU)
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Manajemen Produk Massal (CSV)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Ekspor atau impor daftar produk sekaligus menggunakan file CSV.", fontSize = 12.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { 
+                                csvDataToExport = viewModel.exportProductsToCsv()
+                                createCsvLauncher.launch("Zokas_Produk_${System.currentTimeMillis()}.csv") 
+                            }, 
+                            modifier = Modifier.weight(1f), 
+                            colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                        ) { Text("EKSPOR CSV") }
+                        
+                        Button(
+                            onClick = { openCsvLauncher.launch(arrayOf("text/*", "text/csv", "application/csv")) }, 
+                            modifier = Modifier.weight(1f), 
+                            colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                        ) { Text("IMPOR CSV") }
                     }
                 }
             }

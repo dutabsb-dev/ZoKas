@@ -9,7 +9,13 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class CartItem(val product: ProductEntity, var quantity: Int = 1, var isSelectedForSplit: Boolean = false)
+// UPDATE: Tambah notes pada CartItem
+data class CartItem(
+    val product: ProductEntity, 
+    var quantity: Int = 1, 
+    var isSelectedForSplit: Boolean = false,
+    var notes: String = "" 
+)
 
 class PosViewModel(
     private val productDao: ProductDao,
@@ -80,7 +86,6 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    // FIX: Tambahkan .catch untuk mencegah force close jika query DB bermasalah
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, Long>(
         _transactions, 
         cashFlowDao.getAllCashFlows()
@@ -88,7 +93,7 @@ class PosViewModel(
         val labaKotor = txList.filter { it.status == "SUCCESS" }.sumOf { it.totalPrice - it.totalCost }
         val totalKasKeluar = cashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
         labaKotor - totalKasKeluar
-    }.catch { emit(0L) } // <--- INI KUNCI AGAR TIDAK CRASH
+    }.catch { emit(0L) }
      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     private val _taxPercent = MutableStateFlow(0.0)
@@ -103,10 +108,17 @@ class PosViewModel(
         _products, _searchQuery, _selectedCategory
     ) { products, query, category ->
         products.filter { product ->
-            val matchQuery = query.isBlank() || product.name.contains(query, ignoreCase = true)
+            val matchQuery = query.isBlank() || product.name.contains(query, ignoreCase = true) || product.barcode.contains(query, ignoreCase = true)
             val matchCategory = category == "Semua" || product.category == category
             matchQuery && matchCategory
         }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // FITUR BARU: Deteksi Meja yang sedang terisi (Hold Order atau Bon)
+    val occupiedTables: StateFlow<List<String>> = combine(_holdOrders, _transactions) { holds, txs ->
+        val holdTables = holds.map { it.tableName }
+        val unpaidTables = txs.filter { it.status == "UNPAID" }.map { it.tableName }
+        (holdTables + unpaidTables).distinct()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
@@ -132,6 +144,70 @@ class PosViewModel(
 
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
     fun setTable(table: String) { _selectedTable.value = table }
+
+    // FITUR BARU: Scan Barcode
+    fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val product = productDao.getProductByBarcode(barcode)
+            if (product != null) {
+                if (product.stock > 0) {
+                    addToCart(product)
+                    onResult(true, "Berhasil tambah: ${product.name}")
+                } else {
+                    onResult(false, "Stok ${product.name} habis!")
+                }
+            } else {
+                onResult(false, "Barcode tidak ditemukan!")
+            }
+        }
+    }
+
+    // FITUR BARU: Update Catatan Item
+    fun updateCartItemNotes(product: ProductEntity, notes: String) {
+        val currentCart = _cart.value.toMutableList()
+        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        if (idx != -1) {
+            currentCart[idx] = currentCart[idx].copy(notes = notes)
+            _cart.value = currentCart
+        }
+    }
+
+    // FITUR BARU: Export CSV
+    fun exportProductsToCsv(): String {
+        val header = "Nama,HargaJual,HargaModal,Stok,Kategori,Barcode\n"
+        val rows = _products.value.joinToString("\n") { 
+            "${it.name},${it.price},${it.costPrice},${it.stock},${it.category},${it.barcode}" 
+        }
+        return header + rows
+    }
+
+    // FITUR BARU: Import CSV
+    fun importProductsFromCsv(csvText: String, onResult: (Int) -> Unit) {
+        viewModelScope.launch {
+            var count = 0
+            val lines = csvText.split("\n")
+            for (i in 1 until lines.size) { // Skip header
+                val parts = lines[i].split(",")
+                if (parts.size >= 5) {
+                    try {
+                        val product = ProductEntity(
+                            name = parts[0].trim(),
+                            price = parts[1].trim().toLongOrNull() ?: 0L,
+                            costPrice = parts[2].trim().toLongOrNull() ?: 0L,
+                            stock = parts[3].trim().toIntOrNull() ?: 0,
+                            category = parts[4].trim(),
+                            barcode = if (parts.size > 5) parts[5].trim() else ""
+                        )
+                        productDao.insertProduct(product)
+                        count++
+                    } catch (e: Exception) {
+                        // Abaikan baris yang formatnya salah
+                    }
+                }
+            }
+            onResult(count)
+        }
+    }
 
     fun saveHoldOrder(customerName: String) {
         if (_cart.value.isEmpty()) return
@@ -306,9 +382,10 @@ class PosViewModel(
         }
     }
 
-    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, userId: Long, userName: String) {
+    // UPDATE: Tambah parameter barcode
+    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, userId: Long, userName: String) {
         viewModelScope.launch {
-            productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock, category = category, costPrice = costPrice))
+            productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode))
             userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name ($category)"))
         }
     }
@@ -416,7 +493,8 @@ class PosViewModel(
                     price = cartItem.product.price,
                     quantity = cartItem.quantity,
                     subtotal = cartItem.product.price * cartItem.quantity,
-                    costPrice = cartItem.product.costPrice
+                    costPrice = cartItem.product.costPrice,
+                    notes = cartItem.notes // UPDATE: Simpan Notes ke DB
                 )
             }
             transactionItemDao.insertTransactionItems(itemEntities)

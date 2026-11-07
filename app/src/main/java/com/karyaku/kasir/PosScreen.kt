@@ -15,18 +15,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Wallet
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,8 +28,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,11 +48,12 @@ fun formatRupiah(amount: Long): String {
     return format.format(amount).split(",")[0].replace("Rp", "Rp ")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity, onLogout: () -> Unit) {
     val context = LocalContext.current
-
+    val keyboardController = LocalSoftwareKeyboardController.current
+    
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -70,21 +65,18 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val pointsUsed by viewModel.pointsUsed.collectAsStateWithLifecycle()
     val holdOrders by viewModel.holdOrders.collectAsStateWithLifecycle()
+    val occupiedTables by viewModel.occupiedTables.collectAsStateWithLifecycle() // FITUR BARU
     val voucherDiscount by viewModel.voucherDiscount.collectAsStateWithLifecycle()
     val appliedVoucher by viewModel.appliedVoucher.collectAsStateWithLifecycle()
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
-
-    // FIX: sinkronkan pajak dari SettingsManager ke ViewModel sekali di awal komposisi
-    // agar UI & perhitungan processPayment selalu konsisten
+    
     val taxPercent by viewModel.taxPercent.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) {
-        viewModel.setTaxPercent(settingsManager.taxPercent)
-    }
+    LaunchedEffect(Unit) { viewModel.setTaxPercent(settingsManager.taxPercent) }
 
     val subtotal = cart.sumOf { it.product.price * it.quantity }
     val taxAmount = ((subtotal - discount - voucherDiscount) * (taxPercent / 100.0)).toLong()
     val totalPrice = (subtotal + taxAmount - discount - voucherDiscount).coerceAtLeast(0)
-
+    
     var showCartOnPhone by remember { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
     var showProductForm by remember { mutableStateOf(false) }
@@ -92,12 +84,13 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToEditNotes by remember { mutableStateOf<ProductEntity?>(null) } // FITUR BARU
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
-
+    
     var showOpenShiftDialog by remember { mutableStateOf(false) }
     var showCloseShiftDialog by remember { mutableStateOf(false) }
     var showCashFlowDialog by remember { mutableStateOf(false) }
-    var showDiscountDialog by remember { mutableStateOf(false) }
+    var showDiscountDialog by remember { mutableStateOf(false) } 
     var showCustomerDialog by remember { mutableStateOf(false) }
     var modalAwal by remember { mutableStateOf("") }
 
@@ -110,7 +103,34 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         if (activeShift == null) showOpenShiftDialog = true
     }
 
-    // ================= DIALOG - DIALOG =================
+    // DIALOG EDIT NOTES (FITUR BARU)
+    if (productToEditNotes != null) {
+        var notes by remember { mutableStateOf(cart.find { it.product.id == productToEditNotes!!.id }?.notes ?: "") }
+        AlertDialog(
+            onDismissRequest = { productToEditNotes = null },
+            title = { Text("Catatan Pesanan") },
+            text = {
+                Column {
+                    Text("Tambahkan catatan untuk ${productToEditNotes!!.name}:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = notes, 
+                        onValueChange = { notes = it }, 
+                        label = { Text("Cth: Less Ice, Extra Shot") }, 
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { 
+                    viewModel.updateCartItemNotes(productToEditNotes!!, notes)
+                    productToEditNotes = null 
+                }) { Text("SIMPAN") }
+            },
+            dismissButton = { TextButton(onClick = { productToEditNotes = null }) { Text("Batal") } }
+        )
+    }
+
     if (showOpenShiftDialog) {
         AlertDialog(
             onDismissRequest = { },
@@ -164,9 +184,14 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             onRedeemPoints = { points -> viewModel.redeemPoints(points) }
         )
     }
-
+    
     if (showTableSelector) {
-        TableSelectorDialog(currentTable = selectedTable, onDismiss = { showTableSelector = false }, onSelect = { viewModel.setTable(it) })
+        TableSelectorDialog(
+            currentTable = selectedTable, 
+            occupiedTables = occupiedTables, // FITUR BARU: Peta Meja
+            onDismiss = { showTableSelector = false }, 
+            onSelect = { viewModel.setTable(it) }
+        )
     }
 
     if (showVoucherDialog) {
@@ -198,7 +223,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     }
 
     if (completedTransaction != null) {
-        // FIX: kirim viewModel agar ReceiptDialog bisa fetch items sendiri
         ReceiptDialog(
             transaction = completedTransaction!!,
             viewModel = viewModel,
@@ -217,12 +241,11 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         } else {
             totalPrice
         }
-
+        
         PaymentBottomSheet(
             totalPrice = totalToPay,
             onDismiss = { showPaymentSheet = false },
             onConfirmPayment = { cashReceived, method ->
-                // FIX: callback sekarang menerima TransactionEntity lengkap
                 viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method) { newTransaction ->
                     showPaymentSheet = false
                     if (!isSplitBillMode) showCartOnPhone = false
@@ -235,11 +258,11 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     if (showProductForm) {
         ProductFormBottomSheet(
-            productToEdit = productToEdit,
-            onDismiss = { showProductForm = false; productToEdit = null },
-            onSave = { name, price, stock, category, costPrice ->
-                if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, currentUser.id, currentUser.name)
-                else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice), currentUser.id, currentUser.name)
+            productToEdit = productToEdit, 
+            onDismiss = { showProductForm = false; productToEdit = null }, 
+            onSave = { name, price, stock, category, costPrice, barcode -> 
+                if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, currentUser.id, currentUser.name)
+                else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode), currentUser.id, currentUser.name)
                 showProductForm = false
                 productToEdit = null
             }
@@ -263,34 +286,34 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             onDismissRequest = { showActionDialogFor = null },
             title = { Text(showActionDialogFor!!.name) },
             text = { Text("Pilih tindakan untuk produk ini:") },
-            confirmButton = {
-                TextButton(onClick = {
+            confirmButton = { 
+                TextButton(onClick = { 
                     productToEdit = showActionDialogFor
                     showProductForm = true
-                    showActionDialogFor = null
-                }) {
+                    showActionDialogFor = null 
+                }) { 
                     Icon(Icons.Default.Edit, contentDescription = null, tint = ZokasGreen)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit", color = ZokasGreen)
-                }
+                    Text("Edit", color = ZokasGreen) 
+                } 
             },
-            dismissButton = {
+            dismissButton = { 
                 Row {
-                    TextButton(onClick = {
+                    TextButton(onClick = { 
                         productToRestock = showActionDialogFor
-                        showActionDialogFor = null
-                    }) {
+                        showActionDialogFor = null 
+                    }) { 
                         Icon(Icons.Default.Add, contentDescription = null, tint = ZokasOrange)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Restock", color = ZokasOrange)
+                        Text("Restock", color = ZokasOrange) 
                     }
-                    TextButton(onClick = {
+                    TextButton(onClick = { 
                         productToDelete = showActionDialogFor
-                        showActionDialogFor = null
-                    }) {
+                        showActionDialogFor = null 
+                    }) { 
                         Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Hapus", color = Color.Red)
+                        Text("Hapus", color = Color.Red) 
                     }
                 }
             }
@@ -302,13 +325,13 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             onDismissRequest = { productToDelete = null },
             title = { Text("Konfirmasi Hapus") },
             text = { Text("Apakah Anda yakin ingin menghapus '${productToDelete!!.name}'?") },
-            confirmButton = {
-                TextButton(onClick = {
+            confirmButton = { 
+                TextButton(onClick = { 
                     viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name)
-                    productToDelete = null
-                }) {
-                    Text("Ya, Hapus", color = Color.Red)
-                }
+                    productToDelete = null 
+                }) { 
+                    Text("Ya, Hapus", color = Color.Red) 
+                } 
             },
             dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Batal") } }
         )
@@ -323,10 +346,10 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         Image(painter = painterResource(id = R.drawable.logo_zokas), contentDescription = "Logo", modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)))
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(text = if (settingsManager.isPro) settingsManager.storeName else "ZoKas",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = ZokasOrange)
+                            Text(text = if (settingsManager.isPro) settingsManager.storeName else "ZoKas", 
+    fontWeight = FontWeight.Bold, 
+    fontSize = 18.sp,
+    color = ZokasOrange)
                             Text(text = "Kasir: ${currentUser.name}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
                         }
                     }
@@ -367,12 +390,18 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
             if (isTablet) {
                 Row(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) {
+                    Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
                         ProductCatalog(
                             products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
                             onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
-                            onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it }
-                        )
+                            onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it },
+                            onBarcodeScan = { barcode -> 
+                                viewModel.processBarcodeScan(barcode) { success, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                    if (success) keyboardController?.hide()
+                                }
+                            }
+                        ) 
                     }
                     VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                     Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
@@ -385,8 +414,9 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                             onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
                             onViewHoldClick = { showHoldDialog = true },
                             onCustomerClick = { showCustomerDialog = true },
-                            onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) },
-                            onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }
+                            onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
+                            onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true },
+                            onEditNotes = { productToEditNotes = it }
                         )
                     }
                 }
@@ -403,15 +433,22 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                             onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
                             onViewHoldClick = { showHoldDialog = true },
                             onCustomerClick = { showCustomerDialog = true },
-                            onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) },
-                            onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true }
+                            onAdd = { viewModel.addToCart(it) }, onRemove = { viewModel.removeFromCart(it) }, onDelete = { viewModel.deleteItem(it) }, 
+                            onDiscountClick = { showDiscountDialog = true }, onCheckout = { showPaymentSheet = true },
+                            onEditNotes = { productToEditNotes = it }
                         )
                     }
                 } else {
                     ProductCatalog(
                         products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
                         onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
-                        onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it }
+                        onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it },
+                        onBarcodeScan = { barcode -> 
+                            viewModel.processBarcodeScan(barcode) { success, msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                if (success) keyboardController?.hide()
+                            }
+                        }
                     )
                 }
             }
@@ -425,12 +462,28 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 fun ProductCatalog(
     products: List<ProductEntity>, categories: List<String>, selectedCategory: String,
     onCategorySelect: (String) -> Unit, searchQuery: String, onSearchChange: (String) -> Unit,
-    onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit
+    onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit,
+    onBarcodeScan: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
-            value = searchQuery, onValueChange = onSearchChange, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
-            placeholder = { Text("Cari produk...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, singleLine = true, shape = RoundedCornerShape(12.dp)
+            value = searchQuery, 
+            onValueChange = onSearchChange, 
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            placeholder = { Text("Cari produk / scan barcode...") }, 
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, 
+            trailingIcon = { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = ZokasGreen) },
+            singleLine = true, 
+            shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(
+                onDone = { 
+                    if (searchQuery.isNotBlank()) {
+                        onBarcodeScan(searchQuery)
+                        onSearchChange("")
+                    }
+                }
+            )
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(categories) { category ->
@@ -444,7 +497,7 @@ fun ProductCatalog(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Produk tidak ditemukan.", color = MaterialTheme.colorScheme.onSurface) }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 160.dp), contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp),
+                columns = GridCells.Adaptive(minSize = 160.dp), contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp), 
                 horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(items = products, key = { it.id }) { product ->
@@ -469,19 +522,22 @@ fun ProductCatalog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductFormBottomSheet(productToEdit: ProductEntity? = null, onDismiss: () -> Unit, onSave: (String, Long, Int, String, Long) -> Unit) {
+fun ProductFormBottomSheet(productToEdit: ProductEntity? = null, onDismiss: () -> Unit, onSave: (String, Long, Int, String, Long, String) -> Unit) {
     val sheetState = rememberModalBottomSheetState()
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
     var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
-    var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") }
+    var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") } 
     var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
-    var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") }
+    var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") } 
+    var barcode by remember { mutableStateOf(productToEdit?.barcode ?: "") }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori (cth: Minuman)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(8.dp))
@@ -491,11 +547,11 @@ fun ProductFormBottomSheet(productToEdit: ProductEntity? = null, onDismiss: () -
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true)
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = {
+            Button(onClick = { 
                 val p = price.toLongOrNull() ?: 0L
                 val cp = costPrice.toLongOrNull() ?: 0L
                 val s = stock.toIntOrNull() ?: 0
-                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp)
+                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode) 
             }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
                 Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp)
             }
@@ -507,8 +563,8 @@ fun ProductFormBottomSheet(productToEdit: ProductEntity? = null, onDismiss: () -
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(
-    totalPrice: Long,
-    onDismiss: () -> Unit,
+    totalPrice: Long, 
+    onDismiss: () -> Unit, 
     onConfirmPayment: (Long, String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -524,7 +580,7 @@ fun PaymentBottomSheet(
             Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineMedium, color = ZokasOrange, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))
-
+            
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Button(
                     onClick = { paymentMethod = "CASH" },
@@ -547,15 +603,15 @@ fun PaymentBottomSheet(
             } else {
                 Text("Transaksi akan dicatat sebagai BON (Belum Lunas).", color = Color.Red, fontSize = 12.sp)
             }
-
+            
             Spacer(modifier = Modifier.height(32.dp))
             Button(
-                onClick = { onConfirmPayment(if (paymentMethod == "BON") 0L else cashReceived, paymentMethod) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = (paymentMethod == "BON") || (cashReceived >= totalPrice && totalPrice > 0),
+                onClick = { onConfirmPayment(if (paymentMethod == "BON") 0L else cashReceived, paymentMethod) }, 
+                modifier = Modifier.fillMaxWidth().height(56.dp), 
+                enabled = (paymentMethod == "BON") || (cashReceived >= totalPrice && totalPrice > 0), 
                 colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-            ) {
-                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp)
+            ) { 
+                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp) 
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -564,17 +620,18 @@ fun PaymentBottomSheet(
 
 @Composable
 fun CartList(
-    cart: List<CartItem>, subtotal: Long, discount: Long, taxAmount: Long, totalPrice: Long,
+    cart: List<CartItem>, subtotal: Long, discount: Long, taxAmount: Long, totalPrice: Long, 
     selectedCustomer: CustomerEntity?, pointsUsed: Int,
     selectedTable: String, appliedVoucher: String, voucherDiscount: Long, isSplitBillMode: Boolean,
     onToggleSplitMode: () -> Unit, onToggleSplitSelection: (ProductEntity) -> Unit, onTableClick: () -> Unit, onVoucherClick: () -> Unit,
-    onHoldClick: () -> Unit, onViewHoldClick: () -> Unit, onCustomerClick: () -> Unit, onAdd: (ProductEntity) -> Unit,
-    onRemove: (ProductEntity) -> Unit, onDelete: (ProductEntity) -> Unit, onDiscountClick: () -> Unit, onCheckout: () -> Unit
+    onHoldClick: () -> Unit, onViewHoldClick: () -> Unit, onCustomerClick: () -> Unit, onAdd: (ProductEntity) -> Unit, 
+    onRemove: (ProductEntity) -> Unit, onDelete: (ProductEntity) -> Unit, onDiscountClick: () -> Unit, onCheckout: () -> Unit,
+    onEditNotes: (ProductEntity) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ElevatedButton(
-                onClick = onTableClick,
+                onClick = onTableClick, 
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.elevatedButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 elevation = ButtonDefaults.elevatedButtonElevation(4.dp)
@@ -582,7 +639,7 @@ fun CartList(
                 Text(selectedTable, fontWeight = FontWeight.Bold, color = ZokasOrange, fontSize = 12.sp, maxLines = 1)
             }
             ElevatedButton(
-                onClick = onHoldClick,
+                onClick = onHoldClick, 
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.elevatedButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 elevation = ButtonDefaults.elevatedButtonElevation(4.dp)
@@ -590,7 +647,7 @@ fun CartList(
                 Text("Parkir", fontWeight = FontWeight.Bold, color = ZokasGreen, fontSize = 12.sp)
             }
             ElevatedButton(
-                onClick = onViewHoldClick,
+                onClick = onViewHoldClick, 
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.elevatedButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 elevation = ButtonDefaults.elevatedButtonElevation(4.dp)
@@ -598,24 +655,24 @@ fun CartList(
                 Text("Lihat", fontWeight = FontWeight.Bold, color = ZokasGreen, fontSize = 12.sp)
             }
         }
-
+        
         Spacer(modifier = Modifier.height(12.dp))
-
+        
         OutlinedButton(onClick = onCustomerClick, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(8.dp)) {
             Icon(Icons.Default.Person, contentDescription = null, tint = ZokasOrange, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = if (selectedCustomer != null) "Pelanggan: ${selectedCustomer.name}" else "Pelanggan: Umum", fontWeight = FontWeight.Bold, color = ZokasOrange)
         }
-
+        
         if (pointsUsed > 0) {
             Text("Poin digunakan: $pointsUsed (Potongan ${formatRupiah((pointsUsed * 1000).toLong())})", color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
         }
-
+        
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Mode Split Bill", fontSize = 14.sp)
             Switch(checked = isSplitBillMode, onCheckedChange = { onToggleSplitMode() })
         }
-
+        
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(cart) { item ->
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -626,8 +683,14 @@ fun CartList(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(item.product.name, fontWeight = FontWeight.Bold)
                             Text(formatRupiah(item.product.price), style = MaterialTheme.typography.bodyMedium)
+                            if (item.notes.isNotEmpty()) {
+                                Text("Catatan: ${item.notes}", fontSize = 11.sp, color = Color.Red, fontWeight = FontWeight.Bold)
+                            }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { onEditNotes(item.product) }) { 
+                                Icon(Icons.Default.EditNote, contentDescription = "Catatan", tint = ZokasGreen) 
+                            }
                             IconButton(onClick = { onRemove(item.product) }) { Icon(Icons.Default.Remove, contentDescription = "Kurang") }
                             Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 8.dp), fontWeight = FontWeight.Bold)
                             IconButton(onClick = { onAdd(item.product) }) { Icon(Icons.Default.Add, contentDescription = "Tambah") }
@@ -637,9 +700,9 @@ fun CartList(
                 }
             }
         }
-
+        
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-
+        
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Subtotal:", style = MaterialTheme.typography.titleMedium)
             Text(formatRupiah(subtotal), style = MaterialTheme.typography.titleMedium)
@@ -657,17 +720,17 @@ fun CartList(
                 Text("- ${formatRupiah(voucherDiscount)}", style = MaterialTheme.typography.titleMedium, color = Color.Red)
             }
         }
-        TextButton(onClick = onVoucherClick, modifier = Modifier.align(Alignment.End)) {
-            Text(if (appliedVoucher.isEmpty()) "+ Gunakan Voucher" else "Ganti Voucher", color = ZokasGreen)
+        TextButton(onClick = onVoucherClick, modifier = Modifier.align(Alignment.End)) { 
+            Text(if (appliedVoucher.isEmpty()) "+ Gunakan Voucher" else "Ganti Voucher", color = ZokasGreen) 
         }
-
+        
         if (taxAmount > 0) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Pajak:", style = MaterialTheme.typography.titleMedium)
                 Text("+ ${formatRupiah(taxAmount)}", style = MaterialTheme.typography.titleMedium, color = ZokasOrange)
             }
         }
-
+        
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.surfaceVariant)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Total:", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -681,22 +744,39 @@ fun CartList(
 }
 
 @Composable
-fun TableSelectorDialog(currentTable: String, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
+fun TableSelectorDialog(currentTable: String, occupiedTables: List<String>, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     val tables = listOf("Take-Away", "Meja 1", "Meja 2", "Meja 3", "Meja 4", "Meja 5")
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pilih Meja / Tipe Pesanan") },
+        title = { Text("Pilih Meja (Peta Meja)") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+                    Box(modifier = Modifier.size(12.dp).background(ZokasGreen, CircleShape))
+                    Text("Tersedia", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(modifier = Modifier.size(12.dp).background(Color.Red, CircleShape))
+                    Text("Terisi (Bon/Parkir)", fontSize = 12.sp)
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                
                 for (table in tables) {
+                    val isOccupied = occupiedTables.contains(table)
                     OutlinedButton(
                         onClick = { onSelect(table); onDismiss() },
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (table == currentTable) ZokasGreen.copy(alpha = 0.2f) else Color.Transparent
-                        )
+                            containerColor = if (table == currentTable) ZokasGreen.copy(alpha = 0.2f) 
+                                             else if (isOccupied) Color.Red.copy(alpha = 0.1f) 
+                                             else Color.Transparent
+                        ),
+                        border = if (isOccupied) androidx.compose.foundation.BorderStroke(1.dp, Color.Red) else null
                     ) {
-                        Text(table, color = if (table == currentTable) ZokasGreen else MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            text = if (isOccupied) "$table (Terisi)" else table, 
+                            color = if (isOccupied) Color.Red else if (table == currentTable) ZokasGreen else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (isOccupied) FontWeight.Bold else FontWeight.Normal
+                        )
                     }
                 }
             }
@@ -764,21 +844,21 @@ fun CustomerDialog(
     var pointsToRedeem by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredCustomers = customers.filter {
-        it.name.contains(searchQuery, ignoreCase = true) ||
-        it.phone.contains(searchQuery, ignoreCase = true)
+    val filteredCustomers = customers.filter { 
+        it.name.contains(searchQuery, ignoreCase = true) || 
+        it.phone.contains(searchQuery, ignoreCase = true) 
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
+        title = { 
             Text(
                 when {
                     showAddForm -> "Tambah Pelanggan Baru"
                     showRedeemForm -> "Tukar Poin Pelanggan"
                     else -> "Pilih Pelanggan"
                 }
-            )
+            ) 
         },
         text = {
             when {
@@ -795,10 +875,10 @@ fun CustomerDialog(
                         Text("1 Poin = Rp 1.000", fontSize = 12.sp, color = Color.Gray)
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
-                            value = pointsToRedeem,
-                            onValueChange = { if (it.length <= 5) pointsToRedeem = it },
-                            label = { Text("Jumlah Poin yang Ditukar") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            value = pointsToRedeem, 
+                            onValueChange = { if (it.length <= 5) pointsToRedeem = it }, 
+                            label = { Text("Jumlah Poin yang Ditukar") }, 
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -820,7 +900,7 @@ fun CustomerDialog(
                         }
                         HorizontalDivider()
                         Spacer(modifier = Modifier.height(8.dp))
-
+                        
                         if (filteredCustomers.isEmpty()) {
                             Text("Pelanggan tidak ditemukan.", color = Color.Gray, modifier = Modifier.padding(16.dp))
                         } else {
@@ -848,7 +928,7 @@ fun CustomerDialog(
         confirmButton = {
             when {
                 showAddForm -> {
-                    Button(onClick = {
+                    Button(onClick = { 
                         if (newName.isNotBlank()) {
                             onAddCustomer(newName, if(newPhone.isBlank()) "-" else newPhone)
                             showAddForm = false
@@ -858,7 +938,7 @@ fun CustomerDialog(
                     }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SIMPAN") }
                 }
                 showRedeemForm && selectedCustomer != null -> {
-                    Button(onClick = {
+                    Button(onClick = { 
                         val pts = pointsToRedeem.toIntOrNull() ?: 0
                         if (pts > 0 && pts <= selectedCustomer.points) {
                             onRedeemPoints(pts)
@@ -880,11 +960,11 @@ fun CustomerDialog(
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = {
-                if (showAddForm || showRedeemForm) { showAddForm = false; showRedeemForm = false }
-                else onDismiss()
-            }) { Text("Tutup") }
+        dismissButton = { 
+            TextButton(onClick = { 
+                if (showAddForm || showRedeemForm) { showAddForm = false; showRedeemForm = false } 
+                else onDismiss() 
+            }) { Text("Tutup") } 
         }
     )
 }

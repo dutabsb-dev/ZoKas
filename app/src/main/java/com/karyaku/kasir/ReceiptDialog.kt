@@ -1,5 +1,8 @@
 package com.karyaku.kasir
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -30,7 +33,7 @@ import java.util.Locale
 @Composable
 fun ReceiptDialog(
     transaction: TransactionEntity,
-    viewModel: PosViewModel, // <--- Parameter ViewModel ditambahkan
+    viewModel: PosViewModel,
     storeName: String,
     storeAddress: String,
     storePhone: String,
@@ -40,10 +43,9 @@ fun ReceiptDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val printerManager = BluetoothPrinterManager(context)
+    val printerManager = remember { BluetoothPrinterManager(context) }
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-    // AMBIL DATA ITEMS LANGSUNG DARI DB BERDASARKAN ID
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -54,19 +56,31 @@ fun ReceiptDialog(
                 Button(
                     onClick = {
                         val textStruk = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
+                        
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, textStruk)
+                            type = "text/plain"
+                        }
+
                         try {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, textStruk)
-                                type = "text/plain"
-                                setPackage("com.whatsapp")
-                            }
-                            context.startActivity(sendIntent)
+                            val waIntent = Intent(sendIntent).apply { setPackage("com.whatsapp") }
+                            context.startActivity(waIntent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "WhatsApp tidak terinstal. Menyalin ke clipboard.", Toast.LENGTH_SHORT).show()
-                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            val clip = android.content.ClipData.newPlainText("Struk ZoKas", textStruk)
-                            clipboard.setPrimaryClip(clip)
+                            try {
+                                val waBusinessIntent = Intent(sendIntent).apply { setPackage("com.whatsapp.w4b") }
+                                context.startActivity(waBusinessIntent)
+                            } catch (e2: Exception) {
+                                try {
+                                    val chooser = Intent.createChooser(sendIntent, "Bagikan Struk")
+                                    context.startActivity(chooser)
+                                } catch (e3: Exception) {
+                                    Toast.makeText(context, "Tidak ada aplikasi untuk berbagi. Disalin ke clipboard.", Toast.LENGTH_SHORT).show()
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newPlainText("Struk ZoKas", textStruk)
+                                    clipboard.setPrimaryClip(clip)
+                                }
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -116,7 +130,6 @@ fun ReceiptDialog(
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 
-                // LOADING STATE JIKA ITEMS BELUM MUNCUL
                 if (items.isEmpty()) {
                     Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = Color.Gray)
                 } else {
@@ -124,6 +137,9 @@ fun ReceiptDialog(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("${item.quantity}x ${item.productName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                             Text(formatRupiah(item.subtotal), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        }
+                        if (item.notes.isNotEmpty()) {
+                            Text("  *Cat: ${item.notes}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.DarkGray)
                         }
                     }
                     Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
@@ -195,6 +211,9 @@ private fun generateTextReceipt(
     
     items?.forEach {
         sb.append("${it.quantity}x ${it.productName}\n")
+        if (it.notes.isNotEmpty()) {
+            sb.append("   *Cat: ${it.notes}*\n")
+        }
         sb.append("   Rp ${it.subtotal}\n")
     }
     sb.append("------------------------\n")
@@ -202,7 +221,6 @@ private fun generateTextReceipt(
     val subtotal = items?.sumOf { it.subtotal } ?: transaction.totalPrice
     sb.append("Subtotal: Rp $subtotal\n")
     
-    // FIX BUG PAJAK WA: Tambahkan baris pajak ke teks WA
     if (transaction.taxAmount > 0) sb.append("Pajak: Rp ${transaction.taxAmount}\n")
     
     val diskon = subtotal + transaction.taxAmount - transaction.totalPrice
@@ -242,7 +260,11 @@ private fun generatePrintData(
     output.write(EscPosCommands.ALIGN_LEFT)
     
     items?.forEach {
-        output.write("${it.quantity}x ${it.productName}\n  Rp ${it.subtotal}\n".toByteArray())
+        output.write("${it.quantity}x ${it.productName}\n".toByteArray())
+        if (it.notes.isNotEmpty()) {
+            output.write("  *Cat: ${it.notes}\n".toByteArray())
+        }
+        output.write("  Rp ${it.subtotal}\n".toByteArray())
     }
     output.write("--------------------------------\n".toByteArray())
     

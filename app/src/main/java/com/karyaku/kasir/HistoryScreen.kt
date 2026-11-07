@@ -68,7 +68,6 @@ fun HistoryScreen(
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
-    // KEMBALI KE STANDAR COMPOSE
     val createPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri: Uri? ->
@@ -132,6 +131,22 @@ fun HistoryScreen(
                     Text(text = formatRupiah(totalOmzet), color = ZokasOrange, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("${validTransactions.size} Transaksi Sukses", color = Color.White, fontSize = 12.sp)
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
+
+                    // FITUR BARU: Rincian Pembayaran
+                    val totalCash = validTransactions.filter { it.paymentMethod == "CASH" }.sumOf { it.totalPrice }
+                    val totalBon = validTransactions.filter { it.paymentMethod == "BON" }.sumOf { it.totalPrice }
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Pembayaran Tunai:", color = Color.White, fontSize = 12.sp)
+                        Text(formatRupiah(totalCash), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Pembayaran BON:", color = Color.White, fontSize = 12.sp)
+                        Text(formatRupiah(totalBon), color = Color(0xFFFFCDD2), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
 
@@ -320,10 +335,10 @@ fun TransactionDetailDialog(
         ReceiptDialog(
             transaction = transaction,
             viewModel = viewModel,
-            storeName = if (settingsManager.isPro) (settingsManager.storeName ?: "ZoKas") else "ZoKas (Gratis)",
-            storeAddress = if (settingsManager.isPro) (settingsManager.storeAddress ?: "Alamat belum diatur") else "Alamat belum diatur",
-            storePhone = if (settingsManager.isPro) (settingsManager.storePhone ?: "-") else "-",
-            storeFooter = if (settingsManager.isPro) (settingsManager.storeFooter ?: "Terima kasih!") else "Terima kasih!",
+            storeName = if (settingsManager.isPro) settingsManager.storeName else "ZoKas (Gratis)",
+            storeAddress = if (settingsManager.isPro) settingsManager.storeAddress else "Alamat belum diatur",
+            storePhone = if (settingsManager.isPro) settingsManager.storePhone else "-",
+            storeFooter = if (settingsManager.isPro) settingsManager.storeFooter else "Terima kasih!",
             settingsManager = settingsManager,
             onDismiss = { showReceipt = false }
         )
@@ -453,6 +468,9 @@ fun TransactionDetailDialog(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     Text("${item.quantity} x ${formatRupiah(item.price)}", fontSize = 12.sp, color = Color.Gray)
+                                    if (item.notes.isNotEmpty()) {
+                                        Text("Cat: ${item.notes}", fontSize = 11.sp, color = Color.Red, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                                 Text(formatRupiah(item.subtotal), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             }

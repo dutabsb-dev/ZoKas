@@ -10,5 +10,6 @@ data class ProductEntity(
     val price: Long,
     val stock: Int = 0,
     val category: String = "Umum",
-    val costPrice: Long = 0
+    val costPrice: Long = 0,
+    val barcode: String = "" // FITUR BARU: Barcode
 )

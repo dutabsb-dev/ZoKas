@@ -15,11 +15,13 @@ interface ProductDao {
     @Query("SELECT * FROM products ORDER BY id DESC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
-    // FUNGSI BARU: Update stok
     @Query("UPDATE products SET stock = :newStock WHERE id = :productId")
     suspend fun updateStock(productId: Long, newStock: Int)
 
-    // FUNGSI BARU: Hapus produk
     @Delete
     suspend fun deleteProduct(product: ProductEntity)
+
+    // FITUR BARU: Cari produk berdasarkan barcode
+    @Query("SELECT * FROM products WHERE barcode = :barcode LIMIT 1")
+    suspend fun getProductByBarcode(barcode: String): ProductEntity?
 }
