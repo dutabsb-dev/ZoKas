@@ -1,7 +1,10 @@
 package com.karyaku.kasir
 
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -51,9 +54,24 @@ fun HistoryScreen(
 
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
     val lowStockProducts = viewModel.getLowStockProducts()
+    val inventoryValue by viewModel.inventoryValue.collectAsStateWithLifecycle() // State Nilai Aset
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var dateFilter by remember { mutableStateOf("HARI_INI") }
+
+    // State & Launcher PDF Export
+    var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
+    val createPdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            if (PdfExportHelper.exportTransactionsToPdf(context, transactionsToExport, uri)) {
+                Toast.makeText(context, "Laporan PDF berhasil disimpan!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Gagal mengekspor PDF.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val startOfToday = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
@@ -103,6 +121,7 @@ fun HistoryScreen(
             }
         }
 
+        // KARTU OMZET
         item {
             Card(modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)), colors = CardDefaults.cardColors(containerColor = ZokasGreen)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -123,7 +142,20 @@ fun HistoryScreen(
             }
         }
 
-        // GRAFIK PENJUALAN 7 HARI TERAKHIR
+        // KARTU NILAI ASET INVENTARIS (FITUR BARU)
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Nilai Aset Gudang (HPP)", fontWeight = FontWeight.Bold)
+                        Text("Total nilai stok barang saat ini", fontSize = 10.sp, color = Color.Gray)
+                    }
+                    Text(formatRupiah(inventoryValue), fontWeight = FontWeight.Bold, color = ZokasGreen)
+                }
+            }
+        }
+
+        // GRAFIK PENJUALAN (FIX BUG GRAFIK KOSONG)
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -140,10 +172,12 @@ fun HistoryScreen(
                             transactions.filter { it.timestamp in start..end && it.status == "SUCCESS" }.sumOf { it.totalPrice }
                         }.reversed()
                         
-                        val maxSale = dailySales.maxOrNull() ?: 1L
-                        if (maxSale == 0L) return@Canvas
+                        val maxSale = dailySales.maxOrNull() ?: 0L
+                        val effectiveMax = if (maxSale == 0L) 1L else maxSale // Mencegah pembagian dengan nol
+                        
                         dailySales.forEachIndexed { index, sale ->
-                            val barHeight = (sale.toFloat() / maxSale.toFloat()) * size.height
+                            // Pastikan batang memiliki tinggi minimal 5px jika ada penjualan
+                            val barHeight = if (sale > 0) ((sale.toFloat() / effectiveMax) * size.height).coerceAtLeast(10f) else 0f
                             val x = (index * 2.5f * barWidth) + barWidth
                             drawRect(color = if (sale > 0) ZokasGreen else Color.LightGray, topLeft = Offset(x, size.height - barHeight), size = Size(barWidth, barHeight))
                         }
@@ -184,24 +218,36 @@ fun HistoryScreen(
             }
         }
 
+        // TOMBOL EKSPOR CSV & PDF
         if (isPro && filteredTransactions.isNotEmpty()) {
             item {
-                Button(
-                    onClick = {
-                        try {
-                            val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian,Pelanggan,Status\n"
-                            val csvData = filteredTransactions.joinToString("\n") { tx ->
-                                "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount},${tx.customerName},${tx.status}"
-                            }
-                            val fullCsv = csvHeader + csvData
-                            val sendIntent = Intent().apply { action = Intent.ACTION_SEND; putExtra(Intent.EXTRA_TEXT, fullCsv); type = "text/plain" }
-                            val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
-                            if (activity != null) activity.startActivity(shareIntent) else context.startActivity(shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        } catch (e: Exception) { Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show() }
-                    },
-                    modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = "Ekspor"); Spacer(modifier = Modifier.width(8.dp)); Text("Ekspor Laporan ke Excel/CSV")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            try {
+                                val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian,Pelanggan,Status\n"
+                                val csvData = filteredTransactions.joinToString("\n") { tx ->
+                                    "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount},${tx.customerName},${tx.status}"
+                                }
+                                val fullCsv = csvHeader + csvData
+                                val sendIntent = Intent().apply { action = Intent.ACTION_SEND; putExtra(Intent.EXTRA_TEXT, fullCsv); type = "text/plain" }
+                                val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
+                                if (activity != null) activity.startActivity(shareIntent) else context.startActivity(shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            } catch (e: Exception) { Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show() }
+                        },
+                        modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                    ) {
+                        Text("CSV")
+                    }
+                    Button(
+                        onClick = {
+                            transactionsToExport = filteredTransactions
+                            createPdfLauncher.launch("Zokas_Laporan_${System.currentTimeMillis()}.pdf")
+                        },
+                        modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("PDF")
+                    }
                 }
             }
         }
@@ -237,6 +283,7 @@ fun HistoryScreen(
     }
 }
 
+// (Fungsi TransactionDetailDialog dan VoidPinDialog tetap sama persis seperti yang Anda kirimkan sebelumnya)
 @Composable
 fun TransactionDetailDialog(
     transaction: TransactionEntity,

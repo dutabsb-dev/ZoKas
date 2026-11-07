@@ -1,7 +1,6 @@
 package com.karyaku.kasir
 
 import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color // <--- IMPORT YANG TADI HILANG
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -48,7 +47,6 @@ fun ReceiptDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Column {
-                // TOMBOL E-RECEIPT (WHATSAPP)
                 Button(
                     onClick = {
                         val textStruk = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
@@ -57,7 +55,7 @@ fun ReceiptDialog(
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, textStruk)
                                 type = "text/plain"
-                                setPackage("com.whatsapp") // Kirim langsung ke WA
+                                setPackage("com.whatsapp")
                             }
                             context.startActivity(sendIntent)
                         } catch (e: Exception) {
@@ -68,14 +66,13 @@ fun ReceiptDialog(
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)) // Warna WhatsApp
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("KIRIM STRUK (WHATSAPP)", color = Color.White)
                 }
                 
-                // TOMBOL CETAK THERMAL
                 Button(
                     onClick = {
                         val mac = settingsManager.printerMacAddress
@@ -105,7 +102,6 @@ fun ReceiptDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 
-                // HEADER TOKO
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
                 Text(text = storeAddress, fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
                 Text(text = "Telp: $storePhone", fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
@@ -116,7 +112,6 @@ fun ReceiptDialog(
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 
-                // RINCIAN BARANG
                 if (items != null && items.isNotEmpty()) {
                     items.forEach { item ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -127,7 +122,6 @@ fun ReceiptDialog(
                     Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
 
-                // SUBTOTAL, PAJAK, DISKON
                 val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Subtotal", fontFamily = FontFamily.Monospace)
@@ -155,7 +149,8 @@ fun ReceiptDialog(
                     Text(formatRupiah(transaction.totalPrice), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 }
                 
-                if (transaction.paymentMethod == "BON") {
+                // FIX BUG BON: Tampilkan Tunai & Kembalian jika cashReceived > 0
+                if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
                     Text("METODE: BON (BELUM BAYAR)", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color.Red)
                 } else {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -200,12 +195,16 @@ private fun generateTextReceipt(
     
     val subtotal = items?.sumOf { it.subtotal } ?: transaction.totalPrice
     sb.append("Subtotal: Rp $subtotal\n")
+    
+    // FIX BUG PAJAK WA: Tambahkan baris pajak ke teks WA
     if (transaction.taxAmount > 0) sb.append("Pajak: Rp ${transaction.taxAmount}\n")
+    
     val diskon = subtotal + transaction.taxAmount - transaction.totalPrice
     if (diskon > 0) sb.append("Diskon: -Rp $diskon\n")
     
     sb.append("*Total: Rp ${transaction.totalPrice}*\n")
-    if (transaction.paymentMethod == "BON") {
+    
+    if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
         sb.append("*STATUS: BON (BELUM BAYAR)*\n")
     } else {
         sb.append("Tunai: Rp ${transaction.cashReceived}\n")
@@ -248,7 +247,8 @@ private fun generatePrintData(
     if (diskon > 0) output.write("Diskon  : -Rp $diskon\n".toByteArray())
     
     output.write("Total   : Rp ${transaction.totalPrice}\n".toByteArray())
-    if (transaction.paymentMethod == "BON") {
+    
+    if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
         output.write("STATUS  : BON (BELUM BAYAR)\n".toByteArray())
     } else {
         output.write("Tunai   : Rp ${transaction.cashReceived}\n".toByteArray())

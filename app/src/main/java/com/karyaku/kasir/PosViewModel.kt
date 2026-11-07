@@ -25,6 +25,11 @@ class PosViewModel(
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
+    // STATE BARU: Total Nilai Aset (Stok * Harga Beli)
+    val inventoryValue: StateFlow<Long> = _products.map { products ->
+        products.sumOf { it.stock * it.costPrice }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
     private val _bestSellers = MutableStateFlow<List<BestSellerData>>(emptyList())
     val bestSellers: StateFlow<List<BestSellerData>> = _bestSellers.asStateFlow()
 
@@ -76,12 +81,8 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    var taxPercent: Double = 0.0
-        private set
-
-    fun setTaxPercent(value: Double) {
-        taxPercent = value
-    }
+    private val _taxPercent = MutableStateFlow(0.0)
+    val taxPercent: StateFlow<Double> = _taxPercent.asStateFlow()
 
     val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
         val categories = productList.map { it.category }.distinct()
@@ -119,6 +120,7 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllShifts().collectLatest { _shifts.value = it } }
     }
 
+    fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
     fun setTable(table: String) { _selectedTable.value = table }
 
     fun saveHoldOrder(customerName: String) {
@@ -358,46 +360,44 @@ class PosViewModel(
         }
     }
 
-    fun getSubtotal(): Long {
-        return _cart.value.sumOf { it.product.price * it.quantity }
-    }
-
-    fun getTaxAmount(): Long {
-        val subtotal = getSubtotal() - _discount.value - _voucherDiscount.value
-        return (subtotal * (taxPercent / 100)).toLong()
-    }
-
     fun getTotalPrice(): Long {
-        val subtotal = getSubtotal()
-        val tax = getTaxAmount()
-        return (subtotal + tax - _discount.value - _voucherDiscount.value).coerceAtLeast(0)
+        val subtotal = _cart.value.sumOf { it.product.price * it.quantity }
+        val tax = (subtotal - _discount.value - _voucherDiscount.value) * (_taxPercent.value / 100.0)
+        return (subtotal + tax - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
     }
 
-    fun processPayment(cashReceived: Long, userId: Long, userName: String, isSplitBill: Boolean = false, paymentMethod: String = "CASH", onSuccess: (Long) -> Unit) {
+    fun processPayment(
+        cashReceived: Long, 
+        userId: Long, 
+        userName: String, 
+        isSplitBill: Boolean = false, 
+        method: String = "CASH", 
+        onSuccess: (Long) -> Unit
+    ) {
         val itemsToProcess = if (isSplitBill) _cart.value.filter { it.isSelectedForSplit } else _cart.value
-        
         if (itemsToProcess.isEmpty()) return
 
         val subtotal = itemsToProcess.sumOf { it.product.price * it.quantity }
-        val taxAmount = if (isSplitBill) 0L else getTaxAmount()
         val currentDiscount = if (isSplitBill) 0L else (_discount.value + _voucherDiscount.value)
+        val taxAmount = (subtotal - currentDiscount) * (_taxPercent.value / 100.0)
+        val total = (subtotal + taxAmount - currentDiscount).coerceAtLeast(0.0).toLong()
         
-        val total = (subtotal + taxAmount - currentDiscount).coerceAtLeast(0)
-        val change = if (paymentMethod == "CASH" && cashReceived >= total) cashReceived - total else 0
+        val status = if (method == "BON") "UNPAID" else "SUCCESS"
+        val change = if (method == "BON") 0L else if (cashReceived >= total) cashReceived - total else 0L
         val customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum"
         val totalCost = itemsToProcess.sumOf { it.product.costPrice * it.quantity }
-        val status = if (paymentMethod == "BON") "UNPAID" else "SUCCESS"
 
+        // PERBAIKAN: Tambahkan taxAmount dan cashierName
         val transaction = TransactionEntity(
             totalPrice = total, 
-            cashReceived = if (paymentMethod == "BON") 0L else cashReceived, 
+            cashReceived = if (method == "BON") 0L else cashReceived, 
             changeAmount = change, 
             customerName = customerName,
             totalCost = totalCost,
             tableName = _selectedTable.value,
             voucherCode = if (isSplitBill) "" else _appliedVoucher.value,
-            taxAmount = taxAmount,
-            paymentMethod = paymentMethod,
+            taxAmount = taxAmount.toLong(),
+            paymentMethod = method,
             status = status,
             cashierName = userName
         )
@@ -405,7 +405,14 @@ class PosViewModel(
         viewModelScope.launch {
             val newId = transactionDao.insertTransaction(transaction)
             val itemEntities = itemsToProcess.map { cartItem ->
-                TransactionItemEntity(transactionId = newId, productName = cartItem.product.name, price = cartItem.product.price, quantity = cartItem.quantity, subtotal = cartItem.product.price * cartItem.quantity, costPrice = cartItem.product.costPrice)
+                TransactionItemEntity(
+                    transactionId = newId, 
+                    productName = cartItem.product.name, 
+                    price = cartItem.product.price, 
+                    quantity = cartItem.quantity, 
+                    subtotal = cartItem.product.price * cartItem.quantity, 
+                    costPrice = cartItem.product.costPrice
+                )
             }
             transactionItemDao.insertTransactionItems(itemEntities)
 
@@ -417,14 +424,20 @@ class PosViewModel(
                 }
             }
             
-            if (!isSplitBill && _selectedCustomer.value != null) {
+            if (!isSplitBill && _selectedCustomer.value != null && method != "BON") {
                 val customer = _selectedCustomer.value!!
                 val earnedPoints = (total / 10000).toInt()
                 val finalPoints = (customer.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
                 customerDao.updateCustomerPoints(customer.id, finalPoints)
             }
             
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI ($paymentMethod): ${formatRupiah(total)} ($customerName) ${if(isSplitBill) "[SPLIT]" else ""}"))
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = userId, 
+                    userName = userName, 
+                    action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName) ${if (isSplitBill) "[SPLIT]" else ""}"
+                )
+            )
             
             if (isSplitBill) {
                 val remainingCart = _cart.value.filter { !it.isSelectedForSplit }
@@ -441,16 +454,23 @@ class PosViewModel(
         }
     }
 
-    fun refundTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
+    fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            val supervisor = userDao.loginByPin(pinSupervisor)
+            val change = (cashReceived - transaction.totalPrice).coerceAtLeast(0L)
+            transactionDao.updateTransactionStatus(transaction.id, "SUCCESS", cashReceived, change)
+            onSuccess()
+        }
+    }
+
+    fun refundTransaction(transaction: TransactionEntity, pin: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val supervisor = userDao.loginByPin(pin)
             if (supervisor == null || (supervisor.role != "OWNER" && supervisor.role != "SUPERVISOR")) {
-                onResult(false, "PIN Salah atau bukan Supervisor!")
+                onResult(false, "PIN Salah atau bukan Supervisor/Owner!")
                 return@launch
             }
 
             val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
-            
             itemsToRestore.forEach { item ->
                 val product = _products.value.find { it.name == item.productName }
                 if (product != null) {
@@ -458,28 +478,19 @@ class PosViewModel(
                 }
             }
 
+            // GUNAKAN FUNGSI REFUND DI DAO
             transactionDao.refundTransaction(transaction.id)
             userDao.insertAuditLog(
                 AuditLogEntity(
                     userId = currentUser.id, 
                     userName = currentUser.name, 
-                    action = "REFUND TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"
+                    action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name})"
                 )
             )
-            onResult(true, "Transaksi berhasil di-refund dan stok dikembalikan.")
-        }
-    }
-    
-    fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            val change = if (cashReceived >= transaction.totalPrice) cashReceived - transaction.totalPrice else 0
-            transactionDao.payUnpaidTransaction(transaction.id, cashReceived, change)
-            userDao.insertAuditLog(AuditLogEntity(userId = 0, userName = "Sistem", action = "PELUNASAN BON #${transaction.id}: ${formatRupiah(transaction.totalPrice)}"))
-            onSuccess()
+            onResult(true, "Refund berhasil! Stok telah dikembalikan.")
         }
     }
 
-    // FUNGSI VOID YANG TADI HILANG
     fun voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             val supervisor = userDao.loginByPin(pinSupervisor)
