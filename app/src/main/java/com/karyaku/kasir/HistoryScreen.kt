@@ -72,13 +72,12 @@ fun HistoryScreen(
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
-    // LAUNCHER EXPORT PDF
     val createPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
-                exportTransactionsToPdfDetailed(context, uri, transactionsToExport, dateFormat, viewModel)
+                exportTransactionsToPdfDetailed(context, uri, transactionsToExport, dateFormat, viewModel, settingsManager)
             }
         }
     }
@@ -582,29 +581,46 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     )
 }
 
-// FITUR BARU: EXPORT PDF DETAIL
+// FITUR BARU: EXPORT PDF PREMIUM
 private suspend fun exportTransactionsToPdfDetailed(
     context: Context,
     uri: Uri,
     transactions: List<TransactionEntity>,
     dateFormat: SimpleDateFormat,
-    viewModel: PosViewModel
+    viewModel: PosViewModel,
+    settingsManager: SettingsManager
 ) {
     try {
         val pdfDocument = PdfDocument()
         val textPaint = Paint().apply { textSize = 10f; color = android.graphics.Color.BLACK }
-        val headerPaint = Paint().apply { textSize = 14f; isFakeBoldText = true; color = android.graphics.Color.BLACK }
+        val headerPaint = Paint().apply { textSize = 16f; isFakeBoldText = true; color = android.graphics.Color.BLACK; textAlign = Paint.Align.CENTER }
         val subHeaderPaint = Paint().apply { textSize = 12f; isFakeBoldText = true; color = android.graphics.Color.DKGRAY }
+        val linePaint = Paint().apply { color = android.graphics.Color.BLACK; strokeWidth = 1f }
 
         var pageNumber = 1
         var page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
         var canvas = page.canvas
         var y = 40f
 
-        canvas.drawText("Laporan Transaksi ZoKas (Detail)", 40f, y, headerPaint); y += 18f
+        // HEADER TOKO
+        val storeName = if (settingsManager.isPro) settingsManager.storeName ?: "ZoKas" else "ZoKas (Gratis)"
+        val storeAddr = if (settingsManager.isPro) settingsManager.storeAddress ?: "" else ""
+        val storePhone = if (settingsManager.isPro) settingsManager.storePhone ?: "" else ""
+        
+        canvas.drawText(storeName.uppercase(), 297.5f, y, headerPaint); y += 20f
+        if (storeAddr.isNotBlank()) { canvas.drawText(storeAddr, 297.5f, y, textPaint.apply { textAlign = Paint.Align.CENTER }); y += 14f }
+        if (storePhone.isNotBlank()) { canvas.drawText("Telp: $storePhone", 297.5f, y, textPaint); y += 14f }
+        textPaint.textAlign = Paint.Align.LEFT // Reset align
+
+        y += 10f
+        canvas.drawLine(40f, y, 555f, y, linePaint); y += 10f
+        canvas.drawLine(40f, y, 555f, y, linePaint); y += 20f
+
+        canvas.drawText("Laporan Transaksi", 40f, y, subHeaderPaint); y += 16f
         canvas.drawText("Dicetak: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint); y += 16f
         canvas.drawText("Jumlah: ${transactions.size} transaksi", 40f, y, textPaint); y += 20f
-        canvas.drawText("======================================================", 40f, y, textPaint); y += 16f
+        
+        canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
 
         for (tx in transactions) {
             if (y > 780f) {
@@ -613,16 +629,15 @@ private suspend fun exportTransactionsToPdfDetailed(
                 page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
                 canvas = page.canvas
                 y = 40f
-                canvas.drawText("Laporan Transaksi ZoKas (Lanjutan)", 40f, y, headerPaint); y += 20f
-                canvas.drawText("======================================================", 40f, y, textPaint); y += 16f
+                canvas.drawText("Laporan Transaksi (Lanjutan)", 40f, y, headerPaint); y += 20f
+                canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
             }
 
             // Header Transaksi
             canvas.drawText("Struk #${tx.id} | ${dateFormat.format(Date(tx.timestamp))}", 40f, y, subHeaderPaint); y += 16f
             canvas.drawText("Pelanggan: ${tx.customerName} | Kasir: ${tx.cashierName}", 40f, y, textPaint); y += 16f
-            canvas.drawText("------------------------------------------------------", 40f, y, textPaint); y += 16f
 
-            // Ambil item transaksi dari database (Karena fungsi ini suspend, kita bisa memanggil .first())
+            // Ambil item transaksi dari database
             val items = viewModel.getTransactionItems(tx.id).first()
             
             if (items.isEmpty()) {
@@ -651,7 +666,7 @@ private suspend fun exportTransactionsToPdfDetailed(
             }
 
             y += 4f
-            canvas.drawText("------------------------------------------------------", 40f, y, textPaint); y += 16f
+            canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
             
             // Footer Transaksi
             val totalText = "TOTAL: ${formatRupiah(tx.totalPrice)}"
@@ -662,7 +677,7 @@ private suspend fun exportTransactionsToPdfDetailed(
         pdfDocument.finishPage(page)
         context.contentResolver.openOutputStream(uri)?.use { pdfDocument.writeTo(it) }
         pdfDocument.close()
-        Toast.makeText(context, "PDF Detail berhasil diekspor", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "PDF Premium berhasil diekspor", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
         Toast.makeText(context, "Gagal ekspor PDF: ${e.message}", Toast.LENGTH_LONG).show()
     }

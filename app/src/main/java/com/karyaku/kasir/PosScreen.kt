@@ -97,7 +97,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val voucherDiscount by viewModel.voucherDiscount.collectAsStateWithLifecycle()
     val appliedVoucher by viewModel.appliedVoucher.collectAsStateWithLifecycle()
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
-    
+    val allProducts by viewModel.products.collectAsStateWithLifecycle()
+
     val taxPercent by viewModel.taxPercent.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.setTaxPercent(settingsManager.taxPercent) }
 
@@ -114,6 +115,9 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         onDispose { cm.unregisterNetworkCallback(callback) }
     }
 
+    // LOW STOCK BADGE
+    val lowStockCount = allProducts.count { it.stock <= 5 && it.stock >= 0 }
+
     // HAPPY HOUR LOGIC
     val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val currentMinute = Calendar.getInstance().get(Calendar.MINUTE)
@@ -127,7 +131,16 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     val subtotal = cart.sumOf { it.product.price * it.quantity }
     val happyHourDiscountAmount = if (isHappyHour) ((subtotal * settingsManager.happyHourDiscount) / 100).toLong() else 0L
-    val totalDiscount = discount + happyHourDiscountAmount
+    
+    // CUSTOMER TIERING CALCULATION (Sama dengan ViewModel)
+    var tierDiscount = 0L
+    if (selectedCustomer != null) {
+        if (selectedCustomer!!.points >= 1000) tierDiscount = (subtotal * 0.10).toLong() // Platinum
+        else if (selectedCustomer!!.points >= 500) tierDiscount = (subtotal * 0.05).toLong() // Gold
+        else if (selectedCustomer!!.points >= 100) tierDiscount = (subtotal * 0.02).toLong() // Silver
+    }
+
+    val totalDiscount = discount + happyHourDiscountAmount + tierDiscount
     val taxAmount = ((subtotal - totalDiscount - voucherDiscount) * (taxPercent / 100.0)).toLong()
     val totalPrice = (subtotal + taxAmount - totalDiscount - voucherDiscount).coerceAtLeast(0)
     
@@ -166,11 +179,22 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     LaunchedEffect(completedTransaction) {
         if (completedTransaction != null) {
+            // Cetak Tiket Dapur
             val kitchenMac = settingsManager.kitchenPrinterMacAddress
             if (kitchenMac != null) {
                 scope.launch {
                     val kitchenData = generateKitchenTicket(completedTransaction!!, viewModel)
                     printerManager.printData(kitchenMac, kitchenData)
+                }
+            }
+            
+            // AUTO CASH DRAWER (Hanya jika bayar CASH)
+            if (completedTransaction!!.paymentMethod == "CASH") {
+                val printerMac = settingsManager.printerMacAddress
+                if (printerMac != null) {
+                    scope.launch {
+                        printerManager.openCashDrawer(printerMac)
+                    }
                 }
             }
         }
@@ -279,7 +303,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 ActionMenuItem(icon = Icons.Default.Add, title = "Tambah Stok", subtitle = "Restock barang", color = ZokasOrange, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
                 ActionMenuItem(icon = Icons.Default.Delete, title = "Barang Rusak", subtitle = "Catat waste/expired", color = Color(0xFFF57C00), onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
                 
-                // FITUR: SIMPAN BARCODE JPG
                 ActionMenuItem(
                     icon = Icons.Default.List, title = "Simpan Barcode (JPG)", subtitle = "Simpan label ke galeri", color = Color.Blue, 
                     onClick = { 
@@ -368,7 +391,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         CloseShiftDialog(onDismiss = { showCloseShiftDialog = false }, onConfirm = { uangFisik -> 
             viewModel.closeShift(currentUser, uangFisik) { closedShift -> 
                 showCloseShiftDialog = false
-                showShiftReport = closedShift // TAMPILKAN LAPORAN
+                showShiftReport = closedShift 
             } 
         }) 
     }
@@ -433,7 +456,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                                 maxLines = 1, overflow = TextOverflow.Ellipsis
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                // INDIKATOR ONLINE/OFFLINE
                                 Box(modifier = Modifier.size(8.dp).background(if (isOnline) ZokasGreen else Color.Red, CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
@@ -445,6 +467,16 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     }
                 },
                 actions = {
+                    // LOW STOCK BADGE
+                    if (lowStockCount > 0) {
+                        BadgedBox(
+                            badge = { Badge(containerColor = Color.Red) { Text(lowStockCount.toString(), color = Color.White) } },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = "Stok Menipis", tint = ZokasOrange)
+                        }
+                    }
+
                     IconButton(onClick = { showCfd = true }) { Icon(Icons.Default.Person, contentDescription = "Layar Pelanggan", tint = ZokasOrange) }
                     IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Menu") }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
@@ -534,39 +566,52 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
 // ================= KOMPONEN UI BAWAH =================
 
-// FUNGSI BANTUAN: Simpan Barcode ke Galeri (JPG)
+// FUNGSI BANTUAN: Simpan Barcode Code 39 ke Galeri
 fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
     try {
-        val width = 400
-        val height = 200
+        val width = 500
+        val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(android.graphics.Color.WHITE)
 
         val textPaint = Paint().apply {
             color = android.graphics.Color.BLACK
-            textSize = 20f
+            textSize = 24f
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
         }
 
-        // Huruf kecil nama dan harga
+        // Gambar Teks
         canvas.drawText(product.name.lowercase(), width / 2f, 40f, textPaint)
         canvas.drawText("Rp ${product.price}", width / 2f, height - 20f, textPaint)
 
-        // Gambar Barcode Simulasi (Garis hitam)
+        // Gambar Barcode Code 39 Asli
         val barcodePaint = Paint().apply {
             color = android.graphics.Color.BLACK
-            strokeWidth = 3f
+            style = Paint.Style.FILL
         }
-        val hash = product.barcode.ifBlank { product.name }.hashCode()
+        
+        val code39Map = mapOf(
+            '0' to "101001101101", '1' to "110100101011", '2' to "101100101011", '3' to "110110010101", '4' to "101001101011", '5' to "110100110101", '6' to "101100110101", '7' to "101001011011", '8' to "110100101101", '9' to "101100101101",
+            'A' to "110101001011", 'B' to "101101001011", 'C' to "110110100101", 'D' to "101011001011", 'E' to "110101100101", 'F' to "101101100101", 'G' to "101010011011", 'H' to "110101001101", 'I' to "101101001101", 'J' to "101011001101", 'K' to "110101010011", 'L' to "101101010011", 'M' to "110110101001", 'N' to "101011010011", 'O' to "110101101001", 'P' to "101101101001", 'Q' to "101010110011", 'R' to "110101011001", 'S' to "101101011001", 'T' to "101011011001", 'U' to "110010101011", 'V' to "100110101011", 'W' to "110011010101", 'X' to "100101101011", 'Y' to "110010110101", 'Z' to "100110110101",
+            '-' to "100101011011", '.' to "110010101101", ' ' to "100110101101", '$' to "100100100101", '/' to "100100101001", '+' to "100101001001", '%' to "101001001001", '*' to "100101101101"
+        )
+
+        val barcodeText = "*${product.barcode.ifBlank { product.name.take(10).uppercase() }}*"
         var x = 50f
-        for (i in 0..25) {
-            val bit = (hash shr i) and 1
-            if (bit == 1) {
-                canvas.drawLine(x, 60f, x, height - 40f, barcodePaint)
+        val barWidth = 3f
+        val barHeight = 100f
+        
+        for (char in barcodeText) {
+            val pattern = code39Map[char] ?: code39Map['-']!!
+            for (bit in pattern) {
+                if (bit == '1') {
+                    canvas.drawRect(x, 70f, x + barWidth, 70f + barHeight, barcodePaint)
+                }
+                x += barWidth
             }
-            x += 12f
+            x += barWidth // Space antar karakter
         }
 
         // Simpan ke MediaStore
@@ -656,7 +701,7 @@ fun CartList(
             TextButton(onClick = onCustomerClick, contentPadding = PaddingValues(0.dp)) {
                 Icon(Icons.Default.Person, contentDescription = null, tint = ZokasOrange, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = if (selectedCustomer != null) selectedCustomer.name else "Pelanggan Umum", fontWeight = FontWeight.Bold, color = ZokasOrange, fontSize = 12.sp)
+                Text(text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} Poin)" else "Pelanggan Umum", fontWeight = FontWeight.Bold, color = ZokasOrange, fontSize = 12.sp)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Split Bill", fontSize = 12.sp); Spacer(modifier = Modifier.width(4.dp)); Switch(checked = isSplitBillMode, onCheckedChange = { onToggleSplitMode() }, modifier = Modifier.scale(0.8f))
@@ -788,7 +833,6 @@ fun PaymentBottomSheet(
                     Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface)
                 }
             } else if (paymentMethod == "QRIS") {
-                // MOCK QRIS DISPLAY
                 Box(modifier = Modifier.size(200.dp).background(Color.LightGray, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                     Text("QRIS CODE\n(Mock)", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = Color.Gray)
                 }
@@ -896,7 +940,20 @@ fun CustomerDialog(customers: List<CustomerEntity>, selectedCustomer: CustomerEn
                     Column {
                         OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), placeholder = { Text("Cari...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, shape = RoundedCornerShape(12.dp))
                         TextButton(onClick = { onSelect(null); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text("Pelanggan Umum", fontWeight = FontWeight.Bold, color = ZokasOrange) }
-                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) { items(filteredCustomers) { customer -> TextButton(onClick = { onSelect(customer); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("${customer.name} (${customer.points} Poin)"); Text(if (customer.phone == "-") "" else customer.phone, fontSize = 12.sp, color = Color.Gray) } } } }
+                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) { 
+                            items(filteredCustomers) { customer -> 
+                                TextButton(onClick = { onSelect(customer); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { 
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { 
+                                        Column {
+                                            Text("${customer.name} (${customer.points} Poin)", fontWeight = FontWeight.Bold)
+                                            val tier = if (customer.points >= 1000) "Platinum (10%)" else if (customer.points >= 500) "Gold (5%)" else if (customer.points >= 100) "Silver (2%)" else "Member"
+                                            Text(tier, fontSize = 11.sp, color = ZokasGreen, fontWeight = FontWeight.Bold)
+                                        }
+                                        Text(if (customer.phone == "-") "" else customer.phone, fontSize = 12.sp, color = Color.Gray) 
+                                    } 
+                                } 
+                            } 
+                        }
                     }
                 }
             }

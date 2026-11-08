@@ -16,7 +16,6 @@ class BluetoothPrinterManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun getPairedPrinters(): List<BluetoothDevice> {
         return try {
-            // Ambil adapter di dalam try-catch agar jika HP tidak punya BT, tidak crash
             val adapter = BluetoothAdapter.getDefaultAdapter()
             if (adapter != null && adapter.isEnabled) {
                 adapter.bondedDevices?.toList() ?: emptyList()
@@ -39,6 +38,29 @@ class BluetoothPrinterManager(private val context: Context) {
             
             val outputStream: OutputStream = socket.outputStream
             outputStream.write(data)
+            outputStream.flush()
+            socket.close()
+            true
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            try { socket?.close() } catch (ex: Throwable) {}
+            false
+        }
+    }
+
+    // FITUR BARU: Buka Laci Kasir
+    @SuppressLint("MissingPermission")
+    suspend fun openCashDrawer(deviceAddress: String): Boolean = withContext(Dispatchers.IO) {
+        var socket: BluetoothSocket? = null
+        try {
+            val adapter = BluetoothAdapter.getDefaultAdapter() ?: return@withContext false
+            val device = adapter.getRemoteDevice(deviceAddress)
+            socket = device.createRfcommSocketToServiceRecord(printerUUID)
+            socket.connect()
+            
+            val outputStream: OutputStream = socket.outputStream
+            // Perintah ESC/POS untuk membuka laci (ESC p 0 25 250)
+            outputStream.write(byteArrayOf(0x1B, 0x70, 0x00, 0x19, 0xFA))
             outputStream.flush()
             socket.close()
             true

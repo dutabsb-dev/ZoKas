@@ -384,7 +384,6 @@ class PosViewModel(
         }
     }
 
-    // UBAH: Mengembalikan ShiftEntity untuk laporan tutup kasir
     fun closeShift(user: UserEntity, uangFisik: Long, onSuccess: (ShiftEntity) -> Unit) {
         viewModelScope.launch {
             val shift = _activeShift.value
@@ -397,17 +396,8 @@ class PosViewModel(
 
                 userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih)
                 userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)}"))
-
                 checkActiveShift()
-                
-                val closedShift = shift.copy(
-                    endTime = System.currentTimeMillis(),
-                    expectedCash = uangSistem,
-                    closingCash = uangFisik,
-                    discrepancy = selisih,
-                    status = "CLOSED"
-                )
-                onSuccess(closedShift)
+                onSuccess(shift.copy(endTime = System.currentTimeMillis(), expectedCash = uangSistem, closingCash = uangFisik, discrepancy = selisih, status = "CLOSED"))
             }
         }
     }
@@ -488,13 +478,23 @@ class PosViewModel(
         if (itemsToProcess.isEmpty()) return
 
         val subtotal = itemsToProcess.sumOf { it.product.price * it.quantity }
-        val currentDiscount = if (isSplitBill) 0L else (_discount.value + _voucherDiscount.value)
+        
+        // FITUR BARU: TIERING CUSTOMER (Diskon Tambahan)
+        var tierDiscount = 0L
+        val customer = _selectedCustomer.value
+        if (customer != null) {
+            if (customer.points >= 1000) tierDiscount = (subtotal * 0.10).toLong() // Platinum 10%
+            else if (customer.points >= 500) tierDiscount = (subtotal * 0.05).toLong() // Gold 5%
+            else if (customer.points >= 100) tierDiscount = (subtotal * 0.02).toLong() // Silver 2%
+        }
+
+        val currentDiscount = if (isSplitBill) 0L else (_discount.value + _voucherDiscount.value + tierDiscount)
         val taxAmount = (subtotal - currentDiscount) * (_taxPercent.value / 100.0)
         val total = (subtotal + taxAmount - currentDiscount).coerceAtLeast(0.0).toLong()
 
         val status = if (method == "BON") "UNPAID" else "SUCCESS"
         val change = if (method == "BON") 0L else if (cashReceived >= total) cashReceived - total else 0L
-        val customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum"
+        val customerName = customer?.name ?: "Pelanggan Umum"
         val totalCost = itemsToProcess.sumOf { it.product.costPrice * it.quantity }
 
         val transaction = TransactionEntity(
@@ -537,9 +537,8 @@ class PosViewModel(
             }
 
             if (!isSplitBill && _selectedCustomer.value != null && method != "BON") {
-                val customer = _selectedCustomer.value!!
                 val earnedPoints = (total / 10000).toInt()
-                val finalPoints = (customer.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
+                val finalPoints = (customer!!.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
                 customerDao.updateCustomerPoints(customer.id, finalPoints)
             }
 
