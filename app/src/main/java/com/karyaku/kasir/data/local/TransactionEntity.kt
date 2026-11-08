@@ -15,7 +15,9 @@ data class TransactionEntity(
     val totalCost: Long = 0,
     val tableName: String = "Take-Away",
     val voucherCode: String = "",
-    val taxAmount: Long = 0,          // <--- TAMBAHAN PAJAK
+    val taxAmount: Long = 0,
     val paymentMethod: String = "CASH", // CASH, BON, QRIS
-    val cashierName: String = "Kasir"   // <--- TAMBAHAN UNTUK LAPORAN KASIR
+    val cashierName: String = "Kasir",
+    // FITUR BARU: Total komisi dari transaksi ini
+    val totalCommission: Long = 0L
 )

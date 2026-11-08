@@ -18,6 +18,16 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("language", "in") ?: "in"
         set(value) = prefs.edit().putString("language", value).apply()
 
+    // FITUR BARU: High Contrast & UI Scale
+    var isHighContrast: Boolean
+        get() = prefs.getBoolean("high_contrast", false)
+        set(value) = prefs.edit().putBoolean("high_contrast", value).apply()
+
+    var uiScale: Float
+        get() = prefs.getFloat("ui_scale", 1.0f)
+        set(value) = prefs.edit().putFloat("ui_scale", value).apply()
+
+    // ... (Sisa variabel storeName, printer, dll tetap sama seperti sebelumnya) ...
     var storeName: String?
         get() = prefs.getString("store_name", "ZoKas Store")
         set(value) = prefs.edit().putString("store_name", value).apply()
@@ -58,12 +68,10 @@ class SettingsManager(context: Context) {
         get() = prefs.getFloat("happy_discount", 0f).toDouble()
         set(value) = prefs.edit().putFloat("happy_discount", value.toFloat()).apply()
 
-    // FITUR BARU: Otorisasi PIN Diskon
     var requirePinForDiscount: Boolean
         get() = prefs.getBoolean("pin_for_discount", true)
         set(value) = prefs.edit().putBoolean("pin_for_discount", value).apply()
 
-    // FITUR BARU: Waktu Auto-Backup Terakhir
     var lastAutoBackup: Long
         get() = prefs.getLong("last_auto_backup", 0L)
         set(value) = prefs.edit().putLong("last_auto_backup", value).apply()

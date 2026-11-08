@@ -30,6 +30,10 @@ interface UserDao {
     @Query("UPDATE users SET pin = :newPin WHERE id = :userId")
     suspend fun updatePin(userId: Long, newPin: String)
 
+    // FITUR BARU: Update Komisi Karyawan
+    @Query("UPDATE users SET totalCommission = totalCommission + :commission WHERE id = :userId")
+    suspend fun addCommission(userId: Long, commission: Long)
+
     @Insert
     suspend fun insertAuditLog(log: AuditLogEntity)
 
@@ -45,7 +49,6 @@ interface UserDao {
     @Query("UPDATE shifts SET endTime = :endTime, expectedCash = :expectedCash, closingCash = :closingCash, discrepancy = :discrepancy, status = 'CLOSED' WHERE id = :shiftId")
     suspend fun closeShift(shiftId: Long, endTime: Long, expectedCash: Long, closingCash: Long, discrepancy: Long)
     
-    // TAMBAHAN UNTUK RIWAYAT SHIFT
     @Query("SELECT * FROM shifts ORDER BY startTime DESC")
     fun getAllShifts(): Flow<List<ShiftEntity>>
 }

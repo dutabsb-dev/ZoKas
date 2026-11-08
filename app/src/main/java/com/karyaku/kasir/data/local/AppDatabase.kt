@@ -15,10 +15,10 @@ import androidx.room.RoomDatabase
         CashFlowEntity::class,
         CustomerEntity::class,
         TransactionItemEntity::class,
-        VoucherEntity::class,    // TAMBAHAN
-        HoldOrderEntity::class   // TAMBAHAN
+        VoucherEntity::class,    
+        HoldOrderEntity::class   
     ], 
-    version = 15, 
+    version = 16, // UPDATE VERSI KE 16
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,8 +28,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun cashFlowDao(): CashFlowDao
     abstract fun customerDao(): CustomerDao
     abstract fun transactionItemDao(): TransactionItemDao
-    abstract fun voucherDao(): VoucherDao       // TAMBAHAN
-    abstract fun holdOrderDao(): HoldOrderDao   // TAMBAHAN
+    abstract fun voucherDao(): VoucherDao       
+    abstract fun holdOrderDao(): HoldOrderDao   
 
     companion object {
         @Volatile

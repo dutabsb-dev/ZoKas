@@ -53,6 +53,10 @@ fun SettingsScreen(
     onUpgradeClick: () -> Unit,
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit,
+    isHighContrast: Boolean,
+    onToggleHighContrast: () -> Unit,
+    uiScale: Float,
+    onChangeUiScale: (Float) -> Unit,
     language: String,
     onToggleLanguage: () -> Unit,
     onLogout: () -> Unit,
@@ -211,13 +215,40 @@ fun SettingsScreen(
     ) {
         item { Text("Pengaturan & Status", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
 
+        // TEMA, BAHASA & AKSESIBILITAS
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // HIGH CONTRAST
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Mode Kontras Tinggi", style = MaterialTheme.typography.titleMedium)
+                            Text("Untuk lingkungan minim cahaya", fontSize = 10.sp, color = Color.Gray)
+                        }
+                        Switch(checked = isHighContrast, onCheckedChange = { onToggleHighContrast() })
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    // DARK MODE
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Mode Gelap", style = MaterialTheme.typography.titleMedium); Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    // UI SCALE (FONT)
+                    Column {
+                        Text("Ukuran Font (Aksesibilitas)", style = MaterialTheme.typography.titleMedium)
+                        Slider(
+                            value = uiScale,
+                            onValueChange = { onChangeUiScale(it) },
+                            valueRange = 0.8f..1.5f,
+                            steps = 6
+                        )
+                        Text("Skala: ${(uiScale * 100).toInt()}%", fontSize = 12.sp, color = Color.Gray)
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // BAHASA
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Bahasa", style = MaterialTheme.typography.titleMedium)
                         Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text(if (language == "in") "Indonesia" else "English") }
@@ -288,19 +319,19 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Profil Toko & Struk", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                    OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                    OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = taxPercent, 
                         onValueChange = { taxPercent = it; val tax = it.toDoubleOrNull() ?: 0.0; settingsManager.taxPercent = tax; viewModel.setTaxPercent(tax) }, 
-                        label = { Text("Pajak (%) cth: 11") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true
+                        label = { Text("Pajak (%) cth: 11") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
                     )
                 }
             }
@@ -315,17 +346,17 @@ fun SettingsScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = hhStart, onValueChange = { hhStart = it; settingsManager.happyHourStart = it }, 
-                                label = { Text("Mulai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true
+                                label = { Text("Mulai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
                             )
                             OutlinedTextField(
                                 value = hhEnd, onValueChange = { hhEnd = it; settingsManager.happyHourEnd = it }, 
-                                label = { Text("Selesai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true
+                                label = { Text("Selesai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = hhDiscount, onValueChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 }, 
-                            label = { Text("Diskon (%) cth: 10") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true
+                            label = { Text("Diskon (%) cth: 10") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
                         )
                     }
                 }
@@ -416,13 +447,15 @@ fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) ->
                 OutlinedTextField(
                     value = newPin, onValueChange = { if (it.length <= 6) { newPin = it; error = "" } },
                     label = { Text("PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true
+                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = confirmPin, onValueChange = { if (it.length <= 6) { confirmPin = it; error = "" } },
                     label = { Text("Konfirmasi PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, isError = error.isNotEmpty()
+                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, isError = error.isNotEmpty(),
+                    shape = RoundedCornerShape(12.dp)
                 )
                 if (error.isNotEmpty()) { Text(error, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
             }

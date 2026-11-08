@@ -1,5 +1,6 @@
 package com.karyaku.kasir
 
+import android.app.DatePickerDialog
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -132,7 +134,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     val subtotal = cart.sumOf { it.product.price * it.quantity }
     val happyHourDiscountAmount = if (isHappyHour) ((subtotal * settingsManager.happyHourDiscount) / 100).toLong() else 0L
     
-    // CUSTOMER TIERING CALCULATION (Sama dengan ViewModel)
+    // CUSTOMER TIERING CALCULATION
     var tierDiscount = 0L
     if (selectedCustomer != null) {
         if (selectedCustomer!!.points >= 1000) tierDiscount = (subtotal * 0.10).toLong() // Platinum
@@ -140,7 +142,19 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         else if (selectedCustomer!!.points >= 100) tierDiscount = (subtotal * 0.02).toLong() // Silver
     }
 
-    val totalDiscount = discount + happyHourDiscountAmount + tierDiscount
+    // PROMO ENGINE CALCULATION (UI ONLY)
+    var promoDiscountUI = 0L
+    cart.forEach { item ->
+        val itemSubtotal = item.product.price * item.quantity
+        if (item.product.promoType == "BOGO" && item.quantity >= 2) {
+            val freeItems = item.quantity / 2
+            promoDiscountUI += freeItems * item.product.price
+        } else if (item.product.promoType == "TIERED" && item.quantity >= item.product.promoMinQty) {
+            promoDiscountUI += (itemSubtotal * item.product.promoValue) / 100
+        }
+    }
+
+    val totalDiscount = discount + happyHourDiscountAmount + tierDiscount + promoDiscountUI
     val taxAmount = ((subtotal - totalDiscount - voucherDiscount) * (taxPercent / 100.0)).toLong()
     val totalPrice = (subtotal + taxAmount - totalDiscount - voucherDiscount).coerceAtLeast(0)
     
@@ -154,6 +168,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
     var productToEditNotes by remember { mutableStateOf<ProductEntity?>(null) } 
+    var productToSelectVariant by remember { mutableStateOf<ProductEntity?>(null) }
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     
     // DIALOG STATE
@@ -179,7 +194,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     LaunchedEffect(completedTransaction) {
         if (completedTransaction != null) {
-            // Cetak Tiket Dapur
             val kitchenMac = settingsManager.kitchenPrinterMacAddress
             if (kitchenMac != null) {
                 scope.launch {
@@ -187,17 +201,46 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     printerManager.printData(kitchenMac, kitchenData)
                 }
             }
-            
-            // AUTO CASH DRAWER (Hanya jika bayar CASH)
             if (completedTransaction!!.paymentMethod == "CASH") {
                 val printerMac = settingsManager.printerMacAddress
                 if (printerMac != null) {
-                    scope.launch {
-                        printerManager.openCashDrawer(printerMac)
-                    }
+                    scope.launch { printerManager.openCashDrawer(printerMac) }
                 }
             }
         }
+    }
+
+    // DIALOG PILIH VARIAN
+    if (productToSelectVariant != null) {
+        val product = productToSelectVariant!!
+        val variants = product.variations.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        AlertDialog(
+            onDismissRequest = { productToSelectVariant = null },
+            icon = { Icon(Icons.Default.List, contentDescription = null, tint = ZokasGreen) },
+            title = { Text("Pilih Varian") },
+            text = {
+                Column {
+                    Text("Silakan pilih varian untuk ${product.name}:", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    variants.forEach { variant ->
+                        OutlinedButton(
+                            onClick = {
+                                val newItem = CartItem(product, quantity = 1, selectedVariation = variant)
+                                // Tambah langsung ke keranjang dengan varian terpilih
+                                viewModel.addToCart(product)
+                                viewModel.updateCartItemVariation(product, variant)
+                                productToSelectVariant = null
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(variant, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { productToSelectVariant = null }) { Text("Batal") } }
+        )
     }
 
     // --- SHIFT REPORT DIALOG ---
@@ -225,17 +268,11 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Selisih:", fontWeight = FontWeight.Bold)
                         val selisih = shift.discrepancy ?: 0L
-                        Text(
-                            text = formatRupiah(selisih),
-                            color = if (selisih < 0) Color.Red else if (selisih > 0) Color.Blue else ZokasGreen,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                        Text(formatRupiah(selisih), color = if (selisih < 0) Color.Red else if (selisih > 0) Color.Blue else ZokasGreen, fontWeight = FontWeight.ExtraBold)
                     }
                 }
             },
-            confirmButton = {
-                Button(onClick = { showShiftReport = null; onLogout() }) { Text("LOGOUT") }
-            }
+            confirmButton = { Button(onClick = { showShiftReport = null; onLogout() }) { Text("LOGOUT") } }
         )
     }
 
@@ -389,10 +426,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     if (showCloseShiftDialog) { 
         CloseShiftDialog(onDismiss = { showCloseShiftDialog = false }, onConfirm = { uangFisik -> 
-            viewModel.closeShift(currentUser, uangFisik) { closedShift -> 
-                showCloseShiftDialog = false
-                showShiftReport = closedShift 
-            } 
+            viewModel.closeShift(currentUser, uangFisik) { closedShift -> showCloseShiftDialog = false; showShiftReport = closedShift } 
         }) 
     }
     if (showCashFlowDialog) { CashFlowDialog(onDismiss = { showCashFlowDialog = false }, onSave = { type, amount, note -> viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false }) }
@@ -408,22 +442,30 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
     if (showPaymentSheet) {
         val totalToPay = if (isSplitBillMode) cart.filter { it.isSelectedForSplit }.sumOf { it.product.price * it.quantity } else totalPrice
-        PaymentBottomSheet(totalPrice = totalToPay, onDismiss = { showPaymentSheet = false }, onConfirmPayment = { cashReceived, method ->
-            viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method) { newTransaction ->
-                showPaymentSheet = false
-                if (!isSplitBillMode) showCartOnPhone = false
-                completedTransaction = newTransaction
-                if (isSplitBillMode) isSplitBillMode = false
+        PaymentBottomSheet(
+            totalPrice = totalToPay, 
+            totalCommission = cart.sumOf { it.product.commissionPerItem * it.quantity },
+            onDismiss = { showPaymentSheet = false }, 
+            onConfirmPayment = { cashReceived, method ->
+                viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method) { newTransaction ->
+                    showPaymentSheet = false
+                    if (!isSplitBillMode) showCartOnPhone = false
+                    completedTransaction = newTransaction
+                    if (isSplitBillMode) isSplitBillMode = false
+                }
             }
-        })
+        )
     }
 
     if (showProductForm) {
-        ProductFormBottomSheet(productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null }, onSave = { name, price, stock, category, costPrice, barcode ->
-            if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, currentUser.id, currentUser.name)
-            else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode), currentUser.id, currentUser.name)
-            showProductForm = false; productToEdit = null
-        })
+        ProductFormBottomSheet(
+            productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null }, 
+            onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry ->
+                if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, currentUser.id, currentUser.name)
+                else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry), currentUser.id, currentUser.name)
+                showProductForm = false; productToEdit = null
+            }
+        )
     }
 
     if (productToRestock != null) {
@@ -467,12 +509,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     }
                 },
                 actions = {
-                    // LOW STOCK BADGE
                     if (lowStockCount > 0) {
-                        BadgedBox(
-                            badge = { Badge(containerColor = Color.Red) { Text(lowStockCount.toString(), color = Color.White) } },
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
+                        BadgedBox(badge = { Badge(containerColor = Color.Red) { Text(lowStockCount.toString(), color = Color.White) } }, modifier = Modifier.padding(end = 8.dp)) {
                             Icon(Icons.Default.Warning, contentDescription = "Stok Menipis", tint = ZokasOrange)
                         }
                     }
@@ -528,7 +566,15 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 if (isTablet) {
                     Row(modifier = Modifier.fillMaxSize()) {
                         Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
-                            ProductCatalog(products = filteredProducts, categories = categories, selectedCategory = selectedCategory, onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it }, onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } }) 
+                            ProductCatalog(
+                                products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
+                                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                                onProductClick = { prod -> 
+                                    if (prod.variations.isNotEmpty()) { productToSelectVariant = prod } else { viewModel.addToCart(prod) }
+                                }, 
+                                onProductLongClick = { showActionDialogFor = it }, 
+                                onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } }
+                            ) 
                         }
                         VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                         Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
@@ -556,7 +602,15 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                             )
                         }
                     } else {
-                        ProductCatalog(products = filteredProducts, categories = categories, selectedCategory = selectedCategory, onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, onProductClick = { viewModel.addToCart(it) }, onProductLongClick = { showActionDialogFor = it }, onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } })
+                        ProductCatalog(
+                            products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
+                            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                            onProductClick = { prod -> 
+                                if (prod.variations.isNotEmpty()) { productToSelectVariant = prod } else { viewModel.addToCart(prod) }
+                            }, 
+                            onProductLongClick = { showActionDialogFor = it }, 
+                            onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } }
+                        )
                     }
                 }
             }
@@ -565,72 +619,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 }
 
 // ================= KOMPONEN UI BAWAH =================
-
-// FUNGSI BANTUAN: Simpan Barcode Code 39 ke Galeri
-fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
-    try {
-        val width = 500
-        val height = 250
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        canvas.drawColor(android.graphics.Color.WHITE)
-
-        val textPaint = Paint().apply {
-            color = android.graphics.Color.BLACK
-            textSize = 24f
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
-        }
-
-        // Gambar Teks
-        canvas.drawText(product.name.lowercase(), width / 2f, 40f, textPaint)
-        canvas.drawText("Rp ${product.price}", width / 2f, height - 20f, textPaint)
-
-        // Gambar Barcode Code 39 Asli
-        val barcodePaint = Paint().apply {
-            color = android.graphics.Color.BLACK
-            style = Paint.Style.FILL
-        }
-        
-        val code39Map = mapOf(
-            '0' to "101001101101", '1' to "110100101011", '2' to "101100101011", '3' to "110110010101", '4' to "101001101011", '5' to "110100110101", '6' to "101100110101", '7' to "101001011011", '8' to "110100101101", '9' to "101100101101",
-            'A' to "110101001011", 'B' to "101101001011", 'C' to "110110100101", 'D' to "101011001011", 'E' to "110101100101", 'F' to "101101100101", 'G' to "101010011011", 'H' to "110101001101", 'I' to "101101001101", 'J' to "101011001101", 'K' to "110101010011", 'L' to "101101010011", 'M' to "110110101001", 'N' to "101011010011", 'O' to "110101101001", 'P' to "101101101001", 'Q' to "101010110011", 'R' to "110101011001", 'S' to "101101011001", 'T' to "101011011001", 'U' to "110010101011", 'V' to "100110101011", 'W' to "110011010101", 'X' to "100101101011", 'Y' to "110010110101", 'Z' to "100110110101",
-            '-' to "100101011011", '.' to "110010101101", ' ' to "100110101101", '$' to "100100100101", '/' to "100100101001", '+' to "100101001001", '%' to "101001001001", '*' to "100101101101"
-        )
-
-        val barcodeText = "*${product.barcode.ifBlank { product.name.take(10).uppercase() }}*"
-        var x = 50f
-        val barWidth = 3f
-        val barHeight = 100f
-        
-        for (char in barcodeText) {
-            val pattern = code39Map[char] ?: code39Map['-']!!
-            for (bit in pattern) {
-                if (bit == '1') {
-                    canvas.drawRect(x, 70f, x + barWidth, 70f + barHeight, barcodePaint)
-                }
-                x += barWidth
-            }
-            x += barWidth // Space antar karakter
-        }
-
-        // Simpan ke MediaStore
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "barcode_${product.name.replace(" ", "_")}_${System.currentTimeMillis()}.jpg")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
-        }
-        val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-        uri?.let {
-            context.contentResolver.openOutputStream(it)?.use { stream ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
-                Toast.makeText(context, "Barcode disimpan ke Galeri", Toast.LENGTH_SHORT).show()
-            }
-        }
-    } catch (e: Exception) {
-        Toast.makeText(context, "Gagal simpan barcode: ${e.message}", Toast.LENGTH_LONG).show()
-    }
-}
 
 @Composable
 fun ActionMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, color: Color, onClick: () -> Unit) {
@@ -643,10 +631,18 @@ fun ActionMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ProductCatalog(products: List<ProductEntity>, categories: List<String>, selectedCategory: String, onCategorySelect: (String) -> Unit, searchQuery: String, onSearchChange: (String) -> Unit, onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit, onBarcodeScan: (String) -> Unit) {
+fun ProductCatalog(
+    products: List<ProductEntity>, categories: List<String>, selectedCategory: String, 
+    onCategorySelect: (String) -> Unit, searchQuery: String, onSearchChange: (String) -> Unit, 
+    onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit, onBarcodeScan: (String) -> Unit
+) {
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
-            value = searchQuery, onValueChange = onSearchChange, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), placeholder = { Text("Cari produk / scan barcode...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, trailingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, singleLine = true, shape = RoundedCornerShape(16.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ZokasGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { if (searchQuery.isNotBlank()) { onBarcodeScan(searchQuery); onSearchChange("") } })
+            value = searchQuery, onValueChange = onSearchChange, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp), 
+            placeholder = { Text("Cari produk / scan barcode...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, 
+            trailingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, singleLine = true, shape = RoundedCornerShape(16.dp), 
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ZokasGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), 
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { if (searchQuery.isNotBlank()) { onBarcodeScan(searchQuery); onSearchChange("") } })
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(categories) { category ->
@@ -661,10 +657,35 @@ fun ProductCatalog(products: List<ProductEntity>, categories: List<String>, sele
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1f, animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f), label = "scale")
-                    Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f).scale(scale).shadow(8.dp, RoundedCornerShape(24.dp), spotColor = ZokasGreenDark).clip(RoundedCornerShape(24.dp)).background(brush = Brush.linearGradient(colors = listOf(ZokasGreen, ZokasGreenDark))).combinedClickable(interactionSource = interactionSource, indication = null, onClick = { onProductClick(product) }, onLongClick = { onProductLongClick(product) })) {
+                    
+                    // Cek Expired (Merah jika < 7 hari)
+                    val isExpiringSoon = product.expiryDate > 0 && (product.expiryDate - System.currentTimeMillis()) < (7L * 24 * 60 * 60 * 1000)
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth().aspectRatio(1f).scale(scale)
+                            .shadow(8.dp, RoundedCornerShape(24.dp), spotColor = ZokasGreenDark)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(brush = Brush.linearGradient(colors = if (isExpiringSoon) listOf(Color.Red, Color(0xFFB71C1C)) else listOf(ZokasGreen, ZokasGreenDark)))
+                            .combinedClickable(interactionSource = interactionSource, indication = null, onClick = { onProductClick(product) }, onLongClick = { onProductLongClick(product) })
+                    ) {
                         Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                            Surface(color = Color.White.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) { Text(text = product.category, fontSize = 10.sp, color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Surface(color = Color.White.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) { 
+                                    Text(text = product.category, fontSize = 10.sp, color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) 
+                                }
+                                // LABEL PROMO
+                                if (product.promoType != "NONE") {
+                                    Surface(color = Color.Yellow, shape = RoundedCornerShape(8.dp)) { 
+                                        Text(text = if (product.promoType == "BOGO") "BOGO" else "DISC ${product.promoValue}%", fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) 
+                                    }
+                                }
+                            }
                             Text(text = product.name, fontWeight = FontWeight.ExtraBold, maxLines = 2, style = MaterialTheme.typography.titleLarge, color = Color.White, lineHeight = 24.sp)
+                            
+                            if (isExpiringSoon) {
+                                Text("EXPIRED SEGERA", fontSize = 10.sp, color = Color.Yellow, fontWeight = FontWeight.Bold)
+                            }
+
                             Spacer(modifier = Modifier.weight(1f))
                             Column {
                                 Text(text = formatRupiah(product.price), style = MaterialTheme.typography.titleLarge, color = ZokasOrange, fontWeight = FontWeight.Black)
@@ -714,6 +735,9 @@ fun CartList(
                         if (isSplitBillMode) { Checkbox(checked = item.isSelectedForSplit, onCheckedChange = { onToggleSplitSelection(item.product) }, modifier = Modifier.scale(0.8f)) }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(item.product.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (item.selectedVariation.isNotEmpty()) {
+                                Text("Varian: ${item.selectedVariation}", fontSize = 10.sp, color = ZokasGreen, fontWeight = FontWeight.Bold)
+                            }
                             Text(formatRupiah(item.product.price), fontSize = 11.sp, color = Color.Gray)
                             if (item.notes.isNotEmpty()) { Text("Cat: ${item.notes}", fontSize = 10.sp, color = Color.Red, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         }
@@ -759,36 +783,77 @@ fun CartList(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductFormBottomSheet(productToEdit: ProductEntity? = null, onDismiss: () -> Unit, onSave: (String, Long, Int, String, Long, String) -> Unit) {
+fun ProductFormBottomSheet(
+    productToEdit: ProductEntity? = null, 
+    onDismiss: () -> Unit, 
+    onSave: (String, Long, Int, String, Long, String, String, Long, Long) -> Unit
+) {
     val sheetState = rememberModalBottomSheetState()
+    val context = LocalContext.current
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
     var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
     var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") } 
     var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
     var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") } 
     var barcode by remember { mutableStateOf(productToEdit?.barcode ?: "") }
+    var variations by remember { mutableStateOf(productToEdit?.variations ?: "") }
+    var commission by remember { mutableStateOf(productToEdit?.commissionPerItem?.toString() ?: "") }
+    var expiryDate by remember { mutableStateOf(productToEdit?.expiryDate ?: 0L) }
+
+    // FORMAT TANGGAL
+    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    val expiryText = if (expiryDate > 0) dateFormat.format(Date(expiryDate)) else "Pilih Tanggal"
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = variations, onValueChange = { variations = it }, label = { Text("Varian (Pisahkan dengan koma)") }, placeholder = { Text("Cth: S,M,L atau Merah,Biru") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori (cth: Minuman)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = costPrice, onValueChange = { if (it.length <= 10) costPrice = it }, label = { Text("Harga Beli / Modal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(32.dp))
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = commission, onValueChange = { if (it.length <= 10) commission = it }, label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            // TOMBOL PILIH TANGGAL EXPIRED
+            OutlinedButton(
+                onClick = {
+                    val cal = Calendar.getInstance()
+                    if (expiryDate > 0) cal.timeInMillis = expiryDate
+                    DatePickerDialog(context, { _, year, month, day ->
+                        val newCal = Calendar.getInstance()
+                        newCal.set(year, month, day, 23, 59, 59)
+                        expiryDate = newCal.timeInMillis
+                    }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color.Gray)
+            ) {
+                Icon(Icons.Default.DateRange, contentDescription = null, tint = ZokasOrange)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Expiry: $expiryText", color = Color.Black)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
             Button(onClick = { 
                 val p = price.toLongOrNull() ?: 0L
                 val cp = costPrice.toLongOrNull() ?: 0L
                 val s = stock.toIntOrNull() ?: 0
-                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode) 
+                val c = commission.toLongOrNull() ?: 0L
+                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate) 
             }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange), shape = RoundedCornerShape(12.dp)) {
                 Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
@@ -801,6 +866,7 @@ fun ProductFormBottomSheet(productToEdit: ProductEntity? = null, onDismiss: () -
 @Composable
 fun PaymentBottomSheet(
     totalPrice: Long, 
+    totalCommission: Long,
     onDismiss: () -> Unit, 
     onConfirmPayment: (Long, String) -> Unit
 ) {
@@ -816,6 +882,14 @@ fun PaymentBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
             Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineLarge, color = ZokasOrange, fontWeight = FontWeight.Black)
+            
+            if (totalCommission > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(color = ZokasGreen.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                    Text("Komisi Kasir: +${formatRupiah(totalCommission)}", color = ZokasGreen, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp), fontSize = 12.sp)
+                }
+            }
+            
             Spacer(modifier = Modifier.height(24.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -836,8 +910,6 @@ fun PaymentBottomSheet(
                 Box(modifier = Modifier.size(200.dp).background(Color.LightGray, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                     Text("QRIS CODE\n(Mock)", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = Color.Gray)
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Silakan scan QRIS di atas", color = Color.Gray, fontSize = 12.sp)
             } else {
                 Surface(color = Color.Red.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Text("Transaksi akan dicatat sebagai BON (Belum Lunas).", color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
@@ -859,34 +931,7 @@ fun PaymentBottomSheet(
     }
 }
 
-// FUNGSI BANTUAN: Cetak Tiket Dapur
-private suspend fun generateKitchenTicket(transaction: TransactionEntity, viewModel: PosViewModel): ByteArray {
-    val items = viewModel.getTransactionItems(transaction.id).first()
-    val output = ByteArrayOutputStream()
-    val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    
-    output.write(EscPosCommands.INIT)
-    output.write(EscPosCommands.ALIGN_CENTER)
-    output.write(EscPosCommands.BOLD_ON)
-    output.write("TIKET DAPUR\n".toByteArray())
-    output.write(EscPosCommands.BOLD_OFF)
-    output.write("================\n".toByteArray())
-    output.write("ID: #${transaction.id} | ${transaction.tableName}\n".toByteArray())
-    output.write("Kasir: ${transaction.cashierName}\n".toByteArray())
-    output.write("Waktu: ${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
-    output.write("================\n".toByteArray())
-    output.write(EscPosCommands.ALIGN_LEFT)
-    
-    items.forEach {
-        output.write("${it.quantity}x ${it.productName}\n".toByteArray())
-        if (it.notes.isNotEmpty()) { output.write("  *Cat: ${it.notes}\n".toByteArray()) }
-    }
-    output.write("\n\n\n".toByteArray())
-    output.write(EscPosCommands.FEED_3)
-    output.write(EscPosCommands.CUT_PAPER)
-    return output.toByteArray()
-}
-
+// Fungsi-fungsi dialog lainnya tetap sama
 @Composable
 fun TableSelectorDialog(currentTable: String, occupiedTables: List<String>, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     val tables = listOf("Take-Away", "Meja 1", "Meja 2", "Meja 3", "Meja 4", "Meja 5")
@@ -1010,4 +1055,95 @@ fun CloseShiftDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
         confirmButton = { Button(onClick = { onConfirm(uangFisik.toLongOrNull() ?: 0L) }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("TUTUP") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
+}
+
+// FUNGSI BANTUAN: Simpan Barcode Code 39 ke Galeri
+fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
+    try {
+        val width = 500
+        val height = 250
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        val textPaint = Paint().apply {
+            color = android.graphics.Color.BLACK
+            textSize = 24f
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+
+        canvas.drawText(product.name.lowercase(), width / 2f, 40f, textPaint)
+        canvas.drawText("Rp ${product.price}", width / 2f, height - 20f, textPaint)
+
+        val barcodePaint = Paint().apply {
+            color = android.graphics.Color.BLACK
+            style = Paint.Style.FILL
+        }
+        
+        val code39Map = mapOf(
+            '0' to "101001101101", '1' to "110100101011", '2' to "101100101011", '3' to "110110010101", '4' to "101001101011", '5' to "110100110101", '6' to "101100110101", '7' to "101001011011", '8' to "110100101101", '9' to "101100101101",
+            'A' to "110101001011", 'B' to "101101001011", 'C' to "110110100101", 'D' to "101011001011", 'E' to "110101100101", 'F' to "101101100101", 'G' to "101010011011", 'H' to "110101001101", 'I' to "101101001101", 'J' to "101011001101", 'K' to "110101010011", 'L' to "101101010011", 'M' to "110110101001", 'N' to "101011010011", 'O' to "110101101001", 'P' to "101101101001", 'Q' to "101010110011", 'R' to "110101011001", 'S' to "101101011001", 'T' to "101011011001", 'U' to "110010101011", 'V' to "100110101011", 'W' to "110011010101", 'X' to "100101101011", 'Y' to "110010110101", 'Z' to "100110110101",
+            '-' to "100101011011", '.' to "110010101101", ' ' to "100110101101", '$' to "100100100101", '/' to "100100101001", '+' to "100101001001", '%' to "101001001001", '*' to "100101101101"
+        )
+
+        val barcodeText = "*${product.barcode.ifBlank { product.name.take(10).uppercase() }}*"
+        var x = 50f
+        val barWidth = 3f
+        val barHeight = 100f
+        
+        for (char in barcodeText) {
+            val pattern = code39Map[char] ?: code39Map['-']!!
+            for (bit in pattern) {
+                if (bit == '1') {
+                    canvas.drawRect(x, 70f, x + barWidth, 70f + barHeight, barcodePaint)
+                }
+                x += barWidth
+            }
+            x += barWidth 
+        }
+
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "barcode_${product.name.replace(" ", "_")}_${System.currentTimeMillis()}.jpg")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+        }
+        val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        uri?.let {
+            context.contentResolver.openOutputStream(it)?.use { stream ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+                Toast.makeText(context, "Barcode disimpan ke Galeri", Toast.LENGTH_SHORT).show()
+            }
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Gagal simpan barcode: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
+// FUNGSI BANTUAN: Cetak Tiket Dapur
+private suspend fun generateKitchenTicket(transaction: TransactionEntity, viewModel: PosViewModel): ByteArray {
+    val items = viewModel.getTransactionItems(transaction.id).first()
+    val output = ByteArrayOutputStream()
+    val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    
+    output.write(EscPosCommands.INIT)
+    output.write(EscPosCommands.ALIGN_CENTER)
+    output.write(EscPosCommands.BOLD_ON)
+    output.write("TIKET DAPUR\n".toByteArray())
+    output.write(EscPosCommands.BOLD_OFF)
+    output.write("================\n".toByteArray())
+    output.write("ID: #${transaction.id} | ${transaction.tableName}\n".toByteArray())
+    output.write("Kasir: ${transaction.cashierName}\n".toByteArray())
+    output.write("Waktu: ${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
+    output.write("================\n".toByteArray())
+    output.write(EscPosCommands.ALIGN_LEFT)
+    
+    items.forEach {
+        output.write("${it.quantity}x ${it.productName}\n".toByteArray())
+        if (it.notes.isNotEmpty()) { output.write("  *Cat: ${it.notes}\n".toByteArray()) }
+    }
+    output.write("\n\n\n".toByteArray())
+    output.write(EscPosCommands.FEED_3)
+    output.write(EscPosCommands.CUT_PAPER)
+    return output.toByteArray()
 }
