@@ -42,12 +42,10 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("printer_mac", null)
         set(value) = prefs.edit().putString("printer_mac", value).apply()
 
-    // FITUR BARU: Printer Dapur
     var kitchenPrinterMacAddress: String?
         get() = prefs.getString("kitchen_printer_mac", null)
         set(value) = prefs.edit().putString("kitchen_printer_mac", value).apply()
 
-    // FITUR BARU: Happy Hour
     var happyHourStart: String
         get() = prefs.getString("happy_start", "17:00") ?: "17:00"
         set(value) = prefs.edit().putString("happy_start", value).apply()
@@ -59,4 +57,14 @@ class SettingsManager(context: Context) {
     var happyHourDiscount: Double
         get() = prefs.getFloat("happy_discount", 0f).toDouble()
         set(value) = prefs.edit().putFloat("happy_discount", value.toFloat()).apply()
+
+    // FITUR BARU: Otorisasi PIN Diskon
+    var requirePinForDiscount: Boolean
+        get() = prefs.getBoolean("pin_for_discount", true)
+        set(value) = prefs.edit().putBoolean("pin_for_discount", value).apply()
+
+    // FITUR BARU: Waktu Auto-Backup Terakhir
+    var lastAutoBackup: Long
+        get() = prefs.getLong("last_auto_backup", 0L)
+        set(value) = prefs.edit().putLong("last_auto_backup", value).apply()
 }

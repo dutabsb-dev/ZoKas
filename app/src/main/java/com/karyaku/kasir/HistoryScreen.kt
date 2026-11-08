@@ -276,6 +276,36 @@ fun HistoryScreen(
             }
         }
 
+        // LAPORAN KINERJA KASIR
+        if (validTransactions.isNotEmpty()) {
+            item { Text("👨‍💼 Kinerja Kasir", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        val cashierStats = validTransactions.groupBy { it.cashierName }
+                            .mapValues { entry -> 
+                                val total = entry.value.sumOf { it.totalPrice }
+                                val count = entry.value.size
+                                Pair(total, count)
+                            }
+                            .toList()
+                            .sortedByDescending { it.second.first }
+
+                        cashierStats.forEachIndexed { index, (cashierName, stats) ->
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text(cashierName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text("${stats.second} Transaksi", fontSize = 12.sp, color = Color.Gray)
+                                }
+                                Text(formatRupiah(stats.first), fontWeight = FontWeight.Bold, color = ZokasGreen)
+                            }
+                            if (index < cashierStats.size - 1) HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                        }
+                    }
+                }
+            }
+        }
+
         if (isPro && filteredTransactions.isNotEmpty()) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

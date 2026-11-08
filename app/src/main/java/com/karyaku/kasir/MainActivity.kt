@@ -3,7 +3,7 @@ package com.karyaku.kasir
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivityResultRegistryOwner // TAMBAHKAN IMPORT INI
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,6 +19,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.UserEntity
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,8 +30,27 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
+        // FITUR BARU: AUTO-BACKUP HARIAN (Cek apakah sudah lewat 24 jam)
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
+            try {
+                val dbFile = getDatabasePath("pos_database")
+                val backupDir = File(getExternalFilesDir(null), "AutoBackups")
+                if (!backupDir.exists()) backupDir.mkdirs()
+                val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+                val backupFile = File(backupDir, "autobackup_${dateFormat.format(Date())}.db")
+                
+                if (dbFile.exists()) {
+                    dbFile.copyTo(backupFile, overwrite = true)
+                    settingsManager.lastAutoBackup = currentTime
+                    Toast.makeText(this, "Auto-Backup Database Berhasil!", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         setContent {
-            // FIX UTAMA: Suntikkan LocalActivityResultRegistryOwner secara eksplisit
             CompositionLocalProvider(
                 LocalActivityResultRegistryOwner provides this@MainActivity
             ) {
