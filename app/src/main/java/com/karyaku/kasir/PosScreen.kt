@@ -1,6 +1,5 @@
 package com.karyaku.kasir
 
-import android.app.DatePickerDialog
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
@@ -52,7 +51,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -225,8 +223,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     variants.forEach { variant ->
                         OutlinedButton(
                             onClick = {
-                                val newItem = CartItem(product, quantity = 1, selectedVariation = variant)
-                                // Tambah langsung ke keranjang dengan varian terpilih
                                 viewModel.addToCart(product)
                                 viewModel.updateCartItemVariation(product, variant)
                                 productToSelectVariant = null
@@ -799,10 +795,31 @@ fun ProductFormBottomSheet(
     var variations by remember { mutableStateOf(productToEdit?.variations ?: "") }
     var commission by remember { mutableStateOf(productToEdit?.commissionPerItem?.toString() ?: "") }
     var expiryDate by remember { mutableStateOf(productToEdit?.expiryDate ?: 0L) }
+    
+    // STATE UNTUK COMPOSE DATE PICKER
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    // FORMAT TANGGAL
     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     val expiryText = if (expiryDate > 0) dateFormat.format(Date(expiryDate)) else "Pilih Tanggal"
+
+    // COMPOSE DATE PICKER DIALOG (ANTI CRASH)
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = if (expiryDate > 0) expiryDate else System.currentTimeMillis())
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    expiryDate = datePickerState.selectedDateMillis ?: 0L
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Batal") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -827,17 +844,10 @@ fun ProductFormBottomSheet(
             OutlinedTextField(value = commission, onValueChange = { if (it.length <= 10) commission = it }, label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
             
             Spacer(modifier = Modifier.height(8.dp))
+            
             // TOMBOL PILIH TANGGAL EXPIRED
             OutlinedButton(
-                onClick = {
-                    val cal = Calendar.getInstance()
-                    if (expiryDate > 0) cal.timeInMillis = expiryDate
-                    DatePickerDialog(context, { _, year, month, day ->
-                        val newCal = Calendar.getInstance()
-                        newCal.set(year, month, day, 23, 59, 59)
-                        expiryDate = newCal.timeInMillis
-                    }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
-                },
+                onClick = { showDatePicker = true },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, Color.Gray)
