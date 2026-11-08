@@ -60,7 +60,8 @@ class BluetoothPrinterManager(private val context: Context) {
             
             val outputStream: OutputStream = socket.outputStream
             // Perintah ESC/POS untuk membuka laci (ESC p 0 25 250)
-            outputStream.write(byteArrayOf(0x1B, 0x70, 0x00, 0x19, 0xFA))
+            // FIX: Menambahkan .toByte() pada 0xFA karena nilainya melebihi batas maksimal tipe data Byte
+            outputStream.write(byteArrayOf(0x1B, 0x70, 0x00, 0x19, 0xFA.toByte()))
             outputStream.flush()
             socket.close()
             true
