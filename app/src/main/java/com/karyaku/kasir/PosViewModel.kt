@@ -176,7 +176,6 @@ class PosViewModel(
         return header + rows
     }
 
-    // FIXED: FITUR SMART IMPORT (Upsert)
     fun importProductsFromCsv(csvText: String, onResult: (Int, Int) -> Unit) {
         viewModelScope.launch {
             var insertCount = 0
@@ -193,20 +192,17 @@ class PosViewModel(
                         val category = parts[4].trim()
                         val barcode = if (parts.size > 5) parts[5].trim() else ""
 
-                        // Cari apakah produk sudah ada berdasarkan Barcode atau Nama
                         val existingProduct = _products.value.find { 
                             (barcode.isNotEmpty() && it.barcode == barcode) || it.name.equals(name, ignoreCase = true)
                         }
 
                         if (existingProduct != null) {
-                            // Update produk yang sudah ada
                             productDao.insertProduct(existingProduct.copy(
                                 name = name, price = price, costPrice = costPrice, 
                                 stock = stock, category = category, barcode = barcode
                             ))
                             updateCount++
                         } else {
-                            // Insert produk baru
                             productDao.insertProduct(ProductEntity(
                                 name = name, price = price, costPrice = costPrice, 
                                 stock = stock, category = category, barcode = barcode
@@ -220,28 +216,21 @@ class PosViewModel(
         }
     }
 
-    // FITUR BARU: Waste Log (Catat Barang Rusak/Expired)
     fun recordWaste(product: ProductEntity, qty: Int, user: UserEntity) {
         viewModelScope.launch {
             val newStock = (product.stock - qty).coerceAtLeast(0)
             productDao.updateStock(product.id, newStock)
             val loss = qty * product.costPrice
             userDao.insertAuditLog(AuditLogEntity(
-                userId = user.id, 
-                userName = user.name, 
-                action = "WASTE (Barang Rusak): ${product.name} -$qty pcs. Kerugian: ${formatRupiah(loss)}"
+                userId = user.id, userName = user.name, 
+                action = "WASTE: ${product.name} -$qty pcs. Rugi: ${formatRupiah(loss)}"
             ))
         }
     }
 
-    // FITUR BARU: Manual Cash Drawer Log
     fun logCashDrawerOpen(user: UserEntity) {
         viewModelScope.launch {
-            userDao.insertAuditLog(AuditLogEntity(
-                userId = user.id, 
-                userName = user.name, 
-                action = "BUKA LACI MANUAL (No Sale)"
-            ))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "BUKA LACI MANUAL (No Sale)"))
         }
     }
 
@@ -313,10 +302,6 @@ class PosViewModel(
         }
     }
 
-    fun getLowStockProducts(): List<ProductEntity> {
-        return _products.value.filter { it.stock <= 5 && it.stock >= 0 }
-    }
-
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setCategory(category: String) { _selectedCategory.value = category }
     fun setDiscount(amount: Long) { _discount.value = amount }
@@ -355,14 +340,14 @@ class PosViewModel(
     fun updatePin(user: UserEntity, newPin: String) {
         viewModelScope.launch {
             userDao.updatePin(user.id, newPin)
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN: PIN berhasil diubah"))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN"))
         }
     }
 
     fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) {
         viewModelScope.launch {
             userDao.insertUser(UserEntity(name = name, pin = pin, role = role))
-            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name ($role)"))
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name"))
         }
     }
 
@@ -399,7 +384,8 @@ class PosViewModel(
         }
     }
 
-    fun closeShift(user: UserEntity, uangFisik: Long, onSuccess: (Long) -> Unit) {
+    // UBAH: Mengembalikan ShiftEntity untuk laporan tutup kasir
+    fun closeShift(user: UserEntity, uangFisik: Long, onSuccess: (ShiftEntity) -> Unit) {
         viewModelScope.launch {
             val shift = _activeShift.value
             if (shift != null) {
@@ -413,7 +399,15 @@ class PosViewModel(
                 userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)}"))
 
                 checkActiveShift()
-                onSuccess(selisih)
+                
+                val closedShift = shift.copy(
+                    endTime = System.currentTimeMillis(),
+                    expectedCash = uangSistem,
+                    closingCash = uangFisik,
+                    discrepancy = selisih,
+                    status = "CLOSED"
+                )
+                onSuccess(closedShift)
             }
         }
     }
@@ -421,7 +415,7 @@ class PosViewModel(
     fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, userId: Long, userName: String) {
         viewModelScope.launch {
             productDao.insertProduct(ProductEntity(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode))
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name ($category)"))
+            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name"))
         }
     }
 
@@ -551,15 +545,13 @@ class PosViewModel(
 
             userDao.insertAuditLog(
                 AuditLogEntity(
-                    userId = userId,
-                    userName = userName,
-                    action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName) ${if (isSplitBill) "[SPLIT]" else ""}"
+                    userId = userId, userName = userName,
+                    action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName)"
                 )
             )
 
             if (isSplitBill) {
-                val remainingCart = _cart.value.filter { !it.isSelectedForSplit }
-                _cart.value = remainingCart
+                _cart.value = _cart.value.filter { !it.isSelectedForSplit }
             } else {
                 _cart.value = emptyList()
                 _discount.value = 0
@@ -597,13 +589,7 @@ class PosViewModel(
             }
 
             transactionDao.refundTransaction(transaction.id)
-            userDao.insertAuditLog(
-                AuditLogEntity(
-                    userId = currentUser.id,
-                    userName = currentUser.name,
-                    action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name})"
-                )
-            )
+            userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name})"))
             onResult(true, "Refund berhasil! Stok telah dikembalikan.")
         }
     }
@@ -617,7 +603,6 @@ class PosViewModel(
             }
 
             val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
-
             itemsToRestore.forEach { item ->
                 val product = _products.value.find { it.name == item.productName }
                 if (product != null) {
@@ -626,13 +611,7 @@ class PosViewModel(
             }
 
             transactionDao.voidTransaction(transaction.id)
-            userDao.insertAuditLog(
-                AuditLogEntity(
-                    userId = currentUser.id,
-                    userName = currentUser.name,
-                    action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"
-                )
-            )
+            userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"))
             onResult(true, "Transaksi berhasil di-void dan stok dikembalikan.")
         }
     }

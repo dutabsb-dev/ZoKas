@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -53,6 +55,7 @@ fun HistoryScreen(
 ) {
     val context = LocalContext.current
     val activity = context.findActivity()
+    val scope = rememberCoroutineScope()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
 
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
@@ -69,11 +72,14 @@ fun HistoryScreen(
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
+    // LAUNCHER EXPORT PDF
     val createPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri: Uri? ->
         if (uri != null) {
-            exportTransactionsToPdf(context, uri, transactionsToExport, dateFormat)
+            scope.launch {
+                exportTransactionsToPdfDetailed(context, uri, transactionsToExport, dateFormat, viewModel)
+            }
         }
     }
 
@@ -180,7 +186,7 @@ fun HistoryScreen(
             }
         }
 
-        // GRAFIK PROFESIONAL (RESPONSIF)
+        // GRAFIK
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -207,10 +213,11 @@ fun HistoryScreen(
                         val maxSale = dailySales.maxOrNull() ?: 0L
                         val effectiveMax = if (maxSale == 0L) 1L else maxSale
 
-                        // Gambar Sumbu
                         val axisColor = Color.LightGray
-                        drawLine(color = axisColor, start = Offset(paddingLeft, 0f), end = Offset(paddingLeft, chartHeight), strokeWidth = 2f) // Y
-                        drawLine(color = axisColor, start = Offset(paddingLeft, chartHeight), end = Offset(size.width, chartHeight), strokeWidth = 2f) // X
+                        val strokeWidth = 2f
+                        
+                        drawLine(color = axisColor, start = Offset(paddingLeft, 0f), end = Offset(paddingLeft, chartHeight), strokeWidth = strokeWidth)
+                        drawLine(color = axisColor, start = Offset(paddingLeft, chartHeight), end = Offset(size.width, chartHeight), strokeWidth = strokeWidth)
 
                         val textPaint = android.graphics.Paint().apply { 
                             color = android.graphics.Color.GRAY
@@ -223,14 +230,12 @@ fun HistoryScreen(
                             val x = paddingLeft + index * slotWidth + (slotWidth - barWidth) / 2f
                             val barHeight = (sale.toFloat() / effectiveMax) * chartHeight
                             
-                            // Gambar Batang
                             drawRect(
                                 color = ZokasGreen,
                                 topLeft = Offset(x, chartHeight - barHeight),
                                 size = Size(barWidth, barHeight)
                             )
                             
-                            // Gambar Tanggal
                             val dateStr = dateFormatShort.format(Date(System.currentTimeMillis() - (days - 1 - index) * 86400000L))
                             drawContext.canvas.nativeCanvas.drawText(
                                 dateStr,
@@ -276,7 +281,7 @@ fun HistoryScreen(
             }
         }
 
-        // LAPORAN KINERJA KASIR
+        // KINERJA KASIR
         if (validTransactions.isNotEmpty()) {
             item { Text("👨‍💼 Kinerja Kasir", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             item {
@@ -577,53 +582,87 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     )
 }
 
-private fun exportTransactionsToPdf(
+// FITUR BARU: EXPORT PDF DETAIL
+private suspend fun exportTransactionsToPdfDetailed(
     context: Context,
     uri: Uri,
     transactions: List<TransactionEntity>,
-    dateFormat: SimpleDateFormat
+    dateFormat: SimpleDateFormat,
+    viewModel: PosViewModel
 ) {
     try {
         val pdfDocument = PdfDocument()
-        val textPaint = Paint().apply {
-            textSize = 10f
-            color = android.graphics.Color.BLACK
-        }
-        val headerPaint = Paint().apply {
-            textSize = 14f
-            isFakeBoldText = true
-            color = android.graphics.Color.BLACK
-        }
+        val textPaint = Paint().apply { textSize = 10f; color = android.graphics.Color.BLACK }
+        val headerPaint = Paint().apply { textSize = 14f; isFakeBoldText = true; color = android.graphics.Color.BLACK }
+        val subHeaderPaint = Paint().apply { textSize = 12f; isFakeBoldText = true; color = android.graphics.Color.DKGRAY }
 
         var pageNumber = 1
         var page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
         var canvas = page.canvas
         var y = 40f
 
-        canvas.drawText("Laporan Transaksi ZoKas", 40f, y, headerPaint); y += 18f
+        canvas.drawText("Laporan Transaksi ZoKas (Detail)", 40f, y, headerPaint); y += 18f
         canvas.drawText("Dicetak: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint); y += 16f
         canvas.drawText("Jumlah: ${transactions.size} transaksi", 40f, y, textPaint); y += 20f
-        canvas.drawText("----------------------------------------------", 40f, y, textPaint); y += 16f
-        canvas.drawText("ID | Tanggal | Total | Status", 40f, y, headerPaint); y += 16f
-        canvas.drawText("----------------------------------------------", 40f, y, textPaint); y += 16f
+        canvas.drawText("======================================================", 40f, y, textPaint); y += 16f
 
-        transactions.forEach { tx ->
-            if (y > 810f) {
+        for (tx in transactions) {
+            if (y > 780f) {
                 pdfDocument.finishPage(page)
                 pageNumber++
                 page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
                 canvas = page.canvas
                 y = 40f
+                canvas.drawText("Laporan Transaksi ZoKas (Lanjutan)", 40f, y, headerPaint); y += 20f
+                canvas.drawText("======================================================", 40f, y, textPaint); y += 16f
             }
-            val line = "#${tx.id} | ${dateFormat.format(Date(tx.timestamp))} | ${formatRupiah(tx.totalPrice)} | ${tx.status}"
-            canvas.drawText(line, 40f, y, textPaint)
-            y += 16f
+
+            // Header Transaksi
+            canvas.drawText("Struk #${tx.id} | ${dateFormat.format(Date(tx.timestamp))}", 40f, y, subHeaderPaint); y += 16f
+            canvas.drawText("Pelanggan: ${tx.customerName} | Kasir: ${tx.cashierName}", 40f, y, textPaint); y += 16f
+            canvas.drawText("------------------------------------------------------", 40f, y, textPaint); y += 16f
+
+            // Ambil item transaksi dari database (Karena fungsi ini suspend, kita bisa memanggil .first())
+            val items = viewModel.getTransactionItems(tx.id).first()
+            
+            if (items.isEmpty()) {
+                canvas.drawText("- (Tidak ada rincian item) -", 50f, y, textPaint); y += 16f
+            } else {
+                for (item in items) {
+                    if (y > 800f) {
+                        pdfDocument.finishPage(page)
+                        pageNumber++
+                        page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
+                        canvas = page.canvas
+                        y = 40f
+                    }
+                    val itemText = "  ${item.quantity}x ${item.productName} @ ${formatRupiah(item.price)}"
+                    val subtotalText = formatRupiah(item.subtotal)
+                    canvas.drawText(itemText, 40f, y, textPaint)
+                    // Rata kanan untuk subtotal
+                    val textWidth = textPaint.measureText(subtotalText)
+                    canvas.drawText(subtotalText, 555f - textWidth, y, textPaint)
+                    y += 14f
+
+                    if (item.notes.isNotEmpty()) {
+                        canvas.drawText("     *Catatan: ${item.notes}", 40f, y, textPaint); y += 14f
+                    }
+                }
+            }
+
+            y += 4f
+            canvas.drawText("------------------------------------------------------", 40f, y, textPaint); y += 16f
+            
+            // Footer Transaksi
+            val totalText = "TOTAL: ${formatRupiah(tx.totalPrice)}"
+            val totalWidth = subHeaderPaint.measureText(totalText)
+            canvas.drawText(totalText, 555f - totalWidth, y, subHeaderPaint); y += 24f
         }
 
         pdfDocument.finishPage(page)
         context.contentResolver.openOutputStream(uri)?.use { pdfDocument.writeTo(it) }
         pdfDocument.close()
-        Toast.makeText(context, "PDF berhasil diekspor", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "PDF Detail berhasil diekspor", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
         Toast.makeText(context, "Gagal ekspor PDF: ${e.message}", Toast.LENGTH_LONG).show()
     }
