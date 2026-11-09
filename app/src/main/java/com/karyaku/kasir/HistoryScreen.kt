@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Money // GANTI ACCOUNTBOX DENGAN MONEY
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,7 +66,7 @@ fun HistoryScreen(
     val netProfit by viewModel.netProfit.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
     val users by viewModel.users.collectAsStateWithLifecycle()
-    val cashFlows by viewModel.cashFlows.collectAsStateWithLifecycle() // FITUR BARU: Ambil data kas
+    val cashFlows by viewModel.cashFlows.collectAsStateWithLifecycle()
 
     val lowStockProducts = remember(products) {
         products.filter { it.stock <= 5 && it.stock >= 0 }
@@ -125,7 +126,6 @@ fun HistoryScreen(
     val totalHpp = validTransactions.sumOf { it.totalCost }
     val labaKotor = totalOmzet - totalHpp
 
-    // FITUR BARU: HITUNG ARUS KAS
     val totalCashIn = filteredCashFlows.filter { it.type == "IN" }.sumOf { it.amount }
     val totalCashOut = filteredCashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
     val penjualanTunai = validTransactions.filter { it.paymentMethod == "CASH" }.sumOf { it.totalPrice }
@@ -142,11 +142,10 @@ fun HistoryScreen(
         )
     }
 
-    // DIALOG LAPORAN KEUANGAN ADVANCE
     if (showFinanceReport) {
         AlertDialog(
             onDismissRequest = { showFinanceReport = false },
-            icon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = ZokasGreen) },
+            icon = { Icon(Icons.Default.Money, contentDescription = null, tint = ZokasGreen) }, // PERBAIKAN IKON
             title = { Text("Laporan Keuangan") },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
