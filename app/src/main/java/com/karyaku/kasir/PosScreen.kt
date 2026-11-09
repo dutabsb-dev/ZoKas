@@ -675,10 +675,13 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 )
             },
             floatingActionButton = {
-                Box(
-                    modifier = Modifier.size(64.dp).shadow(12.dp, CircleShape, spotColor = ZokasOrangeDark).background(brush = Brush.linearGradient(colors = listOf(ZokasOrange, ZokasOrangeDark)), shape = CircleShape).clickable { productToEdit = null; showProductForm = true },
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Color.White, modifier = Modifier.size(32.dp)) }
+                // FIX: Sembunyikan tombol + saat keranjang sedang dibuka
+                if (!showCartOnPhone) {
+                    Box(
+                        modifier = Modifier.size(64.dp).shadow(12.dp, CircleShape, spotColor = ZokasOrangeDark).background(brush = Brush.linearGradient(colors = listOf(ZokasOrange, ZokasOrangeDark)), shape = CircleShape).clickable { productToEdit = null; showProductForm = true },
+                        contentAlignment = Alignment.Center
+                    ) { Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Color.White, modifier = Modifier.size(32.dp)) }
+                }
             },
             bottomBar = {
                 if (cart.isNotEmpty() && !showCartOnPhone) {
