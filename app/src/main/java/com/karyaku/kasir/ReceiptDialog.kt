@@ -141,6 +141,12 @@ fun ReceiptDialog(
                         if (item.notes.isNotEmpty()) {
                             Text("  *Cat: ${item.notes}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.DarkGray)
                         }
+                        if (item.serialNumber.isNotEmpty()) {
+                            Text("  *SN: ${item.serialNumber}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Blue)
+                        }
+                        if (item.assignedStaff.isNotEmpty()) {
+                            Text("  *Staf: ${item.assignedStaff}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Magenta)
+                        }
                     }
                     Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 }
@@ -211,9 +217,9 @@ private fun generateTextReceipt(
     
     items?.forEach {
         sb.append("${it.quantity}x ${it.productName}\n")
-        if (it.notes.isNotEmpty()) {
-            sb.append("   *Cat: ${it.notes}*\n")
-        }
+        if (it.notes.isNotEmpty()) { sb.append("   *Cat: ${it.notes}*\n") }
+        if (it.serialNumber.isNotEmpty()) { sb.append("   *SN: ${it.serialNumber}*\n") }
+        if (it.assignedStaff.isNotEmpty()) { sb.append("   *Staf: ${it.assignedStaff}*\n") }
         sb.append("   Rp ${it.subtotal}\n")
     }
     sb.append("------------------------\n")
@@ -261,9 +267,9 @@ private fun generatePrintData(
     
     items?.forEach {
         output.write("${it.quantity}x ${it.productName}\n".toByteArray())
-        if (it.notes.isNotEmpty()) {
-            output.write("  *Cat: ${it.notes}\n".toByteArray())
-        }
+        if (it.notes.isNotEmpty()) { output.write("  *Cat: ${it.notes}\n".toByteArray()) }
+        if (it.serialNumber.isNotEmpty()) { output.write("  *SN: ${it.serialNumber}\n".toByteArray()) }
+        if (it.assignedStaff.isNotEmpty()) { output.write("  *Staf: ${it.assignedStaff}\n".toByteArray()) }
         output.write("  Rp ${it.subtotal}\n".toByteArray())
     }
     output.write("--------------------------------\n".toByteArray())

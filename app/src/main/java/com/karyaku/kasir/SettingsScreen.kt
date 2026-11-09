@@ -76,6 +76,11 @@ fun SettingsScreen(
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
     var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
+
+    // FITUR BARU: MAX DISCOUNT & MULTI CURRENCY
+    var maxDiscountCap by remember { mutableStateOf(settingsManager.maxDiscountCap.toString()) }
+    var enableMultiCurrency by remember { mutableStateOf(settingsManager.enableMultiCurrency) }
+    var exchangeRateUsd by remember { mutableStateOf(settingsManager.exchangeRateUsd.toString()) }
     
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
@@ -101,7 +106,6 @@ fun SettingsScreen(
         }
     }
     
-    // Launcher khusus untuk memilih printer dapur
     val kitchenPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
         if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
             pairedPrinters = printerManager.getPairedPrinters()
@@ -162,7 +166,6 @@ fun SettingsScreen(
         ShiftHistoryDialog(shifts = shifts, onDismiss = { showShiftHistory = false })
     }
 
-    // DIALOG PRINTER UTAMA
     if (showPrinterDialog) {
         AlertDialog(
             onDismissRequest = { showPrinterDialog = false },
@@ -181,7 +184,6 @@ fun SettingsScreen(
         )
     }
     
-    // DIALOG PRINTER DAPUR
     if (showKitchenDialog) {
         AlertDialog(
             onDismissRequest = { showKitchenDialog = false },
@@ -219,7 +221,6 @@ fun SettingsScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // HIGH CONTRAST
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Mode Kontras Tinggi", style = MaterialTheme.typography.titleMedium)
@@ -229,26 +230,18 @@ fun SettingsScreen(
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     
-                    // DARK MODE
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Mode Gelap", style = MaterialTheme.typography.titleMedium); Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() })
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     
-                    // UI SCALE (FONT)
                     Column {
                         Text("Ukuran Font (Aksesibilitas)", style = MaterialTheme.typography.titleMedium)
-                        Slider(
-                            value = uiScale,
-                            onValueChange = { onChangeUiScale(it) },
-                            valueRange = 0.8f..1.5f,
-                            steps = 6
-                        )
+                        Slider(value = uiScale, onValueChange = { onChangeUiScale(it) }, valueRange = 0.8f..1.5f, steps = 6)
                         Text("Skala: ${(uiScale * 100).toInt()}%", fontSize = 12.sp, color = Color.Gray)
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                    // BAHASA
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Bahasa", style = MaterialTheme.typography.titleMedium)
                         Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text(if (language == "in") "Indonesia" else "English") }
@@ -344,20 +337,45 @@ fun SettingsScreen(
                         Text("Diskon otomatis pada jam tertentu.", fontSize = 12.sp, color = Color.Gray)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = hhStart, onValueChange = { hhStart = it; settingsManager.happyHourStart = it }, 
-                                label = { Text("Mulai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
-                            )
-                            OutlinedTextField(
-                                value = hhEnd, onValueChange = { hhEnd = it; settingsManager.happyHourEnd = it }, 
-                                label = { Text("Selesai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
-                            )
+                            OutlinedTextField(value = hhStart, onValueChange = { hhStart = it; settingsManager.happyHourStart = it }, label = { Text("Mulai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
+                            OutlinedTextField(value = hhEnd, onValueChange = { hhEnd = it; settingsManager.happyHourEnd = it }, label = { Text("Selesai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(value = hhDiscount, onValueChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 }, label = { Text("Diskon (%) cth: 10") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    }
+                }
+            }
+
+            // FITUR BARU: MAX DISCOUNT CAP & MULTI CURRENCY
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Keamanan Diskon & Mata Uang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
-                            value = hhDiscount, onValueChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 }, 
-                            label = { Text("Diskon (%) cth: 10") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
+                            value = maxDiscountCap,
+                            onValueChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
+                            label = { Text("Max Diskon (Rp) - isi 0 jika tanpa batas") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Aktifkan Multi-Currency (USD)")
+                            Switch(checked = enableMultiCurrency, onCheckedChange = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it })
+                        }
+                        if (enableMultiCurrency) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = exchangeRateUsd,
+                                onValueChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
+                                label = { Text("Kurs 1 USD ke IDR") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -398,14 +416,8 @@ fun SettingsScreen(
                     Text("Ekspor atau impor daftar produk sekaligus menggunakan file CSV.", fontSize = 12.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = { csvDataToExport = viewModel.exportProductsToCsv(); createCsvLauncher.launch("Zokas_Produk_${System.currentTimeMillis()}.csv") }, 
-                            modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
-                        ) { Text("EKSPOR CSV") }
-                        Button(
-                            onClick = { openCsvLauncher.launch(arrayOf("text/*", "text/csv", "application/csv")) }, 
-                            modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                        ) { Text("IMPOR CSV") }
+                        Button(onClick = { csvDataToExport = viewModel.exportProductsToCsv(); createCsvLauncher.launch("Zokas_Produk_${System.currentTimeMillis()}.csv") }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("EKSPOR CSV") }
+                        Button(onClick = { openCsvLauncher.launch(arrayOf("text/*", "text/csv", "application/csv")) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("IMPOR CSV") }
                     }
                 }
             }
@@ -444,28 +456,13 @@ fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) ->
             Column {
                 Text("Masukkan PIN baru (6 digit):")
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = newPin, onValueChange = { if (it.length <= 6) { newPin = it; error = "" } },
-                    label = { Text("PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
+                OutlinedTextField(value = newPin, onValueChange = { if (it.length <= 6) { newPin = it; error = "" } }, label = { Text("PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = confirmPin, onValueChange = { if (it.length <= 6) { confirmPin = it; error = "" } },
-                    label = { Text("Konfirmasi PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, isError = error.isNotEmpty(),
-                    shape = RoundedCornerShape(12.dp)
-                )
+                OutlinedTextField(value = confirmPin, onValueChange = { if (it.length <= 6) { confirmPin = it; error = "" } }, label = { Text("Konfirmasi PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, isError = error.isNotEmpty(), shape = RoundedCornerShape(12.dp))
                 if (error.isNotEmpty()) { Text(error, color = Color.Red, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
             }
         },
-        confirmButton = {
-            Button(
-                onClick = { if (newPin.length == 6 && newPin == confirmPin) { onSave(newPin) } else { error = "PIN harus 6 digit dan sama!" } },
-                colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-            ) { Text("SIMPAN PIN") }
-        },
+        confirmButton = { Button(onClick = { if (newPin.length == 6 && newPin == confirmPin) { onSave(newPin) } else { error = "PIN harus 6 digit dan sama!" } }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) { Text("SIMPAN PIN") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
 }

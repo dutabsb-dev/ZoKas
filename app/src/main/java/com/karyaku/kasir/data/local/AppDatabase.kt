@@ -16,9 +16,11 @@ import androidx.room.RoomDatabase
         CustomerEntity::class,
         TransactionItemEntity::class,
         VoucherEntity::class,    
-        HoldOrderEntity::class   
+        HoldOrderEntity::class,
+        RawMaterialEntity::class, // TAMBAHAN
+        ProductBomEntity::class   // TAMBAHAN
     ], 
-    version = 16, // UPDATE VERSI KE 16
+    version = 17, // UPDATE VERSI
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

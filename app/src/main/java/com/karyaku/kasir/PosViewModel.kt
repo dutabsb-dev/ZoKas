@@ -14,7 +14,9 @@ data class CartItem(
     var quantity: Int = 1, 
     var isSelectedForSplit: Boolean = false,
     var notes: String = "",
-    var selectedVariation: String = "" // FITUR BARU: Varian terpilih
+    var selectedVariation: String = "",
+    var serialNumber: String = "",
+    var assignedStaff: String = "" 
 )
 
 class PosViewModel(
@@ -31,58 +33,46 @@ class PosViewModel(
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
+    private val _rawMaterials = MutableStateFlow<List<RawMaterialEntity>>(emptyList())
+    val rawMaterials: StateFlow<List<RawMaterialEntity>> = _rawMaterials.asStateFlow()
+
     val inventoryValue: StateFlow<Long> = _products.map { products ->
         products.sumOf { it.stock * it.costPrice }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     private val _bestSellers = MutableStateFlow<List<BestSellerData>>(emptyList())
     val bestSellers: StateFlow<List<BestSellerData>> = _bestSellers.asStateFlow()
-
     private val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
-
     private val _users = MutableStateFlow<List<UserEntity>>(emptyList())
     val users: StateFlow<List<UserEntity>> = _users.asStateFlow()
-
     private val _holdOrders = MutableStateFlow<List<HoldOrderEntity>>(emptyList())
     val holdOrders: StateFlow<List<HoldOrderEntity>> = _holdOrders.asStateFlow()
-
     private val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
     val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
 
     private val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
-
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
     private val _discount = MutableStateFlow(0L)
     val discount: StateFlow<Long> = _discount.asStateFlow()
-
     private val _voucherDiscount = MutableStateFlow(0L)
     val voucherDiscount: StateFlow<Long> = _voucherDiscount.asStateFlow()
-
     private val _appliedVoucher = MutableStateFlow("")
     val appliedVoucher: StateFlow<String> = _appliedVoucher.asStateFlow()
-
     private val _selectedTable = MutableStateFlow("Take-Away")
     val selectedTable: StateFlow<String> = _selectedTable.asStateFlow()
-
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
-
     private val _selectedCustomer = MutableStateFlow<CustomerEntity?>(null)
     val selectedCustomer: StateFlow<CustomerEntity?> = _selectedCustomer.asStateFlow()
-
     private val _pointsUsed = MutableStateFlow(0)
     val pointsUsed: StateFlow<Int> = _pointsUsed.asStateFlow()
-
     private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
     val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
-
     private val _activeShift = MutableStateFlow<ShiftEntity?>(null)
     val activeShift: StateFlow<ShiftEntity?> = _activeShift.asStateFlow()
-
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
@@ -132,6 +122,7 @@ class PosViewModel(
             checkActiveShift()
         }
         viewModelScope.launch { productDao.getAllProducts().collectLatest { _products.value = it } }
+        viewModelScope.launch { productDao.getAllRawMaterials().collectLatest { _rawMaterials.value = it } }
         viewModelScope.launch { transactionDao.getAllTransactions().collectLatest { _transactions.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().collectLatest { _customers.value = it } }
@@ -146,10 +137,36 @@ class PosViewModel(
 
     fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
-            val product = productDao.getProductByBarcode(barcode)
+            var cleanBarcode = barcode
+            var parsedExpiry = 0L
+            var parsedBatch = ""
+
+            val gs1Regex = Regex("""\(01\)(\d+)\(17\)(\d{6})\(10\)([A-Za-z0-9]+)""")
+            val match = gs1Regex.find(barcode)
+            
+            if (match != null) {
+                cleanBarcode = match.groupValues[1]
+                val expiryStr = match.groupValues[2]
+                parsedBatch = match.groupValues[3]
+                
+                try {
+                    val year = 2000 + expiryStr.substring(0, 2).toInt()
+                    val month = expiryStr.substring(2, 4).toInt() - 1
+                    val day = expiryStr.substring(4, 6).toInt()
+                    val cal = java.util.Calendar.getInstance()
+                    cal.set(year, month, day, 23, 59, 59)
+                    parsedExpiry = cal.timeInMillis
+                } catch (e: Exception) { }
+            }
+
+            val product = productDao.getProductByBarcode(cleanBarcode)
             if (product != null) {
-                if (product.stock > 0) {
-                    addToCart(product)
+                if (product.stock > 0 || product.isService) {
+                    val finalProduct = if (parsedExpiry > 0) {
+                        product.copy(expiryDate = parsedExpiry, batchNumber = parsedBatch)
+                    } else product
+                    
+                    addToCart(finalProduct)
                     onResult(true, "Berhasil tambah: ${product.name}")
                 } else {
                     onResult(false, "Stok ${product.name} habis!")
@@ -163,18 +180,47 @@ class PosViewModel(
     fun updateCartItemNotes(product: ProductEntity, notes: String) {
         val currentCart = _cart.value.toMutableList()
         val idx = currentCart.indexOfFirst { it.product.id == product.id }
-        if (idx != -1) {
-            currentCart[idx] = currentCart[idx].copy(notes = notes)
-            _cart.value = currentCart
-        }
+        if (idx != -1) { currentCart[idx] = currentCart[idx].copy(notes = notes); _cart.value = currentCart }
     }
 
     fun updateCartItemVariation(product: ProductEntity, variation: String) {
         val currentCart = _cart.value.toMutableList()
         val idx = currentCart.indexOfFirst { it.product.id == product.id }
-        if (idx != -1) {
-            currentCart[idx] = currentCart[idx].copy(selectedVariation = variation)
-            _cart.value = currentCart
+        if (idx != -1) { currentCart[idx] = currentCart[idx].copy(selectedVariation = variation); _cart.value = currentCart }
+    }
+
+    fun updateCartItemSerial(product: ProductEntity, serial: String) {
+        val currentCart = _cart.value.toMutableList()
+        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        if (idx != -1) { currentCart[idx] = currentCart[idx].copy(serialNumber = serial); _cart.value = currentCart }
+    }
+
+    fun updateCartItemStaff(product: ProductEntity, staff: String) {
+        val currentCart = _cart.value.toMutableList()
+        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        if (idx != -1) { currentCart[idx] = currentCart[idx].copy(assignedStaff = staff); _cart.value = currentCart }
+    }
+
+    fun mergeOrder(tableA: String, tableB: String) {
+        viewModelScope.launch {
+            val orderA = _holdOrders.value.find { it.tableName == tableA }
+            val orderB = _holdOrders.value.find { it.tableName == tableB }
+            
+            if (orderA != null && orderB != null) {
+                val jsonA = JSONArray(orderA.cartJson)
+                val jsonB = JSONArray(orderB.cartJson)
+                for (i in 0 until jsonB.length()) { jsonA.put(jsonB.getJSONObject(i)) }
+                
+                holdOrderDao.deleteHoldOrder(orderB.id)
+                holdOrderDao.insertHoldOrder(orderA.copy(tableName = tableA, cartJson = jsonA.toString()))
+            }
+        }
+    }
+
+    // FITUR BARU: Tambah Resep BOM
+    fun addBom(productId: Long, rawMaterialId: Long, qty: Double) {
+        viewModelScope.launch {
+            productDao.insertProductBom(ProductBomEntity(productId = productId, rawMaterialId = rawMaterialId, quantityUsed = qty))
         }
     }
 
@@ -239,9 +285,7 @@ class PosViewModel(
     }
 
     fun logCashDrawerOpen(user: UserEntity) {
-        viewModelScope.launch {
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "BUKA LACI MANUAL (No Sale)"))
-        }
+        viewModelScope.launch { userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "BUKA LACI MANUAL (No Sale)")) }
     }
 
     fun saveHoldOrder(customerName: String) {
@@ -254,6 +298,8 @@ class PosViewModel(
                 jsonObj.put("quantity", item.quantity)
                 jsonObj.put("variation", item.selectedVariation)
                 jsonObj.put("notes", item.notes)
+                jsonObj.put("serial", item.serialNumber)
+                jsonObj.put("staff", item.assignedStaff)
                 jsonArray.put(jsonObj)
             }
             val holdOrder = HoldOrderEntity(tableName = _selectedTable.value, customerName = customerName, cartJson = jsonArray.toString())
@@ -273,8 +319,10 @@ class PosViewModel(
                 val qty = obj.getInt("quantity")
                 val variation = obj.optString("variation", "")
                 val notes = obj.optString("notes", "")
+                val serial = obj.optString("serial", "")
+                val staff = obj.optString("staff", "")
                 val product = _products.value.find { it.id == productId }
-                if (product != null) newCart.add(CartItem(product, qty, selectedVariation = variation, notes = notes))
+                if (product != null) newCart.add(CartItem(product, qty, selectedVariation = variation, notes = notes, serialNumber = serial, assignedStaff = staff))
             }
             _cart.value = newCart
             _selectedTable.value = order.tableName
@@ -325,14 +373,9 @@ class PosViewModel(
             _discount.value = (pointsToRedeem * 1000).toLong()
         }
     }
-    fun addCustomer(name: String, phone: String) {
-        viewModelScope.launch { customerDao.insertCustomer(CustomerEntity(name = name, phone = phone)) }
-    }
+    fun addCustomer(name: String, phone: String) { viewModelScope.launch { customerDao.insertCustomer(CustomerEntity(name = name, phone = phone)) } }
 
-    fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> {
-        return transactionItemDao.getItemsByTransaction(transactionId)
-    }
-
+    fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> { return transactionItemDao.getItemsByTransaction(transactionId) }
     fun checkActiveShift() { viewModelScope.launch { _activeShift.value = userDao.getActiveShift() } }
 
     suspend fun login(pin: String): UserEntity? {
@@ -341,33 +384,10 @@ class PosViewModel(
         return user
     }
 
-    fun updatePin(user: UserEntity, newPin: String) {
-        viewModelScope.launch {
-            userDao.updatePin(user.id, newPin)
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN"))
-        }
-    }
-
-    fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) {
-        viewModelScope.launch {
-            userDao.insertUser(UserEntity(name = name, pin = pin, role = role))
-            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name"))
-        }
-    }
-
-    fun updateUser(user: UserEntity, adminUser: UserEntity) {
-        viewModelScope.launch {
-            userDao.updateUser(user)
-            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "EDIT KARYAWAN: ${user.name}"))
-        }
-    }
-
-    fun deleteUser(user: UserEntity, adminUser: UserEntity) {
-        viewModelScope.launch {
-            userDao.deleteUser(user)
-            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "HAPUS KARYAWAN: ${user.name}"))
-        }
-    }
+    fun updatePin(user: UserEntity, newPin: String) { viewModelScope.launch { userDao.updatePin(user.id, newPin); userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN")) } }
+    fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) { viewModelScope.launch { userDao.insertUser(UserEntity(name = name, pin = pin, role = role)); userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name")) } }
+    fun updateUser(user: UserEntity, adminUser: UserEntity) { viewModelScope.launch { userDao.updateUser(user); userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "EDIT KARYAWAN: ${user.name}")) } }
+    fun deleteUser(user: UserEntity, adminUser: UserEntity) { viewModelScope.launch { userDao.deleteUser(user); userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "HAPUS KARYAWAN: ${user.name}")) } }
 
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch {
@@ -406,11 +426,13 @@ class PosViewModel(
         }
     }
 
-    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, userId: Long, userName: String) {
+    // PERBAIKAN PARAMETER isService dan isCombo
+    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, userId: Long, userName: String) {
         viewModelScope.launch {
             productDao.insertProduct(ProductEntity(
                 name = name, price = price, stock = stock, category = category, costPrice = costPrice, 
-                barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry
+                barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
+                isService = isService, isCombo = isCombo
             ))
             userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name"))
         }
@@ -435,9 +457,9 @@ class PosViewModel(
         val idx = currentCart.indexOfFirst { it.product.id == product.id }
         if (idx != -1) {
             val item = currentCart[idx]
-            if (item.quantity < item.product.stock) currentCart[idx] = item.copy(quantity = item.quantity + 1)
+            if (item.quantity < item.product.stock || item.product.isService) currentCart[idx] = item.copy(quantity = item.quantity + 1)
         } else {
-            if (product.stock > 0) currentCart.add(CartItem(product))
+            if (product.stock > 0 || product.isService) currentCart.add(CartItem(product))
         }
         _cart.value = currentCart
     }
@@ -467,7 +489,6 @@ class PosViewModel(
         }
     }
 
-    // FITUR BARU: Perhitungan Total Harga + Tiering + Happy Hour + Promo
     fun getTotalPrice(): Long {
         val subtotal = _cart.value.sumOf { it.product.price * it.quantity }
         val tax = (subtotal - _discount.value - _voucherDiscount.value) * (_taxPercent.value / 100.0)
@@ -480,6 +501,7 @@ class PosViewModel(
         userName: String,
         isSplitBill: Boolean = false,
         method: String = "CASH",
+        maxDiscountCap: Long = 0L,
         onSuccess: (TransactionEntity) -> Unit
     ) {
         val itemsToProcess = if (isSplitBill) _cart.value.filter { it.isSelectedForSplit } else _cart.value
@@ -489,23 +511,19 @@ class PosViewModel(
         var totalCommission = 0L
         var promoDiscount = 0L
 
-        // Hitung Promo & Komisi per Item
         itemsToProcess.forEach { item ->
             val itemSubtotal = item.product.price * item.quantity
             subtotal += itemSubtotal
             totalCommission += (item.product.commissionPerItem * item.quantity)
 
-            // LOGIKA PROMO ENGINE
             if (item.product.promoType == "BOGO" && item.quantity >= 2) {
                 val freeItems = item.quantity / 2
                 promoDiscount += freeItems * item.product.price
             } else if (item.product.promoType == "TIERED" && item.quantity >= item.product.promoMinQty) {
-                val discAmount = (itemSubtotal * item.product.promoValue) / 100
-                promoDiscount += discAmount
+                promoDiscount += (itemSubtotal * item.product.promoValue) / 100
             }
         }
 
-        // Customer Tiering
         var tierDiscount = 0L
         val customer = _selectedCustomer.value
         if (customer != null) {
@@ -514,7 +532,12 @@ class PosViewModel(
             else if (customer.points >= 100) tierDiscount = (subtotal * 0.02).toLong()
         }
 
-        val currentDiscount = if (isSplitBill) promoDiscount else (_discount.value + _voucherDiscount.value + tierDiscount + promoDiscount)
+        var currentDiscount = if (isSplitBill) promoDiscount else (_discount.value + _voucherDiscount.value + tierDiscount + promoDiscount)
+        
+        if (maxDiscountCap > 0 && currentDiscount > maxDiscountCap) {
+            currentDiscount = maxDiscountCap
+        }
+
         val taxAmount = (subtotal - currentDiscount) * (_taxPercent.value / 100.0)
         val total = (subtotal + taxAmount - currentDiscount).coerceAtLeast(0.0).toLong()
 
@@ -535,7 +558,7 @@ class PosViewModel(
             paymentMethod = method,
             status = status,
             cashierName = userName,
-            totalCommission = totalCommission // Simpan komisi
+            totalCommission = totalCommission
         )
 
         viewModelScope.launch {
@@ -550,10 +573,26 @@ class PosViewModel(
                     quantity = cartItem.quantity,
                     subtotal = cartItem.product.price * cartItem.quantity,
                     costPrice = cartItem.product.costPrice,
-                    notes = if (cartItem.selectedVariation.isNotEmpty()) "Varian: ${cartItem.selectedVariation} | ${cartItem.notes}" else cartItem.notes
+                    notes = if (cartItem.selectedVariation.isNotEmpty()) "Varian: ${cartItem.selectedVariation} | ${cartItem.notes}" else cartItem.notes,
+                    serialNumber = cartItem.serialNumber,
+                    assignedStaff = cartItem.assignedStaff
                 )
             }
             transactionItemDao.insertTransactionItems(itemEntities)
+
+            // POTONG BAHAN BAKU (BOM)
+            itemsToProcess.forEach { item ->
+                if (!item.product.isService && !item.product.isCombo) {
+                    val boms = productDao.getBomForProduct(item.product.id)
+                    boms.forEach { bom ->
+                        val material = _rawMaterials.value.find { it.id == bom.rawMaterialId }
+                        if (material != null) {
+                            val newStock = (material.stock - (bom.quantityUsed * item.quantity)).coerceAtLeast(0.0)
+                            productDao.updateRawMaterialStock(material.id, newStock)
+                        }
+                    }
+                }
+            }
 
             itemsToProcess.forEach { item ->
                 val product = _products.value.find { it.id == item.product.id }
@@ -569,16 +608,10 @@ class PosViewModel(
                 customerDao.updateCustomerPoints(customer.id, finalPoints)
             }
 
-            // Tambah Komisi ke Kasir
-            if (totalCommission > 0) {
-                userDao.addCommission(userId, totalCommission)
-            }
+            if (totalCommission > 0) { userDao.addCommission(userId, totalCommission) }
 
             userDao.insertAuditLog(
-                AuditLogEntity(
-                    userId = userId, userName = userName,
-                    action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName) | Komisi: ${formatRupiah(totalCommission)}"
-                )
+                AuditLogEntity(userId = userId, userName = userName, action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName)")
             )
 
             if (isSplitBill) {
@@ -614,14 +647,12 @@ class PosViewModel(
             val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
             itemsToRestore.forEach { item ->
                 val product = _products.value.find { it.name == item.productName }
-                if (product != null) {
-                    productDao.updateStock(product.id, product.stock + item.quantity)
-                }
+                if (product != null) { productDao.updateStock(product.id, product.stock + item.quantity) }
             }
 
             transactionDao.refundTransaction(transaction.id)
-            userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name})"))
-            onResult(true, "Refund berhasil! Stok telah dikembalikan.")
+            userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "REFUND TRANSAKSI #${transaction.id}"))
+            onResult(true, "Refund berhasil!")
         }
     }
 
@@ -636,14 +667,12 @@ class PosViewModel(
             val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
             itemsToRestore.forEach { item ->
                 val product = _products.value.find { it.name == item.productName }
-                if (product != null) {
-                    productDao.updateStock(product.id, product.stock + item.quantity)
-                }
+                if (product != null) { productDao.updateStock(product.id, product.stock + item.quantity) }
             }
 
             transactionDao.voidTransaction(transaction.id)
-            userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})"))
-            onResult(true, "Transaksi berhasil di-void dan stok dikembalikan.")
+            userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "VOID TRANSAKSI #${transaction.id}"))
+            onResult(true, "Transaksi berhasil di-void.")
         }
     }
 }

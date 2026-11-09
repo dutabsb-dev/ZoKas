@@ -12,5 +12,8 @@ data class TransactionItemEntity(
     val costPrice: Long = 0,
     val quantity: Int,
     val subtotal: Long,
-    val notes: String = "" // FITUR BARU: Catatan (Less Ice, dll)
+    val notes: String = "",
+    // FITUR BARU
+    val serialNumber: String = "",
+    val assignedStaff: String = ""
 )
