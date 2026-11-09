@@ -28,8 +28,10 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -1041,7 +1043,6 @@ fun ProductFormBottomSheet(
     onSave: (String, Long, Int, String, Long, String, String, Long, Long, Boolean, Boolean) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
-    val context = LocalContext.current
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
     var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
     var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") } 
@@ -1077,17 +1078,32 @@ fun ProductFormBottomSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, 
+        sheetState = sheetState, 
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        // FIX: Menambahkan verticalScroll agar form bisa digulir
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()), // <--- INI KUNCI AGAR BISA SCROLL
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
             Spacer(modifier = Modifier.height(16.dp))
             
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Checkbox(checked = isService, onCheckedChange = { isService = it })
-                Text("Produk Jasa (Tanpa Stok)", modifier = Modifier.clickable { isService = !isService })
-                Spacer(modifier = Modifier.width(16.dp))
-                Checkbox(checked = isCombo, onCheckedChange = { isCombo = it })
-                Text("Produk Combo/Paket", modifier = Modifier.clickable { isCombo = !isCombo })
+            // FIX: Checkbox dibuat vertikal agar teks tidak terlipat
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
+                    Checkbox(checked = isService, onCheckedChange = { isService = it })
+                    Text("Produk Jasa (Tanpa Stok)", fontSize = 14.sp)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
+                    Checkbox(checked = isCombo, onCheckedChange = { isCombo = it })
+                    Text("Produk Combo/Paket", fontSize = 14.sp)
+                }
             }
             
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
@@ -1101,11 +1117,14 @@ fun ProductFormBottomSheet(
             OutlinedTextField(value = costPrice, onValueChange = { if (it.length <= 10) costPrice = it }, label = { Text("Harga Beli / Modal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Jika bukan Jasa, tampilkan input Stok
             if (!isService) {
-                OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                 Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
             }
+            
+            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = commission, onValueChange = { if (it.length <= 10) commission = it }, label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -1121,16 +1140,22 @@ fun ProductFormBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = { 
-                val p = price.toLongOrNull() ?: 0L
-                val cp = costPrice.toLongOrNull() ?: 0L
-                val s = if (isService) 0 else stock.toIntOrNull() ?: 0
-                val c = commission.toLongOrNull() ?: 0L
-                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo) 
-            }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange), shape = RoundedCornerShape(12.dp)) {
+            Button(
+                onClick = { 
+                    val p = price.toLongOrNull() ?: 0L
+                    val cp = costPrice.toLongOrNull() ?: 0L
+                    val s = if (isService) 0 else stock.toIntOrNull() ?: 0
+                    val c = commission.toLongOrNull() ?: 0L
+                    if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo) 
+                }, 
+                modifier = Modifier.fillMaxWidth().height(56.dp), 
+                enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, 
+                colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange), 
+                shape = RoundedCornerShape(12.dp)
+            ) {
                 Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp)) // Spasi bawah agar tidak tertutup navigasi keyboard
         }
     }
 }
