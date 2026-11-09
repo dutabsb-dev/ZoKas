@@ -11,13 +11,12 @@ data class TransactionEntity(
     val cashReceived: Long,
     val changeAmount: Long,
     val customerName: String = "Pelanggan Umum",
-    val status: String = "SUCCESS", // SUCCESS, VOIDED, REFUNDED, UNPAID
+    val status: String = "SUCCESS", 
     val totalCost: Long = 0,
     val tableName: String = "Take-Away",
     val voucherCode: String = "",
-    val taxAmount: Long = 0,
-    val paymentMethod: String = "CASH", // CASH, BON, QRIS
+    val taxAmount: Long = 0,          
+    val paymentMethod: String = "CASH", 
     val cashierName: String = "Kasir",
-    // FITUR BARU: Total komisi dari transaksi ini
     val totalCommission: Long = 0L
 )

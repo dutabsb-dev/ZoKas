@@ -627,16 +627,19 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         }
 
         if (showProductForm) {
-            ProductFormBottomSheet(
-                productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null }, 
-                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo ->
-                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, currentUser.id, currentUser.name)
-                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo), currentUser.id, currentUser.name)
-                    showProductForm = false; productToEdit = null
-                }
-            )
+    ProductFormBottomSheet(
+        productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null }, 
+        onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo ->
+            // PERBAIKAN: Tambahkan isService dan isCombo sebelum currentUser.id
+            if (productToEdit == null) {
+                viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, currentUser.id, currentUser.name)
+            } else {
+                viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo), currentUser.id, currentUser.name)
+            }
+            showProductForm = false; productToEdit = null
         }
-
+    )
+}
         if (productToRestock != null) {
             StockOpnameDialog(product = productToRestock!!, onDismiss = { productToRestock = null }, onSave = { qty -> viewModel.addStock(productToRestock!!, qty, currentUser); productToRestock = null })
         }

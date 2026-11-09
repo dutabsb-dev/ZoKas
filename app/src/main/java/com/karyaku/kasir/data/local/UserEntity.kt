@@ -9,7 +9,6 @@ data class UserEntity(
     val name: String,
     val pin: String,
     val role: String,
-    // FITUR BARU: Akumulasi komisi
     val totalCommission: Long = 0L
 )
 

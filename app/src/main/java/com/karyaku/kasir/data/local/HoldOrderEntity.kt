@@ -8,6 +8,6 @@ data class HoldOrderEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val tableName: String,
     val customerName: String,
-    val cartJson: String, // Menyimpan list keranjang dalam bentuk JSON
+    val cartJson: String, 
     val timestamp: Long = System.currentTimeMillis()
 )
