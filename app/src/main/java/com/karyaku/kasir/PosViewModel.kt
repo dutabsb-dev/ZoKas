@@ -36,6 +36,10 @@ class PosViewModel(
     private val _rawMaterials = MutableStateFlow<List<RawMaterialEntity>>(emptyList())
     val rawMaterials: StateFlow<List<RawMaterialEntity>> = _rawMaterials.asStateFlow()
 
+    // FITUR BARU: Ekspos CashFlow untuk Laporan Keuangan
+    val cashFlows: StateFlow<List<CashFlowEntity>> = cashFlowDao.getAllCashFlows()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val inventoryValue: StateFlow<Long> = _products.map { products ->
         products.sumOf { it.stock * it.costPrice }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
@@ -132,6 +136,13 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllShifts().collectLatest { _shifts.value = it } }
     }
 
+    // FITUR BARU: Tambah Bahan Baku
+    fun addRawMaterial(name: String, stock: Double, unit: String, costPerUnit: Long) {
+        viewModelScope.launch {
+            productDao.insertRawMaterial(RawMaterialEntity(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit))
+        }
+    }
+
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
     fun setTable(table: String) { _selectedTable.value = table }
 
@@ -177,27 +188,21 @@ class PosViewModel(
         }
     }
 
-    fun updateCartItemNotes(product: ProductEntity, notes: String) {
+    fun updateCartItemNotes(product: ProductEntity, variation: String, notes: String) {
         val currentCart = _cart.value.toMutableList()
-        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        val idx = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         if (idx != -1) { currentCart[idx] = currentCart[idx].copy(notes = notes); _cart.value = currentCart }
     }
 
-    fun updateCartItemVariation(product: ProductEntity, variation: String) {
+    fun updateCartItemSerial(product: ProductEntity, variation: String, serial: String) {
         val currentCart = _cart.value.toMutableList()
-        val idx = currentCart.indexOfFirst { it.product.id == product.id }
-        if (idx != -1) { currentCart[idx] = currentCart[idx].copy(selectedVariation = variation); _cart.value = currentCart }
-    }
-
-    fun updateCartItemSerial(product: ProductEntity, serial: String) {
-        val currentCart = _cart.value.toMutableList()
-        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        val idx = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         if (idx != -1) { currentCart[idx] = currentCart[idx].copy(serialNumber = serial); _cart.value = currentCart }
     }
 
-    fun updateCartItemStaff(product: ProductEntity, staff: String) {
+    fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) {
         val currentCart = _cart.value.toMutableList()
-        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        val idx = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         if (idx != -1) { currentCart[idx] = currentCart[idx].copy(assignedStaff = staff); _cart.value = currentCart }
     }
 
@@ -217,7 +222,6 @@ class PosViewModel(
         }
     }
 
-    // FITUR BARU: Tambah Resep BOM
     fun addBom(productId: Long, rawMaterialId: Long, qty: Double) {
         viewModelScope.launch {
             productDao.insertProductBom(ProductBomEntity(productId = productId, rawMaterialId = rawMaterialId, quantityUsed = qty))
@@ -426,7 +430,6 @@ class PosViewModel(
         }
     }
 
-    // PERBAIKAN PARAMETER isService dan isCombo
     fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, userId: Long, userName: String) {
         viewModelScope.launch {
             productDao.insertProduct(ProductEntity(
@@ -452,21 +455,25 @@ class PosViewModel(
         }
     }
 
-    fun addToCart(product: ProductEntity) {
+    fun addToCart(product: ProductEntity, variation: String = "") {
         val currentCart = _cart.value.toMutableList()
-        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        val idx = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         if (idx != -1) {
             val item = currentCart[idx]
-            if (item.quantity < item.product.stock || item.product.isService) currentCart[idx] = item.copy(quantity = item.quantity + 1)
+            if (item.quantity < item.product.stock || item.product.isService) {
+                currentCart[idx] = item.copy(quantity = item.quantity + 1)
+            }
         } else {
-            if (product.stock > 0 || product.isService) currentCart.add(CartItem(product))
+            if (product.stock > 0 || product.isService) {
+                currentCart.add(CartItem(product, selectedVariation = variation))
+            }
         }
         _cart.value = currentCart
     }
 
-    fun removeFromCart(product: ProductEntity) {
+    fun removeFromCart(product: ProductEntity, variation: String) {
         val currentCart = _cart.value.toMutableList()
-        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        val idx = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         if (idx != -1) {
             val item = currentCart[idx]
             if (item.quantity > 1) currentCart[idx] = item.copy(quantity = item.quantity - 1)
@@ -475,13 +482,13 @@ class PosViewModel(
         }
     }
 
-    fun deleteItem(product: ProductEntity) {
-        _cart.value = _cart.value.toMutableList().also { it.removeAll { item -> item.product.id == product.id } }
+    fun deleteItem(product: ProductEntity, variation: String) {
+        _cart.value = _cart.value.toMutableList().also { it.removeAll { item -> item.product.id == product.id && item.selectedVariation == variation } }
     }
 
-    fun toggleSplitSelection(product: ProductEntity) {
+    fun toggleSplitSelection(product: ProductEntity, variation: String) {
         val currentCart = _cart.value.toMutableList()
-        val idx = currentCart.indexOfFirst { it.product.id == product.id }
+        val idx = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         if (idx != -1) {
             val item = currentCart[idx]
             currentCart[idx] = item.copy(isSelectedForSplit = !item.isSelectedForSplit)
@@ -580,7 +587,6 @@ class PosViewModel(
             }
             transactionItemDao.insertTransactionItems(itemEntities)
 
-            // POTONG BAHAN BAKU (BOM)
             itemsToProcess.forEach { item ->
                 if (!item.product.isService && !item.product.isCombo) {
                     val boms = productDao.getBomForProduct(item.product.id)
