@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -60,6 +61,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -202,6 +205,16 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
     var isSplitBillMode by remember { mutableStateOf(false) }
 
     var showMenu by remember { mutableStateOf(false) }
+
+    // FITUR BARU: KAMERA BARCODE SCANNER
+    val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            viewModel.processBarcodeScan(result.contents) { success, msg -> 
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                if (success) keyboardController?.hide()
+            }
+        }
+    }
 
     LaunchedEffect(activeShift) { if (activeShift == null) showOpenShiftDialog = true }
 
@@ -728,6 +741,16 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                                     }, 
                                     onProductLongClick = { showActionDialogFor = it }, 
                                     onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
+                                    onCameraScanClick = {
+                                        val options = ScanOptions()
+                                        options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                        options.setPrompt("Scan Barcode Produk")
+                                        options.setCameraId(0)
+                                        options.setBeepEnabled(false)
+                                        options.setBarcodeImageEnabled(true)
+                                        options.setOrientationLocked(false)
+                                        barcodeLauncher.launch(options)
+                                    },
                                     searchFocusRequester = searchFocusRequester,
                                     lang = lang
                                 ) 
@@ -776,6 +799,16 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                                 }, 
                                 onProductLongClick = { showActionDialogFor = it }, 
                                 onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
+                                onCameraScanClick = {
+                                    val options = ScanOptions()
+                                    options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                    options.setPrompt("Scan Barcode Produk")
+                                    options.setCameraId(0)
+                                    options.setBeepEnabled(false)
+                                    options.setBarcodeImageEnabled(true)
+                                    options.setOrientationLocked(false)
+                                    barcodeLauncher.launch(options)
+                                },
                                 searchFocusRequester = searchFocusRequester,
                                 lang = lang
                             )
@@ -868,6 +901,7 @@ fun ProductCatalog(
     products: List<ProductEntity>, categories: List<String>, selectedCategory: String, 
     onCategorySelect: (String) -> Unit, searchQuery: String, onSearchChange: (String) -> Unit, 
     onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit, onBarcodeScan: (String) -> Unit,
+    onCameraScanClick: () -> Unit,
     searchFocusRequester: FocusRequester,
     lang: String
 ) {
@@ -876,7 +910,12 @@ fun ProductCatalog(
             value = searchQuery, onValueChange = onSearchChange, 
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp).focusRequester(searchFocusRequester), 
             placeholder = { Text("Cari produk / scan barcode... (F1)") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, 
-            trailingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = ZokasGreen) }, singleLine = true, shape = RoundedCornerShape(16.dp), 
+            trailingIcon = { 
+                IconButton(onClick = onCameraScanClick) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Kamera", tint = ZokasGreen) 
+                }
+            }, 
+            singleLine = true, shape = RoundedCornerShape(16.dp), 
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ZokasGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), 
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { if (searchQuery.isNotBlank()) { onBarcodeScan(searchQuery); onSearchChange("") } })
         )

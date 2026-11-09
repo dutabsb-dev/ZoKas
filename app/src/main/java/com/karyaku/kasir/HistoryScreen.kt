@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Warning
@@ -63,12 +65,12 @@ fun HistoryScreen(
     val netProfit by viewModel.netProfit.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
     val users by viewModel.users.collectAsStateWithLifecycle()
+    val cashFlows by viewModel.cashFlows.collectAsStateWithLifecycle() // FITUR BARU: Ambil data kas
 
     val lowStockProducts = remember(products) {
         products.filter { it.stock <= 5 && it.stock >= 0 }
     }
 
-    // Deteksi Produk Expired (< 30 hari)
     val expiringProducts = remember(products) {
         val thirtyDaysFromNow = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000)
         products.filter { it.expiryDate > 0 && it.expiryDate <= thirtyDaysFromNow }
@@ -76,6 +78,7 @@ fun HistoryScreen(
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var dateFilter by remember { mutableStateOf("HARI_INI") }
+    var showFinanceReport by remember { mutableStateOf(false) }
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
@@ -106,11 +109,28 @@ fun HistoryScreen(
             else -> true
         }
     }
+    
+    val filteredCashFlows = cashFlows.filter { cf ->
+        when (dateFilter) {
+            "HARI_INI" -> cf.timestamp >= startOfToday
+            "BULAN_INI" -> cf.timestamp >= startOfMonth
+            "7_HARI" -> cf.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
+            "30_HARI" -> cf.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
+            else -> true
+        }
+    }
 
     val validTransactions = filteredTransactions.filter { it.status == "SUCCESS" }
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
     val totalHpp = validTransactions.sumOf { it.totalCost }
     val labaKotor = totalOmzet - totalHpp
+
+    // FITUR BARU: HITUNG ARUS KAS
+    val totalCashIn = filteredCashFlows.filter { it.type == "IN" }.sumOf { it.amount }
+    val totalCashOut = filteredCashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
+    val penjualanTunai = validTransactions.filter { it.paymentMethod == "CASH" }.sumOf { it.totalPrice }
+    val penjualanNonTunai = validTransactions.filter { it.paymentMethod != "CASH" }.sumOf { it.totalPrice }
+    val labaBersih = labaKotor - totalCashOut
 
     if (selectedTransaction != null) {
         TransactionDetailDialog(
@@ -119,6 +139,48 @@ fun HistoryScreen(
             settingsManager = settingsManager,
             currentUser = currentUser,
             onDismiss = { selectedTransaction = null }
+        )
+    }
+
+    // DIALOG LAPORAN KEUANGAN ADVANCE
+    if (showFinanceReport) {
+        AlertDialog(
+            onDismissRequest = { showFinanceReport = false },
+            icon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = ZokasGreen) },
+            title = { Text("Laporan Keuangan") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text("Periode: ${dateFilter.replace("_", " ")}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Gray)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    Text("PENDAPATAN", fontWeight = FontWeight.Bold, color = ZokasGreen)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Penjualan Tunai"); Text(formatRupiah(penjualanTunai))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Penjualan Non-Tunai"); Text(formatRupiah(penjualanNonTunai))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Kas Masuk (Tambahan)", fontSize = 12.sp); Text(formatRupiah(totalCashIn), fontSize = 12.sp)
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Text("PENGELUARAN", fontWeight = FontWeight.Bold, color = Color.Red)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Total HPP (Modal)"); Text(formatRupiah(totalHpp))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Kas Keluar (Operasional)", fontSize = 12.sp); Text(formatRupiah(totalCashOut), fontSize = 12.sp)
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("LABA BERSIH", fontWeight = FontWeight.Bold, color = ZokasOrange)
+                        Text(formatRupiah(labaBersih), fontWeight = FontWeight.Bold, color = ZokasOrange)
+                    }
+                }
+            },
+            confirmButton = { Button(onClick = { showFinanceReport = false }) { Text("Tutup") } }
         )
     }
 
@@ -146,18 +208,15 @@ fun HistoryScreen(
                     Text("${validTransactions.size} Transaksi Sukses", color = Color.White, fontSize = 12.sp)
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
-
-                    val totalCash = validTransactions.filter { it.paymentMethod == "CASH" }.sumOf { it.totalPrice }
-                    val totalBon = validTransactions.filter { it.paymentMethod == "BON" }.sumOf { it.totalPrice }
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Pembayaran Tunai:", color = Color.White, fontSize = 12.sp)
-                        Text(formatRupiah(totalCash), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(formatRupiah(penjualanTunai), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Pembayaran BON:", color = Color.White, fontSize = 12.sp)
-                        Text(formatRupiah(totalBon), color = Color(0xFFFFCDD2), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("Pembayaran BON/QRIS:", color = Color.White, fontSize = 12.sp)
+                        Text(formatRupiah(penjualanNonTunai), color = Color(0xFFFFCDD2), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
@@ -169,12 +228,22 @@ fun HistoryScreen(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Laba Bersih:", color = Color.White, fontSize = 14.sp)
-                        Text(formatRupiah(netProfit), color = Color(0xFF00E676), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(formatRupiah(labaBersih), color = Color(0xFF00E676), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total Modal (HPP):", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                         Text(formatRupiah(totalHpp), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { showFinanceReport = true }, 
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("LIHAT LAPORAN KEUANGAN DETAIL", fontSize = 12.sp)
                     }
                 }
             }
@@ -254,7 +323,6 @@ fun HistoryScreen(
             }
         }
 
-        // LAPORAN BARANG EXPIRED
         if (expiringProducts.isNotEmpty()) {
             item { Text("⚠️ Barang Mendekati Expired", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Red) }
             item {
@@ -287,7 +355,6 @@ fun HistoryScreen(
             }
         }
 
-        // KINERJA KASIR & KOMISI
         item { Text("👨‍💼 Kinerja & Komisi Kasir (All-Time)", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -579,7 +646,6 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     )
 }
 
-// FUNGSI BARU: EXPORT PDF PREMIUM
 private suspend fun exportTransactionsToPdfDetailed(
     context: Context,
     uri: Uri,
@@ -600,7 +666,6 @@ private suspend fun exportTransactionsToPdfDetailed(
         var canvas = page.canvas
         var y = 40f
 
-        // HEADER TOKO
         val storeName = if (settingsManager.isPro) settingsManager.storeName ?: "ZoKas" else "ZoKas (Gratis)"
         val storeAddr = if (settingsManager.isPro) settingsManager.storeAddress ?: "" else ""
         val storePhone = if (settingsManager.isPro) settingsManager.storePhone ?: "" else ""
@@ -608,7 +673,7 @@ private suspend fun exportTransactionsToPdfDetailed(
         canvas.drawText(storeName.uppercase(), 297.5f, y, headerPaint); y += 20f
         if (storeAddr.isNotBlank()) { canvas.drawText(storeAddr, 297.5f, y, textPaint.apply { textAlign = Paint.Align.CENTER }); y += 14f }
         if (storePhone.isNotBlank()) { canvas.drawText("Telp: $storePhone", 297.5f, y, textPaint); y += 14f }
-        textPaint.textAlign = Paint.Align.LEFT // Reset align
+        textPaint.textAlign = Paint.Align.LEFT
 
         y += 10f
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 10f
@@ -631,11 +696,9 @@ private suspend fun exportTransactionsToPdfDetailed(
                 canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
             }
 
-            // Header Transaksi
             canvas.drawText("Struk #${tx.id} | ${dateFormat.format(Date(tx.timestamp))}", 40f, y, subHeaderPaint); y += 16f
             canvas.drawText("Pelanggan: ${tx.customerName} | Kasir: ${tx.cashierName}", 40f, y, textPaint); y += 16f
 
-            // Ambil item transaksi dari database
             val items = viewModel.getTransactionItems(tx.id).first()
             
             if (items.isEmpty()) {
@@ -652,7 +715,6 @@ private suspend fun exportTransactionsToPdfDetailed(
                     val itemText = "  ${item.quantity}x ${item.productName} @ ${formatRupiah(item.price)}"
                     val subtotalText = formatRupiah(item.subtotal)
                     canvas.drawText(itemText, 40f, y, textPaint)
-                    // Rata kanan untuk subtotal
                     val textWidth = textPaint.measureText(subtotalText)
                     canvas.drawText(subtotalText, 555f - textWidth, y, textPaint)
                     y += 14f
@@ -666,7 +728,6 @@ private suspend fun exportTransactionsToPdfDetailed(
             y += 4f
             canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
             
-            // Footer Transaksi
             val totalText = "TOTAL: ${formatRupiah(tx.totalPrice)}"
             val totalWidth = subHeaderPaint.measureText(totalText)
             canvas.drawText(totalText, 555f - totalWidth, y, subHeaderPaint); y += 24f
