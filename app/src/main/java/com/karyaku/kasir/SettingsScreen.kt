@@ -336,8 +336,25 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = { showShiftHistory = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey)) {
-                        Text("Riwayat Shift Kasir")
+                        Text(LanguageManager.tr("riwayat_shift", lang))
                     }
+                    
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    // TAMBAHKAN TOGGLE BIOMETRIK DI SINI
+                    var isBiometricEnabled by remember { mutableStateOf(settingsManager.isBiometricEnabled) }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Switch(
+                            checked = isBiometricEnabled, 
+                            onCheckedChange = { 
+                                isBiometricEnabled = it
+                                settingsManager.isBiometricEnabled = it 
+                            }, 
+                            colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
+                        )
+                    }
+                    
                     Spacer(modifier = Modifier.height(8.dp))
                     // SEMUA FITUR TERBUKA (PRO DIHAPUS)
                     Button(onClick = { showRawMaterialDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) {

@@ -44,7 +44,7 @@ fun LoginScreen(
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
 
-    // PERBAIKAN: Tampilkan tombol jika HP punya hardware sensor (meskipun belum didaftarkan)
+    // Cek perangkat mendukung Biometrik atau tidak
     val biometricManager = BiometricManager.from(context)
     val canUseBiometric = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
 
@@ -130,8 +130,8 @@ fun LoginScreen(
                 }
             }
 
-            // Tombol Login Sidik Jari
-            if (canUseBiometric && activity != null) {
+            // HANYA MUNCUL JIKA HARDWARE ADA DAN DIAKTIFKAN DI PENGATURAN
+            if (settingsManager.isBiometricEnabled && canUseBiometric && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = {
