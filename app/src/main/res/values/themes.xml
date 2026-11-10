@@ -1,4 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Kita gunakan tema dasar, nanti akan di-override oleh Compose Theme -->
-    <style name="Theme.AppKasir" parent="Theme.AppCompat.DayNight.NoActionBar" />
+    <!-- Tema dasar aplikasi menggunakan AppCompat -->
+    <style name="Theme.ZoKas" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+    </style>
 </resources>

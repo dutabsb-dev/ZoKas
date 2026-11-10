@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Aturan untuk backup ke Google Drive -->
+    </cloud-backup>
+    <device-transfer>
+        <!-- Aturan untuk transfer antar device -->
+    </device-transfer>
+</data-extraction-rules>
