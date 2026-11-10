@@ -193,7 +193,7 @@ fun MainNavigation(
         topBar = {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth() // PERBAIKAN: fillMaxWidth, BUKAN fillMaxSize
+                    .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
                     .background(MaterialTheme.colorScheme.background),
                 verticalAlignment = Alignment.CenterVertically
@@ -309,6 +309,8 @@ fun MainNavigation(
     }
 }
 
+// TAMBAHKAN ANOTASI @OptIn DI SINI
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
