@@ -48,7 +48,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.platform.LocalConfiguration // <-- IMPORT BARU UNTUK CEK LAYAR
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -89,8 +89,8 @@ fun formatRupiah(amount: Long): String {
 @Composable
 fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity, onLogout: () -> Unit) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current // <-- CEK KONFIGURASI LAYAR
-    val isPhone = configuration.screenWidthDp < 600
+    val configuration = LocalConfiguration.current
+    val isPhone = configuration.screenWidthDp < 600 // Deteksi HP vs Tablet
     
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
@@ -282,7 +282,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 icon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) },
                 title = { Text("${LanguageManager.tr("pilih_varian", lang)} (${product.name})") },
                 text = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                         Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                             Spacer(modifier = Modifier.width(60.dp))
                             cols.forEach { col -> Text(col, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) }
@@ -324,7 +324,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 icon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) },
                 title = { Text(LanguageManager.tr("pilih_varian", lang)) },
                 text = {
-                    Column {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         Text("Silakan pilih varian untuk ${product.name}:", fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(16.dp))
                         variants.forEach { variant ->
@@ -356,7 +356,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 icon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) },
                 title = { Text("Gabung Meja (Merge)") },
                 text = {
-                    Column {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         Text("Pilih Meja Utama (Tujuan):")
                         tables.forEach { t -> 
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -415,7 +415,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 icon = { Icon(Icons.Default.Person, contentDescription = null) },
                 title = { Text("Tugaskan Staf / Terapis") },
                 text = {
-                    Column {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         Text("Pilih staf untuk ${productToAssignStaff!!.name}:")
                         Spacer(modifier = Modifier.height(8.dp))
                         staffList.forEach { user ->
@@ -449,7 +449,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen) },
                 title = { Text("Laporan Tutup Kasir") },
                 text = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                         Text("Kasir: ${shift.userName}", fontWeight = FontWeight.Bold)
                         Text("Waktu Buka: ${SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(shift.startTime))}")
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -536,7 +536,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 containerColor = MaterialTheme.colorScheme.surface,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
-                Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                Column(modifier = Modifier.padding(bottom = 32.dp).verticalScroll(rememberScrollState())) {
                     Text(text = showActionDialogFor!!.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
                     ActionMenuItem(icon = Icons.Default.Edit, title = "Edit Produk", subtitle = "Ubah detail", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
                     ActionMenuItem(icon = Icons.Default.Add, title = "Tambah Stok", subtitle = "Restock barang", color = AmberAccent, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
@@ -647,7 +647,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         if (showHoldDialog) { HoldOrderDialog(holdOrders = holdOrders, onDismiss = { showHoldDialog = false }, onResume = { viewModel.resumeHoldOrder(it); showHoldDialog = false }) }
 
         if (completedTransaction != null) {
-            ReceiptDialog(transaction = completedTransaction!!, viewModel = viewModel, storeName = if (settingsManager.isPro) settingsManager.storeName ?: "" else "ZoKas", storeAddress = if (settingsManager.isPro) settingsManager.storeAddress ?: "" else "", storePhone = if (settingsManager.isPro) settingsManager.storePhone ?: "" else "", storeFooter = if (settingsManager.isPro) settingsManager.storeFooter ?: "" else "", settingsManager = settingsManager, onDismiss = { completedTransaction = null })
+            ReceiptDialog(transaction = completedTransaction!!, viewModel = viewModel, storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "", storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "", settingsManager = settingsManager, onDismiss = { completedTransaction = null })
         }
 
         if (showPaymentSheet) {
@@ -695,7 +695,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         }
 
         // --- MAIN UI (TANPA SCAFFOLD GANDA) ---
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().imePadding()) {
             
             // HEADER KASIR LOKAL (Dibuat lebih tipis agar tidak boros tempat)
             Row(
@@ -746,8 +746,9 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
             // BoxWithConstraints dengan weight(1f) agar mengisi sisa layar tanpa menyisakan gap
             BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                val isTablet = maxWidth > 600.dp
-                if (isTablet) {
+                // isTablet ATAU Landscape HP
+                val isWideScreen = maxWidth > 600.dp 
+                if (isWideScreen) {
                     Row(modifier = Modifier.fillMaxSize()) {
                         Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
                             ProductCatalog(
@@ -842,9 +843,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             }
         }
         
-        // FLOATING ACTION BUTTON UNTUK KERANJANG (Hanya di HP)
-        // PERBAIKAN: Gunakan isPhone bukan maxWidth
-        if (cart.isNotEmpty() && !showCartOnPhone && isPhone) {
+        // FLOATING ACTION BUTTON UNTUK KERANJANG (Hanya di HP Portrait)
+        if (cart.isNotEmpty() && !showCartOnPhone && isPhone && configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
             ExtendedFloatingActionButton(
                 onClick = { showCartOnPhone = true },
                 modifier = Modifier
@@ -1063,7 +1063,7 @@ fun CartList(
     onEditNotes: (ProductEntity) -> Unit, onEditSerial: (ProductEntity) -> Unit, onAssignStaff: (ProductEntity) -> Unit,
     lang: String
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).imePadding()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (isTableModeEnabled) {
                 OutlinedButton(onClick = onTableClick, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, AmberAccent)) { Text(selectedTable, fontWeight = FontWeight.Bold, color = AmberAccent, fontSize = 11.sp, maxLines = 1) }
@@ -1197,7 +1197,14 @@ fun ProductFormBottomSheet(
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .imePadding() // Mencegah tertutup keyboard
+                .verticalScroll(rememberScrollState()), 
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -1273,7 +1280,14 @@ fun PaymentBottomSheet(
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .imePadding() // Mencegah tertutup keyboard
+                .verticalScroll(rememberScrollState()), 
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text("Pembayaran", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
             Spacer(modifier = Modifier.height(16.dp))
             Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = SlateGrey)
@@ -1340,7 +1354,7 @@ fun TableSelectorDialog(currentTable: String, occupiedTables: List<String>, onDi
         onDismissRequest = onDismiss, icon = { Icon(Icons.Default.List, contentDescription = null, tint = AmberAccent) },
         title = { Text("Pilih Meja") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 for (table in tables) {
                     val isOccupied = occupiedTables.contains(table)
                     OutlinedButton(
@@ -1365,7 +1379,7 @@ fun VoucherDialog(currentCode: String, onDismiss: () -> Unit, onApply: (String) 
     AlertDialog(
         onDismissRequest = onDismiss, icon = { Icon(Icons.Default.Star, contentDescription = null, tint = EmeraldGreen) },
         title = { Text("Gunakan Voucher") },
-        text = { Column { OutlinedTextField(value = code, onValueChange = { code = it.uppercase() }, label = { Text("Kode Voucher") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)) } },
+        text = { Column(modifier = Modifier.verticalScroll(rememberScrollState())) { OutlinedTextField(value = code, onValueChange = { code = it.uppercase() }, label = { Text("Kode Voucher") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)) } },
         confirmButton = { Button(onClick = { onApply(code) }, enabled = code.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("TERAPKAN") } },
         dismissButton = { if (currentCode.isNotEmpty()) TextButton(onClick = onRemove) { Text("Hapus", color = ErrorRed) } else TextButton(onClick = onDismiss) { Text("Tutup") } }
     )
@@ -1429,7 +1443,7 @@ fun CashFlowDialog(onDismiss: () -> Unit, onSave: (String, Long, String) -> Unit
     AlertDialog(
         onDismissRequest = onDismiss, icon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, title = { Text("Kas Keluar / Masuk") },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { type = "OUT" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (type == "OUT") AmberAccent else SlateGrey), shape = RoundedCornerShape(12.dp)) { Text("Keluar") }; Button(onClick = { type = "IN" }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = if (type == "IN") EmeraldGreen else SlateGrey), shape = RoundedCornerShape(12.dp)) { Text("Masuk") } }
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(value = amount, onValueChange = { if (it.length <= 10) amount = it }, label = { Text("Nominal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
@@ -1447,7 +1461,7 @@ fun DiscountDialog(currentDiscount: Long, onDismiss: () -> Unit, onSave: (Long) 
     var amount by remember { mutableStateOf(if (currentDiscount > 0) currentDiscount.toString() else "") }
     AlertDialog(
         onDismissRequest = onDismiss, icon = { Icon(Icons.Default.Star, contentDescription = null, tint = EmeraldGreen) }, title = { Text("Diskon Manual") },
-        text = { Column { Text("Masukkan nominal:"); Spacer(modifier = Modifier.height(8.dp)); OutlinedTextField(value = amount, onValueChange = { if (it.length <= 10) amount = it }, label = { Text("Nominal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) } },
+        text = { Column(modifier = Modifier.verticalScroll(rememberScrollState())) { Text("Masukkan nominal:"); Spacer(modifier = Modifier.height(8.dp)); OutlinedTextField(value = amount, onValueChange = { if (it.length <= 10) amount = it }, label = { Text("Nominal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) } },
         confirmButton = { Button(onClick = { onSave(amount.toLongOrNull() ?: 0L) }, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text("SIMPAN") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )

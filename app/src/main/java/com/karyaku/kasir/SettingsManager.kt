@@ -6,12 +6,16 @@ import android.content.SharedPreferences
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("zokas_prefs", Context.MODE_PRIVATE)
 
-    // ... (Variabel lama tetap ada) ...
-    var isPro: Boolean get() = prefs.getBoolean("is_pro", false); set(value) = prefs.edit().putBoolean("is_pro", value).apply()
+    // MODE PRO DIHAPUS, OTOMATIS SELALU TRUE
+    val isPro: Boolean get() = true
+
     var isDarkMode: Boolean get() = prefs.getBoolean("dark_mode", false); set(value) = prefs.edit().putBoolean("dark_mode", value).apply()
     var isHighContrast: Boolean get() = prefs.getBoolean("high_contrast", false); set(value) = prefs.edit().putBoolean("high_contrast", value).apply()
     var uiScale: Float get() = prefs.getFloat("ui_scale", 1.0f); set(value) = prefs.edit().putFloat("ui_scale", value).apply()
-    var language: String get() = prefs.getString("language", "in") ?: "in"; set(value) = prefs.edit().putString("language", value).apply()
+    
+    // DEFAULT BAHASA INGGRIS
+    var language: String get() = prefs.getString("language", "en") ?: "en"; set(value) = prefs.edit().putString("language", value).apply()
+    
     var storeName: String? get() = prefs.getString("store_name", "ZoKas Store"); set(value) = prefs.edit().putString("store_name", value).apply()
     var storeAddress: String? get() = prefs.getString("store_address", "Jl. Raya UMKM No. 123"); set(value) = prefs.edit().putString("store_address", value).apply()
     var storePhone: String? get() = prefs.getString("store_phone", "081234567890"); set(value) = prefs.edit().putString("store_phone", value).apply()
@@ -25,9 +29,8 @@ class SettingsManager(context: Context) {
     var requirePinForDiscount: Boolean get() = prefs.getBoolean("pin_for_discount", true); set(value) = prefs.edit().putBoolean("pin_for_discount", value).apply()
     var lastAutoBackup: Long get() = prefs.getLong("last_auto_backup", 0L); set(value) = prefs.edit().putLong("last_auto_backup", value).apply()
 
-    // FITUR MODULAR BARU
     var isTableModeEnabled: Boolean
-        get() = prefs.getBoolean("table_mode_enabled", true) // Default aktif untuk restoran
+        get() = prefs.getBoolean("table_mode_enabled", true)
         set(value) = prefs.edit().putBoolean("table_mode_enabled", value).apply()
 
     var maxDiscountCap: Long

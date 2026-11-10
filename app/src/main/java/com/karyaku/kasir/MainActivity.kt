@@ -72,7 +72,6 @@ class MainActivity : ComponentActivity() {
                 var isHighContrast by remember { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by remember { mutableStateOf(settingsManager.uiScale) }
                 var language by remember { mutableStateOf(settingsManager.language) }
-                var isPro by remember { mutableStateOf(settingsManager.isPro) }
                 var currentUser by remember { mutableStateOf<UserEntity?>(null) }
 
                 val currentDensity = LocalDensity.current
@@ -88,13 +87,11 @@ class MainActivity : ComponentActivity() {
                             database = database,
                             settingsManager = settingsManager,
                             currentUser = currentUser,
-                            isPro = isPro,
                             isDarkMode = isDarkMode,
                             isHighContrast = isHighContrast,
                             uiScale = uiScale,
                             language = language,
                             onUserChange = { currentUser = it },
-                            onUpgrade = { isPro = true; settingsManager.isPro = true },
                             onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
                             onToggleHighContrast = { isHighContrast = !isHighContrast; settingsManager.isHighContrast = isHighContrast },
                             onChangeUiScale = { uiScale = it; settingsManager.uiScale = it },
@@ -116,13 +113,11 @@ fun MainContent(
     database: AppDatabase,
     settingsManager: SettingsManager,
     currentUser: UserEntity?,
-    isPro: Boolean,
     isDarkMode: Boolean,
     isHighContrast: Boolean,
     uiScale: Float,
     language: String,
     onUserChange: (UserEntity?) -> Unit,
-    onUpgrade: () -> Unit,
     onToggleDarkMode: () -> Unit,
     onToggleHighContrast: () -> Unit,
     onChangeUiScale: (Float) -> Unit,
@@ -153,7 +148,6 @@ fun MainContent(
                 settingsManager = settingsManager,
                 currentUser = currentUser,
                 onLogout = { onUserChange(null) },
-                isPro = isPro,
                 isDarkMode = isDarkMode,
                 isHighContrast = isHighContrast,
                 uiScale = uiScale,
@@ -161,8 +155,7 @@ fun MainContent(
                 onToggleHighContrast = onToggleHighContrast,
                 onChangeUiScale = onChangeUiScale,
                 language = language,
-                onToggleLanguage = onToggleLanguage,
-                onUpgradeClick = onUpgrade
+                onToggleLanguage = onToggleLanguage
             )
         }
     }
@@ -174,7 +167,6 @@ fun MainNavigation(
     settingsManager: SettingsManager,
     currentUser: UserEntity,
     onLogout: () -> Unit,
-    isPro: Boolean,
     isDarkMode: Boolean,
     isHighContrast: Boolean,
     uiScale: Float,
@@ -182,8 +174,7 @@ fun MainNavigation(
     onToggleHighContrast: () -> Unit,
     onChangeUiScale: (Float) -> Unit,
     language: String,
-    onToggleLanguage: () -> Unit,
-    onUpgradeClick: () -> Unit
+    onToggleLanguage: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
@@ -205,25 +196,14 @@ fun MainNavigation(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (settingsManager.isPro) settingsManager.storeName ?: "ZoKas" else "ZoKas",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        if (settingsManager.isPro) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.Default.WorkspacePremium,
-                                contentDescription = "Pro Version",
-                                tint = AmberAccent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
                     Text(
-                        text = "Kasir Pintar & Laporan Keuangan",
+                        text = settingsManager.storeName ?: "ZoKas",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Smart POS & Financial Report",
                         fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -236,7 +216,7 @@ fun MainNavigation(
                 tonalElevation = 8.dp
             ) {
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Storefront, contentDescription = "Kasir") },
+                    icon = { Icon(Icons.Default.Storefront, contentDescription = "Cashier") },
                     label = { Text("Kasir") },
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
@@ -247,7 +227,7 @@ fun MainNavigation(
                     )
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Inventory, contentDescription = "Produk") },
+                    icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
                     label = { Text("Produk") },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
@@ -258,7 +238,7 @@ fun MainNavigation(
                     )
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Assessment, contentDescription = "Laporan") },
+                    icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
                     label = { Text("Laporan") },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
@@ -269,7 +249,7 @@ fun MainNavigation(
                     )
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Pengaturan") },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                     label = { Text("Pengaturan") },
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
@@ -294,9 +274,9 @@ fun MainNavigation(
                 when (targetTab) {
                     0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout)
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
-                    2 -> HistoryScreen(transactions = transactions, isPro = isPro, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
+                    2 -> HistoryScreen(transactions = transactions, isPro = true, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     3 -> SettingsScreen(
-                        settingsManager = settingsManager, isPro = isPro, onUpgradeClick = onUpgradeClick,
+                        settingsManager = settingsManager,
                         isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
                         isHighContrast = isHighContrast, onToggleHighContrast = onToggleHighContrast,
                         uiScale = uiScale, onChangeUiScale = onChangeUiScale,
@@ -309,7 +289,6 @@ fun MainNavigation(
     }
 }
 
-// TAMBAHKAN ANOTASI @OptIn DI SINI
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {

@@ -34,11 +34,10 @@ fun LoginScreen(
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
 
-    // Tambahkan imePadding agar aman dari keyboard
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding()
+            .imePadding() // Mencegah tertutup keyboard
             .verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center
     ) {
@@ -46,7 +45,7 @@ fun LoginScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(color = EmeraldGreen)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Menyiapkan database...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Menyiapkan data...", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             Column(
@@ -66,7 +65,6 @@ fun LoginScreen(
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { 
-                        // Hanya izinkan angka dan maksimal 6 digit
                         if (it.length <= 6 && it.all { char -> char.isDigit() }) {
                             pin = it 
                             errorMessage = ""
@@ -104,7 +102,7 @@ fun LoginScreen(
                                     onLoginSuccess(user)
                                 } else {
                                     errorMessage = "PIN salah! Silakan coba lagi."
-                                    pin = "" // Reset input jika salah
+                                    pin = "" 
                                 }
                             }
                         } else {

@@ -29,10 +29,10 @@
         android:theme="@style/Theme.ZoKas"
         tools:targetApi="31">
         
+        <!-- Orientasi portrait DIHAPUS agar bisa Landscape -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="portrait" 
             android:windowSoftInputMode="adjustResize"
             tools:ignore="LockedOrientationActivity">
             <intent-filter>
@@ -41,7 +41,6 @@
             </intent-filter>
         </activity>
 
-        <!-- FILE PROVIDER UNTUK SHARING AMAN (WAJIB ANDROID 7+) -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

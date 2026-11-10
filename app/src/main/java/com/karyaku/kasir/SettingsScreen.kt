@@ -17,8 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,8 +50,6 @@ fun Context.findActivity(): Activity? {
 @Composable
 fun SettingsScreen(
     settingsManager: SettingsManager,
-    isPro: Boolean,
-    onUpgradeClick: () -> Unit,
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit,
     isHighContrast: Boolean,
@@ -68,6 +64,7 @@ fun SettingsScreen(
     viewModel: PosViewModel
 ) {
     val context = LocalContext.current
+    val lang = language
     
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
@@ -233,17 +230,13 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .imePadding(),
+            .imePadding(), // Mencegah tertutup keyboard
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item { 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Pengaturan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                if (isPro) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.WorkspacePremium, contentDescription = "Pro", tint = AmberAccent, modifier = Modifier.size(24.dp))
-                }
             }
         }
 
@@ -346,10 +339,9 @@ fun SettingsScreen(
                         Text("Riwayat Shift Kasir")
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    if (isPro) {
-                        Button(onClick = { showRawMaterialDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) {
-                            Text("Kelola Bahan Baku (Resep)")
-                        }
+                    // SEMUA FITUR TERBUKA (PRO DIHAPUS)
+                    Button(onClick = { showRawMaterialDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) {
+                        Text("Kelola Bahan Baku (Resep)")
                     }
                 }
             }
@@ -383,71 +375,57 @@ fun SettingsScreen(
             }
         }
 
-        if (isPro) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Profil Toko & Struk", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = taxPercent, 
-                            onValueChange = { taxPercent = it; val tax = it.toDoubleOrNull() ?: 0.0; settingsManager.taxPercent = tax; viewModel.setTaxPercent(tax) }, 
-                            label = { Text("Pajak (%)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
-                        )
-                    }
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Profil Toko & Struk", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text("Nama Toko") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it; settingsManager.storeAddress = it }, label = { Text("Alamat Toko") }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storePhone, onValueChange = { storePhone = it; settingsManager.storePhone = it }, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = storeFooter, onValueChange = { storeFooter = it; settingsManager.storeFooter = it }, label = { Text("Pesan Bawah Struk") }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = taxPercent, 
+                        onValueChange = { taxPercent = it; val tax = it.toDoubleOrNull() ?: 0.0; settingsManager.taxPercent = tax; viewModel.setTaxPercent(tax) }, 
+                        label = { Text("Pajak (%)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
+                    )
                 }
             }
-            
-            item {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Promo Happy Hour", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Diskon otomatis pada jam tertentu.", fontSize = 12.sp, color = SlateGrey)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(value = hhStart, onValueChange = { hhStart = it; settingsManager.happyHourStart = it }, label = { Text("Mulai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
-                            OutlinedTextField(value = hhEnd, onValueChange = { hhEnd = it; settingsManager.happyHourEnd = it }, label = { Text("Selesai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(value = hhDiscount, onValueChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 }, label = { Text("Diskon (%)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+        }
+        
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Promo Happy Hour", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Diskon otomatis pada jam tertentu.", fontSize = 12.sp, color = SlateGrey)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = hhStart, onValueChange = { hhStart = it; settingsManager.happyHourStart = it }, label = { Text("Mulai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
+                        OutlinedTextField(value = hhEnd, onValueChange = { hhEnd = it; settingsManager.happyHourEnd = it }, label = { Text("Selesai (HH:mm)") }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = hhDiscount, onValueChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 }, label = { Text("Diskon (%)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                 }
             }
+        }
 
-            item {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Keamanan Diskon", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = maxDiscountCap,
-                            onValueChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
-                            label = { Text("Maksimal Diskon (Rp) - 0 Tanpa Batas") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                    }
-                }
-            }
-        } else {
-            item {
-                Card(colors = CardDefaults.cardColors(containerColor = EmeraldGreen.copy(alpha = 0.1f)), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Versi Gratis", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmeraldGreen)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Upgrade ke Pro untuk membuka fitur lengkap (Bahan Baku, Profil Toko, Multi-Currency).", textAlign = TextAlign.Center, fontSize = 12.sp, color = SlateGreyDark)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onUpgradeClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent)) { Text("Beli Versi Pro", fontWeight = FontWeight.Bold) }
-                    }
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Keamanan Diskon", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = maxDiscountCap,
+                        onValueChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
+                        label = { Text("Maksimal Diskon (Rp) - 0 Tanpa Batas") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
                 }
             }
         }
