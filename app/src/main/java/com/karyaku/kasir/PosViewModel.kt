@@ -85,7 +85,6 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    // STATE UNTUK LOADING LOGIN
     private val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
@@ -126,11 +125,6 @@ class PosViewModel(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Cek jika database user kosong (biasanya terjadi pada setup awal)
-                if (userDao.getAllUsersOnce().isEmpty()) {
-                    // Jangan buat default user di sini jika SetupWizard digunakan.
-                    // SetupWizard akan menghandle pembuatan user.
-                }
                 if (voucherDao.getVoucherByCode("PROMO10") == null) {
                     voucherDao.insertVoucher(VoucherEntity("PROMO10", 10000))
                 }
@@ -153,10 +147,28 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllShifts().catch { _shifts.value = emptyList() }.collectLatest { _shifts.value = it } }
     }
 
+    // FUNGSI BARU UNTUK SETUP WIZARD
+    fun registerInitialSetup(adminName: String, adminPin: String, cashierName: String, cashierPin: String, onSuccess: (UserEntity) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val admin = UserEntity(name = adminName, pin = adminPin, role = "OWNER")
+                val cashier = UserEntity(name = cashierName, pin = cashierPin, role = "CASHIER")
+                
+                val adminId = userDao.insertUser(admin)
+                userDao.insertUser(cashier)
+                
+                withContext(Dispatchers.Main) {
+                    onSuccess(admin.copy(id = adminId))
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
     fun setTable(table: String) { _selectedTable.value = table }
 
-    // FUNGSI BARU UNTUK BIOMETRIC LOGIN
     suspend fun getFirstOwner(): UserEntity? {
         return try {
             userDao.getAllUsersOnce().firstOrNull { it.role == "OWNER" }
@@ -567,7 +579,6 @@ class PosViewModel(
         }
     }
 
-    // FUNGSI ADD PRODUCT DIPERBARUI DENGAN IMAGE PATH
     fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, imagePath: String, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {

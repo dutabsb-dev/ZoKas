@@ -21,7 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Money // GANTI ACCOUNTBOX DENGAN MONEY
+import androidx.compose.material.icons.filled.Money
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,7 +51,6 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     transactions: List<TransactionEntity>,
-    isPro: Boolean,
     viewModel: PosViewModel,
     settingsManager: SettingsManager,
     currentUser: UserEntity
@@ -78,11 +77,28 @@ fun HistoryScreen(
     }
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
-    var dateFilter by remember { mutableStateOf("HARI_INI") }
+    var dateFilter by remember { mutableStateOf("TODAY") }
     var showFinanceReport by remember { mutableStateOf(false) }
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
+    // Launcher untuk Ekspor Excel
+    val createExcelLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val success = ExcelExporter.exportTransactionsToExcel(context, uri, transactionsToExport)
+                if (success) {
+                    Toast.makeText(context, "Excel exported successfully!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Failed to export Excel.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Launcher untuk Ekspor PDF
     val createPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri: Uri? ->
@@ -103,20 +119,20 @@ fun HistoryScreen(
 
     val filteredTransactions = transactions.filter { tx ->
         when (dateFilter) {
-            "HARI_INI" -> tx.timestamp >= startOfToday
-            "BULAN_INI" -> tx.timestamp >= startOfMonth
-            "7_HARI" -> tx.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
-            "30_HARI" -> tx.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
+            "TODAY" -> tx.timestamp >= startOfToday
+            "THIS_MONTH" -> tx.timestamp >= startOfMonth
+            "7_DAYS" -> tx.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
+            "30_DAYS" -> tx.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
             else -> true
         }
     }
     
     val filteredCashFlows = cashFlows.filter { cf ->
         when (dateFilter) {
-            "HARI_INI" -> cf.timestamp >= startOfToday
-            "BULAN_INI" -> cf.timestamp >= startOfMonth
-            "7_HARI" -> cf.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
-            "30_HARI" -> cf.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
+            "TODAY" -> cf.timestamp >= startOfToday
+            "THIS_MONTH" -> cf.timestamp >= startOfMonth
+            "7_DAYS" -> cf.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
+            "30_DAYS" -> cf.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
             else -> true
         }
     }
@@ -145,41 +161,41 @@ fun HistoryScreen(
     if (showFinanceReport) {
         AlertDialog(
             onDismissRequest = { showFinanceReport = false },
-            icon = { Icon(Icons.Default.Money, contentDescription = null, tint = ZokasGreen) }, // PERBAIKAN IKON
-            title = { Text("Laporan Keuangan") },
+            icon = { Icon(Icons.Default.Money, contentDescription = null, tint = EmeraldGreen) },
+            title = { Text("Financial Report") },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text("Periode: ${dateFilter.replace("_", " ")}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Gray)
+                    Text("Period: ${dateFilter.replace("_", " ")}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SlateGrey)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     
-                    Text("PENDAPATAN", fontWeight = FontWeight.Bold, color = ZokasGreen)
+                    Text("REVENUE", fontWeight = FontWeight.Bold, color = EmeraldGreen)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Penjualan Tunai"); Text(formatRupiah(penjualanTunai))
+                        Text("Cash Sales"); Text(formatRupiah(penjualanTunai))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Penjualan Non-Tunai"); Text(formatRupiah(penjualanNonTunai))
+                        Text("Non-Cash Sales"); Text(formatRupiah(penjualanNonTunai))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Kas Masuk (Tambahan)", fontSize = 12.sp); Text(formatRupiah(totalCashIn), fontSize = 12.sp)
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    Text("PENGELUARAN", fontWeight = FontWeight.Bold, color = Color.Red)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total HPP (Modal)"); Text(formatRupiah(totalHpp))
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Kas Keluar (Operasional)", fontSize = 12.sp); Text(formatRupiah(totalCashOut), fontSize = 12.sp)
+                        Text("Cash In (Additional)", fontSize = 12.sp); Text(formatRupiah(totalCashIn), fontSize = 12.sp)
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                    Text("EXPENSES", fontWeight = FontWeight.Bold, color = ErrorRed)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("LABA BERSIH", fontWeight = FontWeight.Bold, color = ZokasOrange)
-                        Text(formatRupiah(labaBersih), fontWeight = FontWeight.Bold, color = ZokasOrange)
+                        Text("Total COGS (Cost)"); Text(formatRupiah(totalHpp))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Cash Out (Operational)", fontSize = 12.sp); Text(formatRupiah(totalCashOut), fontSize = 12.sp)
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("NET PROFIT", fontWeight = FontWeight.Bold, color = AmberAccent)
+                        Text(formatRupiah(labaBersih), fontWeight = FontWeight.Bold, color = AmberAccent)
                     }
                 }
             },
-            confirmButton = { Button(onClick = { showFinanceReport = false }) { Text("Tutup") } }
+            confirmButton = { Button(onClick = { showFinanceReport = false }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("Close") } }
         )
     }
 
@@ -187,51 +203,53 @@ fun HistoryScreen(
 
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val filters = listOf("HARI_INI" to "Hari Ini", "BULAN_INI" to "Bulan Ini", "7_HARI" to "7 Hari", "30_HARI" to "30 Hari", "SEMUA" to "Semua")
+                val filters = listOf("TODAY" to "Today", "THIS_MONTH" to "This Month", "7_DAYS" to "7 Days", "30_DAYS" to "30 Days", "ALL" to "All")
                 items(filters.size) { index ->
                     val (key, label) = filters[index]
                     FilterChip(
-                        selected = dateFilter == key, onClick = { dateFilter = key }, label = { Text(label) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = ZokasGreen, selectedLabelColor = Color.White)
+                        selected = dateFilter == key, 
+                        onClick = { dateFilter = key }, 
+                        label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = EmeraldGreen, selectedLabelColor = Color.White)
                     )
                 }
             }
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)), colors = CardDefaults.cardColors(containerColor = ZokasGreen)) {
+            Card(modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)), colors = CardDefaults.cardColors(containerColor = EmeraldGreen)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Omzet", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
-                    Text(text = formatRupiah(totalOmzet), color = ZokasOrange, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text("Total Revenue", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                    Text(text = formatRupiah(totalOmzet), color = AmberAccent, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("${validTransactions.size} Transaksi Sukses", color = Color.White, fontSize = 12.sp)
+                    Text("${validTransactions.size} Successful Transactions", color = Color.White, fontSize = 12.sp)
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Pembayaran Tunai:", color = Color.White, fontSize = 12.sp)
+                        Text("Cash Payment:", color = Color.White, fontSize = 12.sp)
                         Text(formatRupiah(penjualanTunai), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Pembayaran BON/QRIS:", color = Color.White, fontSize = 12.sp)
+                        Text("BON/QRIS Payment:", color = Color.White, fontSize = 12.sp)
                         Text(formatRupiah(penjualanNonTunai), color = Color(0xFFFFCDD2), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Laba Kotor:", color = Color.White, fontSize = 14.sp)
+                        Text("Gross Profit:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(labaKotor), color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Laba Bersih:", color = Color.White, fontSize = 14.sp)
+                        Text("Net Profit:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(labaBersih), color = Color(0xFF00E676), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total Modal (HPP):", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Text("Total COGS:", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                         Text(formatRupiah(totalHpp), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                     }
                     
@@ -239,10 +257,10 @@ fun HistoryScreen(
                     Button(
                         onClick = { showFinanceReport = true }, 
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange),
-                        shape = RoundedCornerShape(8.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("LIHAT LAPORAN KEUANGAN DETAIL", fontSize = 12.sp)
+                        Text("VIEW DETAILED FINANCIAL REPORT", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -252,10 +270,10 @@ fun HistoryScreen(
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("Nilai Aset Gudang (HPP)", fontWeight = FontWeight.Bold)
-                        Text("Total nilai stok barang saat ini", fontSize = 10.sp, color = Color.Gray)
+                        Text("Inventory Asset Value (COGS)", fontWeight = FontWeight.Bold)
+                        Text("Total current stock value", fontSize = 10.sp, color = SlateGrey)
                     }
-                    Text(formatRupiah(inventoryValue), fontWeight = FontWeight.Bold, color = ZokasGreen)
+                    Text(formatRupiah(inventoryValue), fontWeight = FontWeight.Bold, color = EmeraldGreen)
                 }
             }
         }
@@ -263,7 +281,7 @@ fun HistoryScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Grafik 7 Hari Terakhir", fontWeight = FontWeight.Bold)
+                    Text("Last 7 Days Chart", fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
                     Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
                         val days = 7
@@ -304,7 +322,7 @@ fun HistoryScreen(
                             val barHeight = (sale.toFloat() / effectiveMax) * chartHeight
                             
                             drawRect(
-                                color = ZokasGreen,
+                                color = EmeraldGreen,
                                 topLeft = Offset(x, chartHeight - barHeight),
                                 size = Size(barWidth, barHeight)
                             )
@@ -323,16 +341,16 @@ fun HistoryScreen(
         }
 
         if (expiringProducts.isNotEmpty()) {
-            item { Text("⚠️ Barang Mendekati Expired", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Red) }
+            item { Text("⚠️ Expiring Items", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = ErrorRed) }
             item {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         expiringProducts.forEachIndexed { index, product ->
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(product.name, fontWeight = FontWeight.Bold, color = Color.Black)
-                                Text(SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(product.expiryDate)), color = Color.Red, fontWeight = FontWeight.Bold)
+                                Text(SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(product.expiryDate)), color = ErrorRed, fontWeight = FontWeight.Bold)
                             }
-                            if (index < expiringProducts.size - 1) HorizontalDivider(color = Color.Red.copy(alpha = 0.2f))
+                            if (index < expiringProducts.size - 1) HorizontalDivider(color = ErrorRed.copy(alpha = 0.2f))
                         }
                     }
                 }
@@ -346,32 +364,32 @@ fun HistoryScreen(
                         Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Peringatan Stok Menipis!", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            Text("Ada ${lowStockProducts.size} produk dengan stok <= 5.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("Low Stock Warning!", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("There are ${lowStockProducts.size} products with stock <= 5.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
                 }
             }
         }
 
-        item { Text("👨‍💼 Kinerja & Komisi Kasir (All-Time)", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        item { Text("Staff Performance & Commission (All-Time)", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     val validUsers = users.filter { it.role != "OWNER" }
                     if (validUsers.isEmpty()) {
-                        Text("Belum ada data kasir.", fontSize = 12.sp, color = Color.Gray)
+                        Text("No cashier data yet.", fontSize = 12.sp, color = SlateGrey)
                     } else {
                         validUsers.forEachIndexed { index, user ->
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Column {
                                     Text(user.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     val userTxCount = validTransactions.count { it.cashierName == user.name }
-                                    Text("$userTxCount Transaksi (Periode Ini)", fontSize = 11.sp, color = Color.Gray)
+                                    Text("$userTxCount Transactions (Current Period)", fontSize = 11.sp, color = SlateGrey)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("Total Komisi", fontSize = 10.sp, color = Color.Gray)
-                                    Text(formatRupiah(user.totalCommission), fontWeight = FontWeight.ExtraBold, color = ZokasGreen)
+                                    Text("Total Commission", fontSize = 10.sp, color = SlateGrey)
+                                    Text(formatRupiah(user.totalCommission), fontWeight = FontWeight.ExtraBold, color = EmeraldGreen)
                                 }
                             }
                             if (index < validUsers.size - 1) HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -381,36 +399,35 @@ fun HistoryScreen(
             }
         }
 
-        if (isPro && filteredTransactions.isNotEmpty()) {
+        // EKSPOR DATA (Tanpa Cek isPro)
+        if (filteredTransactions.isNotEmpty()) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = {
-                            try {
-                                val csvHeader = "ID,Tanggal,Total Belanja,Uang Tunai,Kembalian,Pelanggan,Status,Komisi\n"
-                                val csvData = filteredTransactions.joinToString("\n") { tx ->
-                                    "${tx.id},${dateFormat.format(Date(tx.timestamp))},${tx.totalPrice},${tx.cashReceived},${tx.changeAmount},${tx.customerName},${tx.status},${tx.totalCommission}"
-                                }
-                                val fullCsv = csvHeader + csvData
-                                val sendIntent = Intent().apply { action = Intent.ACTION_SEND; putExtra(Intent.EXTRA_TEXT, fullCsv); type = "text/plain" }
-                                val shareIntent = Intent.createChooser(sendIntent, "Ekspor Laporan (CSV)")
-                                if (activity != null) activity.startActivity(shareIntent) else context.startActivity(shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            } catch (e: Exception) { Toast.makeText(context, "Gagal ekspor: ${e.message}", Toast.LENGTH_LONG).show() }
+                        onClick = { 
+                            transactionsToExport = filteredTransactions
+                            createExcelLauncher.launch("Zokas_Report_${System.currentTimeMillis()}.xlsx") 
                         },
-                        modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
-                    ) { Text("CSV") }
+                        modifier = Modifier.weight(1f), 
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)
+                    ) { Text("EXCEL") }
+                    
                     Button(
-                        onClick = { transactionsToExport = filteredTransactions; createPdfLauncher.launch("Zokas_Laporan_${System.currentTimeMillis()}.pdf") },
-                        modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        onClick = { 
+                            transactionsToExport = filteredTransactions
+                            createPdfLauncher.launch("Zokas_Laporan_${System.currentTimeMillis()}.pdf") 
+                        },
+                        modifier = Modifier.weight(1f), 
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                     ) { Text("PDF") }
                 }
             }
         }
 
-        item { Text("Riwayat Transaksi", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        item { Text("Transaction History", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
 
         if (filteredTransactions.isEmpty()) {
-            item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("Tidak ada transaksi pada periode ini.") } }
+            item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("No transactions found for this period.") } }
         } else {
             items(filteredTransactions) { tx ->
                 val isVoided = tx.status == "VOIDED"
@@ -421,15 +438,15 @@ fun HistoryScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Struk #${tx.id}", fontWeight = FontWeight.Bold, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
+                            Text("Receipt #${tx.id}", fontWeight = FontWeight.Bold, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
                             Text(dateFormat.format(Date(tx.timestamp)))
                         }
-                        Text("Pelanggan: ${tx.customerName} | Kasir: ${tx.cashierName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Customer: ${tx.customerName} | Cashier: ${tx.cashierName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Total: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = if (isVoided) Color.Gray else ZokasOrange, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
-                            if (isVoided) Text("VOID", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            if (isUnpaid) Text("BON", color = ZokasOrange, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Total: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = if (isVoided) SlateGrey else AmberAccent, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
+                            if (isVoided) Text("VOID", color = ErrorRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            if (isUnpaid) Text("BON", color = AmberAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }
@@ -461,10 +478,10 @@ fun TransactionDetailDialog(
         ReceiptDialog(
             transaction = transaction,
             viewModel = viewModel,
-            storeName = if (settingsManager.isPro) (settingsManager.storeName ?: "ZoKas") else "ZoKas (Gratis)",
-            storeAddress = if (settingsManager.isPro) (settingsManager.storeAddress ?: "Alamat belum diatur") else "Alamat belum diatur",
-            storePhone = if (settingsManager.isPro) (settingsManager.storePhone ?: "-") else "-",
-            storeFooter = if (settingsManager.isPro) (settingsManager.storeFooter ?: "Terima kasih!") else "Terima kasih!",
+            storeName = settingsManager.storeName ?: "ZoKas",
+            storeAddress = settingsManager.storeAddress ?: "Address not set",
+            storePhone = settingsManager.storePhone ?: "-",
+            storeFooter = settingsManager.storeFooter ?: "Thank you!",
             settingsManager = settingsManager,
             onDismiss = { showReceipt = false }
         )
@@ -491,10 +508,10 @@ fun TransactionDetailDialog(
         var pin by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showRefundPinDialog = false },
-            title = { Text("Otorisasi Refund") },
+            title = { Text("Refund Authorization") },
             text = {
                 Column {
-                    Text("Masukkan PIN Supervisor/Owner:")
+                    Text("Enter Supervisor/Owner PIN:")
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = pin, onValueChange = { pin = it }, label = { Text("PIN") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation())
                 }
@@ -505,9 +522,9 @@ fun TransactionDetailDialog(
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         if (success) onDismiss()
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) { Text("REFUND") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text("REFUND") }
             },
-            dismissButton = { TextButton(onClick = { showRefundPinDialog = false }) { Text("Batal") } }
+            dismissButton = { TextButton(onClick = { showRefundPinDialog = false }) { Text("Cancel") } }
         )
     }
 
@@ -515,12 +532,12 @@ fun TransactionDetailDialog(
         var cash by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showPayBonDialog = false },
-            title = { Text("Pelunasan Bon") },
+            title = { Text("BON Payment") },
             text = {
                 Column {
-                    Text("Total Tagihan: ${formatRupiah(transaction.totalPrice)}")
+                    Text("Total Bill: ${formatRupiah(transaction.totalPrice)}")
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = cash, onValueChange = { cash = it }, label = { Text("Uang Diterima") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(value = cash, onValueChange = { cash = it }, label = { Text("Cash Received") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
             },
             confirmButton = {
@@ -528,16 +545,16 @@ fun TransactionDetailDialog(
                     val c = cash.toLongOrNull() ?: 0L
                     if (c >= transaction.totalPrice) {
                         viewModel.payUnpaidTransaction(transaction, c) {
-                            Toast.makeText(context, "Bon berhasil dilunasi!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "BON paid successfully!", Toast.LENGTH_SHORT).show()
                             showPayBonDialog = false
                             onDismiss()
                         }
                     } else {
-                        Toast.makeText(context, "Uang kurang!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Insufficient cash!", Toast.LENGTH_SHORT).show()
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)) { Text("BAYAR") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("PAY") }
             },
-            dismissButton = { TextButton(onClick = { showPayBonDialog = false }) { Text("Batal") } }
+            dismissButton = { TextButton(onClick = { showPayBonDialog = false }) { Text("Cancel") } }
         )
     }
 
@@ -548,7 +565,7 @@ fun TransactionDetailDialog(
                 if (transaction.status == "SUCCESS" && currentUser.role == "OWNER") {
                     Button(
                         onClick = { showRefundPinDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                     ) {
                         Text("REFUND")
                     }
@@ -557,45 +574,45 @@ fun TransactionDetailDialog(
                 if (transaction.status == "UNPAID") {
                     Button(
                         onClick = { showPayBonDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = ZokasGreen)
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)
                     ) {
-                        Text("BAYAR BON")
+                        Text("PAY BON")
                     }
                 }
 
-                Button(onClick = { showReceipt = true }, colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)) {
+                Button(onClick = { showReceipt = true }, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent)) {
                     Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("CETAK")
+                    Text("PRINT")
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } },
-        title = { Text("Rincian Transaksi #${transaction.id}") },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = { Text("Transaction Details #${transaction.id}") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (transaction.status == "VOIDED") {
-                    Text("TRANSAKSI INI TELAH DIBATALKAN (VOID)", color = Color.Red, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Text("THIS TRANSACTION HAS BEEN VOIDED", color = ErrorRed, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 }
                 if (transaction.status == "UNPAID") {
-                    Text("TRANSAKSI INI BELUM DIBAYAR (BON)", color = ZokasOrange, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Text("THIS TRANSACTION IS UNPAID (BON)", color = AmberAccent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 }
-                Text("Tanggal: ${dateFormat.format(Date(transaction.timestamp))}", fontSize = 12.sp)
-                Text("Pelanggan: ${transaction.customerName}", fontSize = 12.sp)
-                Text("Kasir: ${transaction.cashierName} | ${transaction.tableName}", fontSize = 12.sp)
+                Text("Date: ${dateFormat.format(Date(transaction.timestamp))}", fontSize = 12.sp)
+                Text("Customer: ${transaction.customerName}", fontSize = 12.sp)
+                Text("Cashier: ${transaction.cashierName} | ${transaction.tableName}", fontSize = 12.sp)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 if (items.isEmpty()) {
-                    Text("Memuat rincian...", fontSize = 12.sp, color = Color.Gray)
+                    Text("Loading details...", fontSize = 12.sp, color = SlateGrey)
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
                         items(items) { item ->
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    Text("${item.quantity} x ${formatRupiah(item.price)}", fontSize = 12.sp, color = Color.Gray)
+                                    Text("${item.quantity} x ${formatRupiah(item.price)}", fontSize = 12.sp, color = SlateGrey)
                                     if (item.notes.isNotEmpty()) {
-                                        Text("Cat: ${item.notes}", fontSize = 11.sp, color = Color.Red, fontWeight = FontWeight.Bold)
+                                        Text("Note: ${item.notes}", fontSize = 11.sp, color = ErrorRed, fontWeight = FontWeight.Bold)
                                     }
                                 }
                                 Text(formatRupiah(item.subtotal), fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -608,7 +625,7 @@ fun TransactionDetailDialog(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total:", fontWeight = FontWeight.Bold)
-                    Text(formatRupiah(transaction.totalPrice), fontWeight = FontWeight.Bold, color = if (transaction.status == "VOIDED") Color.Gray else ZokasOrange)
+                    Text(formatRupiah(transaction.totalPrice), fontWeight = FontWeight.Bold, color = if (transaction.status == "VOIDED") SlateGrey else AmberAccent)
                 }
             }
         }
@@ -620,15 +637,15 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Otorisasi Supervisor") },
+        title = { Text("Supervisor Authorization") },
         text = {
             Column {
-                Text("Masukkan PIN Supervisor/Owner untuk membatalkan transaksi ini:")
+                Text("Enter Supervisor/Owner PIN to cancel this transaction:")
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { if (it.length <= 6) pin = it },
-                    label = { Text("PIN Supervisor") },
+                    label = { Text("Supervisor PIN") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -637,11 +654,11 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(pin) }, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
-                Text("BATALKAN TRANSAKSI")
+            Button(onClick = { onConfirm(pin) }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) {
+                Text("CANCEL TRANSACTION")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 }
 
@@ -665,22 +682,22 @@ private suspend fun exportTransactionsToPdfDetailed(
         var canvas = page.canvas
         var y = 40f
 
-        val storeName = if (settingsManager.isPro) settingsManager.storeName ?: "ZoKas" else "ZoKas (Gratis)"
-        val storeAddr = if (settingsManager.isPro) settingsManager.storeAddress ?: "" else ""
-        val storePhone = if (settingsManager.isPro) settingsManager.storePhone ?: "" else ""
+        val storeName = settingsManager.storeName ?: "ZoKas"
+        val storeAddr = settingsManager.storeAddress ?: ""
+        val storePhone = settingsManager.storePhone ?: ""
         
         canvas.drawText(storeName.uppercase(), 297.5f, y, headerPaint); y += 20f
         if (storeAddr.isNotBlank()) { canvas.drawText(storeAddr, 297.5f, y, textPaint.apply { textAlign = Paint.Align.CENTER }); y += 14f }
-        if (storePhone.isNotBlank()) { canvas.drawText("Telp: $storePhone", 297.5f, y, textPaint); y += 14f }
+        if (storePhone.isNotBlank()) { canvas.drawText("Phone: $storePhone", 297.5f, y, textPaint); y += 14f }
         textPaint.textAlign = Paint.Align.LEFT
 
         y += 10f
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 10f
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 20f
 
-        canvas.drawText("Laporan Transaksi", 40f, y, subHeaderPaint); y += 16f
-        canvas.drawText("Dicetak: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint); y += 16f
-        canvas.drawText("Jumlah: ${transactions.size} transaksi", 40f, y, textPaint); y += 20f
+        canvas.drawText("Transaction Report", 40f, y, subHeaderPaint); y += 16f
+        canvas.drawText("Printed: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint); y += 16f
+        canvas.drawText("Count: ${transactions.size} transactions", 40f, y, textPaint); y += 20f
         
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
 
@@ -691,17 +708,17 @@ private suspend fun exportTransactionsToPdfDetailed(
                 page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
                 canvas = page.canvas
                 y = 40f
-                canvas.drawText("Laporan Transaksi (Lanjutan)", 40f, y, headerPaint); y += 20f
+                canvas.drawText("Transaction Report (Continued)", 40f, y, headerPaint); y += 20f
                 canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
             }
 
-            canvas.drawText("Struk #${tx.id} | ${dateFormat.format(Date(tx.timestamp))}", 40f, y, subHeaderPaint); y += 16f
-            canvas.drawText("Pelanggan: ${tx.customerName} | Kasir: ${tx.cashierName}", 40f, y, textPaint); y += 16f
+            canvas.drawText("Receipt #${tx.id} | ${dateFormat.format(Date(tx.timestamp))}", 40f, y, subHeaderPaint); y += 16f
+            canvas.drawText("Customer: ${tx.customerName} | Cashier: ${tx.cashierName}", 40f, y, textPaint); y += 16f
 
             val items = viewModel.getTransactionItems(tx.id).first()
             
             if (items.isEmpty()) {
-                canvas.drawText("- (Tidak ada rincian item) -", 50f, y, textPaint); y += 16f
+                canvas.drawText("- (No item details) -", 50f, y, textPaint); y += 16f
             } else {
                 for (item in items) {
                     if (y > 800f) {
@@ -719,7 +736,7 @@ private suspend fun exportTransactionsToPdfDetailed(
                     y += 14f
 
                     if (item.notes.isNotEmpty()) {
-                        canvas.drawText("     *Catatan: ${item.notes}", 40f, y, textPaint); y += 14f
+                        canvas.drawText("     *Note: ${item.notes}", 40f, y, textPaint); y += 14f
                     }
                 }
             }
@@ -735,8 +752,8 @@ private suspend fun exportTransactionsToPdfDetailed(
         pdfDocument.finishPage(page)
         context.contentResolver.openOutputStream(uri)?.use { pdfDocument.writeTo(it) }
         pdfDocument.close()
-        Toast.makeText(context, "PDF Premium berhasil diekspor", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Premium PDF exported successfully", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
-        Toast.makeText(context, "Gagal ekspor PDF: ${e.message}", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "Failed to export PDF: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }

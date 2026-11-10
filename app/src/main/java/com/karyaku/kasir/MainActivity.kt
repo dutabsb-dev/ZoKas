@@ -14,8 +14,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState // <-- IMPORT BARU
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll // <-- IMPORT BARU
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -52,7 +54,7 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // AUTO-BACKUP HARIAN (Defensive Programming)
+        // AUTO-BACKUP HARIAN
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             try {
@@ -159,9 +161,9 @@ fun MainContent(
         if (!settingsManager.isSetupCompleted) {
             SetupWizardScreen(
                 settingsManager = settingsManager,
-                viewModel = posViewModel,
+                viewModel = posViewModel, // <-- DIPERBAIKI
                 onSetupComplete = { newAdmin ->
-                    currentUser = newAdmin
+                    onUserChange(newAdmin) // <-- DIPERBAIKI (Gunakan onUserChange)
                 }
             )
         } else if (currentUser == null) {
@@ -349,7 +351,7 @@ fun MainNavigation(
                         onDismissCfd = { showCfd = false }
                     )
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
-                    2 -> HistoryScreen(transactions = transactions, isPro = true, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
+                    2 -> HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser) // <-- isPro DIHAPUS
                     3 -> SettingsScreen(
                         settingsManager = settingsManager,
                         isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
@@ -364,7 +366,6 @@ fun MainNavigation(
     }
 }
 
-// FUNGSI YANG SEBELUMNYA SEMPAT HILANG
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
@@ -429,7 +430,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 containerColor = MaterialTheme.colorScheme.surface,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
-                Column(modifier = Modifier.padding(bottom = 32.dp).verticalScroll(rememberScrollState())) {
+                Column(modifier = Modifier.padding(bottom = 32.dp).verticalScroll(rememberScrollState())) { // <-- IMPORT FIX
                     Text(text = showActionDialogFor!!.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
                     ActionMenuItem(icon = Icons.Default.Edit, title = LanguageManager.tr("edit_produk", settingsManager.language), subtitle = "Change details", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
                     ActionMenuItem(icon = Icons.Default.Add, title = "Add Stock", subtitle = "Restock item", color = AmberAccent, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })

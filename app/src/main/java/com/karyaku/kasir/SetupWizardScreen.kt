@@ -17,7 +17,11 @@ import androidx.compose.ui.unit.sp
 import com.karyaku.kasir.data.local.UserEntity
 
 @Composable
-fun SetupWizardScreen(settingsManager: SettingsManager, onSetupComplete: (UserEntity) -> Unit) {
+fun SetupWizardScreen(
+    settingsManager: SettingsManager, 
+    viewModel: PosViewModel, // <-- TAMBAHAN PARAMETER
+    onSetupComplete: (UserEntity) -> Unit
+) {
     var step by remember { mutableStateOf(1) }
     
     // State Data
@@ -123,10 +127,16 @@ fun SetupWizardScreen(settingsManager: SettingsManager, onSetupComplete: (UserEn
                         onClick = { 
                             settingsManager.paymentMethod = paymentMethod
                             settingsManager.isSetupCompleted = true
-                            val newAdmin = UserEntity(name = adminName, pin = adminPin, role = "OWNER")
-                            // Note: Dalam implementasi nyata, Anda harus memanggil ViewModel untuk insert user ke Database
-                            // Karena ini Setup Screen, kita asumsikan ViewModel disuntikkan atau kita gunakan callback
-                            onSetupComplete(newAdmin) 
+                            
+                            // SIMPAN USER KE DATABASE
+                            viewModel.registerInitialSetup(
+                                adminName = adminName,
+                                adminPin = adminPin,
+                                cashierName = cashierName,
+                                cashierPin = cashierPin
+                            ) { newAdmin ->
+                                onSetupComplete(newAdmin)
+                            }
                         }, 
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
