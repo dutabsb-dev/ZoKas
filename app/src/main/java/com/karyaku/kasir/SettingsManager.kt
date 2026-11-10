@@ -6,7 +6,7 @@ import android.content.SharedPreferences
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("zokas_prefs", Context.MODE_PRIVATE)
 
-    // ... (Variabel lama tetap ada, saya ringkas di sini) ...
+    // ... (Variabel lama tetap ada) ...
     var isPro: Boolean get() = prefs.getBoolean("is_pro", false); set(value) = prefs.edit().putBoolean("is_pro", value).apply()
     var isDarkMode: Boolean get() = prefs.getBoolean("dark_mode", false); set(value) = prefs.edit().putBoolean("dark_mode", value).apply()
     var isHighContrast: Boolean get() = prefs.getBoolean("high_contrast", false); set(value) = prefs.edit().putBoolean("high_contrast", value).apply()
@@ -25,9 +25,13 @@ class SettingsManager(context: Context) {
     var requirePinForDiscount: Boolean get() = prefs.getBoolean("pin_for_discount", true); set(value) = prefs.edit().putBoolean("pin_for_discount", value).apply()
     var lastAutoBackup: Long get() = prefs.getLong("last_auto_backup", 0L); set(value) = prefs.edit().putLong("last_auto_backup", value).apply()
 
-    // FITUR BARU
+    // FITUR MODULAR BARU
+    var isTableModeEnabled: Boolean
+        get() = prefs.getBoolean("table_mode_enabled", true) // Default aktif untuk restoran
+        set(value) = prefs.edit().putBoolean("table_mode_enabled", value).apply()
+
     var maxDiscountCap: Long
-        get() = prefs.getLong("max_discount_cap", 0L) // 0 = Tanpa batas
+        get() = prefs.getLong("max_discount_cap", 0L)
         set(value) = prefs.edit().putLong("max_discount_cap", value).apply()
 
     var enableMultiCurrency: Boolean

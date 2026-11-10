@@ -49,6 +49,12 @@ fun ReceiptDialog(
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
+    var showPrinterError by remember { mutableStateOf(false) }
+
+    if (showPrinterError) {
+        PrinterErrorDialog { showPrinterError = false }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -104,7 +110,8 @@ fun ReceiptDialog(
                                     Toast.makeText(context, "Struk dicetak!", Toast.LENGTH_SHORT).show()
                                     onDismiss()
                                 } else {
-                                    Toast.makeText(context, "Gagal mencetak. Pastikan printer menyala.", Toast.LENGTH_LONG).show()
+                                    // TAMPILKAN ACTIONABLE DIALOG
+                                    showPrinterError = true
                                 }
                             }
                         }

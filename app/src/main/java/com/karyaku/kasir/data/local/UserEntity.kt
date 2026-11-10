@@ -11,12 +11,3 @@ data class UserEntity(
     val role: String,
     val totalCommission: Long = 0L
 )
-
-@Entity(tableName = "audit_logs")
-data class AuditLogEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val userId: Long,
-    val userName: String,
-    val action: String,
-    val timestamp: Long = System.currentTimeMillis()
-)

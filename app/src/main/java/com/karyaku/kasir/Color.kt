@@ -2,21 +2,41 @@ package com.karyaku.kasir
 
 import androidx.compose.ui.graphics.Color
 
-// Aksen Utama
-val ZokasGreen = Color(0xFF1E3F20)
-val ZokasGreenLight = Color(0xFF2E5E32)
-val ZokasGreenDark = Color(0xFF0F2A11) // <--- TAMBAHKAN BARIS INI
-val ZokasOrange = Color(0xFFD35400)
-val ZokasOrangeDark = Color(0xFFA04000)
+// PRIMARY: EMERALD GREEN (Pusat Identitas ZoKas)
+val EmeraldGreen = Color(0xFF059669)
+val EmeraldGreenDark = Color(0xFF047857)
+val EmeraldGreenLight = Color(0xFF34D399)
 
-// Light Theme Colors
-val LightBackground = Color(0xFFF5F5F5)
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFEAEAEA)
-val LightText = Color(0xFF121212)
+// SECONDARY: SLATE GREY (Netral & Profesional)
+val SlateGrey = Color(0xFF64748B)
+val SlateGreyDark = Color(0xFF334155)
+val SlateGreyLight = Color(0xFF94A3B8)
+val SlateSurface = Color(0xFFF8FAFC)
 
-// Dark Theme Colors
-val DarkBackground = Color(0xFF121212)
-val DarkSurface = Color(0xFF1E1E1E)
-val DarkSurfaceVariant = Color(0xFF2C2C2C)
-val DarkText = Color(0xFFF0F0F0)
+// ACCENT: AMBER (Promo, Peringatan, Highlight)
+val AmberAccent = Color(0xFFF59E0B)
+val AmberAccentDark = Color(0xFFD97706)
+
+// BACKGROUND & SURFACE
+val BackgroundLight = Color(0xFFF8FAFC)
+val BackgroundDark = Color(0xFF0F172A)
+val SurfaceLight = Color(0xFFFFFFFF)
+val SurfaceDark = Color(0xFF1E293B)
+
+// ERROR & DANGER
+val ErrorRed = Color(0xFFEF4444)
+
+// LEGACY MAPPING (Agar file lama tidak error compile)
+val ZokasGreen = EmeraldGreen
+val ZokasGreenDark = EmeraldGreenDark
+val ZokasGreenLight = EmeraldGreenLight
+val ZokasOrange = AmberAccent
+val ZokasOrangeDark = AmberAccentDark
+val LightBackground = BackgroundLight
+val LightSurface = SurfaceLight
+val LightSurfaceVariant = SlateSurface
+val LightText = SlateGreyDark
+val DarkBackground = BackgroundDark
+val DarkSurface = SurfaceDark
+val DarkSurfaceVariant = SlateGreyDark
+val DarkText = SlateGreyLight

@@ -1,9 +1,13 @@
 package com.karyaku.kasir.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "products")
+@Entity(
+    tableName = "products",
+    indices = [Index(value = ["barcode"], unique = false), Index(value = ["name"])]
+)
 data class ProductEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
@@ -20,7 +24,7 @@ data class ProductEntity(
     val batchNumber: String = "",
     val expiryDate: Long = 0L,
     // FITUR BARU
-    val isService: Boolean = false,
+    val isService: Boolean = false, // Jika true, maka stok unlimited/tidak dipotong
     val isCombo: Boolean = false,
     val comboPrice: Long = 0L
 )
