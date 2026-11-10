@@ -956,16 +956,20 @@ fun ProductCatalog(
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 // GANTI OVERLAY GELAP DENGAN GRADIENT AGAR GAMBAR TERANG
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Brush.verticalGradient(
-                                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
-                                                startY = 150f
-                                            )
-                                        )
-                                )
+                                // OVERLAY GRADIENT AGAR GAMBAR TERANG DI ATAS, GELAP DI BAWAH UNTUK TEKS
+Box(
+    modifier = Modifier
+        .fillMaxSize()
+        .background(
+            Brush.verticalGradient(
+                colors = listOf(
+                    Color.Transparent, 
+                    Color.Transparent, 
+                    Color.Black.copy(alpha = 0.7f)
+                )
+            )
+        )
+)
                             } else {
                                 // Fallback jika tidak ada gambar
                                 Box(modifier = Modifier.fillMaxSize().background(Brush.linearGradient(colors = if (isExpiringSoon) listOf(ErrorRed, Color(0xFFB71C1C)) else listOf(EmeraldGreen, EmeraldGreenDark))))

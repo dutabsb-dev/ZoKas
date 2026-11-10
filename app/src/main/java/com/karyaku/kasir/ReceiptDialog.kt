@@ -7,7 +7,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape // <-- IMPORT YANG HILANG
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
@@ -63,7 +63,7 @@ fun ReceiptDialog(
             onDismissRequest = { showShareFallbackDialog = false },
             icon = { Icon(Icons.Default.Share, contentDescription = null, tint = AmberAccent) },
             title = { Text("Aplikasi Tidak Ditemukan") },
-            text = { Text("WhatsApp tidak terpasang di perangkat ini. Anda dapat menyalin teks struk dan mengirimkannya secara manual.") },
+            text = { Text("WhatsApp tidak terpasang atau tidak dapat diakses. Anda dapat menyalin teks struk dan mengirimkannya secara manual.") },
             confirmButton = {
                 Button(onClick = {
                     try {
@@ -94,20 +94,23 @@ fun ReceiptDialog(
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, textToShare)
                                 type = "text/plain"
-                                setPackage("com.whatsapp")
                             }
 
-                            if (sendIntent.resolveActivity(context.packageManager) != null) {
-                                context.startActivity(sendIntent)
+                            // Cek WhatsApp Biasa
+                            val waIntent = Intent(sendIntent).apply { setPackage("com.whatsapp") }
+                            // Cek WhatsApp Business
+                            val waBusinessIntent = Intent(sendIntent).apply { setPackage("com.whatsapp.w4b") }
+
+                            if (waIntent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(waIntent)
+                            } else if (waBusinessIntent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(waBusinessIntent)
                             } else {
-                                sendIntent.setPackage("com.whatsapp.w4b")
-                                if (sendIntent.resolveActivity(context.packageManager) != null) {
-                                    context.startActivity(sendIntent)
-                                } else {
-                                    showShareFallbackDialog = true
-                                }
+                                // Jika kedua package gagal ditemukan, tampilkan dialog fallback
+                                showShareFallbackDialog = true
                             }
                         } catch (e: Exception) {
+                            // Fallback jika terjadi error sistem
                             showShareFallbackDialog = true
                         }
                     },

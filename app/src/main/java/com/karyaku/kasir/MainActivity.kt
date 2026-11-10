@@ -1,8 +1,10 @@
 package com.karyaku.kasir
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -42,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -228,6 +232,21 @@ fun MainNavigation(
         onDispose { cm.unregisterNetworkCallback(callback) }
     }
 
+    // BARCODE SCANNER LAUNCHER UNTUK DIALOG PENCARIAN
+    val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            viewModel.processBarcodeScan(result.contents) { success, msg -> 
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                if (success) {
+                    // Tutup dialog jika produk berhasil ditambahkan via scan
+                    showSearchDialog = false 
+                    // Reset query agar tidak memfilter katalog secara aneh
+                    viewModel.setSearchQuery("")
+                }
+            }
+        }
+    }
+
     // Dialog Pencarian
     if (showSearchDialog) {
         var query by remember { mutableStateOf(searchQuery) }
@@ -243,6 +262,20 @@ fun MainNavigation(
                     },
                     placeholder = { Text("Ketik nama produk...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            val options = ScanOptions()
+                            options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                            options.setPrompt("Scan Barcode Produk")
+                            options.setCameraId(0)
+                            options.setBeepEnabled(false)
+                            options.setBarcodeImageEnabled(true)
+                            options.setOrientationLocked(false)
+                            barcodeLauncher.launch(options)
+                        }) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = EmeraldGreen)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
@@ -297,7 +330,7 @@ fun MainNavigation(
                     }
                 }
                 
-                // IKON SEARCH DITAMBAHKAN DI SINI
+                // IKON SEARCH & CFD
                 IconButton(onClick = { showSearchDialog = true }) { 
                     Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) 
                 }
