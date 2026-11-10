@@ -13,40 +13,20 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.Inventory
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.WorkspacePremium
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.karyaku.kasir.data.local.AppDatabase
+import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.UserEntity
 import java.io.File
 import java.text.SimpleDateFormat
@@ -68,7 +49,7 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // AUTO-BACKUP HARIAN (Defensive Programming)
+        // AUTO-BACKUP HARIAN
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             try {
@@ -210,10 +191,9 @@ fun MainNavigation(
 
     Scaffold(
         topBar = {
-            // HEADER MODERN (Minimalis & Clean)
             Row(
                 modifier = Modifier
-                    .fillMaxWidth() // <--- PERBAIKAN: Dari fillMaxSize() menjadi fillMaxWidth()
+                    .fillMaxWidth() // PERBAIKAN: fillMaxWidth, BUKAN fillMaxSize
                     .padding(horizontal = 16.dp, vertical = 12.dp)
                     .background(MaterialTheme.colorScheme.background),
                 verticalAlignment = Alignment.CenterVertically
@@ -232,7 +212,6 @@ fun MainNavigation(
                             fontSize = 18.sp,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        // CROWN BADGE MINIMALIS
                         if (settingsManager.isPro) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
@@ -304,7 +283,6 @@ fun MainNavigation(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            // ANIMASI TRANSISI HALUS (Fade + Slide 200ms)
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
@@ -315,7 +293,7 @@ fun MainNavigation(
             ) { targetTab ->
                 when (targetTab) {
                     0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout)
-                    1 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout) // Placeholder Sementara untuk Tab Produk
+                    1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     2 -> HistoryScreen(transactions = transactions, isPro = isPro, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     3 -> SettingsScreen(
                         settingsManager = settingsManager, isPro = isPro, onUpgradeClick = onUpgradeClick,
@@ -327,6 +305,131 @@ fun MainNavigation(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
+    val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
+    val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    
+    var showProductForm by remember { mutableStateOf(false) }
+    var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
+    var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
+
+    val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
+    val searchFocusRequester = remember { FocusRequester() }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        ProductCatalog(
+            products = filteredProducts, 
+            categories = categories, 
+            selectedCategory = selectedCategory, 
+            onCategorySelect = { viewModel.setCategory(it) }, 
+            searchQuery = searchQuery, 
+            onSearchChange = { viewModel.setSearchQuery(it) }, 
+            onProductClick = { 
+                productToEdit = it
+                showProductForm = true
+            }, 
+            onProductLongClick = { showActionDialogFor = it }, 
+            onBarcodeScan = { }, 
+            onCameraScanClick = { },
+            searchFocusRequester = searchFocusRequester,
+            lang = settingsManager.language
+        )
+
+        FloatingActionButton(
+            onClick = { productToEdit = null; showProductForm = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            containerColor = EmeraldGreen
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Tambah Produk", tint = Color.White)
+        }
+
+        if (showProductForm) {
+            ProductFormBottomSheet(
+                productToEdit = productToEdit, 
+                onDismiss = { showProductForm = false; productToEdit = null }, 
+                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo ->
+                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, currentUser.id, currentUser.name)
+                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo), currentUser.id, currentUser.name)
+                    showProductForm = false; productToEdit = null
+                }
+            )
+        }
+
+        if (showActionDialogFor != null) {
+            ModalBottomSheet(
+                onDismissRequest = { showActionDialogFor = null },
+                containerColor = MaterialTheme.colorScheme.surface,
+                dragHandle = { BottomSheetDefaults.DragHandle() }
+            ) {
+                Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                    Text(text = showActionDialogFor!!.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
+                    ActionMenuItem(icon = Icons.Default.Edit, title = "Edit Produk", subtitle = "Ubah detail", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
+                    ActionMenuItem(icon = Icons.Default.Add, title = "Tambah Stok", subtitle = "Restock barang", color = AmberAccent, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
+                    ActionMenuItem(icon = Icons.Default.Delete, title = "Barang Rusak", subtitle = "Catat waste/expired", color = AmberAccentDark, onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
+                    ActionMenuItem(icon = Icons.Default.List, title = "Atur Resep (BOM)", subtitle = "Bahan baku & komposisi", color = EmeraldGreenLight, onClick = { productToManageBom = showActionDialogFor; showActionDialogFor = null })
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                    ActionMenuItem(icon = Icons.Default.Delete, title = "Hapus Produk", subtitle = "Hapus permanen", color = ErrorRed, onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null })
+                }
+            }
+        }
+
+        if (productToRestock != null) {
+            StockOpnameDialog(product = productToRestock!!, onDismiss = { productToRestock = null }, onSave = { qty -> viewModel.addStock(productToRestock!!, qty, currentUser); productToRestock = null })
+        }
+
+        if (productToWaste != null) {
+            var qty by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { productToWaste = null },
+                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = ErrorRed) },
+                title = { Text("Catat Barang Rusak") },
+                text = {
+                    Column {
+                        Text("Produk: ${productToWaste!!.name}", fontWeight = FontWeight.Bold)
+                        Text("Stok: ${productToWaste!!.stock} pcs", color = SlateGrey)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(value = qty, onValueChange = { if (it.length <= 5) qty = it }, label = { Text("Jumlah Rusak") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { 
+                        val q = qty.toIntOrNull() ?: 0
+                        if (q > 0 && q <= productToWaste!!.stock) { viewModel.recordWaste(productToWaste!!, q, currentUser); productToWaste = null }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("SIMPAN") }
+                },
+                dismissButton = { TextButton(onClick = { productToWaste = null }) { Text("Batal") } }
+            )
+        }
+
+        if (productToManageBom != null) {
+            BomManagementDialog(
+                product = productToManageBom!!,
+                rawMaterials = rawMaterials,
+                viewModel = viewModel,
+                onDismiss = { productToManageBom = null }
+            )
+        }
+
+        if (productToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { productToDelete = null },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed) },
+                title = { Text("Hapus Produk?") },
+                text = { Text("Hapus '${productToDelete!!.name}' secara permanen?") },
+                confirmButton = { Button(onClick = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("HAPUS") } },
+                dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Batal") } }
+            )
         }
     }
 }

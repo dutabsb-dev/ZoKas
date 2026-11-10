@@ -51,7 +51,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -268,7 +267,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             } else false
         }
     ) {
-        // --- DIALOG MATRIX 2D (FASHION) ---
         if (productToSelectMatrix != null) {
             val product = productToSelectMatrix!!
             val parts = product.variations.split("|")
@@ -313,7 +311,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- DIALOG PILIH VARIAN (TEKS BIASA) ---
         if (productToSelectVariant != null) {
             val product = productToSelectVariant!!
             val variants = product.variations.split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -343,7 +340,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- DIALOG MERGE ORDER (GABUNG MEJA) ---
         if (showMergeOrderDialog) {
             var tableA by remember { mutableStateOf("Meja 1") }
             var tableB by remember { mutableStateOf("Meja 2") }
@@ -384,7 +380,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- DIALOG SERIAL NUMBER ---
         if (productToEditSerial != null) {
             var serial by remember { mutableStateOf(cart.find { it.product.id == productToEditSerial!!.id }?.serialNumber ?: "") }
             AlertDialog(
@@ -403,7 +398,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- DIALOG ASSIGN STAFF ---
         if (productToAssignStaff != null) {
             var selectedStaff by remember { mutableStateOf(cart.find { it.product.id == productToAssignStaff!!.id }?.assignedStaff ?: "") }
             val staffList = users.filter { it.role != "OWNER" }
@@ -429,17 +423,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- DIALOG BOM (RESEP) ---
-        if (productToManageBom != null) {
-            BomManagementDialog(
-                product = productToManageBom!!,
-                rawMaterials = rawMaterials,
-                viewModel = viewModel,
-                onDismiss = { productToManageBom = null }
-            )
-        }
-
-        // --- SHIFT REPORT DIALOG ---
         if (showShiftReport != null) {
             val shift = showShiftReport!!
             AlertDialog(
@@ -472,7 +455,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- CFD MODE ---
         if (showCfd) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.White).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showCfd = false },
@@ -493,7 +475,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             return
         }
 
-        // --- DIALOG PIN DISKON ---
         if (showPinForDiscount) {
             var pin by remember { mutableStateOf("") }
             AlertDialog(
@@ -513,7 +494,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 },
                 confirmButton = {
                     Button(onClick = {
-                        // Final Polish: Hapus hardcoded bypass. Gunakan pengecekan role DB.
                         scope.launch {
                             val supervisor = viewModel.login(pin)
                             if (supervisor != null && (supervisor.role == "OWNER" || supervisor.role == "SUPERVISOR" || supervisor.id == currentUser.id)) {
@@ -528,7 +508,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- DIALOG AKSI PRODUK ---
         if (showActionDialogFor != null) {
             ModalBottomSheet(
                 onDismissRequest = { showActionDialogFor = null },
@@ -552,7 +531,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             }
         }
 
-        // --- DIALOG LAINNYA ---
         if (showDrawerConfirm) {
             AlertDialog(
                 onDismissRequest = { showDrawerConfirm = false },
@@ -622,7 +600,6 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // WIZARD TUTUP KASIR DENGAN 3 TAHAP
         if (showCloseShiftDialog && activeShift != null) { 
             CloseShiftWizardDialog(
                 shift = activeShift!!,
@@ -693,172 +670,61 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
-        // --- MAIN UI (SCAFFOLD) ---
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            Image(painter = painterResource(id = R.drawable.logo_zokas), contentDescription = "Logo", modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) { 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = if (settingsManager.isPro) settingsManager.storeName ?: "ZoKas" else "ZoKas",
-                                        fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary,
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                                    )
-                                    if (settingsManager.isPro) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.WorkspacePremium, 
-                                            contentDescription = "Pro", 
-                                            tint = AmberAccent, 
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(modifier = Modifier.size(8.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = if (isOnline) "Online" else "Offline", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                                }
-                            }
+        // --- MAIN UI (TANPA SCAFFOLD GANDA) ---
+        Column(modifier = Modifier.fillMaxSize()) {
+            
+            // HEADER KASIR LOKAL
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = if (isOnline) "Sistem Online" else "Mode Offline", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    
+                    if (lowStockCount > 0) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        BadgedBox(badge = { Badge(containerColor = ErrorRed) { Text(lowStockCount.toString(), color = Color.White) } }) {
+                            Icon(Icons.Default.Warning, contentDescription = "Stok Menipis", tint = AmberAccent, modifier = Modifier.size(18.dp))
                         }
-                    },
-                    actions = {
-                        if (lowStockCount > 0) {
-                            BadgedBox(badge = { Badge(containerColor = ErrorRed) { Text(lowStockCount.toString(), color = Color.White) } }, modifier = Modifier.padding(end = 8.dp)) {
-                                Icon(Icons.Default.Warning, contentDescription = "Stok Menipis", tint = AmberAccent)
-                            }
-                        }
-                        IconButton(onClick = { showCfd = true }) { Icon(Icons.Default.Person, contentDescription = "Layar Pelanggan", tint = MaterialTheme.colorScheme.primary) }
-                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Menu") }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            if (settingsManager.isTableModeEnabled) {
-                                DropdownMenuItem(text = { Text("Gabung Meja (Merge)") }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMergeOrderDialog = true; showMenu = false })
-                            }
-                            DropdownMenuItem(text = { Text("Buka Laci (No Sale)") }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { showDrawerConfirm = true; showMenu = false })
-                            DropdownMenuItem(text = { Text("Pesanan Parkir") }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showHoldDialog = true; showMenu = false })
-                            DropdownMenuItem(text = { Text("Kas Keluar / Masuk") }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showCashFlowDialog = true; showMenu = false })
-                            DropdownMenuItem(text = { Text("Tutup Kasir") }, leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) }, onClick = { showCloseShiftDialog = true; showMenu = false })
-                            HorizontalDivider()
-                            DropdownMenuItem(text = { Text("Logout", color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-                )
-            },
-            floatingActionButton = {
-                if (!showCartOnPhone) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .shadow(12.dp, CircleShape, spotColor = EmeraldGreenDark)
-                            .background(brush = Brush.linearGradient(colors = listOf(EmeraldGreen, EmeraldGreenDark)), shape = CircleShape)
-                            .clickable { productToEdit = null; showProductForm = true },
-                        contentAlignment = Alignment.Center
-                    ) { Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Color.White, modifier = Modifier.size(32.dp)) }
+                    }
                 }
-            },
-            bottomBar = {
-                if (cart.isNotEmpty() && !showCartOnPhone) {
-                    BottomAppBar(containerColor = MaterialTheme.colorScheme.surface, modifier = Modifier.height(72.dp)) {
-                        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column {
-                                Text("${cart.sumOf { it.quantity }} item", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatRupiah(totalPrice), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
-                            }
-                            Button(
-                                onClick = { showCartOnPhone = true }, 
-                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), 
-                                shape = RoundedCornerShape(12.dp), 
-                                modifier = Modifier.height(48.dp)
-                            ) { 
-                                Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Keranjang", fontWeight = FontWeight.Bold) 
-                            }
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showCfd = true }) { Icon(Icons.Default.Person, contentDescription = "Layar Pelanggan", tint = MaterialTheme.colorScheme.primary) }
+                    IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Menu") }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        if (settingsManager.isTableModeEnabled) {
+                            DropdownMenuItem(text = { Text("Gabung Meja (Merge)") }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMergeOrderDialog = true; showMenu = false })
                         }
+                        DropdownMenuItem(text = { Text("Buka Laci (No Sale)") }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { showDrawerConfirm = true; showMenu = false })
+                        DropdownMenuItem(text = { Text("Pesanan Parkir") }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showHoldDialog = true; showMenu = false })
+                        DropdownMenuItem(text = { Text("Kas Keluar / Masuk") }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showCashFlowDialog = true; showMenu = false })
+                        DropdownMenuItem(text = { Text("Tutup Kasir") }, leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) }, onClick = { showCloseShiftDialog = true; showMenu = false })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Logout", color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
                     }
                 }
             }
-        ) { paddingValues ->
-            Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-                AnimatedVisibility(visible = isHappyHour, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                    Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(colors = listOf(ErrorRed, AmberAccent))).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("HAPPY HOUR! Diskon ${settingsManager.happyHourDiscount}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
+
+            // KONTEN UTAMA
+            AnimatedVisibility(visible = isHappyHour, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(colors = listOf(ErrorRed, AmberAccent))).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("HAPPY HOUR! Diskon ${settingsManager.happyHourDiscount}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val isTablet = maxWidth > 600.dp
-                    if (isTablet) {
-                        Row(modifier = Modifier.fillMaxSize()) {
-                            Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
-                                ProductCatalog(
-                                    products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                                    onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
-                                    onProductClick = { prod -> 
-                                        if (prod.variations.contains("|")) {
-                                            productToSelectMatrix = prod
-                                        } else if (prod.variations.isNotEmpty()) { 
-                                            productToSelectVariant = prod 
-                                        } else { 
-                                            viewModel.addToCart(prod) 
-                                        }
-                                    }, 
-                                    onProductLongClick = { showActionDialogFor = it }, 
-                                    onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
-                                    onCameraScanClick = {
-                                        val options = ScanOptions()
-                                        options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                                        options.setPrompt("Scan Barcode Produk")
-                                        options.setCameraId(0)
-                                        options.setBeepEnabled(false)
-                                        options.setBarcodeImageEnabled(true)
-                                        options.setOrientationLocked(false)
-                                        barcodeLauncher.launch(options)
-                                    },
-                                    searchFocusRequester = searchFocusRequester,
-                                    lang = lang
-                                ) 
-                            }
-                            VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                            Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
-                                CartList(
-                                    cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice, selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, 
-                                    isTableModeEnabled = settingsManager.isTableModeEnabled, // <--- FITUR MODULAR DISINI
-                                    onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
-                                    onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                    onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
-                                    onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
-                                    onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
-                                    onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
-                                    lang = lang
-                                )
-                            }
-                        }
-                    } else {
-                        if (showCartOnPhone) {
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-                                CartList(
-                                    cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice, selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, 
-                                    isTableModeEnabled = settingsManager.isTableModeEnabled, // <--- FITUR MODULAR DISINI
-                                    onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
-                                    onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                    onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
-                                    onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
-                                    onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
-                                    onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
-                                    lang = lang
-                                )
-                            }
-                        } else {
+            }
+
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val isTablet = maxWidth > 600.dp
+                if (isTablet) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
                             ProductCatalog(
                                 products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
                                 onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
@@ -885,8 +751,67 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                                 },
                                 searchFocusRequester = searchFocusRequester,
                                 lang = lang
+                            ) 
+                        }
+                        VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                        Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
+                            CartList(
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice, selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, 
+                                isTableModeEnabled = settingsManager.isTableModeEnabled,
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
+                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
+                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
+                                onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
+                                onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
+                                lang = lang
                             )
                         }
+                    }
+                } else {
+                    if (showCartOnPhone) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+                            CartList(
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice, selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, 
+                                isTableModeEnabled = settingsManager.isTableModeEnabled,
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
+                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
+                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
+                                onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
+                                onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
+                                lang = lang
+                            )
+                        }
+                    } else {
+                        ProductCatalog(
+                            products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
+                            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                            onProductClick = { prod -> 
+                                if (prod.variations.contains("|")) {
+                                    productToSelectMatrix = prod
+                                } else if (prod.variations.isNotEmpty()) { 
+                                    productToSelectVariant = prod 
+                                } else { 
+                                    viewModel.addToCart(prod) 
+                                }
+                            }, 
+                            onProductLongClick = { showActionDialogFor = it }, 
+                            onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
+                            onCameraScanClick = {
+                                val options = ScanOptions()
+                                options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                options.setPrompt("Scan Barcode Produk")
+                                options.setCameraId(0)
+                                options.setBeepEnabled(false)
+                                options.setBarcodeImageEnabled(true)
+                                options.setOrientationLocked(false)
+                                barcodeLauncher.launch(options)
+                            },
+                            searchFocusRequester = searchFocusRequester,
+                            lang = lang
+                        )
                     }
                 }
             }
@@ -1085,7 +1010,7 @@ fun CartList(
     cart: List<CartItem>, subtotal: Long, discount: Long, taxAmount: Long, totalPrice: Long, 
     selectedCustomer: CustomerEntity?, pointsUsed: Int,
     selectedTable: String, appliedVoucher: String, voucherDiscount: Long, isSplitBillMode: Boolean,
-    isTableModeEnabled: Boolean, // <-- Parameter Baru
+    isTableModeEnabled: Boolean,
     onToggleSplitMode: () -> Unit, onToggleSplitSelection: (CartItem) -> Unit, onTableClick: () -> Unit, onVoucherClick: () -> Unit,
     onHoldClick: () -> Unit, onViewHoldClick: () -> Unit, onCustomerClick: () -> Unit, onAdd: (CartItem) -> Unit, 
     onRemove: (CartItem) -> Unit, onDelete: (CartItem) -> Unit, onDiscountClick: () -> Unit, onCheckout: () -> Unit,

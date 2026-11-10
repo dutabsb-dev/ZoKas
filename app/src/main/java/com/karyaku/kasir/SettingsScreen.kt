@@ -16,9 +16,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll // <--- IMPORT YANG HILANG
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -82,8 +83,10 @@ fun SettingsScreen(
     var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
 
     var maxDiscountCap by remember { mutableStateOf(settingsManager.maxDiscountCap.toString()) }
+    
     var enableMultiCurrency by remember { mutableStateOf(settingsManager.enableMultiCurrency) }
     var exchangeRateUsd by remember { mutableStateOf(settingsManager.exchangeRateUsd.toString()) }
+    var isTableModeEnabled by remember { mutableStateOf(settingsManager.isTableModeEnabled) }
     
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
@@ -228,7 +231,15 @@ fun SettingsScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { Text(LanguageManager.tr("pengaturan", lang), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(LanguageManager.tr("pengaturan", lang), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                if (isPro) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(Icons.Default.WorkspacePremium, contentDescription = "Pro", tint = AmberAccent, modifier = Modifier.size(24.dp))
+                }
+            }
+        }
 
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -261,6 +272,61 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // --- FITUR MODULAR ---
+        item {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Modular Fitur Toko", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Nyalakan hanya fitur yang Anda butuhkan.", fontSize = 12.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Mode Meja Restoran", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Tampilkan pilihan meja (Take-Away, Meja 1, dll) di halaman kasir.", fontSize = 11.sp, color = Color.Gray)
+                        }
+                        Switch(
+                            checked = isTableModeEnabled, 
+                            onCheckedChange = { 
+                                isTableModeEnabled = it
+                                settingsManager.isTableModeEnabled = it 
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = ZokasGreen)
+                        )
+                    }
+                    
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Multi-Currency (USD)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Tampilkan estimasi harga dalam mata uang USD.", fontSize = 11.sp, color = Color.Gray)
+                        }
+                        Switch(
+                            checked = enableMultiCurrency, 
+                            onCheckedChange = { 
+                                enableMultiCurrency = it
+                                settingsManager.enableMultiCurrency = it 
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = ZokasGreen)
+                        )
+                    }
+                    
+                    if (enableMultiCurrency) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = exchangeRateUsd,
+                            onValueChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
+                            label = { Text("Kurs 1 USD ke IDR") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+            }
+        }
         
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -280,7 +346,6 @@ fun SettingsScreen(
                         Text(LanguageManager.tr("riwayat_shift", lang))
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    // TOMBOL BAHAN BAKU
                     if (isPro) {
                         Button(onClick = { showRawMaterialDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Magenta)) {
                             Text("Kelola Bahan Baku (Resep)")
@@ -321,13 +386,7 @@ fun SettingsScreen(
         if (isPro) {
             item {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700)), modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Star, contentDescription = "Pro", tint = Color.White, modifier = Modifier.size(48.dp))
-                            Text(LanguageManager.tr("versi_pro", lang), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
+                    // BANNER PRO DIHAPUS, LANGSUNG KE PROFIL TOKO
                     Text(LanguageManager.tr("profil_toko", lang), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = storeName, onValueChange = { storeName = it; settingsManager.storeName = it }, label = { Text(LanguageManager.tr("nama_toko", lang)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
@@ -376,22 +435,6 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(LanguageManager.tr("multi_currency", lang))
-                            Switch(checked = enableMultiCurrency, onCheckedChange = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it })
-                        }
-                        if (enableMultiCurrency) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = exchangeRateUsd,
-                                onValueChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
-                                label = { Text(LanguageManager.tr("kurs_usd", lang)) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                        }
                     }
                 }
             }
