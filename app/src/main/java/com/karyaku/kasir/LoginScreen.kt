@@ -40,13 +40,16 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // Pastikan MainActivity kita adalah AppCompatActivity (lihat file MainActivity di bawah)
     val activity = context as? FragmentActivity
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
 
-    // Cek apakah HP mendukung Biometrik
+    // Cek apakah HP mendukung Biometrik (Sidik Jari)
     val biometricManager = BiometricManager.from(context)
-    val canUseBiometric = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS
+    val canUseBiometric = biometricManager.canAuthenticate(
+        BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    ) == BiometricManager.BIOMETRIC_SUCCESS
 
     if (isInitializing) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -72,8 +75,8 @@ fun LoginScreen(
                 modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp))
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Welcome to ZoKas", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SlateGreyDark)
-            Text("Enter your PIN to continue", style = MaterialTheme.typography.bodyMedium, color = SlateGrey)
+            Text("Selamat Datang di ZoKas", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SlateGreyDark)
+            Text("Masukkan PIN Anda untuk melanjutkan", style = MaterialTheme.typography.bodyMedium, color = SlateGrey)
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
@@ -84,7 +87,7 @@ fun LoginScreen(
                         errorMessage = ""
                     }
                 },
-                label = { Text("6-Digit PIN") },
+                label = { Text("PIN 6-Digit") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
@@ -100,6 +103,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Tombol Login Manual (PIN)
             Button(
                 onClick = {
                     if (pin.length == 6) {
@@ -110,12 +114,12 @@ fun LoginScreen(
                             if (user != null) {
                                 onLoginSuccess(user)
                             } else {
-                                errorMessage = "Incorrect PIN! Please try again."
+                                errorMessage = "PIN salah! Silakan coba lagi."
                                 pin = "" 
                             }
                         }
                     } else {
-                        errorMessage = "PIN must be 6 digits."
+                        errorMessage = "PIN harus 6 digit angka."
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -130,6 +134,7 @@ fun LoginScreen(
                 }
             }
 
+            // Tombol Login Sidik Jari (Hanya muncul jika HP mendukung & Activity valid)
             if (canUseBiometric && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
@@ -139,23 +144,26 @@ fun LoginScreen(
                             object : BiometricPrompt.AuthenticationCallback() {
                                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                                     super.onAuthenticationSucceeded(result)
-                                    // Ambil user pertama (Owner) sebagai fallback login
+                                    // Jika sidik jari berhasil, login sebagai Owner (User pertama)
                                     scope.launch {
                                         val owner = viewModel.getFirstOwner()
-                                        if (owner != null) onLoginSuccess(owner) 
-                                        else errorMessage = "No registered user found."
+                                        if (owner != null) {
+                                            onLoginSuccess(owner) 
+                                        } else {
+                                            errorMessage = "Tidak ada akun Owner terdaftar."
+                                        }
                                     }
                                 }
                                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                                     super.onAuthenticationError(errorCode, errString)
-                                    errorMessage = "Fingerprint error: $errString"
+                                    errorMessage = "Gagal sidik jari: $errString"
                                 }
                             })
 
                         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                            .setTitle("Biometric Login")
-                            .setSubtitle("Log in using your fingerprint")
-                            .setNegativeButtonText("Cancel")
+                            .setTitle("Login Sidik Jari")
+                            .setSubtitle("Sentuh sensor sidik jari Anda")
+                            .setNegativeButtonText("Batal")
                             .build()
 
                         biometricPrompt.authenticate(promptInfo)
@@ -166,7 +174,7 @@ fun LoginScreen(
                 ) {
                     Icon(Icons.Default.Fingerprint, contentDescription = "Fingerprint", tint = EmeraldGreen)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Login with Fingerprint", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                    Text("LOGIN DENGAN SIDIK JARI", color = EmeraldGreen, fontWeight = FontWeight.Bold)
                 }
             }
         }
