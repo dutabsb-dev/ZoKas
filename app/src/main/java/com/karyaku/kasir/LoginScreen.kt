@@ -44,7 +44,7 @@ fun LoginScreen(
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
 
-    // Cek perangkat mendukung Biometrik atau tidak
+    // PERBAIKAN: Tampilkan tombol jika HP punya hardware sensor
     val biometricManager = BiometricManager.from(context)
     val canUseBiometric = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
 
@@ -72,8 +72,8 @@ fun LoginScreen(
                 modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp))
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Welcome to ZoKas", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SlateGreyDark)
-            Text("Enter your PIN to continue", style = MaterialTheme.typography.bodyMedium, color = SlateGrey)
+            Text(LanguageManager.tr("selamat_datang", settingsManager.language), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SlateGreyDark)
+            Text(LanguageManager.tr("masukkan_pin", settingsManager.language), style = MaterialTheme.typography.bodyMedium, color = SlateGrey)
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
@@ -84,7 +84,7 @@ fun LoginScreen(
                         errorMessage = ""
                     }
                 },
-                label = { Text("6-Digit PIN") },
+                label = { Text(LanguageManager.tr("pin_6", settingsManager.language)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
@@ -100,7 +100,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Tombol Login Manual (PIN)
             Button(
                 onClick = {
                     if (pin.length == 6) {
@@ -111,12 +110,12 @@ fun LoginScreen(
                             if (user != null) {
                                 onLoginSuccess(user)
                             } else {
-                                errorMessage = "Incorrect PIN! Please try again."
+                                errorMessage = LanguageManager.tr("pin_salah", settingsManager.language)
                                 pin = "" 
                             }
                         }
                     } else {
-                        errorMessage = "PIN must be 6 digits."
+                        errorMessage = LanguageManager.tr("pin_harus_6", settingsManager.language)
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -127,11 +126,11 @@ fun LoginScreen(
                 if (isLoading) {
                     CircularProgressIndicator(color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
-                    Text("LOGIN", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(LanguageManager.tr("login", settingsManager.language), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            // Tombol Login Sidik Jari
+            // Tombol Login Sidik Jari (MUNCUL SELAMA ADA HARDWARE)
             if (canUseBiometric && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
@@ -159,9 +158,9 @@ fun LoginScreen(
                             })
 
                         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                            .setTitle("Biometric Login")
-                            .setSubtitle("Log in using your fingerprint")
-                            .setNegativeButtonText("Cancel")
+                            .setTitle("Login Sidik Jari")
+                            .setSubtitle("Sentuh sensor sidik jari Anda")
+                            .setNegativeButtonText("Batal")
                             .build()
 
                         biometricPrompt.authenticate(promptInfo)
@@ -172,7 +171,7 @@ fun LoginScreen(
                 ) {
                     Icon(Icons.Default.Fingerprint, contentDescription = "Fingerprint", tint = EmeraldGreen)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("LOGIN WITH FINGERPRINT", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                    Text(LanguageManager.tr("login_fingerprint", settingsManager.language), color = EmeraldGreen, fontWeight = FontWeight.Bold)
                 }
             }
         }

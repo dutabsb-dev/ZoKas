@@ -1,11 +1,8 @@
 package com.karyaku.kasir
 
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity // <-- WAJIB UNTUK BIOMETRIC
 import androidx.activity.compose.LocalActivityResultRegistryOwner
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -30,23 +27,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -55,7 +46,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity() { // <-- HARUS AppCompatActivity
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = AppDatabase.getDatabase(this)
@@ -83,6 +74,7 @@ class MainActivity : AppCompatActivity() {
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
+                // PERBAIKAN: Gunakan rememberSaveable agar state bahasa sinkron
                 var language by rememberSaveable { mutableStateOf(settingsManager.language) }
                 
                 val userSaver = listSaver<UserEntity?, Any>(
@@ -119,6 +111,7 @@ class MainActivity : AppCompatActivity() {
                             onToggleHighContrast = { isHighContrast = !isHighContrast; settingsManager.isHighContrast = isHighContrast },
                             onChangeUiScale = { uiScale = it; settingsManager.uiScale = it },
                             onToggleLanguage = {
+                                // PERBAIKAN: Toggle bahasa dan update SharedPreferences
                                 val newLang = if (language == "in") "en" else "in"
                                 language = newLang
                                 settingsManager.language = newLang

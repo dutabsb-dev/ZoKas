@@ -11,7 +11,6 @@ object LanguageManager {
         "pesanan_parkir" to "Hold Orders",
         "kas_masuk_keluar" to "Cash In/Out",
         "logout" to "LOGOUT",
-        "pengaturan" to "Settings & Status",
         "mode_kontras" to "High Contrast Mode",
         "mode_kontras_desc" to "For low light environments",
         "mode_gelap" to "Dark Mode",

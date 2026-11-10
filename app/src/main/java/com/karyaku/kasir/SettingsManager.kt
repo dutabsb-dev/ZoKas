@@ -12,14 +12,15 @@ class SettingsManager(context: Context) {
     var isDarkMode: Boolean get() = prefs.getBoolean("dark_mode", false); set(value) = prefs.edit().putBoolean("dark_mode", value).apply()
     var isHighContrast: Boolean get() = prefs.getBoolean("high_contrast", false); set(value) = prefs.edit().putBoolean("high_contrast", value).apply()
     var uiScale: Float get() = prefs.getFloat("ui_scale", 1.0f); set(value) = prefs.edit().putFloat("ui_scale", value).apply()
-    var language: String get() = prefs.getString("language", "en") ?: "en"; set(value) = prefs.edit().putString("language", value).apply()
+    
+    // DEFAULT BAHASA INDONESIA
+    var language: String get() = prefs.getString("language", "in") ?: "in"; set(value) = prefs.edit().putString("language", value).apply()
     
     var storeName: String? get() = prefs.getString("store_name", "ZoKas Store"); set(value) = prefs.edit().putString("store_name", value).apply()
     var storeAddress: String? get() = prefs.getString("store_address", "Jl. Raya UMKM No. 123"); set(value) = prefs.edit().putString("store_address", value).apply()
     var storePhone: String? get() = prefs.getString("store_phone", "081234567890"); set(value) = prefs.edit().putString("store_phone", value).apply()
     var storeFooter: String? get() = prefs.getString("store_footer", "Terima kasih!"); set(value) = prefs.edit().putString("store_footer", value).apply()
     
-    // MULTI PEMBAYARAN (Default: CASH & QRIS)
     var paymentMethods: Set<String> 
         get() = prefs.getStringSet("payment_methods", setOf("CASH", "QRIS")) ?: setOf("CASH", "QRIS")
         set(value) = prefs.edit().putStringSet("payment_methods", value).apply()
