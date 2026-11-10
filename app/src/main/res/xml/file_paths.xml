@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Akses ke folder cache internal untuk share file sementara -->
+    <cache-path name="shared_receipts" path="." />
+    <!-- Akses ke folder dokumen untuk export/import CSV -->
+    <external-files-path name="external_files" path="." />
+</paths>

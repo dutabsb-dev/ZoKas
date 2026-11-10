@@ -15,7 +15,7 @@ object BackupHelper {
             val dbFile = context.getDatabasePath(DB_NAME)
             if (!dbFile.exists()) return false
 
-            // PENTING: Tutup database sementara agar file bisa disalin dengan bersih
+            // Tutup database agar file bisa disalin secara aman
             AppDatabase.closeAndResetDatabase()
 
             val inputStream = FileInputStream(dbFile)
@@ -27,7 +27,7 @@ object BackupHelper {
                 }
             }
             
-            // Buka kembali database setelah backup
+            // Buka kembali database
             AppDatabase.getDatabase(context)
             true
         } catch (e: Exception) {
@@ -43,10 +43,10 @@ object BackupHelper {
             val dbFile = context.getDatabasePath(DB_NAME)
             dbFile.parentFile?.mkdirs()
 
-            // 1. TUTUP DATABASE TERLEBIH DAHULU (Hindari Lock)
+            // 1. TUTUP DATABASE TERLEBIH DAHULU
             AppDatabase.closeAndResetDatabase()
 
-            // 2. HAPUS FILE LAMA (WAL & SHM) AGAR TIDAK BENTROK
+            // 2. HAPUS FILE WAL & SHM AGAR TIDAK BENTROK
             val walFile = File(dbFile.path + "-wal")
             val shmFile = File(dbFile.path + "-shm")
             if (walFile.exists()) walFile.delete()

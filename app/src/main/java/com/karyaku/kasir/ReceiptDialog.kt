@@ -50,9 +50,34 @@ fun ReceiptDialog(
     val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     var showPrinterError by remember { mutableStateOf(false) }
+    var showShareFallbackDialog by remember { mutableStateOf(false) }
+    var textToShare by remember { mutableStateOf("") }
 
     if (showPrinterError) {
         PrinterErrorDialog { showPrinterError = false }
+    }
+
+    if (showShareFallbackDialog) {
+        AlertDialog(
+            onDismissRequest = { showShareFallbackDialog = false },
+            icon = { Icon(Icons.Default.Share, contentDescription = null, tint = AmberAccent) },
+            title = { Text("Aplikasi Tidak Ditemukan") },
+            text = { Text("WhatsApp tidak terpasang di perangkat ini. Anda dapat menyalin teks struk dan mengirimkannya secara manual.") },
+            confirmButton = {
+                Button(onClick = {
+                    try {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("Struk ZoKas", textToShare)
+                        clipboard.setPrimaryClip(clip)
+                        Toast.makeText(context, "Teks struk disalin ke Clipboard", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Gagal menyalin teks", Toast.LENGTH_SHORT).show()
+                    }
+                    showShareFallbackDialog = false
+                }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("SALIN TEKS") }
+            },
+            dismissButton = { TextButton(onClick = { showShareFallbackDialog = false }) { Text("Tutup") } }
+        )
     }
 
     AlertDialog(
@@ -61,40 +86,42 @@ fun ReceiptDialog(
             Column {
                 Button(
                     onClick = {
-                        val textStruk = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
-                        
-                        val sendIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, textStruk)
-                            type = "text/plain"
-                        }
-
+                        // Defensive Intent Handling
                         try {
-                            val waIntent = Intent(sendIntent).apply { setPackage("com.whatsapp") }
-                            context.startActivity(waIntent)
-                        } catch (e: Exception) {
-                            try {
-                                val waBusinessIntent = Intent(sendIntent).apply { setPackage("com.whatsapp.w4b") }
-                                context.startActivity(waBusinessIntent)
-                            } catch (e2: Exception) {
-                                try {
-                                    val chooser = Intent.createChooser(sendIntent, "Bagikan Struk")
-                                    context.startActivity(chooser)
-                                } catch (e3: Exception) {
-                                    Toast.makeText(context, "Tidak ada aplikasi untuk berbagi. Disalin ke clipboard.", Toast.LENGTH_SHORT).show()
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Struk ZoKas", textStruk)
-                                    clipboard.setPrimaryClip(clip)
+                            textToShare = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
+                            
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, textToShare)
+                                type = "text/plain"
+                                setPackage("com.whatsapp") // Coba spesifik ke WhatsApp
+                            }
+
+                            // Cek apakah WhatsApp tersedia
+                            if (sendIntent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(sendIntent)
+                            } else {
+                                // Coba WhatsApp Business
+                                sendIntent.setPackage("com.whatsapp.w4b")
+                                if (sendIntent.resolveActivity(context.packageManager) != null) {
+                                    context.startActivity(sendIntent)
+                                } else {
+                                    // Tampilkan dialog fallback (salin ke clipboard)
+                                    showShareFallbackDialog = true
                                 }
                             }
+                        } catch (e: Exception) {
+                            // Fallback jika terjadi error pada Intent
+                            showShareFallbackDialog = true
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("KIRIM STRUK (WHATSAPP)", color = Color.White)
+                    Text("KIRIM STRUK (WHATSAPP)", fontWeight = FontWeight.Bold)
                 }
                 
                 Button(
@@ -104,22 +131,26 @@ fun ReceiptDialog(
                             Toast.makeText(context, "Tidak ada printer. Atur di Pengaturan.", Toast.LENGTH_LONG).show()
                         } else {
                             scope.launch {
-                                val printData = generatePrintData(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
-                                val success = printerManager.printData(mac, printData)
-                                if (success) {
-                                    Toast.makeText(context, "Struk dicetak!", Toast.LENGTH_SHORT).show()
-                                    onDismiss()
-                                } else {
-                                    // TAMPILKAN ACTIONABLE DIALOG
+                                try {
+                                    val printData = generatePrintData(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
+                                    val success = printerManager.printData(mac, printData)
+                                    if (success) {
+                                        Toast.makeText(context, "Struk dicetak!", Toast.LENGTH_SHORT).show()
+                                        onDismiss()
+                                    } else {
+                                        showPrinterError = true
+                                    }
+                                } catch (e: Exception) {
                                     showPrinterError = true
                                 }
                             }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = ZokasOrange)
+                    colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("CETAK STRUK THERMAL")
+                    Text("CETAK STRUK THERMAL", fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -138,7 +169,7 @@ fun ReceiptDialog(
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 
                 if (items.isEmpty()) {
-                    Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = Color.Gray)
+                    Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = SlateGrey)
                 } else {
                     items.forEach { item ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -146,7 +177,7 @@ fun ReceiptDialog(
                             Text(formatRupiah(item.subtotal), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         }
                         if (item.notes.isNotEmpty()) {
-                            Text("  *Cat: ${item.notes}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.DarkGray)
+                            Text("  *Cat: ${item.notes}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = SlateGreyDark)
                         }
                         if (item.serialNumber.isNotEmpty()) {
                             Text("  *SN: ${item.serialNumber}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Blue)
@@ -186,7 +217,7 @@ fun ReceiptDialog(
                 }
                 
                 if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
-                    Text("METODE: BON (BELUM BAYAR)", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color.Red)
+                    Text("METODE: BON (BELUM BAYAR)", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = ErrorRed)
                 } else {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Tunai", fontFamily = FontFamily.Monospace)
@@ -206,6 +237,7 @@ fun ReceiptDialog(
     )
 }
 
+// FUNGSI PEMBANTU FORMAT TEKS (TETAP SAMA)
 private fun generateTextReceipt(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
