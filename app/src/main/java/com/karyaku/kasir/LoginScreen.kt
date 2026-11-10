@@ -44,7 +44,7 @@ fun LoginScreen(
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
 
-    // PERBAIKAN: Tampilkan tombol jika HP punya hardware sensor
+    // PERBAIKAN: Tampilkan tombol jika HP punya hardware sensor (meskipun belum didaftarkan)
     val biometricManager = BiometricManager.from(context)
     val canUseBiometric = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
 
@@ -72,7 +72,7 @@ fun LoginScreen(
                 modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp))
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text(LanguageManager.tr("selamat_datang", settingsManager.language), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SlateGreyDark)
+            Text(LanguageManager.tr("selamat_datang", settingsManager.language), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SlateGreyDark, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             Text(LanguageManager.tr("masukkan_pin", settingsManager.language), style = MaterialTheme.typography.bodyMedium, color = SlateGrey)
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -130,7 +130,7 @@ fun LoginScreen(
                 }
             }
 
-            // Tombol Login Sidik Jari (MUNCUL SELAMA ADA HARDWARE)
+            // Tombol Login Sidik Jari
             if (canUseBiometric && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(

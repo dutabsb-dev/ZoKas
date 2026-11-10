@@ -1,10 +1,10 @@
 package com.karyaku.kasir
 
 import android.os.Bundle
-import android.widget.Toast // <-- TAMBAHAN
-import androidx.appcompat.app.AppCompatActivity 
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
-import androidx.activity.compose.rememberLauncherForActivityResult // <-- TAMBAHAN
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -29,23 +29,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester // <-- TAMBAHAN
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.journeyapps.barcodescanner.ScanContract // <-- TAMBAHAN
-import com.journeyapps.barcodescanner.ScanOptions // <-- TAMBAHAN
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -334,16 +332,20 @@ fun MainNavigation(
                 IconButton(onClick = { showCfd = true }) { 
                     Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) 
                 }
-                IconButton(onClick = { showMenu = true }) { 
-                    Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
-                }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text(LanguageManager.tr("gabung_meja", language)) }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
-                    DropdownMenuItem(text = { Text(LanguageManager.tr("buka_laci", language)) }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { viewModel.logCashDrawerOpen(currentUser); showMenu = false })
-                    DropdownMenuItem(text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
-                    DropdownMenuItem(text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showMenu = false })
-                    HorizontalDivider()
-                    DropdownMenuItem(text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
+                
+                // BUNGKUS DENGAN BOX AGAR MENU TIDAK MELEBAR KE KIRI
+                Box {
+                    IconButton(onClick = { showMenu = true }) { 
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text(LanguageManager.tr("gabung_meja", language)) }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
+                        DropdownMenuItem(text = { Text(LanguageManager.tr("buka_laci", language)) }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { viewModel.logCashDrawerOpen(currentUser); showMenu = false })
+                        DropdownMenuItem(text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
+                        DropdownMenuItem(text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showMenu = false })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
+                    }
                 }
             }
         },
