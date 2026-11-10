@@ -16,7 +16,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -267,6 +266,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             } else false
         }
     ) {
+        // --- DIALOG MATRIX 2D (FASHION) ---
         if (productToSelectMatrix != null) {
             val product = productToSelectMatrix!!
             val parts = product.variations.split("|")
@@ -311,6 +311,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // --- DIALOG PILIH VARIAN (TEKS BIASA) ---
         if (productToSelectVariant != null) {
             val product = productToSelectVariant!!
             val variants = product.variations.split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -340,6 +341,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // --- DIALOG MERGE ORDER (GABUNG MEJA) ---
         if (showMergeOrderDialog) {
             var tableA by remember { mutableStateOf("Meja 1") }
             var tableB by remember { mutableStateOf("Meja 2") }
@@ -380,6 +382,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // --- DIALOG SERIAL NUMBER ---
         if (productToEditSerial != null) {
             var serial by remember { mutableStateOf(cart.find { it.product.id == productToEditSerial!!.id }?.serialNumber ?: "") }
             AlertDialog(
@@ -398,6 +401,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // --- DIALOG ASSIGN STAFF ---
         if (productToAssignStaff != null) {
             var selectedStaff by remember { mutableStateOf(cart.find { it.product.id == productToAssignStaff!!.id }?.assignedStaff ?: "") }
             val staffList = users.filter { it.role != "OWNER" }
@@ -423,6 +427,17 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // --- DIALOG BOM (RESEP) ---
+        if (productToManageBom != null) {
+            BomManagementDialog(
+                product = productToManageBom!!,
+                rawMaterials = rawMaterials,
+                viewModel = viewModel,
+                onDismiss = { productToManageBom = null }
+            )
+        }
+
+        // --- SHIFT REPORT DIALOG ---
         if (showShiftReport != null) {
             val shift = showShiftReport!!
             AlertDialog(
@@ -455,6 +470,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // --- CFD MODE ---
         if (showCfd) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.White).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showCfd = false },
@@ -475,6 +491,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             return
         }
 
+        // --- DIALOG PIN DISKON ---
         if (showPinForDiscount) {
             var pin by remember { mutableStateOf("") }
             AlertDialog(
@@ -508,6 +525,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // --- DIALOG AKSI PRODUK ---
         if (showActionDialogFor != null) {
             ModalBottomSheet(
                 onDismissRequest = { showActionDialogFor = null },
@@ -531,6 +549,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             }
         }
 
+        // --- DIALOG LAINNYA ---
         if (showDrawerConfirm) {
             AlertDialog(
                 onDismissRequest = { showDrawerConfirm = false },
@@ -600,6 +619,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
             )
         }
 
+        // WIZARD TUTUP KASIR DENGAN 3 TAHAP
         if (showCloseShiftDialog && activeShift != null) { 
             CloseShiftWizardDialog(
                 shift = activeShift!!,
@@ -673,35 +693,35 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         // --- MAIN UI (TANPA SCAFFOLD GANDA) ---
         Column(modifier = Modifier.fillMaxSize()) {
             
-            // HEADER KASIR LOKAL
+            // HEADER KASIR LOKAL (Dibuat lebih tipis agar tidak boros tempat)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(10.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
+                    Box(modifier = Modifier.size(8.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = if (isOnline) "Sistem Online" else "Mode Offline", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = if (isOnline) "Online" else "Offline", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     
                     if (lowStockCount > 0) {
                         Spacer(modifier = Modifier.width(12.dp))
                         BadgedBox(badge = { Badge(containerColor = ErrorRed) { Text(lowStockCount.toString(), color = Color.White) } }) {
-                            Icon(Icons.Default.Warning, contentDescription = "Stok Menipis", tint = AmberAccent, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Warning, contentDescription = "Stok Menipis", tint = AmberAccent, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { showCfd = true }) { Icon(Icons.Default.Person, contentDescription = "Layar Pelanggan", tint = MaterialTheme.colorScheme.primary) }
-                    IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Menu") }
+                    IconButton(onClick = { showCfd = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Person, contentDescription = "Layar Pelanggan", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.MoreVert, contentDescription = "Menu", modifier = Modifier.size(20.dp)) }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         if (settingsManager.isTableModeEnabled) {
-                            DropdownMenuItem(text = { Text("Gabung Meja (Merge)") }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMergeOrderDialog = true; showMenu = false })
+                            DropdownMenuItem(text = { Text("Gabung Meja") }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMergeOrderDialog = true; showMenu = false })
                         }
-                        DropdownMenuItem(text = { Text("Buka Laci (No Sale)") }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { showDrawerConfirm = true; showMenu = false })
+                        DropdownMenuItem(text = { Text("Buka Laci") }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { showDrawerConfirm = true; showMenu = false })
                         DropdownMenuItem(text = { Text("Pesanan Parkir") }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showHoldDialog = true; showMenu = false })
-                        DropdownMenuItem(text = { Text("Kas Keluar / Masuk") }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showCashFlowDialog = true; showMenu = false })
+                        DropdownMenuItem(text = { Text("Kas Keluar/Masuk") }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showCashFlowDialog = true; showMenu = false })
                         DropdownMenuItem(text = { Text("Tutup Kasir") }, leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) }, onClick = { showCloseShiftDialog = true; showMenu = false })
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text("Logout", color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
@@ -711,16 +731,17 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
 
             // KONTEN UTAMA
             AnimatedVisibility(visible = isHappyHour, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(colors = listOf(ErrorRed, AmberAccent))).padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(colors = listOf(ErrorRed, AmberAccent))).padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("HAPPY HOUR! Diskon ${settingsManager.happyHourDiscount}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("HAPPY HOUR! Diskon ${settingsManager.happyHourDiscount}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
                 }
             }
 
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            // BoxWithConstraints dengan weight(1f) agar mengisi sisa layar tanpa menyisakan gap
+            BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 val isTablet = maxWidth > 600.dp
                 if (isTablet) {
                     Row(modifier = Modifier.fillMaxSize()) {
@@ -771,7 +792,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                 } else {
                     if (showCartOnPhone) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
                             CartList(
                                 cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice, selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, 
                                 isTableModeEnabled = settingsManager.isTableModeEnabled,
@@ -814,6 +835,26 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                         )
                     }
                 }
+            }
+        }
+        
+        // FLOATING ACTION BUTTON UNTUK KERANJANG (Hanya di HP)
+        if (cart.isNotEmpty() && !showCartOnPhone && maxWidth < 600.dp) {
+            ExtendedFloatingActionButton(
+                onClick = { showCartOnPhone = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = EmeraldGreen,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.ShoppingCart, contentDescription = "Keranjang")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "${cart.sumOf { it.quantity }} Item | ${formatRupiah(totalPrice)}",
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -910,7 +951,7 @@ fun ProductCatalog(
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = searchQuery, onValueChange = onSearchChange, 
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp).focusRequester(searchFocusRequester), 
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp).focusRequester(searchFocusRequester), 
             placeholder = { Text("Cari produk / scan barcode... (F1)") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = EmeraldGreen) }, 
             trailingIcon = { 
                 IconButton(onClick = onCameraScanClick) {
@@ -921,7 +962,7 @@ fun ProductCatalog(
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = EmeraldGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), 
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { if (searchQuery.isNotBlank()) { onBarcodeScan(searchQuery); onSearchChange("") } })
         )
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(categories) { category ->
                 FilterChip(
                     selected = category == selectedCategory, 
