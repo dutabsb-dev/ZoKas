@@ -70,8 +70,10 @@ import com.karyaku.kasir.data.local.CustomerEntity
 import com.karyaku.kasir.data.local.ShiftEntity
 import com.karyaku.kasir.data.local.RawMaterialEntity
 import com.karyaku.kasir.data.local.ProductBomEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -228,7 +230,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     val kitchenData = generateKitchenTicket(completedTransaction!!, viewModel)
                     val success = printerManager.printData(kitchenMac, kitchenData)
                     if (!success) {
-                        withContext(androidx.compose.ui.platform.Dispatchers.Main) { showPrinterErrorDialog = true }
+                        withContext(Dispatchers.Main) { showPrinterErrorDialog = true }
                     }
                 }
             }
@@ -238,7 +240,7 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
                     scope.launch { 
                         val success = printerManager.openCashDrawer(printerMac)
                         if (!success) {
-                            withContext(androidx.compose.ui.platform.Dispatchers.Main) { showPrinterErrorDialog = true }
+                            withContext(Dispatchers.Main) { showPrinterErrorDialog = true }
                         }
                     }
                 }
@@ -1306,7 +1308,6 @@ fun PaymentBottomSheet(
             Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = SlateGrey)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
             
-            // CONDITIONAL UI: Multi-Currency
             if (settingsManager.enableMultiCurrency && settingsManager.exchangeRateUsd > 0) {
                 val usdAmount = totalPrice / settingsManager.exchangeRateUsd
                 val formattedUsd = String.format(Locale.US, "$%.2f", usdAmount)
