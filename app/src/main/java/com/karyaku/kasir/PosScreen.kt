@@ -12,12 +12,14 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -50,6 +52,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -62,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.ProductEntity
@@ -76,6 +80,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -101,11 +107,11 @@ fun PosScreen(
     val configuration = LocalConfiguration.current
     val isPhone = configuration.screenWidthDp < 600
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val lang = settingsManager.language
     
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
     val printerManager = remember { BluetoothPrinterManager(context) }
-    val lang = settingsManager.language
     
     val searchFocusRequester = remember { FocusRequester() }
 
@@ -132,18 +138,6 @@ fun PosScreen(
 
     val taxPercent by viewModel.taxPercent.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.setTaxPercent(settingsManager.taxPercent) }
-
-    var isOnline by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: android.net.Network) { isOnline = true }
-            override fun onLost(network: android.net.Network) { isOnline = false }
-        }
-        cm.registerDefaultNetworkCallback(callback)
-        isOnline = cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        onDispose { cm.unregisterNetworkCallback(callback) }
-    }
 
     val lowStockCount = allProducts.count { !it.isService && it.stock <= 5 && it.stock >= 0 }
 
@@ -287,7 +281,7 @@ fun PosScreen(
             AlertDialog(
                 onDismissRequest = { productToSelectMatrix = null },
                 icon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) },
-                title = { Text("Select Variant (${product.name})") },
+                title = { Text("${LanguageManager.tr("pilih_varian", lang)} (${product.name})") },
                 text = {
                     Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                         Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
@@ -310,7 +304,7 @@ fun PosScreen(
                                             colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen.copy(alpha = 0.1f)),
                                             shape = RoundedCornerShape(12.dp)
                                         ) {
-                                            Text("Select", fontSize = 10.sp, color = EmeraldGreen)
+                                            Text(LanguageManager.tr("pilih", lang), fontSize = 10.sp, color = EmeraldGreen)
                                         }
                                     }
                                 }
@@ -318,7 +312,7 @@ fun PosScreen(
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { productToSelectMatrix = null }) { Text("Cancel") } }
+                confirmButton = { TextButton(onClick = { productToSelectMatrix = null }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -329,7 +323,7 @@ fun PosScreen(
             AlertDialog(
                 onDismissRequest = { productToSelectVariant = null },
                 icon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) },
-                title = { Text("Select Variant") },
+                title = { Text(LanguageManager.tr("pilih_varian", lang)) },
                 text = {
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         Text("Please select a variant for ${product.name}:", fontSize = 14.sp)
@@ -348,7 +342,7 @@ fun PosScreen(
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { productToSelectVariant = null }) { Text("Cancel") } }
+                confirmButton = { TextButton(onClick = { productToSelectVariant = null }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -389,7 +383,7 @@ fun PosScreen(
                         showMergeOrderDialog = false 
                     }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("MERGE") } 
                 },
-                dismissButton = { TextButton(onClick = { showMergeOrderDialog = false }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { showMergeOrderDialog = false }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -408,7 +402,7 @@ fun PosScreen(
                     }
                 },
                 confirmButton = { Button(onClick = { viewModel.updateCartItemSerial(productToEditSerial!!, cart.find { it.product.id == productToEditSerial!!.id }?.selectedVariation ?: "", serial); productToEditSerial = null }, shape = RoundedCornerShape(12.dp)) { Text("SAVE") } },
-                dismissButton = { TextButton(onClick = { productToEditSerial = null }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { productToEditSerial = null }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -434,7 +428,7 @@ fun PosScreen(
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { productToAssignStaff = null }) { Text("Cancel") } }
+                confirmButton = { TextButton(onClick = { productToAssignStaff = null }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -481,7 +475,7 @@ fun PosScreen(
             )
         }
 
-        // --- CFD MODE (Dipanggil dari MainActivity) ---
+        // --- CFD MODE ---
         if (showCfd) {
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.White).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onDismissCfd() },
@@ -532,7 +526,7 @@ fun PosScreen(
                         }
                     }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("VERIFY") }
                 },
-                dismissButton = { TextButton(onClick = { showPinForDiscount = false }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { showPinForDiscount = false }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -568,7 +562,7 @@ fun PosScreen(
                 title = { Text("Open Cash Drawer") },
                 text = { Text("Open drawer without transaction? This activity will be logged.") },
                 confirmButton = { Button(onClick = { viewModel.logCashDrawerOpen(currentUser); Toast.makeText(context, "Drawer opened.", Toast.LENGTH_SHORT).show(); showDrawerConfirm = false }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("OPEN") } },
-                dismissButton = { TextButton(onClick = { showDrawerConfirm = false }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { showDrawerConfirm = false }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -592,7 +586,7 @@ fun PosScreen(
                         if (q > 0 && q <= productToWaste!!.stock) { viewModel.recordWaste(productToWaste!!, q, currentUser); productToWaste = null }
                     }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("SAVE") }
                 },
-                dismissButton = { TextButton(onClick = { productToWaste = null }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { productToWaste = null }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -610,7 +604,7 @@ fun PosScreen(
                     }
                 },
                 confirmButton = { Button(onClick = { viewModel.updateCartItemNotes(productToEditNotes!!, cart.find { it.product.id == productToEditNotes!!.id }?.selectedVariation ?: "", notes); productToEditNotes = null }, shape = RoundedCornerShape(12.dp)) { Text("SAVE") } },
-                dismissButton = { TextButton(onClick = { productToEditNotes = null }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { productToEditNotes = null }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -677,10 +671,11 @@ fun PosScreen(
 
         if (showProductForm) {
             ProductFormBottomSheet(
-                productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null }, 
-                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo ->
-                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, currentUser.id, currentUser.name)
-                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo), currentUser.id, currentUser.name)
+                productToEdit = productToEdit, 
+                onDismiss = { showProductForm = false; productToEdit = null }, 
+                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath ->
+                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, currentUser.id, currentUser.name)
+                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath), currentUser.id, currentUser.name)
                     showProductForm = false; productToEdit = null
                 }
             )
@@ -697,7 +692,7 @@ fun PosScreen(
                 title = { Text("Delete Product?") },
                 text = { Text("Delete '${productToDelete!!.name}' permanently?") },
                 confirmButton = { Button(onClick = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("DELETE") } },
-                dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { productToDelete = null }) { Text(LanguageManager.tr("batal", lang)) } }
             )
         }
 
@@ -715,9 +710,9 @@ fun PosScreen(
                 }
             }
 
-            // BoxWithConstraints dengan weight(1f) agar mengisi sisa layar
+            // BoxWithConstraints yang lebih adaptif
             BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                // isWideScreen: Tablet ATAU HP Landscape
+                // Deteksi jika layar lebar (Tablet ATAU Landscape HP)
                 val isWideScreen = maxWidth > 600.dp || isLandscape
                 
                 if (isWideScreen) {
@@ -769,7 +764,7 @@ fun PosScreen(
                 } else {
                     if (showCartOnPhone) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Back to Catalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(4.dp)); Text(LanguageManager.tr("kembali_katalog", lang), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
                             CartList(
                                 cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, totalPrice = totalPrice, selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, appliedVoucher = appliedVoucher, voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, 
                                 isTableModeEnabled = settingsManager.isTableModeEnabled,
@@ -926,13 +921,15 @@ fun ProductCatalog(
     lang: String
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
+        // SEARCH BAR LEBIH SIMPLE & TIPIS (FIX LANDSCAPE)
         OutlinedTextField(
             value = searchQuery, onValueChange = onSearchChange, 
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp).focusRequester(searchFocusRequester), 
-            placeholder = { Text("Search product / scan barcode... (F1)") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = EmeraldGreen) }, 
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp).height(50.dp).focusRequester(searchFocusRequester), 
+            placeholder = { Text("Search product...", fontSize = 14.sp) }, 
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(20.dp)) }, 
             trailingIcon = { 
-                IconButton(onClick = onCameraScanClick) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Camera", tint = EmeraldGreen) 
+                IconButton(onClick = onCameraScanClick, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Camera", tint = EmeraldGreen, modifier = Modifier.size(18.dp)) 
                 }
             }, 
             singleLine = true, shape = RoundedCornerShape(12.dp), 
@@ -944,7 +941,7 @@ fun ProductCatalog(
                 FilterChip(
                     selected = category == selectedCategory, 
                     onClick = { onCategorySelect(category) }, 
-                    label = { Text(category, fontWeight = if(category == selectedCategory) FontWeight.Bold else FontWeight.Normal) }, 
+                    label = { Text(category, fontWeight = if(category == selectedCategory) FontWeight.Bold else FontWeight.Normal, fontSize = 12.sp) }, 
                     shape = RoundedCornerShape(12.dp), 
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = EmeraldGreen, selectedLabelColor = Color.White, containerColor = MaterialTheme.colorScheme.surface)
                 )
@@ -954,10 +951,10 @@ fun ProductCatalog(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Product not found.", color = SlateGrey, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic) }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 160.dp), 
+                columns = GridCells.Adaptive(minSize = 140.dp),
                 contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp), 
-                horizontalArrangement = Arrangement.spacedBy(16.dp), 
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp), 
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(items = products, key = { it.id }) { product ->
                     val interactionSource = remember { MutableInteractionSource() }
@@ -970,48 +967,66 @@ fun ProductCatalog(
                     
                     val isExpiringSoon = product.expiryDate > 0 && (product.expiryDate - System.currentTimeMillis()) < (7L * 24 * 60 * 60 * 1000)
 
-                    Box(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(1f)
+                            .aspectRatio(0.85f) // Sedikit lebih tinggi untuk gambar
                             .scale(scale)
-                            .shadow(6.dp, RoundedCornerShape(12.dp), spotColor = EmeraldGreenDark)
+                            .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = EmeraldGreenDark)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(brush = Brush.linearGradient(colors = if (isExpiringSoon) listOf(ErrorRed, Color(0xFFB71C1C)) else listOf(EmeraldGreen, EmeraldGreenDark)))
                             .combinedClickable(
                                 interactionSource = interactionSource, 
                                 indication = null, 
                                 onClick = { onProductClick(product) }, 
                                 onLongClick = { onProductLongClick(product) }
-                            )
+                            ),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Surface(color = Color.White.copy(alpha = 0.2f), shape = RoundedCornerShape(6.dp)) { 
-                                    Text(text = product.category, fontSize = 10.sp, color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) 
-                                }
-                                if (product.promoType != "NONE") {
-                                    Surface(color = AmberAccent, shape = RoundedCornerShape(6.dp)) { 
-                                        Text(text = if (product.promoType == "BOGO") "BOGO" else "DISC ${product.promoValue}%", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) 
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            // TAMPILKAN GAMBAR PRODUK
+                            if (product.imagePath.isNotEmpty()) {
+                                AsyncImage(
+                                    model = java.io.File(product.imagePath),
+                                    contentDescription = product.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                // Overlay gelap agar teks terbaca
+                                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
+                            } else {
+                                // Fallback jika tidak ada gambar
+                                Box(modifier = Modifier.fillMaxSize().background(Brush.linearGradient(colors = if (isExpiringSoon) listOf(ErrorRed, Color(0xFFB71C1C)) else listOf(EmeraldGreen, EmeraldGreenDark))))
+                            }
+
+                            Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Surface(color = Color.White.copy(alpha = 0.3f), shape = RoundedCornerShape(6.dp)) { 
+                                        Text(text = product.category, fontSize = 9.sp, color = Color.White, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) 
+                                    }
+                                    if (product.promoType != "NONE") {
+                                        Surface(color = AmberAccent, shape = RoundedCornerShape(6.dp)) { 
+                                            Text(text = if (product.promoType == "BOGO") "BOGO" else "DISC ${product.promoValue}%", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) 
+                                        }
                                     }
                                 }
-                            }
-                            Text(text = product.name, fontWeight = FontWeight.ExtraBold, maxLines = 2, style = MaterialTheme.typography.titleMedium, color = Color.White, lineHeight = 20.sp)
-                            
-                            if (isExpiringSoon) { Text("EXPIRING SOON", fontSize = 10.sp, color = Color.Yellow, fontWeight = FontWeight.Bold) }
-
-                            Spacer(modifier = Modifier.weight(1f))
-                            Column {
-                                Text(text = formatRupiah(product.price), style = MaterialTheme.typography.titleLarge, color = AmberAccent, fontWeight = FontWeight.Black)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (product.isService) {
-                                        Icon(Icons.Default.Build, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(text = "Service", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
-                                    } else {
-                                        Icon(Icons.Default.Inventory, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(text = "Stock: ${product.stock}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
+                                
+                                Spacer(modifier = Modifier.weight(1f))
+                                
+                                Column {
+                                    Text(text = product.name, fontWeight = FontWeight.ExtraBold, maxLines = 2, style = MaterialTheme.typography.titleSmall, color = Color.White, lineHeight = 16.sp)
+                                    if (isExpiringSoon) { Text("EXPIRED SOON", fontSize = 9.sp, color = Color.Yellow, fontWeight = FontWeight.Bold) }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(text = formatRupiah(product.price), style = MaterialTheme.typography.titleMedium, color = AmberAccent, fontWeight = FontWeight.Black)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (product.isService) {
+                                            Icon(Icons.Default.Build, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(10.dp))
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Text(text = "Service", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
+                                        } else {
+                                            Icon(Icons.Default.Inventory, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(10.dp))
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Text(text = "Stock: ${product.stock}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f))
+                                        }
                                     }
                                 }
                             }
@@ -1130,9 +1145,10 @@ fun CartList(
 fun ProductFormBottomSheet(
     productToEdit: ProductEntity? = null, 
     onDismiss: () -> Unit, 
-    onSave: (String, Long, Int, String, Long, String, String, Long, Long, Boolean, Boolean) -> Unit
+    onSave: (String, Long, Int, String, Long, String, String, Long, Long, Boolean, Boolean, String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
+    val context = LocalContext.current
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
     var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
     var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") } 
@@ -1145,10 +1161,32 @@ fun ProductFormBottomSheet(
     var isService by remember { mutableStateOf(productToEdit?.isService ?: false) }
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
     
+    // STATE UNTUK GAMBAR
+    var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
 
     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     val expiryText = if (expiryDate > 0) dateFormat.format(Date(expiryDate)) else "Select Date"
+
+    // Launcher untuk memilih gambar
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            // Simpan gambar ke penyimpanan internal aplikasi agar permanen
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val file = File(context.filesDir, "img_${System.currentTimeMillis()}.jpg")
+                val outputStream = FileOutputStream(file)
+                inputStream?.copyTo(outputStream)
+                inputStream?.close()
+                outputStream.close()
+                imagePath = file.absolutePath
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to save image: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = if (expiryDate > 0) expiryDate else System.currentTimeMillis())
@@ -1178,6 +1216,31 @@ fun ProductFormBottomSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(if (productToEdit == null) "Add New Product" else "Edit Product", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // --- FITUR UPLOAD GAMBAR ---
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, SlateGrey, RoundedCornerShape(12.dp))
+                    .clickable { imagePickerLauncher.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                if (imagePath.isNotEmpty()) {
+                    AsyncImage(
+                        model = File(imagePath),
+                        contentDescription = "Product Image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = "Upload", tint = SlateGrey)
+                        Text("Upload Image", fontSize = 10.sp, color = SlateGrey)
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
             
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
@@ -1227,7 +1290,7 @@ fun ProductFormBottomSheet(
                 val cp = costPrice.toLongOrNull() ?: 0L
                 val s = if (isService) 0 else stock.toIntOrNull() ?: 0
                 val c = commission.toLongOrNull() ?: 0L
-                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "General" }, cp, barcode, variations, c, expiryDate, isService, isCombo) 
+                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "General" }, cp, barcode, variations, c, expiryDate, isService, isCombo, imagePath) 
             }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
                 Text(if (productToEdit == null) "SAVE PRODUCT" else "UPDATE PRODUCT", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }

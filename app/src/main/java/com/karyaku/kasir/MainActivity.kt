@@ -13,7 +13,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,10 +28,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // AUTO-BACKUP HARIAN
+        // AUTO-BACKUP HARIAN (Defensive Programming)
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             try {
@@ -155,8 +155,21 @@ fun MainContent(
             )
         )
 
-        if (currentUser == null) {
-            LoginScreen(viewModel = posViewModel, onLoginSuccess = { onUserChange(it) })
+        // LOGIKA ROUTING: SETUP -> LOGIN -> MAIN
+        if (!settingsManager.isSetupCompleted) {
+            SetupWizardScreen(
+                settingsManager = settingsManager,
+                viewModel = posViewModel,
+                onSetupComplete = { newAdmin ->
+                    currentUser = newAdmin
+                }
+            )
+        } else if (currentUser == null) {
+            LoginScreen(
+                viewModel = posViewModel, 
+                settingsManager = settingsManager, 
+                onLoginSuccess = { onUserChange(it) }
+            )
         } else {
             MainNavigation(
                 viewModel = posViewModel,
@@ -200,7 +213,7 @@ fun MainNavigation(
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
 
     // Network State Listener
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     DisposableEffect(Unit) {
         val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
         val callback = object : android.net.ConnectivityManager.NetworkCallback() {
@@ -214,6 +227,7 @@ fun MainNavigation(
 
     Scaffold(
         topBar = {
+            // HEADER TERINTEGRASI
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -224,23 +238,24 @@ fun MainNavigation(
                 Image(
                     painter = painterResource(id = R.drawable.logo_zokas),
                     contentDescription = "Logo",
-                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = settingsManager.storeName ?: "ZoKas Store",
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
+                        fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(6.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
+                        Box(modifier = Modifier.size(8.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (isOnline) "Online" else "Offline",
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -254,12 +269,12 @@ fun MainNavigation(
                     Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Merge Table") }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
-                    DropdownMenuItem(text = { Text("Open Drawer") }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { viewModel.logCashDrawerOpen(currentUser); showMenu = false })
-                    DropdownMenuItem(text = { Text("Hold Orders") }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
-                    DropdownMenuItem(text = { Text("Cash In/Out") }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showMenu = false })
+                    DropdownMenuItem(text = { Text(LanguageManager.tr("gabung_meja", language)) }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
+                    DropdownMenuItem(text = { Text(LanguageManager.tr("buka_laci", language)) }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { viewModel.logCashDrawerOpen(currentUser); showMenu = false })
+                    DropdownMenuItem(text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
+                    DropdownMenuItem(text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showMenu = false })
                     HorizontalDivider()
-                    DropdownMenuItem(text = { Text("Logout", color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
+                    DropdownMenuItem(text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
                 }
             }
         },
@@ -270,7 +285,7 @@ fun MainNavigation(
             ) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Storefront, contentDescription = "Cashier") },
-                    label = { Text("Cashier") },
+                    label = { Text(LanguageManager.tr("kasir", language)) },
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     colors = NavigationBarItemDefaults.colors(
@@ -281,7 +296,7 @@ fun MainNavigation(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
-                    label = { Text("Products") },
+                    label = { Text(LanguageManager.tr("produk", language)) },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     colors = NavigationBarItemDefaults.colors(
@@ -292,7 +307,7 @@ fun MainNavigation(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
-                    label = { Text("Reports") },
+                    label = { Text(LanguageManager.tr("laporan", language)) },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     colors = NavigationBarItemDefaults.colors(
@@ -303,7 +318,7 @@ fun MainNavigation(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text("Settings") },
+                    label = { Text(LanguageManager.tr("pengaturan", language)) },
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
                     colors = NavigationBarItemDefaults.colors(
@@ -325,7 +340,14 @@ fun MainNavigation(
                 }, label = "tab_transition"
             ) { targetTab ->
                 when (targetTab) {
-                    0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout, showCfd = showCfd, onDismissCfd = { showCfd = false })
+                    0 -> PosScreen(
+                        viewModel = viewModel, 
+                        settingsManager = settingsManager, 
+                        currentUser = currentUser, 
+                        onLogout = onLogout, 
+                        showCfd = showCfd, 
+                        onDismissCfd = { showCfd = false }
+                    )
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     2 -> HistoryScreen(transactions = transactions, isPro = true, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     3 -> SettingsScreen(
@@ -342,7 +364,7 @@ fun MainNavigation(
     }
 }
 
-// FUNGSI YANG SEBELUMNYA HILANG
+// FUNGSI YANG SEBELUMNYA SEMPAT HILANG
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
@@ -393,9 +415,9 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             ProductFormBottomSheet(
                 productToEdit = productToEdit, 
                 onDismiss = { showProductForm = false; productToEdit = null }, 
-                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo ->
-                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, currentUser.id, currentUser.name)
-                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo), currentUser.id, currentUser.name)
+                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath ->
+                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, currentUser.id, currentUser.name)
+                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath), currentUser.id, currentUser.name)
                     showProductForm = false; productToEdit = null
                 }
             )
@@ -407,9 +429,9 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 containerColor = MaterialTheme.colorScheme.surface,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
-                Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                Column(modifier = Modifier.padding(bottom = 32.dp).verticalScroll(rememberScrollState())) {
                     Text(text = showActionDialogFor!!.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
-                    ActionMenuItem(icon = Icons.Default.Edit, title = "Edit Product", subtitle = "Change details", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
+                    ActionMenuItem(icon = Icons.Default.Edit, title = LanguageManager.tr("edit_produk", settingsManager.language), subtitle = "Change details", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
                     ActionMenuItem(icon = Icons.Default.Add, title = "Add Stock", subtitle = "Restock item", color = AmberAccent, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
                     ActionMenuItem(icon = Icons.Default.Delete, title = "Damaged Item", subtitle = "Record waste/expired", color = AmberAccentDark, onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
                     ActionMenuItem(icon = Icons.Default.List, title = "Manage Recipe (BOM)", subtitle = "Raw materials & composition", color = EmeraldGreenLight, onClick = { productToManageBom = showActionDialogFor; showActionDialogFor = null })

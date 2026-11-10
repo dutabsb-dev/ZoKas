@@ -16,15 +16,15 @@ data class ProductEntity(
     val category: String = "Umum",
     val costPrice: Long = 0,
     val barcode: String = "",
-    val variations: String = "", // Format: "S,M,L|Merah,Biru"
+    val variations: String = "",
     val commissionPerItem: Long = 0L,
     val promoType: String = "NONE",
     val promoMinQty: Int = 0,
     val promoValue: Long = 0L,
     val batchNumber: String = "",
     val expiryDate: Long = 0L,
-    // FITUR BARU
-    val isService: Boolean = false, // Jika true, maka stok unlimited/tidak dipotong
+    val isService: Boolean = false,
     val isCombo: Boolean = false,
-    val comboPrice: Long = 0L
+    val comboPrice: Long = 0L,
+    val imagePath: String = "" // FITUR BARU: Path gambar lokal
 )

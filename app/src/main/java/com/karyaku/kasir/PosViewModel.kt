@@ -126,9 +126,10 @@ class PosViewModel(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Cek jika database user kosong (biasanya terjadi pada setup awal)
                 if (userDao.getAllUsersOnce().isEmpty()) {
-                    userDao.insertUser(UserEntity(name = "Owner", pin = "123456", role = "OWNER"))
-                    userDao.insertUser(UserEntity(name = "Kasir 1", pin = "111111", role = "CASHIER"))
+                    // Jangan buat default user di sini jika SetupWizard digunakan.
+                    // SetupWizard akan menghandle pembuatan user.
                 }
                 if (voucherDao.getVoucherByCode("PROMO10") == null) {
                     voucherDao.insertVoucher(VoucherEntity("PROMO10", 10000))
@@ -154,6 +155,15 @@ class PosViewModel(
 
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
     fun setTable(table: String) { _selectedTable.value = table }
+
+    // FUNGSI BARU UNTUK BIOMETRIC LOGIN
+    suspend fun getFirstOwner(): UserEntity? {
+        return try {
+            userDao.getAllUsersOnce().firstOrNull { it.role == "OWNER" }
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -557,13 +567,14 @@ class PosViewModel(
         }
     }
 
-    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, userId: Long, userName: String) {
+    // FUNGSI ADD PRODUCT DIPERBARUI DENGAN IMAGE PATH
+    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, imagePath: String, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 productDao.insertProduct(ProductEntity(
                     name = name, price = price, stock = stock, category = category, costPrice = costPrice, 
                     barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
-                    isService = isService, isCombo = isCombo
+                    isService = isService, isCombo = isCombo, imagePath = imagePath
                 ))
                 userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name", actionType = "INVENTORY"))
             } catch (e: Exception) { e.printStackTrace() }
