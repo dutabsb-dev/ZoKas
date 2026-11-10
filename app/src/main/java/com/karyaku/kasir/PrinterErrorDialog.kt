@@ -2,6 +2,7 @@ package com.karyaku.kasir
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -14,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp // <--- IMPORT YANG HILANG
+import androidx.compose.ui.unit.sp // <--- IMPORT YANG HILANG
 
 @Composable
 fun PrinterErrorDialog(onDismiss: () -> Unit) {
@@ -38,7 +41,7 @@ fun PrinterErrorDialog(onDismiss: () -> Unit) {
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp)
             ) { 
                 Text("BUKA PENGATURAN BLUETOOTH") 
             }
