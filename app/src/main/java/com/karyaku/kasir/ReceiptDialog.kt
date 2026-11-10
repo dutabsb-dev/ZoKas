@@ -7,6 +7,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape // <-- IMPORT YANG HILANG
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
@@ -74,7 +75,7 @@ fun ReceiptDialog(
                         Toast.makeText(context, "Gagal menyalin teks", Toast.LENGTH_SHORT).show()
                     }
                     showShareFallbackDialog = false
-                }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("SALIN TEKS") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("SALIN TEKS") }
             },
             dismissButton = { TextButton(onClick = { showShareFallbackDialog = false }) { Text("Tutup") } }
         )
@@ -86,7 +87,6 @@ fun ReceiptDialog(
             Column {
                 Button(
                     onClick = {
-                        // Defensive Intent Handling
                         try {
                             textToShare = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
                             
@@ -94,24 +94,20 @@ fun ReceiptDialog(
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, textToShare)
                                 type = "text/plain"
-                                setPackage("com.whatsapp") // Coba spesifik ke WhatsApp
+                                setPackage("com.whatsapp")
                             }
 
-                            // Cek apakah WhatsApp tersedia
                             if (sendIntent.resolveActivity(context.packageManager) != null) {
                                 context.startActivity(sendIntent)
                             } else {
-                                // Coba WhatsApp Business
                                 sendIntent.setPackage("com.whatsapp.w4b")
                                 if (sendIntent.resolveActivity(context.packageManager) != null) {
                                     context.startActivity(sendIntent)
                                 } else {
-                                    // Tampilkan dialog fallback (salin ke clipboard)
                                     showShareFallbackDialog = true
                                 }
                             }
                         } catch (e: Exception) {
-                            // Fallback jika terjadi error pada Intent
                             showShareFallbackDialog = true
                         }
                     },
@@ -237,7 +233,6 @@ fun ReceiptDialog(
     )
 }
 
-// FUNGSI PEMBANTU FORMAT TEKS (TETAP SAMA)
 private fun generateTextReceipt(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,

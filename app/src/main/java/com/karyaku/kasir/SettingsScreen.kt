@@ -69,7 +69,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     
-    // State Profil Toko
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
@@ -77,13 +76,11 @@ fun SettingsScreen(
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var csvDataToExport by remember { mutableStateOf("") }
     
-    // State Promo
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
     var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
     var maxDiscountCap by remember { mutableStateOf(settingsManager.maxDiscountCap.toString()) }
     
-    // State Modular
     var enableMultiCurrency by remember { mutableStateOf(settingsManager.enableMultiCurrency) }
     var exchangeRateUsd by remember { mutableStateOf(settingsManager.exchangeRateUsd.toString()) }
     var isTableModeEnabled by remember { mutableStateOf(settingsManager.isTableModeEnabled) }
@@ -250,7 +247,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- TAMPILAN & AKSESIBILITAS ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -284,7 +280,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- MODULAR FITUR ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -333,7 +328,6 @@ fun SettingsScreen(
             }
         }
         
-        // --- MANAJEMEN AKUN ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -361,7 +355,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- HARDWARE (PRINTER) ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -390,7 +383,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- PROFIL TOKO (PRO) ---
         if (isPro) {
             item {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -414,7 +406,6 @@ fun SettingsScreen(
                 }
             }
             
-            // --- HAPPY HOUR ---
             item {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -431,7 +422,6 @@ fun SettingsScreen(
                 }
             }
 
-            // --- BATAS DISKON ---
             item {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -462,7 +452,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- DATA & BACKUP ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -477,7 +466,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- MANAJEMEN PRODUK MASSAL ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -510,4 +498,79 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+fun RawMaterialManagementDialog(
+    rawMaterials: List<RawMaterialEntity>,
+    viewModel: PosViewModel,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var stock by remember { mutableStateOf("") }
+    var unit by remember { mutableStateOf("gram") }
+    var cost by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Kelola Bahan Baku") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Bahan (cth: Biji Kopi)") }, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = stock, onValueChange = { if (it.length <= 10) stock = it }, label = { Text("Stok Awal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Satuan") }, modifier = Modifier.weight(1f))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = cost, onValueChange = { if (it.length <= 10) cost = it }, label = { Text("Harga Modal / Satuan (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Daftar Bahan Baku:", fontWeight = FontWeight.Bold)
+                rawMaterials.forEach { material ->
+                    Text("- ${material.name}: ${material.stock} ${material.unit}", fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val s = stock.toDoubleOrNull() ?: 0.0
+                    val c = cost.toLongOrNull() ?: 0L
+                    if (name.isNotBlank()) {
+                        viewModel.addRawMaterial(name, s, unit, c)
+                        name = ""
+                        stock = ""
+                        cost = ""
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)
+            ) { Text("TAMBAH BAHAN") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
+    )
+}
+
+@Composable
+fun ChangePinDialog(user: UserEntity, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var newPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ubah PIN Keamanan") },
+        text = {
+            Column {
+                Text("Masukkan PIN baru (6 digit):")
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = newPin, onValueChange = { if (it.length <= 6) { newPin = it; error = "" } }, label = { Text("PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = confirmPin, onValueChange = { if (it.length <= 6) { confirmPin = it; error = "" } }, label = { Text("Konfirmasi PIN Baru") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true, isError = error.isNotEmpty(), shape = RoundedCornerShape(12.dp))
+                if (error.isNotEmpty()) { Text(error, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
+            }
+        },
+        confirmButton = { Button(onClick = { if (newPin.length == 6 && newPin == confirmPin) { onSave(newPin) } else { error = "PIN harus 6 digit dan sama!" } }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("SIMPAN PIN") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }

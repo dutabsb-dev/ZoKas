@@ -85,6 +85,10 @@ class PosViewModel(
     private val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
+    // STATE UNTUK LOADING LOGIN
+    private val _isInitializing = MutableStateFlow(true)
+    val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
+
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, Long>(
         _transactions, 
         cashFlowDao.getAllCashFlows()
@@ -132,6 +136,8 @@ class PosViewModel(
                 checkActiveShift()
             } catch (e: Exception) {
                 e.printStackTrace()
+            } finally {
+                withContext(Dispatchers.Main) { _isInitializing.value = false }
             }
         }
         
@@ -176,7 +182,6 @@ class PosViewModel(
 
                 val product = productDao.getProductByBarcode(cleanBarcode)
                 if (product != null) {
-                    // LOGIKA: Jasa tidak butuh cek stok
                     if (product.isService || product.stock > 0) {
                         val finalProduct = if (parsedExpiry > 0) {
                             product.copy(expiryDate = parsedExpiry, batchNumber = parsedBatch)
@@ -526,7 +531,6 @@ class PosViewModel(
         }
     }
 
-    // UPDATE: Tambahan parameter 'note' untuk Wizard Tutup Kasir
     fun closeShift(user: UserEntity, uangFisik: Long, note: String, onSuccess: (ShiftEntity) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
