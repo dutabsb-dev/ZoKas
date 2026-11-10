@@ -48,6 +48,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalConfiguration // <-- IMPORT BARU UNTUK CEK LAYAR
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -88,6 +89,9 @@ fun formatRupiah(amount: Long): String {
 @Composable
 fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity, onLogout: () -> Unit) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current // <-- CEK KONFIGURASI LAYAR
+    val isPhone = configuration.screenWidthDp < 600
+    
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
     val printerManager = remember { BluetoothPrinterManager(context) }
@@ -839,7 +843,8 @@ fun PosScreen(viewModel: PosViewModel, settingsManager: SettingsManager, current
         }
         
         // FLOATING ACTION BUTTON UNTUK KERANJANG (Hanya di HP)
-        if (cart.isNotEmpty() && !showCartOnPhone && maxWidth < 600.dp) {
+        // PERBAIKAN: Gunakan isPhone bukan maxWidth
+        if (cart.isNotEmpty() && !showCartOnPhone && isPhone) {
             ExtendedFloatingActionButton(
                 onClick = { showCartOnPhone = true },
                 modifier = Modifier
