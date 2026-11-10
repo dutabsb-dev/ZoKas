@@ -1,5 +1,6 @@
 package com.karyaku.kasir
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,7 +20,7 @@ import com.karyaku.kasir.data.local.UserEntity
 @Composable
 fun SetupWizardScreen(
     settingsManager: SettingsManager, 
-    viewModel: PosViewModel, // <-- TAMBAHAN PARAMETER
+    viewModel: PosViewModel, 
     onSetupComplete: (UserEntity) -> Unit
 ) {
     var step by remember { mutableStateOf(1) }
@@ -31,7 +32,12 @@ fun SetupWizardScreen(
     var adminPin by remember { mutableStateOf("") }
     var cashierName by remember { mutableStateOf("") }
     var cashierPin by remember { mutableStateOf("") }
-    var paymentMethod by remember { mutableStateOf("QRIS") }
+    
+    // State Multi Payment
+    var selectedMethods by remember { mutableStateOf(setOf("CASH")) }
+    
+    // State Loading
+    var isLoading by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().imePadding(), contentAlignment = Alignment.Center) {
         Column(
@@ -111,22 +117,47 @@ fun SetupWizardScreen(
                     TextButton(onClick = { step = 2 }) { Text("Back") }
                 }
                 4 -> {
-                    Text("Payment Method", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Payment Methods", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Select one or more methods", fontSize = 12.sp, color = SlateGrey)
                     Spacer(modifier = Modifier.height(16.dp))
-                    listOf("QRIS", "Virtual Account", "Bank Transfer").forEach { method ->
+                    
+                    val methods = listOf("CASH", "QRIS", "Virtual Account", "Bank Transfer")
+                    methods.forEach { method ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    selectedMethods = if (selectedMethods.contains(method)) {
+                                        selectedMethods - method
+                                    } else {
+                                        selectedMethods + method
+                                    }
+                                }
+                                .padding(vertical = 4.dp)
                         ) {
-                            RadioButton(selected = paymentMethod == method, onClick = { paymentMethod = method }, colors = RadioButtonDefaults.colors(selectedColor = EmeraldGreen))
+                            Checkbox(
+                                checked = selectedMethods.contains(method), 
+                                onCheckedChange = { isChecked ->
+                                    selectedMethods = if (isChecked) {
+                                        selectedMethods + method
+                                    } else {
+                                        selectedMethods - method
+                                    }
+                                }, 
+                                colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen)
+                            )
                             Text(method, fontSize = 16.sp)
                         }
                     }
+                    
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = { 
-                            settingsManager.paymentMethod = paymentMethod
-                            settingsManager.isSetupCompleted = true
+                            if (selectedMethods.isEmpty()) return@Button
+                            
+                            isLoading = true
+                            settingsManager.paymentMethods = selectedMethods
                             
                             // SIMPAN USER KE DATABASE
                             viewModel.registerInitialSetup(
@@ -135,14 +166,24 @@ fun SetupWizardScreen(
                                 cashierName = cashierName,
                                 cashierPin = cashierPin
                             ) { newAdmin ->
+                                // JIKA SUKSES, BARU PINDAH LAYAR
+                                isLoading = false
+                                settingsManager.isSetupCompleted = true
                                 onSetupComplete(newAdmin)
                             }
                         }, 
                         modifier = Modifier.fillMaxWidth().height(50.dp),
+                        enabled = selectedMethods.isNotEmpty() && !isLoading,
                         colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                         shape = RoundedCornerShape(12.dp)
-                    ) { Text("Finish Setup & Login") }
-                    TextButton(onClick = { step = 3 }) { Text("Back") }
+                    ) { 
+                        if (isLoading) {
+                            CircularProgressIndicator(color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Finish Setup & Login") 
+                        }
+                    }
+                    TextButton(onClick = { if (!isLoading) step = 3 }) { Text("Back") }
                 }
             }
         }

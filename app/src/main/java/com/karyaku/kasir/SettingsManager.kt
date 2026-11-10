@@ -18,7 +18,11 @@ class SettingsManager(context: Context) {
     var storeAddress: String? get() = prefs.getString("store_address", "Jl. Raya UMKM No. 123"); set(value) = prefs.edit().putString("store_address", value).apply()
     var storePhone: String? get() = prefs.getString("store_phone", "081234567890"); set(value) = prefs.edit().putString("store_phone", value).apply()
     var storeFooter: String? get() = prefs.getString("store_footer", "Terima kasih!"); set(value) = prefs.edit().putString("store_footer", value).apply()
-    var paymentMethod: String get() = prefs.getString("payment_method", "CASH") ?: "CASH"; set(value) = prefs.edit().putString("payment_method", value).apply()
+    
+    // MULTI PEMBAYARAN (Default: CASH & QRIS)
+    var paymentMethods: Set<String> 
+        get() = prefs.getStringSet("payment_methods", setOf("CASH", "QRIS")) ?: setOf("CASH", "QRIS")
+        set(value) = prefs.edit().putStringSet("payment_methods", value).apply()
     
     var taxPercent: Double get() = prefs.getFloat("tax_percent", 0f).toDouble(); set(value) = prefs.edit().putFloat("tax_percent", value.toFloat()).apply()
     var printerMacAddress: String? get() = prefs.getString("printer_mac", null); set(value) = prefs.edit().putString("printer_mac", value).apply()
