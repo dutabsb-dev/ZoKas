@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -212,7 +213,7 @@ fun MainNavigation(
             // HEADER MODERN (Minimalis & Clean)
             Row(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth() // <--- PERBAIKAN: Dari fillMaxSize() menjadi fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
                     .background(MaterialTheme.colorScheme.background),
                 verticalAlignment = Alignment.CenterVertically
@@ -231,7 +232,7 @@ fun MainNavigation(
                             fontSize = 18.sp,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        // CROWN BADGE MINIMALIS (Pengganti Banner Pro)
+                        // CROWN BADGE MINIMALIS
                         if (settingsManager.isPro) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
