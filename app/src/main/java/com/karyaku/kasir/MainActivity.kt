@@ -13,6 +13,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,17 +26,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.karyaku.kasir.data.local.AppDatabase
+import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.UserEntity
 import java.io.File
 import java.text.SimpleDateFormat
@@ -250,7 +254,7 @@ fun MainNavigation(
                     Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Merge Table") }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { /* TODO: Implement global merge trigger if needed */ showMenu = false })
+                    DropdownMenuItem(text = { Text("Merge Table") }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
                     DropdownMenuItem(text = { Text("Open Drawer") }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { viewModel.logCashDrawerOpen(currentUser); showMenu = false })
                     DropdownMenuItem(text = { Text("Hold Orders") }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
                     DropdownMenuItem(text = { Text("Cash In/Out") }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showMenu = false })
@@ -334,6 +338,133 @@ fun MainNavigation(
                     )
                 }
             }
+        }
+    }
+}
+
+// FUNGSI YANG SEBELUMNYA HILANG
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
+    val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
+    val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    
+    var showProductForm by remember { mutableStateOf(false) }
+    var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
+    var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
+
+    val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
+    val searchFocusRequester = remember { FocusRequester() }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        ProductCatalog(
+            products = filteredProducts, 
+            categories = categories, 
+            selectedCategory = selectedCategory, 
+            onCategorySelect = { viewModel.setCategory(it) }, 
+            searchQuery = searchQuery, 
+            onSearchChange = { viewModel.setSearchQuery(it) }, 
+            onProductClick = { 
+                productToEdit = it
+                showProductForm = true
+            }, 
+            onProductLongClick = { showActionDialogFor = it }, 
+            onBarcodeScan = { }, 
+            onCameraScanClick = { },
+            searchFocusRequester = searchFocusRequester,
+            lang = settingsManager.language
+        )
+
+        FloatingActionButton(
+            onClick = { productToEdit = null; showProductForm = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            containerColor = EmeraldGreen
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Product", tint = Color.White)
+        }
+
+        if (showProductForm) {
+            ProductFormBottomSheet(
+                productToEdit = productToEdit, 
+                onDismiss = { showProductForm = false; productToEdit = null }, 
+                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo ->
+                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, currentUser.id, currentUser.name)
+                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo), currentUser.id, currentUser.name)
+                    showProductForm = false; productToEdit = null
+                }
+            )
+        }
+
+        if (showActionDialogFor != null) {
+            ModalBottomSheet(
+                onDismissRequest = { showActionDialogFor = null },
+                containerColor = MaterialTheme.colorScheme.surface,
+                dragHandle = { BottomSheetDefaults.DragHandle() }
+            ) {
+                Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                    Text(text = showActionDialogFor!!.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
+                    ActionMenuItem(icon = Icons.Default.Edit, title = "Edit Product", subtitle = "Change details", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
+                    ActionMenuItem(icon = Icons.Default.Add, title = "Add Stock", subtitle = "Restock item", color = AmberAccent, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
+                    ActionMenuItem(icon = Icons.Default.Delete, title = "Damaged Item", subtitle = "Record waste/expired", color = AmberAccentDark, onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
+                    ActionMenuItem(icon = Icons.Default.List, title = "Manage Recipe (BOM)", subtitle = "Raw materials & composition", color = EmeraldGreenLight, onClick = { productToManageBom = showActionDialogFor; showActionDialogFor = null })
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                    ActionMenuItem(icon = Icons.Default.Delete, title = "Delete Product", subtitle = "Delete permanently", color = ErrorRed, onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null })
+                }
+            }
+        }
+
+        if (productToRestock != null) {
+            StockOpnameDialog(product = productToRestock!!, onDismiss = { productToRestock = null }, onSave = { qty -> viewModel.addStock(productToRestock!!, qty, currentUser); productToRestock = null })
+        }
+
+        if (productToWaste != null) {
+            var qty by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { productToWaste = null },
+                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = ErrorRed) },
+                title = { Text("Record Damaged Item") },
+                text = {
+                    Column {
+                        Text("Product: ${productToWaste!!.name}", fontWeight = FontWeight.Bold)
+                        Text("Stock: ${productToWaste!!.stock} pcs", color = SlateGrey)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(value = qty, onValueChange = { if (it.length <= 5) qty = it }, label = { Text("Damaged Quantity") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { 
+                        val q = qty.toIntOrNull() ?: 0
+                        if (q > 0 && q <= productToWaste!!.stock) { viewModel.recordWaste(productToWaste!!, q, currentUser); productToWaste = null }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("SAVE") }
+                },
+                dismissButton = { TextButton(onClick = { productToWaste = null }) { Text("Cancel") } }
+            )
+        }
+
+        if (productToManageBom != null) {
+            BomManagementDialog(
+                product = productToManageBom!!,
+                rawMaterials = rawMaterials,
+                viewModel = viewModel,
+                onDismiss = { productToManageBom = null }
+            )
+        }
+
+        if (productToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { productToDelete = null },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed) },
+                title = { Text("Delete Product?") },
+                text = { Text("Delete '${productToDelete!!.name}' permanently?") },
+                confirmButton = { Button(onClick = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("DELETE") } },
+                dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Cancel") } }
+            )
         }
     }
 }
