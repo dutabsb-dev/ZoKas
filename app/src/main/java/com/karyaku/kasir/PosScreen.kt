@@ -720,7 +720,7 @@ fun PosScreen(
                         Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
                             ProductCatalog(
                                 products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                                onCategorySelect = { viewModel.setCategory(it) }, 
                                 onProductClick = { prod -> 
                                     if (prod.variations.contains("|")) {
                                         productToSelectMatrix = prod
@@ -731,17 +731,6 @@ fun PosScreen(
                                     }
                                 }, 
                                 onProductLongClick = { showActionDialogFor = it }, 
-                                onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
-                                onCameraScanClick = {
-                                    val options = ScanOptions()
-                                    options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                                    options.setPrompt("Scan Product Barcode")
-                                    options.setCameraId(0)
-                                    options.setBeepEnabled(false)
-                                    options.setBarcodeImageEnabled(true)
-                                    options.setOrientationLocked(false)
-                                    barcodeLauncher.launch(options)
-                                },
                                 searchFocusRequester = searchFocusRequester,
                                 lang = lang
                             ) 
@@ -780,7 +769,7 @@ fun PosScreen(
                     } else {
                         ProductCatalog(
                             products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                            onCategorySelect = { viewModel.setCategory(it) }, 
                             onProductClick = { prod -> 
                                 if (prod.variations.contains("|")) {
                                     productToSelectMatrix = prod
@@ -791,17 +780,6 @@ fun PosScreen(
                                 }
                             }, 
                             onProductLongClick = { showActionDialogFor = it }, 
-                            onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
-                            onCameraScanClick = {
-                                val options = ScanOptions()
-                                options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                                options.setPrompt("Scan Product Barcode")
-                                options.setCameraId(0)
-                                options.setBeepEnabled(false)
-                                options.setBarcodeImageEnabled(true)
-                                options.setOrientationLocked(false)
-                                barcodeLauncher.launch(options)
-                            },
                             searchFocusRequester = searchFocusRequester,
                             lang = lang
                         )
@@ -914,28 +892,14 @@ fun ActionMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
 @Composable
 fun ProductCatalog(
     products: List<ProductEntity>, categories: List<String>, selectedCategory: String, 
-    onCategorySelect: (String) -> Unit, searchQuery: String, onSearchChange: (String) -> Unit, 
-    onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit, onBarcodeScan: (String) -> Unit,
-    onCameraScanClick: () -> Unit,
+    onCategorySelect: (String) -> Unit, 
+    onProductClick: (ProductEntity) -> Unit, onProductLongClick: (ProductEntity) -> Unit, 
     searchFocusRequester: FocusRequester,
     lang: String
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // SEARCH BAR LEBIH SIMPLE & TIPIS (FIX LANDSCAPE)
-        OutlinedTextField(
-            value = searchQuery, onValueChange = onSearchChange, 
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp).height(50.dp).focusRequester(searchFocusRequester), 
-            placeholder = { Text("Search product...", fontSize = 14.sp) }, 
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(20.dp)) }, 
-            trailingIcon = { 
-                IconButton(onClick = onCameraScanClick, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Camera", tint = EmeraldGreen, modifier = Modifier.size(18.dp)) 
-                }
-            }, 
-            singleLine = true, shape = RoundedCornerShape(12.dp), 
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = EmeraldGreen, unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant), 
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { if (searchQuery.isNotBlank()) { onBarcodeScan(searchQuery); onSearchChange("") } })
-        )
+        // SEARCH BAR DIHAPUS DARI SINI
+        
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(categories) { category ->
                 FilterChip(
@@ -991,8 +955,17 @@ fun ProductCatalog(
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
-                                // Overlay gelap agar teks terbaca
-                                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
+                                // GANTI OVERLAY GELAP DENGAN GRADIENT AGAR GAMBAR TERANG
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
+                                                startY = 150f
+                                            )
+                                        )
+                                )
                             } else {
                                 // Fallback jika tidak ada gambar
                                 Box(modifier = Modifier.fillMaxSize().background(Brush.linearGradient(colors = if (isExpiringSoon) listOf(ErrorRed, Color(0xFFB71C1C)) else listOf(EmeraldGreen, EmeraldGreenDark))))

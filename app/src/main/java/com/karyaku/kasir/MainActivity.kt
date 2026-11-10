@@ -14,10 +14,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState // <-- IMPORT BARU
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll // <-- IMPORT BARU
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -28,12 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -78,7 +80,6 @@ class MainActivity : ComponentActivity() {
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
                 var language by rememberSaveable { mutableStateOf(settingsManager.language) }
                 
-                // SAAT ROTASI LAYAR, GUNAKAN rememberSaveable AGAR TIDAK LOGOUT
                 val userSaver = listSaver<UserEntity?, Any>(
                     save = { user -> 
                         if (user == null) emptyList() 
@@ -157,14 +158,11 @@ fun MainContent(
             )
         )
 
-        // LOGIKA ROUTING: SETUP -> LOGIN -> MAIN
         if (!settingsManager.isSetupCompleted) {
             SetupWizardScreen(
                 settingsManager = settingsManager,
-                viewModel = posViewModel, // <-- DIPERBAIKI
-                onSetupComplete = { newAdmin ->
-                    onUserChange(newAdmin) // <-- DIPERBAIKI (Gunakan onUserChange)
-                }
+                viewModel = posViewModel,
+                onSetupComplete = { newAdmin -> onUserChange(newAdmin) }
             )
         } else if (currentUser == null) {
             LoginScreen(
@@ -191,6 +189,7 @@ fun MainContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainNavigation(
     viewModel: PosViewModel,
@@ -210,9 +209,11 @@ fun MainNavigation(
     var isOnline by remember { mutableStateOf(false) }
     var showCfd by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showSearchDialog by remember { mutableStateOf(false) }
     
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
     // Network State Listener
     val context = LocalContext.current
@@ -227,9 +228,42 @@ fun MainNavigation(
         onDispose { cm.unregisterNetworkCallback(callback) }
     }
 
+    // Dialog Pencarian
+    if (showSearchDialog) {
+        var query by remember { mutableStateOf(searchQuery) }
+        AlertDialog(
+            onDismissRequest = { showSearchDialog = false },
+            title = { Text("Cari Produk") },
+            text = {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { 
+                        query = it
+                        viewModel.setSearchQuery(it)
+                    },
+                    placeholder = { Text("Ketik nama produk...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+            },
+            confirmButton = { 
+                TextButton(onClick = { showSearchDialog = false }) { Text("Tutup") } 
+            },
+            dismissButton = {
+                if (query.isNotEmpty()) {
+                    TextButton(onClick = { 
+                        query = ""
+                        viewModel.setSearchQuery("")
+                    }) { Text("Hapus", color = ErrorRed) }
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
-            // HEADER TERINTEGRASI
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -263,7 +297,10 @@ fun MainNavigation(
                     }
                 }
                 
-                // GABUNGAN ACTION BAR KE HEADER
+                // IKON SEARCH DITAMBAHKAN DI SINI
+                IconButton(onClick = { showSearchDialog = true }) { 
+                    Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) 
+                }
                 IconButton(onClick = { showCfd = true }) { 
                     Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) 
                 }
@@ -351,7 +388,7 @@ fun MainNavigation(
                         onDismissCfd = { showCfd = false }
                     )
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
-                    2 -> HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser) // <-- isPro DIHAPUS
+                    2 -> HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     3 -> SettingsScreen(
                         settingsManager = settingsManager,
                         isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
@@ -372,7 +409,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
@@ -391,15 +427,11 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             categories = categories, 
             selectedCategory = selectedCategory, 
             onCategorySelect = { viewModel.setCategory(it) }, 
-            searchQuery = searchQuery, 
-            onSearchChange = { viewModel.setSearchQuery(it) }, 
             onProductClick = { 
                 productToEdit = it
                 showProductForm = true
             }, 
             onProductLongClick = { showActionDialogFor = it }, 
-            onBarcodeScan = { }, 
-            onCameraScanClick = { },
             searchFocusRequester = searchFocusRequester,
             lang = settingsManager.language
         )
@@ -430,7 +462,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 containerColor = MaterialTheme.colorScheme.surface,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
-                Column(modifier = Modifier.padding(bottom = 32.dp).verticalScroll(rememberScrollState())) { // <-- IMPORT FIX
+                Column(modifier = Modifier.padding(bottom = 32.dp).verticalScroll(rememberScrollState())) {
                     Text(text = showActionDialogFor!!.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
                     ActionMenuItem(icon = Icons.Default.Edit, title = LanguageManager.tr("edit_produk", settingsManager.language), subtitle = "Change details", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
                     ActionMenuItem(icon = Icons.Default.Add, title = "Add Stock", subtitle = "Restock item", color = AmberAccent, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
