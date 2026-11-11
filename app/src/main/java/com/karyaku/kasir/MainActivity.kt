@@ -455,6 +455,9 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
     val searchFocusRequester = remember { FocusRequester() }
+    
+    // FIX: Ambil Context di sini
+    val context = LocalContext.current 
 
     Box(modifier = Modifier.fillMaxSize()) {
         PosProductSection(
@@ -505,7 +508,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 onSaveBarcode = { 
                     val product = showActionDialogFor!!
                     showActionDialogFor = null
-                    saveBarcodeToGallery(LocalContext.current, product)
+                    // FIX: Panggil context yang sudah dideklarasikan di atas
+                    saveBarcodeToGallery(context, product) 
                 },
                 onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }
             )
