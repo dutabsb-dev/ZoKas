@@ -41,6 +41,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+fun Context.findFragmentActivity(): FragmentActivity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is FragmentActivity) return context
+        context = context.baseContext
+    }
+    return null
+}
+
 @Composable
 fun SettingsScreen(
     settingsManager: SettingsManager,
@@ -61,7 +70,6 @@ fun SettingsScreen(
     val activity = context.findFragmentActivity()
     val lang = language
     
-    // State Profil Toko
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
@@ -69,13 +77,11 @@ fun SettingsScreen(
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var csvDataToExport by remember { mutableStateOf("") }
     
-    // State Promo
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
     var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
     var maxDiscountCap by remember { mutableStateOf(settingsManager.maxDiscountCap.toString()) }
     
-    // State Modular & Keamanan
     var enableMultiCurrency by remember { mutableStateOf(settingsManager.enableMultiCurrency) }
     var exchangeRateUsd by remember { mutableStateOf(settingsManager.exchangeRateUsd.toString()) }
     var isTableModeEnabled by remember { mutableStateOf(settingsManager.isTableModeEnabled) }
@@ -344,7 +350,9 @@ fun SettingsScreen(
                     
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                     
-                    // TOGGLE BIOMETRIK
+                    // ==========================================
+                    // LOGIKA BIOMETRIK (DEBUGGING MODE)
+                    // ==========================================
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -352,53 +360,72 @@ fun SettingsScreen(
                         }
                         Switch(
                             checked = isBiometricEnabled, 
-                            onCheckedChange = { 
-                                isBiometricEnabled = it
-                                settingsManager.isBiometricEnabled = it 
+                            onCheckedChange = { isChecked -> 
+                                if (isChecked) {
+                                    // Jika toggle dinyalakan, langsung tes sensor!
+                                    if (activity == null) {
+                                        Toast.makeText(context, "ERROR: Activity tidak ditemukan (Context issue).", Toast.LENGTH_LONG).show()
+                                        return@Switch
+                                    }
+
+                                    val biometricManager = BiometricManager.from(context)
+                                    val authStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+
+                                    when (authStatus) {
+                                        BiometricManager.BIOMETRIC_SUCCESS -> {
+                                            // Sensor siap! Munculkan pop-up tes
+                                            val executor = ContextCompat.getMainExecutor(context)
+                                            val biometricPrompt = BiometricPrompt(activity, executor,
+                                                object : BiometricPrompt.AuthenticationCallback() {
+                                                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                                        super.onAuthenticationSucceeded(result)
+                                                        isBiometricEnabled = true
+                                                        settingsManager.isBiometricEnabled = true
+                                                        Toast.makeText(context, "BERHASIL! Sidik jari terdaftar dan berfungsi.", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                                        super.onAuthenticationError(errorCode, errString)
+                                                        isBiometricEnabled = false // Matikan toggle jika gagal
+                                                        settingsManager.isBiometricEnabled = false
+                                                        Toast.makeText(context, "Gagal: $errString", Toast.LENGTH_LONG).show()
+                                                    }
+                                                })
+
+                                            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                                                .setTitle("Aktivasi Sidik Jari")
+                                                .setSubtitle("Sentuh sensor untuk mengonfirmasi")
+                                                .setNegativeButtonText("Batal")
+                                                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                                                .build()
+
+                                            biometricPrompt.authenticate(promptInfo)
+                                        }
+                                        BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
+                                            Toast.makeText(context, "Gagal: HP ini tidak memiliki sensor sidik jari fisik.", Toast.LENGTH_LONG).show()
+                                            isBiometricEnabled = false
+                                        }
+                                        BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
+                                            Toast.makeText(context, "Gagal: Sensor sidik jari sedang tidak tersedia (sibuk/error).", Toast.LENGTH_LONG).show()
+                                            isBiometricEnabled = false
+                                        }
+                                        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                                            Toast.makeText(context, "Gagal: Anda BELUM mendaftarkan sidik jari di Pengaturan HP (Keamanan -> Sidik Jari).", Toast.LENGTH_LONG).show()
+                                            isBiometricEnabled = false
+                                        }
+                                        else -> {
+                                            Toast.makeText(context, "Gagal: Error tidak dikenal (Kode: $authStatus).", Toast.LENGTH_LONG).show()
+                                            isBiometricEnabled = false
+                                        }
+                                    }
+                                } else {
+                                    // Jika toggle dimatikan
+                                    isBiometricEnabled = false
+                                    settingsManager.isBiometricEnabled = false
+                                    Toast.makeText(context, "Login sidik jari dimatikan.", Toast.LENGTH_SHORT).show()
+                                }
                             }, 
                             colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
                         )
-                    }
-
-                    // FITUR TES SIDIK JARI (Membantu mendiagnosis masalah)
-                    if (isBiometricEnabled && activity != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                val biometricManager = BiometricManager.from(context)
-                                if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) {
-                                    Toast.makeText(context, "Sidik jari belum didaftarkan di HP ini! Buka Pengaturan HP -> Keamanan.", Toast.LENGTH_LONG).show()
-                                    return@OutlinedButton
-                                }
-                                
-                                val executor = ContextCompat.getMainExecutor(context)
-                                val biometricPrompt = BiometricPrompt(activity, executor,
-                                    object : BiometricPrompt.AuthenticationCallback() {
-                                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                                            super.onAuthenticationSucceeded(result)
-                                            Toast.makeText(context, "Tes Berhasil! Sensor sidik jari berfungsi.", Toast.LENGTH_SHORT).show()
-                                        }
-                                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                                            super.onAuthenticationError(errorCode, errString)
-                                            Toast.makeText(context, "Gagal: $errString", Toast.LENGTH_SHORT).show()
-                                        }
-                                    })
-
-                                val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                                    .setTitle("Tes Sidik Jari")
-                                    .setSubtitle("Sentuh sensor untuk menguji")
-                                    .setNegativeButtonText("Batal")
-                                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
-                                    .build()
-
-                                biometricPrompt.authenticate(promptInfo)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldGreen)
-                        ) {
-                            Text("TES FUNGSI SIDIK JARI", color = EmeraldGreen, fontWeight = FontWeight.Bold)
-                        }
                     }
                     
                     Spacer(modifier = Modifier.height(12.dp))
@@ -409,7 +436,7 @@ fun SettingsScreen(
             }
         }
 
-        // --- PRINTER ---
+        // ... (Bagian Printer, Profil Toko, dll. biarkan sama seperti sebelumnya) ...
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -439,7 +466,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- PROFIL TOKO ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -462,7 +488,6 @@ fun SettingsScreen(
             }
         }
         
-        // --- HAPPY HOUR ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -479,7 +504,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- KEAMANAN DISKON ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -497,7 +521,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- BACKUP ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -512,7 +535,6 @@ fun SettingsScreen(
             }
         }
 
-        // --- CSV ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
