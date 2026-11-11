@@ -162,7 +162,6 @@ fun MainContent(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        // FIX: Hanya passing Database ke Factory
         val posViewModel: PosViewModel = viewModel(
             factory = PosViewModelFactory(database)
         )
