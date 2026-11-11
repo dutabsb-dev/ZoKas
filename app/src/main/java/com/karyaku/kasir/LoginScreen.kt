@@ -157,10 +157,12 @@ fun LoginScreen(
                                 }
                             })
 
+                        // PERBAIKAN: Tambahkan setAllowedAuthenticators
                         val promptInfo = BiometricPrompt.PromptInfo.Builder()
                             .setTitle("Login Sidik Jari")
                             .setSubtitle("Sentuh sensor sidik jari Anda")
                             .setNegativeButtonText("Batal")
+                            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK) // Wajib untuk Android 11+
                             .build()
 
                         biometricPrompt.authenticate(promptInfo)

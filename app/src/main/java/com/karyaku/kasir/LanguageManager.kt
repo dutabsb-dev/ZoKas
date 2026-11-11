@@ -2,6 +2,17 @@ package com.karyaku.kasir
 
 object LanguageManager {
     private val en = mapOf(
+        "selamat_datang" to "Welcome to ZoKas",
+        "masukkan_pin" to "Enter your PIN to continue",
+        "pin_6" to "6-Digit PIN",
+        "login" to "LOGIN",
+        "login_fingerprint" to "LOGIN WITH FINGERPRINT",
+        "pin_salah" to "Incorrect PIN! Please try again.",
+        "pin_harus_6" to "PIN must be 6 digits.",
+        "cari_produk" to "Search Product",
+        "ketik_produk" to "Type product name...",
+        "hapus" to "Delete",
+        
         "kasir" to "Cashier",
         "produk" to "Products",
         "laporan" to "Reports",
@@ -74,7 +85,6 @@ object LanguageManager {
         "pilih" to "Select",
         "tutup" to "Close",
         
-        // --- HISTORY SCREEN ---
         "today" to "Today",
         "this_month" to "This Month",
         "days_7" to "7 Days",
@@ -112,7 +122,6 @@ object LanguageManager {
         "receipt" to "Receipt",
         "customer" to "Customer",
         
-        // DETAIL DIALOG
         "transaction_details" to "Transaction Details",
         "date" to "Date",
         "loading" to "Loading...",
@@ -140,6 +149,17 @@ object LanguageManager {
     )
 
     private val id = mapOf(
+        "selamat_datang" to "Selamat Datang di ZoKas",
+        "masukkan_pin" to "Masukkan PIN Anda untuk melanjutkan",
+        "pin_6" to "PIN 6-Digit",
+        "login" to "MASUK",
+        "login_fingerprint" to "MASUK DENGAN SIDIK JARI",
+        "pin_salah" to "PIN salah! Silakan coba lagi.",
+        "pin_harus_6" to "PIN harus 6 digit angka.",
+        "cari_produk" to "Cari Produk",
+        "ketik_produk" to "Ketik nama produk...",
+        "hapus" to "Hapus",
+        
         "kasir" to "Kasir",
         "produk" to "Produk",
         "laporan" to "Laporan",
@@ -212,7 +232,6 @@ object LanguageManager {
         "pilih" to "Pilih",
         "tutup" to "Tutup",
 
-        // --- HISTORY SCREEN (Diterjemahkan agar mudah dipahami orang tua) ---
         "today" to "Hari Ini",
         "this_month" to "Bulan Ini",
         "days_7" to "7 Hari",
@@ -250,7 +269,6 @@ object LanguageManager {
         "receipt" to "Struk",
         "customer" to "Pelanggan",
 
-        // DETAIL DIALOG
         "transaction_details" to "Rincian Transaksi",
         "date" to "Tanggal",
         "loading" to "Memuat...",
