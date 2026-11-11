@@ -98,12 +98,17 @@ fun ProductFormBottomSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, 
+        sheetState = sheetState, 
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+        windowInsets = WindowInsets(0) // FIX: Menghilangkan padding bawaan sheet agar imePadding bekerja maksimal
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp)
-                .imePadding()
+                .imePadding() // FIX: Mendorong konten ke atas saat keyboard muncul
                 .verticalScroll(rememberScrollState()), 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -235,7 +240,6 @@ fun PaymentBottomSheet(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Tombol Metode (Sesuai dengan pilihan di Setup Wizard)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val availableMethods = settingsManager.paymentMethods.toList()
                 availableMethods.forEach { method ->

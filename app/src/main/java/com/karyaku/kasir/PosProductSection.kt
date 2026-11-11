@@ -14,13 +14,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Inventory
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,12 +25,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,7 +42,7 @@ fun PosProductSection(
     categories: List<String>, 
     selectedCategory: String, 
     onCategorySelect: (String) -> Unit, 
-    searchQuery: String, 
+    searchQuery: String, // Tetap di parameter jika diperlukan logic, tapi UI search dihapus
     onSearchChange: (String) -> Unit, 
     onProductClick: (ProductEntity) -> Unit, 
     onProductLongClick: (ProductEntity) -> Unit, 
@@ -57,40 +51,11 @@ fun PosProductSection(
     searchFocusRequester: FocusRequester
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search Bar
-        OutlinedTextField(
-            value = searchQuery, 
-            onValueChange = onSearchChange, 
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 8.dp)
-                .height(50.dp)
-                .focusRequester(searchFocusRequester), 
-            placeholder = { Text("Cari produk atau scan...", fontSize = 14.sp) }, 
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(20.dp)) }, 
-            trailingIcon = { 
-                IconButton(onClick = onCameraScanClick, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = EmeraldGreen, modifier = Modifier.size(18.dp)) 
-                }
-            }, 
-            singleLine = true, 
-            shape = RoundedCornerShape(12.dp), 
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = EmeraldGreen, 
-                unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
-            ), 
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), 
-            keyboardActions = KeyboardActions(onDone = { 
-                if (searchQuery.isNotBlank()) { 
-                    onBarcodeScan(searchQuery)
-                    onSearchChange("") 
-                } 
-            })
-        )
-
+        // FIX: Search Bar DIHAPUS dari sini (karena sudah ada di Top Bar MainActivity)
+        
         // Category Chips
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), 
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), 
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(categories) { category ->
@@ -115,10 +80,11 @@ fun PosProductSection(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 140.dp),
-                contentPadding = PaddingValues(bottom = 16.dp, start = 16.dp, end = 16.dp), 
+                columns = GridCells.Adaptive(minSize = 130.dp), // Sedikit dikecilkan agar lebih banyak kolom di landscape
+                contentPadding = PaddingValues(bottom = 80.dp, start = 16.dp, end = 16.dp), // bottom 80 untuk menghindari FAB
                 horizontalArrangement = Arrangement.spacedBy(12.dp), 
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f) // Penting agar grid mengambil sisa ruang
             ) {
                 items(items = products, key = { it.id }) { product ->
                     val interactionSource = remember { MutableInteractionSource() }

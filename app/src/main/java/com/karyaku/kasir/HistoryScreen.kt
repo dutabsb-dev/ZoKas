@@ -56,7 +56,6 @@ fun HistoryScreen(
     currentUser: UserEntity
 ) {
     val context = LocalContext.current
-    val activity = context.findActivity() // Memanggil fungsi dari Utils.kt
     val scope = rememberCoroutineScope()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
     val lang = settingsManager.language
@@ -289,9 +288,9 @@ fun HistoryScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(LanguageManager.tr("last_7_days_chart", lang), fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+                    Canvas(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                         val days = 7
-                        val paddingLeft = 30f
+                        val paddingLeft = 80f // Diperlebar untuk teks Y-axis
                         val paddingBottom = 40f
                         val chartWidth = size.width - paddingLeft
                         val chartHeight = size.height - paddingBottom
@@ -308,24 +307,55 @@ fun HistoryScreen(
                         }.reversed()
 
                         val maxSale = dailySales.maxOrNull() ?: 0L
-                        val effectiveMax = if (maxSale == 0L) 1L else maxSale
+                        // Menentukan nilai maksimum yang bulat untuk Y-axis (misal kelipatan 100rb)
+                        val yAxisMax = if (maxSale == 0L) 100000L else ((maxSale / 100000) + 1) * 100000L
 
                         val axisColor = Color.LightGray
                         val strokeWidth = 2f
-                        
-                        drawLine(color = axisColor, start = Offset(paddingLeft, 0f), end = Offset(paddingLeft, chartHeight), strokeWidth = strokeWidth)
-                        drawLine(color = axisColor, start = Offset(paddingLeft, chartHeight), end = Offset(size.width, chartHeight), strokeWidth = strokeWidth)
-
                         val textPaint = android.graphics.Paint().apply { 
                             color = android.graphics.Color.GRAY
                             textSize = 24f 
+                            textAlign = android.graphics.Paint.Align.RIGHT // Teks di kiri garis
+                        }
+                        val datePaint = android.graphics.Paint().apply {
+                            color = android.graphics.Color.GRAY
+                            textSize = 24f
                             textAlign = android.graphics.Paint.Align.CENTER
                         }
+
+                        // Gambar Garis Bantu Y (Horizontal) & Teks Nominal
+                        val ySteps = 4
+                        for (i in 0..ySteps) {
+                            val yValue = (yAxisMax / ySteps) * i
+                            val yPos = chartHeight - ((yValue.toFloat() / yAxisMax.toFloat()) * chartHeight)
+                            
+                            // Garis grid
+                            drawLine(
+                                color = axisColor.copy(alpha = 0.3f),
+                                start = Offset(paddingLeft, yPos),
+                                end = Offset(size.width, yPos),
+                                strokeWidth = 1f
+                            )
+                            
+                            // Teks (Format ringkas, misal: 100rb)
+                            val labelText = if (yValue == 0L) "0" else if (yValue >= 1000000) "${yValue / 1000000}Jt" else "${yValue / 1000}rb"
+                            drawContext.canvas.nativeCanvas.drawText(
+                                labelText,
+                                paddingLeft - 8f,
+                                yPos + 8f, // Offset sedikit ke bawah agar sejajar dengan garis
+                                textPaint
+                            )
+                        }
+
+                        // Garis Sumbu X dan Y
+                        drawLine(color = axisColor, start = Offset(paddingLeft, 0f), end = Offset(paddingLeft, chartHeight), strokeWidth = strokeWidth)
+                        drawLine(color = axisColor, start = Offset(paddingLeft, chartHeight), end = Offset(size.width, chartHeight), strokeWidth = strokeWidth)
+
                         val dateFormatShort = SimpleDateFormat("dd/MM", Locale.getDefault())
 
                         dailySales.forEachIndexed { index, sale ->
                             val x = paddingLeft + index * slotWidth + (slotWidth - barWidth) / 2f
-                            val barHeight = (sale.toFloat() / effectiveMax) * chartHeight
+                            val barHeight = (sale.toFloat() / yAxisMax.toFloat()) * chartHeight
                             
                             drawRect(
                                 color = EmeraldGreen,
@@ -338,7 +368,7 @@ fun HistoryScreen(
                                 dateStr,
                                 x + (barWidth / 2),
                                 size.height - 10f,
-                                textPaint
+                                datePaint
                             )
                         }
                     }
