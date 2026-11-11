@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +28,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.karyaku.kasir.data.local.ProductEntity
 import java.io.File
@@ -42,7 +45,6 @@ fun ProductFormBottomSheet(
     onDismiss: () -> Unit, 
     onSave: (String, Long, Int, String, Long, String, String, Long, Long, Boolean, Boolean, String) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState()
     val context = LocalContext.current
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
     var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
@@ -98,100 +100,125 @@ fun ProductFormBottomSheet(
         }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss, 
-        sheetState = sheetState, 
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-        windowInsets = WindowInsets(0) // FIX: Menghilangkan padding bawaan sheet agar imePadding bekerja maksimal
+    // FIX: Menggunakan Dialog Full Screen (bukan ModalBottomSheet)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .imePadding() // FIX: Mendorong konten ke atas saat keyboard muncul
-                .verticalScroll(rememberScrollState()), 
-            horizontalAlignment = Alignment.CenterHorizontally
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
         ) {
-            Text(if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Upload Gambar
-            Box(
+            Column(
                 modifier = Modifier
-                    .size(120.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { imagePickerLauncher.launch("image/*") },
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .imePadding() // FIX: Mendorong layar ke atas saat keyboard muncul
             ) {
-                if (imagePath.isNotEmpty()) {
-                    AsyncImage(
-                        model = File(imagePath),
-                        contentDescription = "Product Image",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                // Top Bar sederhana untuk tombol Close
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
                     )
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = "Upload", tint = SlateGrey)
-                        Text("Upload Gambar", fontSize = 10.sp, color = SlateGrey)
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup")
+                    }
+                }
+
+                // Konten Form (Bisa di-scroll)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp), 
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Upload Gambar
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { imagePickerLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (imagePath.isNotEmpty()) {
+                            AsyncImage(
+                                model = File(imagePath),
+                                contentDescription = "Product Image",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.AddAPhoto, contentDescription = "Upload", tint = SlateGrey)
+                                Text("Upload Gambar", fontSize = 10.sp, color = SlateGrey)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
+                            Checkbox(checked = isService, onCheckedChange = { isService = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
+                            Text("Produk Jasa (Tanpa Stok)", fontSize = 14.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
+                            Checkbox(checked = isCombo, onCheckedChange = { isCombo = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
+                            Text("Produk Combo/Paket", fontSize = 14.sp)
+                        }
+                    }
+                    
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = variations, onValueChange = { variations = it }, label = { Text("Varian (Pisah koma / | untuk Matrix)") }, placeholder = { Text("Cth: S,M,L | Merah,Biru") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = costPrice, onValueChange = { if (it.length <= 10) costPrice = it }, label = { Text("Harga Beli / Modal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (!isService) {
+                        OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    OutlinedTextField(value = commission, onValueChange = { if (it.length <= 10) commission = it }, label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    OutlinedButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, SlateGrey)
+                    ) {
+                        Icon(Icons.Default.DateRange, contentDescription = null, tint = AmberAccent)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(onClick = { 
+                        val p = price.toLongOrNull() ?: 0L
+                        val cp = costPrice.toLongOrNull() ?: 0L
+                        val s = if (isService) 0 else stock.toIntOrNull() ?: 0
+                        val c = commission.toLongOrNull() ?: 0L
+                        if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo, imagePath) 
+                    }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
+                        Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
-                    Checkbox(checked = isService, onCheckedChange = { isService = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
-                    Text("Produk Jasa (Tanpa Stok)", fontSize = 14.sp)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
-                    Checkbox(checked = isCombo, onCheckedChange = { isCombo = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
-                    Text("Produk Combo/Paket", fontSize = 14.sp)
-                }
-            }
-            
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = variations, onValueChange = { variations = it }, label = { Text("Varian (Pisah koma / | untuk Matrix)") }, placeholder = { Text("Cth: S,M,L | Merah,Biru") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = costPrice, onValueChange = { if (it.length <= 10) costPrice = it }, label = { Text("Harga Beli / Modal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            if (!isService) {
-                OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-            OutlinedTextField(value = commission, onValueChange = { if (it.length <= 10) commission = it }, label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            OutlinedButton(
-                onClick = { showDatePicker = true },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, SlateGrey)
-            ) {
-                Icon(Icons.Default.DateRange, contentDescription = null, tint = AmberAccent)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Expiry: $expiryText", color = Color.Black)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = { 
-                val p = price.toLongOrNull() ?: 0L
-                val cp = costPrice.toLongOrNull() ?: 0L
-                val s = if (isService) 0 else stock.toIntOrNull() ?: 0
-                val c = commission.toLongOrNull() ?: 0L
-                if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo, imagePath) 
-            }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
-                Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -205,18 +232,25 @@ fun PaymentBottomSheet(
     onDismiss: () -> Unit, 
     onConfirmPayment: (Long, String) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    // FIX: Paksa Bottom Sheet untuk membuka layar penuh
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var cashInput by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("CASH") }
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, 
+        sheetState = sheetState, 
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+        windowInsets = WindowInsets(0) // Biarkan kita handle manual paddingnya
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // .fillMaxHeight(0.95f) // Opsional: Memaksa tinggi maksimal
                 .padding(24.dp)
-                .imePadding()
+                .imePadding() // FIX: Keyboard handling
                 .verticalScroll(rememberScrollState()), 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
