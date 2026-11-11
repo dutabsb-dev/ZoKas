@@ -32,7 +32,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -41,14 +40,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-fun Context.findFragmentActivity(): FragmentActivity? {
-    var context = this
-    while (context is ContextWrapper) {
-        if (context is FragmentActivity) return context
-        context = context.baseContext
-    }
-    return null
-}
+// FUNGSI findFragmentActivity() SUDAH DIHAPUS DARI SINI KARENA SUDAH ADA DI Utils.kt
 
 @Composable
 fun SettingsScreen(
@@ -67,7 +59,7 @@ fun SettingsScreen(
     viewModel: PosViewModel
 ) {
     val context = LocalContext.current
-    val activity = context.findFragmentActivity()
+    val activity = context.findFragmentActivity() // Memanggil fungsi dari Utils.kt
     val lang = language
     
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
@@ -350,9 +342,7 @@ fun SettingsScreen(
                     
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                     
-                    // ==========================================
-                    // LOGIKA BIOMETRIK (DEBUGGING MODE)
-                    // ==========================================
+                    // LOGIKA BIOMETRIK
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -418,7 +408,6 @@ fun SettingsScreen(
                                         }
                                     }
                                 } else {
-                                    // Jika toggle dimatikan
                                     isBiometricEnabled = false
                                     settingsManager.isBiometricEnabled = false
                                     Toast.makeText(context, "Login sidik jari dimatikan.", Toast.LENGTH_SHORT).show()
@@ -436,7 +425,7 @@ fun SettingsScreen(
             }
         }
 
-        // ... (Bagian Printer, Profil Toko, dll. biarkan sama seperti sebelumnya) ...
+        // --- PRINTER ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -466,6 +455,7 @@ fun SettingsScreen(
             }
         }
 
+        // --- PROFIL TOKO ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -488,6 +478,7 @@ fun SettingsScreen(
             }
         }
         
+        // --- HAPPY HOUR ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -504,6 +495,7 @@ fun SettingsScreen(
             }
         }
 
+        // --- KEAMANAN DISKON ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -521,6 +513,7 @@ fun SettingsScreen(
             }
         }
 
+        // --- BACKUP ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -535,6 +528,7 @@ fun SettingsScreen(
             }
         }
 
+        // --- CSV ---
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
