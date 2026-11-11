@@ -1,5 +1,9 @@
 package com.karyaku.kasir
 
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.Image
@@ -28,6 +32,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.launch
 
+// FUNGSI BANTUAN UNTUK MENDAPATKAN ACTIVITY DENGAN AMAN DARI CONTEXT WRAPPER
+fun Context.findFragmentActivity(): FragmentActivity? {
+    var context = this
+    while (context is ContextWrapper) {
+        if (context is FragmentActivity) return context
+        context = context.baseContext
+    }
+    return null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
@@ -40,13 +54,19 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val activity = context as? FragmentActivity
+    
+    // PERBAIKAN 1: Gunakan fungsi ekstensi untuk mendapatkan FragmentActivity
+    val activity = context.findFragmentActivity()
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
 
-    // Cek perangkat mendukung Biometrik atau tidak
+    // PERBAIKAN 2: Cek apakah HP memiliki hardware sensor sidik jari
+    val hasHardware = context.packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)
+    
+    // Cek apakah sidik jari sudah terdaftar di HP
     val biometricManager = BiometricManager.from(context)
-    val canUseBiometric = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
+    val canAuthenticate = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+    val isEnrolled = canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
 
     if (isInitializing) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -130,11 +150,16 @@ fun LoginScreen(
                 }
             }
 
-            // HANYA MUNCUL JIKA HARDWARE ADA DAN DIAKTIFKAN DI PENGATURAN
-            if (settingsManager.isBiometricEnabled && canUseBiometric && activity != null) {
+            // PERBAIKAN 3: Tombol muncul jika toggle aktif, HP punya sensor, dan Activity valid
+            if (settingsManager.isBiometricEnabled && hasHardware && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = {
+                        if (!isEnrolled) {
+                            Toast.makeText(context, "Sidik jari belum didaftarkan. Silakan atur di Pengaturan HP Anda.", Toast.LENGTH_LONG).show()
+                            return@OutlinedButton
+                        }
+
                         val executor = ContextCompat.getMainExecutor(context)
                         val biometricPrompt = BiometricPrompt(activity, executor,
                             object : BiometricPrompt.AuthenticationCallback() {
@@ -157,12 +182,11 @@ fun LoginScreen(
                                 }
                             })
 
-                        // PERBAIKAN: Tambahkan setAllowedAuthenticators
                         val promptInfo = BiometricPrompt.PromptInfo.Builder()
                             .setTitle("Login Sidik Jari")
                             .setSubtitle("Sentuh sensor sidik jari Anda")
                             .setNegativeButtonText("Batal")
-                            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK) // Wajib untuk Android 11+
+                            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
                             .build()
 
                         biometricPrompt.authenticate(promptInfo)
