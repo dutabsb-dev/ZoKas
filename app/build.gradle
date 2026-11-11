@@ -21,10 +21,12 @@ android {
 
     signingConfigs {
         release {
+            // Perbaikan Keamanan: Hapus hardcoded password.
+            // Gunakan file keystore.properties atau environment variables
             storeFile file(System.getenv("KEYSTORE_FILE") ?: "zokas-release.jks")
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "zokas123"
-            keyAlias System.getenv("KEY_ALIAS") ?: "zokas"
-            keyPassword System.getenv("KEY_PASSWORD") ?: "zokas123"
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias System.getenv("KEY_ALIAS") ?: ""
+            keyPassword System.getenv("KEY_PASSWORD") ?: ""
         }
     }
 

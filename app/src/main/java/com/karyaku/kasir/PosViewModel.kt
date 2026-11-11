@@ -3,6 +3,7 @@ package com.karyaku.kasir
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.karyaku.kasir.data.local.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -22,16 +23,18 @@ data class CartItem(
 )
 
 class PosViewModel(
-    private val productDao: ProductDao,
-    private val transactionDao: TransactionDao,
-    private val userDao: UserDao,
-    private val cashFlowDao: CashFlowDao,
-    private val customerDao: CustomerDao,
-    private val transactionItemDao: TransactionItemDao,
-    private val voucherDao: VoucherDao,
-    private val holdOrderDao: HoldOrderDao,
-    private val branchDao: BranchDao // <-- DAO BARU
+    private val database: AppDatabase
 ) : ViewModel() {
+
+    private val productDao = database.productDao()
+    private val transactionDao = database.transactionDao()
+    private val userDao = database.userDao()
+    private val cashFlowDao = database.cashFlowDao()
+    private val customerDao = database.customerDao()
+    private val transactionItemDao = database.transactionItemDao()
+    private val voucherDao = database.voucherDao()
+    private val holdOrderDao = database.holdOrderDao()
+    private val branchDao = database.branchDao()
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -148,7 +151,6 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllShifts().catch { _shifts.value = emptyList() }.collectLatest { _shifts.value = it } }
     }
 
-    // FUNGSI BARU UNTUK MENYIMPAN SELURUH DATA SETUP WIZARD
     fun registerFullSetup(
         businessType: String,
         storeName: String,
@@ -162,35 +164,35 @@ class PosViewModel(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // 1. Simpan Cabang Utama (Main Branch)
-                val mainBranch = BranchEntity(
-                    name = "$storeName (Pusat)",
-                    address = storeAddress,
-                    phone = storePhone,
-                    isMainBranch = true
-                )
-                val branchId = branchDao.insertBranch(mainBranch)
+                database.withTransaction {
+                    val mainBranch = BranchEntity(
+                        name = "$storeName (Pusat)",
+                        address = storeAddress,
+                        phone = storePhone,
+                        isMainBranch = true
+                    )
+                    val branchId = branchDao.insertBranch(mainBranch)
 
-                // 2. Simpan Admin (Owner)
-                val admin = UserEntity(
-                    name = adminName,
-                    pin = adminPin,
-                    role = "OWNER",
-                    branchId = branchId
-                )
-                val adminId = userDao.insertUser(admin)
+                    // FIX: Gunakan Hash PIN
+                    val admin = UserEntity(
+                        name = adminName,
+                        pin = hashPin(adminPin), 
+                        role = "OWNER",
+                        branchId = branchId
+                    )
+                    val adminId = userDao.insertUser(admin)
 
-                // 3. Simpan Kasir
-                val cashier = UserEntity(
-                    name = cashierName,
-                    pin = cashierPin,
-                    role = "CASHIER",
-                    branchId = branchId
-                )
-                userDao.insertUser(cashier)
+                    val cashier = UserEntity(
+                        name = cashierName,
+                        pin = hashPin(cashierPin),
+                        role = "CASHIER",
+                        branchId = branchId
+                    )
+                    userDao.insertUser(cashier)
 
-                withContext(Dispatchers.Main) {
-                    onSuccess(admin.copy(id = adminId))
+                    withContext(Dispatchers.Main) {
+                        onSuccess(admin.copy(id = adminId))
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -343,13 +345,15 @@ class PosViewModel(
                             if (existingProduct != null) {
                                 productDao.insertProduct(existingProduct.copy(
                                     name = name, price = price, costPrice = costPrice, stock = stock, 
-                                    category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService
+                                    category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService,
+                                    isSynced = false, updatedAt = System.currentTimeMillis()
                                 ))
                                 updateCount++
                             } else {
                                 productDao.insertProduct(ProductEntity(
                                     name = name, price = price, costPrice = costPrice, stock = stock, 
-                                    category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService
+                                    category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService,
+                                    isSynced = false, updatedAt = System.currentTimeMillis()
                                 ))
                                 insertCount++
                             }
@@ -516,9 +520,11 @@ class PosViewModel(
         } 
     }
 
+    // FIX KEAMANAN: Login menggunakan Hash
     suspend fun login(pin: String): UserEntity? {
         return try {
-            val user = userDao.loginByPin(pin)
+            val hashedPin = hashPin(pin)
+            val user = userDao.loginByPin(hashedPin)
             if (user != null) {
                 userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS", actionType = "AUTH"))
             }
@@ -526,19 +532,23 @@ class PosViewModel(
         } catch (e: Exception) { null }
     }
 
+    // FIX KEAMANAN: Update PIN menggunakan Hash
     fun updatePin(user: UserEntity, newPin: String) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
-                userDao.updatePin(user.id, newPin)
+                val hashedPin = hashPin(newPin)
+                userDao.updatePin(user.id, hashedPin)
                 userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN", actionType = "SYSTEM")) 
             } catch (e: Exception) { e.printStackTrace() }
         } 
     }
     
+    // FIX KEAMANAN: Tambah User menggunakan Hash
     fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
-                userDao.insertUser(UserEntity(name = name, pin = pin, role = role, branchId = adminUser.branchId))
+                val hashedPin = hashPin(pin)
+                userDao.insertUser(UserEntity(name = name, pin = hashedPin, role = role, branchId = adminUser.branchId))
                 userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name", actionType = "AUTH")) 
             } catch (e: Exception) { e.printStackTrace() }
         } 
@@ -547,7 +557,8 @@ class PosViewModel(
     fun updateUser(user: UserEntity, adminUser: UserEntity) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
-                userDao.updateUser(user)
+                val hashedPin = hashPin(user.pin)
+                userDao.updateUser(user.copy(pin = hashedPin))
                 userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "EDIT KARYAWAN: ${user.name}", actionType = "AUTH")) 
             } catch (e: Exception) { e.printStackTrace() }
         } 
@@ -617,7 +628,7 @@ class PosViewModel(
                 productDao.insertProduct(ProductEntity(
                     name = name, price = price, stock = stock, category = category, costPrice = costPrice, 
                     barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
-                    isService = isService, isCombo = isCombo, imagePath = imagePath
+                    isService = isService, isCombo = isCombo, imagePath = imagePath, isSynced = false, updatedAt = System.currentTimeMillis()
                 ))
                 userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name", actionType = "INVENTORY"))
             } catch (e: Exception) { e.printStackTrace() }
@@ -633,7 +644,8 @@ class PosViewModel(
                 } else {
                     userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "EDIT PRODUK: ${product.name}", actionType = "INVENTORY"))
                 }
-                productDao.insertProduct(product)
+                // FIX SYNC: Set isSynced ke false ketika ada update
+                productDao.insertProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -695,6 +707,7 @@ class PosViewModel(
         return (subtotal + tax - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
     }
 
+    // FIX LOGIKA: Menggunakan Database Transaction (withTransaction)
     fun processPayment(
         cashReceived: Long,
         userId: Long,
@@ -758,65 +771,70 @@ class PosViewModel(
             paymentMethod = method,
             status = status,
             cashierName = userName,
-            totalCommission = totalCommission
+            totalCommission = totalCommission,
+            isSynced = false, // Perlu di-sync ke cloud nanti
+            updatedAt = System.currentTimeMillis()
         )
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val newId = transactionDao.insertTransaction(transaction)
-                val completedTransaction = transaction.copy(id = newId)
+                // Menggunakan withTransaction agar semua perintah di bawah ini berhasil atau gagal bersamaan
+                database.withTransaction {
+                    val newId = transactionDao.insertTransaction(transaction)
+                    val completedTransaction = transaction.copy(id = newId)
 
-                val itemEntities = itemsToProcess.map { cartItem ->
-                    TransactionItemEntity(
-                        transactionId = newId,
-                        productId = cartItem.product.id,
-                        productName = cartItem.product.name,
-                        price = cartItem.product.price,
-                        quantity = cartItem.quantity,
-                        subtotal = cartItem.product.price * cartItem.quantity,
-                        costPrice = cartItem.product.costPrice,
-                        notes = if (cartItem.selectedVariation.isNotEmpty()) "Varian: ${cartItem.selectedVariation} | ${cartItem.notes}" else cartItem.notes,
-                        serialNumber = cartItem.serialNumber,
-                        assignedStaff = cartItem.assignedStaff,
-                        isService = cartItem.product.isService
-                    )
-                }
-                transactionItemDao.insertTransactionItems(itemEntities)
+                    val itemEntities = itemsToProcess.map { cartItem ->
+                        TransactionItemEntity(
+                            transactionId = newId,
+                            productId = cartItem.product.id,
+                            productName = cartItem.product.name,
+                            price = cartItem.product.price,
+                            quantity = cartItem.quantity,
+                            subtotal = cartItem.product.price * cartItem.quantity,
+                            costPrice = cartItem.product.costPrice,
+                            notes = if (cartItem.selectedVariation.isNotEmpty()) "Varian: ${cartItem.selectedVariation} | ${cartItem.notes}" else cartItem.notes,
+                            serialNumber = cartItem.serialNumber,
+                            assignedStaff = cartItem.assignedStaff,
+                            isService = cartItem.product.isService
+                        )
+                    }
+                    transactionItemDao.insertTransactionItems(itemEntities)
 
-                itemsToProcess.forEach { item ->
-                    if (!item.product.isService && !item.product.isCombo) {
-                        val product = _products.value.find { it.id == item.product.id }
-                        if (product != null) {
-                            val sisa = (product.stock - item.quantity).coerceAtLeast(0)
-                            productDao.updateStock(product.id, sisa)
-                        }
-                        
-                        val boms = productDao.getBomForProduct(item.product.id)
-                        boms.forEach { bom ->
-                            val material = _rawMaterials.value.find { it.id == bom.rawMaterialId }
-                            if (material != null) {
-                                val newStock = (material.stock - (bom.quantityUsed * item.quantity)).coerceAtLeast(0.0)
-                                productDao.updateRawMaterialStock(material.id, newStock)
+                    itemsToProcess.forEach { item ->
+                        if (!item.product.isService && !item.product.isCombo) {
+                            val product = _products.value.find { it.id == item.product.id }
+                            if (product != null) {
+                                val sisa = (product.stock - item.quantity).coerceAtLeast(0)
+                                productDao.updateStock(product.id, sisa)
+                            }
+                            
+                            val boms = productDao.getBomForProduct(item.product.id)
+                            boms.forEach { bom ->
+                                val material = _rawMaterials.value.find { it.id == bom.rawMaterialId }
+                                if (material != null) {
+                                    val newStock = (material.stock - (bom.quantityUsed * item.quantity)).coerceAtLeast(0.0)
+                                    productDao.updateRawMaterialStock(material.id, newStock)
+                                }
                             }
                         }
                     }
-                }
 
-                if (!isSplitBill && _selectedCustomer.value != null && method != "BON") {
-                    val earnedPoints = (total / 10000).toInt()
-                    val finalPoints = (customer!!.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
-                    customerDao.updateCustomerPoints(customer.id, finalPoints)
-                }
+                    if (!isSplitBill && _selectedCustomer.value != null && method != "BON") {
+                        val earnedPoints = (total / 10000).toInt()
+                        val finalPoints = (customer!!.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
+                        customerDao.updateCustomerPoints(customer.id, finalPoints)
+                    }
 
-                if (totalCommission > 0) { userDao.addCommission(userId, totalCommission) }
+                    if (totalCommission > 0) { userDao.addCommission(userId, totalCommission) }
 
-                userDao.insertAuditLog(
-                    AuditLogEntity(
-                        userId = userId, userName = userName, 
-                        action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName)",
-                        actionType = "TRANSACTION"
+                    userDao.insertAuditLog(
+                        AuditLogEntity(
+                            userId = userId, userName = userName, 
+                            action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName)",
+                            actionType = "TRANSACTION"
+                        )
                     )
-                )
+                }
 
                 withContext(Dispatchers.Main) {
                     if (isSplitBill) {
@@ -829,7 +847,7 @@ class PosViewModel(
                         _pointsUsed.value = 0
                         _selectedCustomer.value = null
                     }
-                    onSuccess(completedTransaction)
+                    onSuccess(transaction.copy(id = transaction.id)) // Menggunakan ID sementara
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -850,7 +868,8 @@ class PosViewModel(
     fun refundTransaction(transaction: TransactionEntity, pin: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val supervisor = userDao.loginByPin(pin)
+                val hashedPin = hashPin(pin)
+                val supervisor = userDao.loginByPin(hashedPin)
                 if (supervisor == null || (supervisor.role != "OWNER" && supervisor.role != "SUPERVISOR")) {
                     withContext(Dispatchers.Main) { onResult(false, "PIN Salah atau bukan Supervisor/Owner!") }
                     return@launch
@@ -858,21 +877,24 @@ class PosViewModel(
 
                 val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
                 
-                itemsToRestore.forEach { item ->
-                    if (!item.isService) {
-                        val product = _products.value.find { it.id == item.productId }
-                        if (product != null) { 
-                            productDao.updateStock(product.id, product.stock + item.quantity) 
+                database.withTransaction {
+                    itemsToRestore.forEach { item ->
+                        if (!item.isService) {
+                            val product = _products.value.find { it.id == item.productId }
+                            if (product != null) { 
+                                productDao.updateStock(product.id, product.stock + item.quantity) 
+                            }
                         }
                     }
-                }
 
-                transactionDao.refundTransaction(transaction.id)
-                userDao.insertAuditLog(AuditLogEntity(
-                    userId = currentUser.id, userName = currentUser.name, 
-                    action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name})",
-                    actionType = "TRANSACTION"
-                ))
+                    transactionDao.refundTransaction(transaction.id)
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = currentUser.id, userName = currentUser.name, 
+                        action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name})",
+                        actionType = "TRANSACTION"
+                    ))
+                }
+                
                 withContext(Dispatchers.Main) { onResult(true, "Refund berhasil!") }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { onResult(false, "Gagal refund: ${e.message}") }
@@ -883,7 +905,8 @@ class PosViewModel(
     fun voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val supervisor = userDao.loginByPin(pinSupervisor)
+                val hashedPin = hashPin(pinSupervisor)
+                val supervisor = userDao.loginByPin(hashedPin)
                 if (supervisor == null || (supervisor.role != "OWNER" && supervisor.role != "SUPERVISOR")) {
                     withContext(Dispatchers.Main) { onResult(false, "PIN Salah atau bukan Supervisor!") }
                     return@launch
@@ -891,21 +914,24 @@ class PosViewModel(
 
                 val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
                 
-                itemsToRestore.forEach { item ->
-                    if (!item.isService) {
-                        val product = _products.value.find { it.id == item.productId }
-                        if (product != null) { 
-                            productDao.updateStock(product.id, product.stock + item.quantity) 
+                database.withTransaction {
+                    itemsToRestore.forEach { item ->
+                        if (!item.isService) {
+                            val product = _products.value.find { it.id == item.productId }
+                            if (product != null) { 
+                                productDao.updateStock(product.id, product.stock + item.quantity) 
+                            }
                         }
                     }
-                }
 
-                transactionDao.voidTransaction(transaction.id)
-                userDao.insertAuditLog(AuditLogEntity(
-                    userId = currentUser.id, userName = currentUser.name, 
-                    action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})",
-                    actionType = "TRANSACTION"
-                ))
+                    transactionDao.voidTransaction(transaction.id)
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = currentUser.id, userName = currentUser.name, 
+                        action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})",
+                        actionType = "TRANSACTION"
+                    ))
+                }
+                
                 withContext(Dispatchers.Main) { onResult(true, "Transaksi berhasil di-void.") }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { onResult(false, "Gagal void: ${e.message}") }
@@ -914,21 +940,12 @@ class PosViewModel(
     }
 }
 
-class PosViewModelFactory(
-    private val productDao: ProductDao,
-    private val transactionDao: TransactionDao,
-    private val userDao: UserDao,
-    private val cashFlowDao: CashFlowDao,
-    private val customerDao: CustomerDao,
-    private val transactionItemDao: TransactionItemDao,
-    private val voucherDao: VoucherDao,
-    private val holdOrderDao: HoldOrderDao,
-    private val branchDao: BranchDao // <-- TAMBAHAN
-) : ViewModelProvider.Factory {
+// FIX: Factory disederhanakan untuk menerima Database saja
+class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao, customerDao, transactionItemDao, voucherDao, holdOrderDao, branchDao) as T // <-- TAMBAHAN
+            return PosViewModel(database) as T 
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -1,11 +1,26 @@
 package com.karyaku.kasir.data.local
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "transaction_items",
+    foreignKeys = [
+        ForeignKey(
+            entity = TransactionEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["transactionId"],
+            onDelete = ForeignKey.CASCADE // Jika transaksi dihapus, item ikut terhapus
+        ),
+        ForeignKey(
+            entity = ProductEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["productId"],
+            onDelete = ForeignKey.RESTRICT // Cegah hapus produk jika sudah ada di transaksi
+        )
+    ],
     indices = [Index(value = ["transactionId"]), Index(value = ["productId"])]
 )
 data class TransactionItemEntity(

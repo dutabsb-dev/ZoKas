@@ -47,6 +47,9 @@ import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.AppDatabase
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.UserEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -58,21 +61,23 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // AUTO-BACKUP HARIAN
+        // AUTO-BACKUP HARIAN (FIX: Pindah ke Coroutine IO)
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
-            try {
-                val dbFile = getDatabasePath("pos_database")
-                val backupDir = File(getExternalFilesDir(null), "AutoBackups")
-                if (!backupDir.exists()) backupDir.mkdirs()
-                val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                val backupFile = File(backupDir, "autobackup_${dateFormat.format(Date())}.db")
-                
-                if (dbFile.exists()) {
-                    dbFile.copyTo(backupFile, overwrite = true)
-                    settingsManager.lastAutoBackup = currentTime
-                }
-            } catch (e: Exception) { e.printStackTrace() }
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val dbFile = getDatabasePath("pos_database")
+                    val backupDir = File(getExternalFilesDir(null), "AutoBackups")
+                    if (!backupDir.exists()) backupDir.mkdirs()
+                    val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+                    val backupFile = File(backupDir, "autobackup_${dateFormat.format(Date())}.db")
+                    
+                    if (dbFile.exists()) {
+                        dbFile.copyTo(backupFile, overwrite = true)
+                        settingsManager.lastAutoBackup = currentTime
+                    }
+                } catch (e: Exception) { e.printStackTrace() }
+            }
         }
 
         setContent {
@@ -88,11 +93,18 @@ class MainActivity : AppCompatActivity() {
                 val userSaver = listSaver<UserEntity?, Any>(
                     save = { user -> 
                         if (user == null) emptyList() 
-                        else listOf(user.id, user.name, user.pin, user.role, user.totalCommission) 
+                        else listOf(user.id, user.name, user.pin, user.role, user.totalCommission, user.branchId) 
                     },
                     restore = { list -> 
                         if (list.isEmpty()) null 
-                        else UserEntity(list[0] as Long, list[1] as String, list[2] as String, list[3] as String, list[4] as Long) 
+                        else UserEntity(
+                            id = list[0] as Long, 
+                            name = list[1] as String, 
+                            pin = list[2] as String, 
+                            role = list[3] as String, 
+                            totalCommission = list[4] as Long,
+                            branchId = if (list.size > 5) list[5] as Long else 1L
+                        ) 
                     }
                 )
                 var currentUser by rememberSaveable(stateSaver = userSaver) { mutableStateOf<UserEntity?>(null) }
@@ -150,18 +162,9 @@ fun MainContent(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
+        // FIX: Hanya passing Database ke Factory
         val posViewModel: PosViewModel = viewModel(
-            factory = PosViewModelFactory(
-                database.productDao(),
-                database.transactionDao(),
-                database.userDao(),
-                database.cashFlowDao(),
-                database.customerDao(),
-                database.transactionItemDao(),
-                database.voucherDao(),
-                database.holdOrderDao(),
-                database.branchDao()
-            )
+            factory = PosViewModelFactory(database)
         )
 
         if (!settingsManager.isSetupCompleted) {
@@ -221,7 +224,6 @@ fun MainNavigation(
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
-    // Network State Listener
     val context = LocalContext.current
     DisposableEffect(Unit) {
         val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
@@ -234,7 +236,6 @@ fun MainNavigation(
         onDispose { cm.unregisterNetworkCallback(callback) }
     }
 
-    // BARCODE SCANNER LAUNCHER UNTUK DIALOG PENCARIAN
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             viewModel.processBarcodeScan(result.contents) { success, msg -> 
@@ -247,7 +248,6 @@ fun MainNavigation(
         }
     }
 
-    // Dialog Pencarian
     if (showSearchDialog) {
         var query by remember { mutableStateOf(searchQuery) }
         AlertDialog(
@@ -337,7 +337,6 @@ fun MainNavigation(
                     Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) 
                 }
                 
-                // BUNGKUS DENGAN BOX AGAR MENU TIDAK MELEBAR KE KIRI
                 Box {
                     IconButton(onClick = { showMenu = true }) { 
                         Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
@@ -459,7 +458,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val searchFocusRequester = remember { FocusRequester() }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // MENGGUNAKAN PosProductSection
         PosProductSection(
             products = filteredProducts, 
             categories = categories, 

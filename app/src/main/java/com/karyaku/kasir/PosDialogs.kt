@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue // FIX IMPORT ERROR
+import androidx.compose.runtime.setValue // FIX IMPORT ERROR
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +30,7 @@ import com.karyaku.kasir.data.local.CustomerEntity
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.ShiftEntity
 import com.karyaku.kasir.data.local.UserEntity
+import com.karyaku.kasir.data.local.RawMaterialEntity // FIX IMPORT ERROR
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

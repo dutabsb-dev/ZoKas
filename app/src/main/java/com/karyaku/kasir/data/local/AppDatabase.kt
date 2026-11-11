@@ -21,9 +21,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         HoldOrderEntity::class,
         RawMaterialEntity::class,
         ProductBomEntity::class,
-        BranchEntity::class // <-- ENTITAS BARU DITAMBAHKAN
+        BranchEntity::class
     ], 
-    version = 20, // <-- UPDATE VERSI
+    version = 21, // Naikkan versi ke 21
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,16 +35,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionItemDao(): TransactionItemDao
     abstract fun voucherDao(): VoucherDao       
     abstract fun holdOrderDao(): HoldOrderDao   
-    abstract fun branchDao(): BranchDao // <-- DAO BARU
+    abstract fun branchDao(): BranchDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // MIGRASI AMAN DARI VERSI 19 KE 20
+        // FIX MIGRASI: Insert Branch ID 1 agar data tidak yatim piatu
         private val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // 1. Buat Tabel Cabang (Branches)
+                // 1. Buat Tabel Cabang
                 database.execSQL("""
                     CREATE TABLE IF NOT EXISTS `branches` (
                         `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
@@ -58,20 +58,31 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
 
-                // 2. Tambah kolom di Users
+                // 2. Insert Cabang Default agar ForeignKey valid
+                database.execSQL("""
+                    INSERT INTO `branches` (id, name, address, phone, isMainBranch, createdAt, updatedAt, isSynced) 
+                    VALUES (1, 'Cabang Pusat', '-', '-', 1, ${System.currentTimeMillis()}, ${System.currentTimeMillis()}, 0)
+                """)
+
+                // 3. Tambah kolom di tabel terkait
                 database.execSQL("ALTER TABLE users ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
                 database.execSQL("ALTER TABLE users ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE users ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
 
-                // 3. Tambah kolom di Products
                 database.execSQL("ALTER TABLE products ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
                 database.execSQL("ALTER TABLE products ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE products ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
 
-                // 4. Tambah kolom di Transactions
                 database.execSQL("ALTER TABLE transactions ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
                 database.execSQL("ALTER TABLE transactions ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // Migrasi penyesuaian constraint (jika ada perubahan tipe data)
+        private val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Placeholder jika ada update skema lanjutan
             }
         }
 
@@ -82,7 +93,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pos_database"
                 )
-                .addMigrations(MIGRATION_19_20) // Terapkan migrasi
+                .addMigrations(MIGRATION_19_20, MIGRATION_20_21)
+                .fallbackToDestructiveMigration() // PENTING: Hapus ini jika sudah di tahap Production!
                 .build()
                 INSTANCE = instance
                 instance

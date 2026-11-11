@@ -15,8 +15,12 @@ interface ProductDao {
     @Query("SELECT * FROM products ORDER BY id DESC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
-    @Query("UPDATE products SET stock = :newStock WHERE id = :productId")
-    suspend fun updateStock(productId: Long, newStock: Int)
+    // FITUR BARU: Filter Berdasarkan Cabang
+    @Query("SELECT * FROM products WHERE branchId = :branchId ORDER BY id DESC")
+    fun getProductsByBranch(branchId: Long): Flow<List<ProductEntity>>
+
+    @Query("UPDATE products SET stock = :newStock, isSynced = 0, updatedAt = :updatedAt WHERE id = :productId")
+    suspend fun updateStock(productId: Long, newStock: Int, updatedAt: Long = System.currentTimeMillis())
 
     @Delete
     suspend fun deleteProduct(product: ProductEntity)
@@ -24,7 +28,7 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE barcode = :barcode LIMIT 1")
     suspend fun getProductByBarcode(barcode: String): ProductEntity?
 
-    // FITUR BARU: Bahan Baku & Resep
+    // Bahan Baku & Resep
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRawMaterial(material: RawMaterialEntity)
 

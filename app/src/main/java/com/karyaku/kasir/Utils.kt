@@ -97,3 +97,12 @@ fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
         Toast.makeText(context, "Gagal simpan barcode: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }
+
+// ... (Kode atas tetap sama, salin sampai habis lalu tambahkan fungsi ini di akhir file)
+
+fun hashPin(pin: String): String {
+    val bytes = pin.toByteArray()
+    val md = java.security.MessageDigest.getInstance("SHA-256")
+    val digest = md.digest(bytes)
+    return digest.fold("") { str, it -> str + "%02x".format(it) }
+}
