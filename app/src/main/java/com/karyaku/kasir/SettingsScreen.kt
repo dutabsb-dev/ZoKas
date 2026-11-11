@@ -41,16 +41,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Fungsi pembantu untuk mendapatkan FragmentActivity dari Context Compose
-fun Context.findFragmentActivity(): FragmentActivity? {
-    var context = this
-    while (context is ContextWrapper) {
-        if (context is FragmentActivity) return context
-        context = context.baseContext
-    }
-    return null
-}
-
 @Composable
 fun SettingsScreen(
     settingsManager: SettingsManager,

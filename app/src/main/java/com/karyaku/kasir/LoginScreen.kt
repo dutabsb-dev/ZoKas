@@ -1,7 +1,5 @@
 package com.karyaku.kasir
 
-import android.content.Context
-import android.content.ContextWrapper
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -26,19 +24,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.launch
-
-fun Context.findFragmentActivity(): FragmentActivity? {
-    var context = this
-    while (context is ContextWrapper) {
-        if (context is FragmentActivity) return context
-        context = context.baseContext
-    }
-    return null
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,7 +126,7 @@ fun LoginScreen(
                 }
             }
 
-            // LOGIKA VISIBILITAS BARU: Muncul jika Toggle ON dan Activity valid
+            // LOGIKA TOMBOL SIDIK JARI
             if (settingsManager.isBiometricEnabled && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
