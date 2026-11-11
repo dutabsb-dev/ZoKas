@@ -59,6 +59,7 @@ fun HistoryScreen(
     val activity = context.findActivity()
     val scope = rememberCoroutineScope()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+    val lang = settingsManager.language
 
     val bestSellers by viewModel.bestSellers.collectAsStateWithLifecycle()
     val inventoryValue by viewModel.inventoryValue.collectAsStateWithLifecycle()
@@ -82,7 +83,6 @@ fun HistoryScreen(
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
-    // Launcher untuk Ekspor Excel
     val createExcelLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri: Uri? ->
@@ -90,15 +90,14 @@ fun HistoryScreen(
             scope.launch {
                 val success = ExcelExporter.exportTransactionsToExcel(context, uri, transactionsToExport)
                 if (success) {
-                    Toast.makeText(context, "Excel exported successfully!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Excel berhasil diekspor!", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "Failed to export Excel.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Gagal ekspor Excel.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    // Launcher untuk Ekspor PDF
     val createPdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri: Uri? ->
@@ -154,6 +153,7 @@ fun HistoryScreen(
             viewModel = viewModel,
             settingsManager = settingsManager,
             currentUser = currentUser,
+            lang = lang,
             onDismiss = { selectedTransaction = null }
         )
     }
@@ -162,40 +162,40 @@ fun HistoryScreen(
         AlertDialog(
             onDismissRequest = { showFinanceReport = false },
             icon = { Icon(Icons.Default.Money, contentDescription = null, tint = EmeraldGreen) },
-            title = { Text("Financial Report") },
+            title = { Text(LanguageManager.tr("financial_report", lang), fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text("Period: ${dateFilter.replace("_", " ")}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SlateGrey)
+                    Text("${LanguageManager.tr("period", lang)}: ${dateFilter.replace("_", " ")}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SlateGrey)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     
-                    Text("REVENUE", fontWeight = FontWeight.Bold, color = EmeraldGreen)
+                    Text(LanguageManager.tr("revenue", lang), fontWeight = FontWeight.Bold, color = EmeraldGreen)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Cash Sales"); Text(formatRupiah(penjualanTunai))
+                        Text(LanguageManager.tr("cash_sales", lang)); Text(formatRupiah(penjualanTunai))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Non-Cash Sales"); Text(formatRupiah(penjualanNonTunai))
+                        Text(LanguageManager.tr("non_cash_sales", lang)); Text(formatRupiah(penjualanNonTunai))
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Cash In (Additional)", fontSize = 12.sp); Text(formatRupiah(totalCashIn), fontSize = 12.sp)
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    Text("EXPENSES", fontWeight = FontWeight.Bold, color = ErrorRed)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total COGS (Cost)"); Text(formatRupiah(totalHpp))
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Cash Out (Operational)", fontSize = 12.sp); Text(formatRupiah(totalCashOut), fontSize = 12.sp)
+                        Text(LanguageManager.tr("cash_in_add", lang), fontSize = 12.sp); Text(formatRupiah(totalCashIn), fontSize = 12.sp)
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+                    Text(LanguageManager.tr("expenses", lang), fontWeight = FontWeight.Bold, color = ErrorRed)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("NET PROFIT", fontWeight = FontWeight.Bold, color = AmberAccent)
+                        Text(LanguageManager.tr("total_cogs_cost", lang)); Text(formatRupiah(totalHpp))
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(LanguageManager.tr("cash_out_op", lang), fontSize = 12.sp); Text(formatRupiah(totalCashOut), fontSize = 12.sp)
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(LanguageManager.tr("net_profit", lang), fontWeight = FontWeight.Bold, color = AmberAccent)
                         Text(formatRupiah(labaBersih), fontWeight = FontWeight.Bold, color = AmberAccent)
                     }
                 }
             },
-            confirmButton = { Button(onClick = { showFinanceReport = false }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("Close") } }
+            confirmButton = { Button(onClick = { showFinanceReport = false }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text(LanguageManager.tr("close", lang)) } }
         )
     }
 
@@ -203,7 +203,13 @@ fun HistoryScreen(
 
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val filters = listOf("TODAY" to "Today", "THIS_MONTH" to "This Month", "7_DAYS" to "7 Days", "30_DAYS" to "30 Days", "ALL" to "All")
+                val filters = listOf(
+                    "TODAY" to LanguageManager.tr("today", lang), 
+                    "THIS_MONTH" to LanguageManager.tr("this_month", lang), 
+                    "7_DAYS" to LanguageManager.tr("days_7", lang), 
+                    "30_DAYS" to LanguageManager.tr("days_30", lang), 
+                    "ALL" to LanguageManager.tr("all", lang)
+                )
                 items(filters.size) { index ->
                     val (key, label) = filters[index]
                     FilterChip(
@@ -219,37 +225,37 @@ fun HistoryScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)), colors = CardDefaults.cardColors(containerColor = EmeraldGreen)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Revenue", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
+                    Text(LanguageManager.tr("total_revenue", lang), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                     Text(text = formatRupiah(totalOmzet), color = AmberAccent, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("${validTransactions.size} Successful Transactions", color = Color.White, fontSize = 12.sp)
+                    Text("${validTransactions.size} ${LanguageManager.tr("success_trx", lang)}", color = Color.White, fontSize = 12.sp)
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Cash Payment:", color = Color.White, fontSize = 12.sp)
+                        Text("${LanguageManager.tr("cash_payment", lang)}:", color = Color.White, fontSize = 12.sp)
                         Text(formatRupiah(penjualanTunai), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                     
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("BON/QRIS Payment:", color = Color.White, fontSize = 12.sp)
+                        Text("${LanguageManager.tr("non_cash_payment", lang)}:", color = Color.White, fontSize = 12.sp)
                         Text(formatRupiah(penjualanNonTunai), color = Color(0xFFFFCDD2), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.2f))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Gross Profit:", color = Color.White, fontSize = 14.sp)
+                        Text("${LanguageManager.tr("gross_profit", lang)}:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(labaKotor), color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Net Profit:", color = Color.White, fontSize = 14.sp)
+                        Text("${LanguageManager.tr("net_profit", lang)}:", color = Color.White, fontSize = 14.sp)
                         Text(formatRupiah(labaBersih), color = Color(0xFF00E676), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total COGS:", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Text("${LanguageManager.tr("total_cogs", lang)}:", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                         Text(formatRupiah(totalHpp), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                     }
                     
@@ -260,7 +266,7 @@ fun HistoryScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("VIEW DETAILED FINANCIAL REPORT", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(LanguageManager.tr("view_detail_report", lang), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -270,8 +276,8 @@ fun HistoryScreen(
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("Inventory Asset Value (COGS)", fontWeight = FontWeight.Bold)
-                        Text("Total current stock value", fontSize = 10.sp, color = SlateGrey)
+                        Text(LanguageManager.tr("inventory_value", lang), fontWeight = FontWeight.Bold)
+                        Text(LanguageManager.tr("inventory_desc", lang), fontSize = 10.sp, color = SlateGrey)
                     }
                     Text(formatRupiah(inventoryValue), fontWeight = FontWeight.Bold, color = EmeraldGreen)
                 }
@@ -281,7 +287,7 @@ fun HistoryScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Last 7 Days Chart", fontWeight = FontWeight.Bold)
+                    Text(LanguageManager.tr("last_7_days_chart", lang), fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
                     Canvas(modifier = Modifier.fillMaxWidth().height(180.dp)) {
                         val days = 7
@@ -341,7 +347,7 @@ fun HistoryScreen(
         }
 
         if (expiringProducts.isNotEmpty()) {
-            item { Text("⚠️ Expiring Items", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = ErrorRed) }
+            item { Text("⚠️ ${LanguageManager.tr("expiring_items", lang)}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = ErrorRed) }
             item {
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -364,31 +370,31 @@ fun HistoryScreen(
                         Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Low Stock Warning!", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            Text("There are ${lowStockProducts.size} products with stock <= 5.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text(LanguageManager.tr("low_stock_warning", lang), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("${LanguageManager.tr("low_stock_desc", lang)} (${lowStockProducts.size})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
                 }
             }
         }
 
-        item { Text("Staff Performance & Commission (All-Time)", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        item { Text(LanguageManager.tr("staff_performance", lang), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
         item {
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     val validUsers = users.filter { it.role != "OWNER" }
                     if (validUsers.isEmpty()) {
-                        Text("No cashier data yet.", fontSize = 12.sp, color = SlateGrey)
+                        Text(LanguageManager.tr("no_cashier_data", lang), fontSize = 12.sp, color = SlateGrey)
                     } else {
                         validUsers.forEachIndexed { index, user ->
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Column {
                                     Text(user.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     val userTxCount = validTransactions.count { it.cashierName == user.name }
-                                    Text("$userTxCount Transactions (Current Period)", fontSize = 11.sp, color = SlateGrey)
+                                    Text("$userTxCount ${LanguageManager.tr("trx_period", lang)}", fontSize = 11.sp, color = SlateGrey)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("Total Commission", fontSize = 10.sp, color = SlateGrey)
+                                    Text(LanguageManager.tr("total_commission", lang), fontSize = 10.sp, color = SlateGrey)
                                     Text(formatRupiah(user.totalCommission), fontWeight = FontWeight.ExtraBold, color = EmeraldGreen)
                                 }
                             }
@@ -399,7 +405,6 @@ fun HistoryScreen(
             }
         }
 
-        // EKSPOR DATA (Tanpa Cek isPro)
         if (filteredTransactions.isNotEmpty()) {
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -424,10 +429,10 @@ fun HistoryScreen(
             }
         }
 
-        item { Text("Transaction History", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        item { Text(LanguageManager.tr("transaction_history", lang), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
 
         if (filteredTransactions.isEmpty()) {
-            item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("No transactions found for this period.") } }
+            item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text(LanguageManager.tr("no_trx_found", lang)) } }
         } else {
             items(filteredTransactions) { tx ->
                 val isVoided = tx.status == "VOIDED"
@@ -438,15 +443,15 @@ fun HistoryScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Receipt #${tx.id}", fontWeight = FontWeight.Bold, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
+                            Text("${LanguageManager.tr("receipt", lang)} #${tx.id}", fontWeight = FontWeight.Bold, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
                             Text(dateFormat.format(Date(tx.timestamp)))
                         }
-                        Text("Customer: ${tx.customerName} | Cashier: ${tx.cashierName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${LanguageManager.tr("customer", lang)}: ${tx.customerName} | ${LanguageManager.tr("kasir", lang)}: ${tx.cashierName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Total: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = if (isVoided) SlateGrey else AmberAccent, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
-                            if (isVoided) Text("VOID", color = ErrorRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            if (isUnpaid) Text("BON", color = AmberAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("${LanguageManager.tr("total", lang)}: ${formatRupiah(tx.totalPrice)}", fontWeight = FontWeight.Bold, color = if (isVoided) SlateGrey else AmberAccent, textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None)
+                            if (isVoided) Text(LanguageManager.tr("void", lang), color = ErrorRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            if (isUnpaid) Text(LanguageManager.tr("bon", lang), color = AmberAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }
@@ -461,6 +466,7 @@ fun TransactionDetailDialog(
     viewModel: PosViewModel,
     settingsManager: SettingsManager,
     currentUser: UserEntity,
+    lang: String,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -479,9 +485,9 @@ fun TransactionDetailDialog(
             transaction = transaction,
             viewModel = viewModel,
             storeName = settingsManager.storeName ?: "ZoKas",
-            storeAddress = settingsManager.storeAddress ?: "Address not set",
+            storeAddress = settingsManager.storeAddress ?: "",
             storePhone = settingsManager.storePhone ?: "-",
-            storeFooter = settingsManager.storeFooter ?: "Thank you!",
+            storeFooter = settingsManager.storeFooter ?: "Terima kasih!",
             settingsManager = settingsManager,
             onDismiss = { showReceipt = false }
         )
@@ -489,6 +495,7 @@ fun TransactionDetailDialog(
 
     if (showVoidPinDialog) {
         VoidPinDialog(
+            lang = lang,
             onDismiss = { showVoidPinDialog = false },
             onConfirm = { pin ->
                 viewModel.voidTransaction(transaction, pin, currentUser) { success: Boolean, message: String ->
@@ -508,12 +515,12 @@ fun TransactionDetailDialog(
         var pin by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showRefundPinDialog = false },
-            title = { Text("Refund Authorization") },
+            title = { Text(LanguageManager.tr("refund_auth", lang)) },
             text = {
                 Column {
-                    Text("Enter Supervisor/Owner PIN:")
+                    Text(LanguageManager.tr("enter_pin", lang))
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = pin, onValueChange = { pin = it }, label = { Text("PIN") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation())
+                    OutlinedTextField(value = pin, onValueChange = { pin = it }, label = { Text(LanguageManager.tr("pin", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation())
                 }
             },
             confirmButton = {
@@ -522,9 +529,9 @@ fun TransactionDetailDialog(
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         if (success) onDismiss()
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text("REFUND") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text(LanguageManager.tr("refund", lang)) }
             },
-            dismissButton = { TextButton(onClick = { showRefundPinDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showRefundPinDialog = false }) { Text(LanguageManager.tr("batal", lang)) } }
         )
     }
 
@@ -532,12 +539,12 @@ fun TransactionDetailDialog(
         var cash by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showPayBonDialog = false },
-            title = { Text("BON Payment") },
+            title = { Text(LanguageManager.tr("bon_payment", lang)) },
             text = {
                 Column {
-                    Text("Total Bill: ${formatRupiah(transaction.totalPrice)}")
+                    Text("${LanguageManager.tr("total_bill", lang)}: ${formatRupiah(transaction.totalPrice)}")
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = cash, onValueChange = { cash = it }, label = { Text("Cash Received") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(value = cash, onValueChange = { cash = it }, label = { Text(LanguageManager.tr("cash_received", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
             },
             confirmButton = {
@@ -545,16 +552,16 @@ fun TransactionDetailDialog(
                     val c = cash.toLongOrNull() ?: 0L
                     if (c >= transaction.totalPrice) {
                         viewModel.payUnpaidTransaction(transaction, c) {
-                            Toast.makeText(context, "BON paid successfully!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "BON Lunas", Toast.LENGTH_SHORT).show()
                             showPayBonDialog = false
                             onDismiss()
                         }
                     } else {
-                        Toast.makeText(context, "Insufficient cash!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Uang kurang!", Toast.LENGTH_SHORT).show()
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("PAY") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text(LanguageManager.tr("pay", lang)) }
             },
-            dismissButton = { TextButton(onClick = { showPayBonDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showPayBonDialog = false }) { Text(LanguageManager.tr("batal", lang)) } }
         )
     }
 
@@ -567,7 +574,7 @@ fun TransactionDetailDialog(
                         onClick = { showRefundPinDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                     ) {
-                        Text("REFUND")
+                        Text(LanguageManager.tr("refund", lang))
                     }
                 }
 
@@ -576,34 +583,34 @@ fun TransactionDetailDialog(
                         onClick = { showPayBonDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)
                     ) {
-                        Text("PAY BON")
+                        Text(LanguageManager.tr("pay_bon", lang))
                     }
                 }
 
                 Button(onClick = { showReceipt = true }, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent)) {
                     Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("PRINT")
+                    Text(LanguageManager.tr("print", lang))
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text("Transaction Details #${transaction.id}") },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(LanguageManager.tr("close", lang)) } },
+        title = { Text("${LanguageManager.tr("transaction_details", lang)} #${transaction.id}") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (transaction.status == "VOIDED") {
-                    Text("THIS TRANSACTION HAS BEEN VOIDED", color = ErrorRed, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Text(LanguageManager.tr("voided_msg", lang), color = ErrorRed, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 }
                 if (transaction.status == "UNPAID") {
-                    Text("THIS TRANSACTION IS UNPAID (BON)", color = AmberAccent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Text(LanguageManager.tr("unpaid_msg", lang), color = AmberAccent, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 }
-                Text("Date: ${dateFormat.format(Date(transaction.timestamp))}", fontSize = 12.sp)
-                Text("Customer: ${transaction.customerName}", fontSize = 12.sp)
-                Text("Cashier: ${transaction.cashierName} | ${transaction.tableName}", fontSize = 12.sp)
+                Text("${LanguageManager.tr("date", lang)}: ${dateFormat.format(Date(transaction.timestamp))}", fontSize = 12.sp)
+                Text("${LanguageManager.tr("customer", lang)}: ${transaction.customerName}", fontSize = 12.sp)
+                Text("${LanguageManager.tr("kasir", lang)}: ${transaction.cashierName} | ${transaction.tableName}", fontSize = 12.sp)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 if (items.isEmpty()) {
-                    Text("Loading details...", fontSize = 12.sp, color = SlateGrey)
+                    Text(LanguageManager.tr("loading", lang), fontSize = 12.sp, color = SlateGrey)
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
                         items(items) { item ->
@@ -612,7 +619,7 @@ fun TransactionDetailDialog(
                                     Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     Text("${item.quantity} x ${formatRupiah(item.price)}", fontSize = 12.sp, color = SlateGrey)
                                     if (item.notes.isNotEmpty()) {
-                                        Text("Note: ${item.notes}", fontSize = 11.sp, color = ErrorRed, fontWeight = FontWeight.Bold)
+                                        Text("${LanguageManager.tr("note", lang)}: ${item.notes}", fontSize = 11.sp, color = ErrorRed, fontWeight = FontWeight.Bold)
                                     }
                                 }
                                 Text(formatRupiah(item.subtotal), fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -624,7 +631,7 @@ fun TransactionDetailDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Total:", fontWeight = FontWeight.Bold)
+                    Text("${LanguageManager.tr("total", lang)}:", fontWeight = FontWeight.Bold)
                     Text(formatRupiah(transaction.totalPrice), fontWeight = FontWeight.Bold, color = if (transaction.status == "VOIDED") SlateGrey else AmberAccent)
                 }
             }
@@ -633,19 +640,19 @@ fun TransactionDetailDialog(
 }
 
 @Composable
-fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+fun VoidPinDialog(lang: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Supervisor Authorization") },
+        title = { Text(LanguageManager.tr("supervisor_auth", lang)) },
         text = {
             Column {
-                Text("Enter Supervisor/Owner PIN to cancel this transaction:")
+                Text(LanguageManager.tr("enter_pin_cancel", lang))
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { if (it.length <= 6) pin = it },
-                    label = { Text("Supervisor PIN") },
+                    label = { Text(LanguageManager.tr("supervisor_pin", lang)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
@@ -655,10 +662,10 @@ fun VoidPinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         },
         confirmButton = {
             Button(onClick = { onConfirm(pin) }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) {
-                Text("CANCEL TRANSACTION")
+                Text(LanguageManager.tr("cancel_trx", lang))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(LanguageManager.tr("close", lang)) } }
     )
 }
 
@@ -670,6 +677,8 @@ private suspend fun exportTransactionsToPdfDetailed(
     viewModel: PosViewModel,
     settingsManager: SettingsManager
 ) {
+    // Bagian ini tetap menggunakan teks statis untuk laporan PDF
+    // (Bisa disesuaikan nanti jika diperlukan)
     try {
         val pdfDocument = PdfDocument()
         val textPaint = Paint().apply { textSize = 10f; color = android.graphics.Color.BLACK }
@@ -688,16 +697,16 @@ private suspend fun exportTransactionsToPdfDetailed(
         
         canvas.drawText(storeName.uppercase(), 297.5f, y, headerPaint); y += 20f
         if (storeAddr.isNotBlank()) { canvas.drawText(storeAddr, 297.5f, y, textPaint.apply { textAlign = Paint.Align.CENTER }); y += 14f }
-        if (storePhone.isNotBlank()) { canvas.drawText("Phone: $storePhone", 297.5f, y, textPaint); y += 14f }
+        if (storePhone.isNotBlank()) { canvas.drawText("Telp: $storePhone", 297.5f, y, textPaint); y += 14f }
         textPaint.textAlign = Paint.Align.LEFT
 
         y += 10f
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 10f
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 20f
 
-        canvas.drawText("Transaction Report", 40f, y, subHeaderPaint); y += 16f
-        canvas.drawText("Printed: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint); y += 16f
-        canvas.drawText("Count: ${transactions.size} transactions", 40f, y, textPaint); y += 20f
+        canvas.drawText("Laporan Transaksi", 40f, y, subHeaderPaint); y += 16f
+        canvas.drawText("Dicetak: ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}", 40f, y, textPaint); y += 16f
+        canvas.drawText("Jumlah: ${transactions.size} transaksi", 40f, y, textPaint); y += 20f
         
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
 
@@ -708,17 +717,17 @@ private suspend fun exportTransactionsToPdfDetailed(
                 page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
                 canvas = page.canvas
                 y = 40f
-                canvas.drawText("Transaction Report (Continued)", 40f, y, headerPaint); y += 20f
+                canvas.drawText("Laporan Transaksi (Lanjutan)", 40f, y, headerPaint); y += 20f
                 canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
             }
 
-            canvas.drawText("Receipt #${tx.id} | ${dateFormat.format(Date(tx.timestamp))}", 40f, y, subHeaderPaint); y += 16f
-            canvas.drawText("Customer: ${tx.customerName} | Cashier: ${tx.cashierName}", 40f, y, textPaint); y += 16f
+            canvas.drawText("Struk #${tx.id} | ${dateFormat.format(Date(tx.timestamp))}", 40f, y, subHeaderPaint); y += 16f
+            canvas.drawText("Pelanggan: ${tx.customerName} | Kasir: ${tx.cashierName}", 40f, y, textPaint); y += 16f
 
             val items = viewModel.getTransactionItems(tx.id).first()
             
             if (items.isEmpty()) {
-                canvas.drawText("- (No item details) -", 50f, y, textPaint); y += 16f
+                canvas.drawText("- (Tidak ada rincian item) -", 50f, y, textPaint); y += 16f
             } else {
                 for (item in items) {
                     if (y > 800f) {
@@ -736,7 +745,7 @@ private suspend fun exportTransactionsToPdfDetailed(
                     y += 14f
 
                     if (item.notes.isNotEmpty()) {
-                        canvas.drawText("     *Note: ${item.notes}", 40f, y, textPaint); y += 14f
+                        canvas.drawText("     *Catatan: ${item.notes}", 40f, y, textPaint); y += 14f
                     }
                 }
             }
@@ -752,8 +761,8 @@ private suspend fun exportTransactionsToPdfDetailed(
         pdfDocument.finishPage(page)
         context.contentResolver.openOutputStream(uri)?.use { pdfDocument.writeTo(it) }
         pdfDocument.close()
-        Toast.makeText(context, "Premium PDF exported successfully", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "PDF berhasil diekspor", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
-        Toast.makeText(context, "Failed to export PDF: ${e.message}", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "Gagal ekspor PDF: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }

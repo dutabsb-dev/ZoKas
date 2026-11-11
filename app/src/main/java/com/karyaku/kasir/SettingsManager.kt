@@ -7,13 +7,13 @@ class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("zokas_prefs", Context.MODE_PRIVATE)
 
     var isSetupCompleted: Boolean get() = prefs.getBoolean("is_setup_completed", false); set(value) = prefs.edit().putBoolean("is_setup_completed", value).apply()
-    
-    // STATE UNTUK BIOMETRIK
     var isBiometricEnabled: Boolean get() = prefs.getBoolean("is_biometric_enabled", false); set(value) = prefs.edit().putBoolean("is_biometric_enabled", value).apply()
     
     var isDarkMode: Boolean get() = prefs.getBoolean("dark_mode", false); set(value) = prefs.edit().putBoolean("dark_mode", value).apply()
     var isHighContrast: Boolean get() = prefs.getBoolean("high_contrast", false); set(value) = prefs.edit().putBoolean("high_contrast", value).apply()
     var uiScale: Float get() = prefs.getFloat("ui_scale", 1.0f); set(value) = prefs.edit().putFloat("ui_scale", value).apply()
+    
+    // DEFAULT BAHASA INDONESIA ("in")
     var language: String get() = prefs.getString("language", "in") ?: "in"; set(value) = prefs.edit().putString("language", value).apply()
     
     var storeName: String? get() = prefs.getString("store_name", "ZoKas Store"); set(value) = prefs.edit().putString("store_name", value).apply()
