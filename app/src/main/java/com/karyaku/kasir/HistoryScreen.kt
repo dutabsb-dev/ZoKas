@@ -56,7 +56,7 @@ fun HistoryScreen(
     currentUser: UserEntity
 ) {
     val context = LocalContext.current
-    val activity = context.findActivity()
+    val activity = context.findActivity() // Memanggil fungsi dari Utils.kt
     val scope = rememberCoroutineScope()
     val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
     val lang = settingsManager.language
@@ -677,8 +677,6 @@ private suspend fun exportTransactionsToPdfDetailed(
     viewModel: PosViewModel,
     settingsManager: SettingsManager
 ) {
-    // Bagian ini tetap menggunakan teks statis untuk laporan PDF
-    // (Bisa disesuaikan nanti jika diperlukan)
     try {
         val pdfDocument = PdfDocument()
         val textPaint = Paint().apply { textSize = 10f; color = android.graphics.Color.BLACK }
