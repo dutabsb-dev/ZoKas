@@ -569,3 +569,72 @@ fun DeleteProductConfirmDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
 }
+
+@Composable
+fun BomManagementDialog(
+    product: ProductEntity,
+    rawMaterials: List<RawMaterialEntity>,
+    viewModel: PosViewModel,
+    onDismiss: () -> Unit
+) {
+    var selectedMaterial by remember { mutableStateOf<RawMaterialEntity?>(null) }
+    var qtyUsed by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreenLight) },
+        title = { Text("Resep (BOM): ${product.name}") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text("Tambahkan bahan baku yang digunakan untuk membuat produk ini.", fontSize = 12.sp, color = SlateGrey)
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                if (rawMaterials.isEmpty()) {
+                    Surface(color = ErrorRed.copy(alpha = 0.1f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Text("Belum ada data Bahan Baku. Tambahkan di menu Pengaturan.", fontSize = 12.sp, color = ErrorRed, modifier = Modifier.padding(12.dp))
+                    }
+                } else {
+                    Text("Pilih Bahan Baku:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    rawMaterials.forEach { material ->
+                        OutlinedButton(
+                            onClick = { selectedMaterial = material },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (selectedMaterial?.id == material.id) EmeraldGreen.copy(alpha = 0.2f) else Color.Transparent
+                            )
+                        ) {
+                            Text("${material.name} (Sisa: ${material.stock} ${material.unit})")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = qtyUsed,
+                        onValueChange = { if (it.length <= 5) qtyUsed = it },
+                        label = { Text("Jumlah Digunakan (${selectedMaterial?.unit ?: "Pilih bahan dulu"})") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = selectedMaterial != null,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val qty = qtyUsed.toDoubleOrNull() ?: 0.0
+                    if (selectedMaterial != null && qty > 0) {
+                        viewModel.addBom(product.id, selectedMaterial!!.id, qty)
+                        onDismiss()
+                    }
+                },
+                enabled = selectedMaterial != null && qtyUsed.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("SIMPAN RESEP") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
+    )
+}

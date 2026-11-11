@@ -160,7 +160,7 @@ fun MainContent(
                 database.transactionItemDao(),
                 database.voucherDao(),
                 database.holdOrderDao(),
-                database.branchDao() // <-- DITAMBAHKAN
+                database.branchDao()
             )
         )
 
@@ -445,6 +445,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
@@ -458,18 +459,22 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val searchFocusRequester = remember { FocusRequester() }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        ProductCatalog(
+        // MENGGUNAKAN PosProductSection
+        PosProductSection(
             products = filteredProducts, 
             categories = categories, 
             selectedCategory = selectedCategory, 
             onCategorySelect = { viewModel.setCategory(it) }, 
+            searchQuery = searchQuery,
+            onSearchChange = { viewModel.setSearchQuery(it) },
             onProductClick = { 
                 productToEdit = it
                 showProductForm = true
             }, 
             onProductLongClick = { showActionDialogFor = it }, 
-            searchFocusRequester = searchFocusRequester,
-            lang = settingsManager.language
+            onBarcodeScan = { },
+            onCameraScanClick = { },
+            searchFocusRequester = searchFocusRequester
         )
 
         FloatingActionButton(
@@ -493,21 +498,20 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
         }
 
         if (showActionDialogFor != null) {
-            ModalBottomSheet(
-                onDismissRequest = { showActionDialogFor = null },
-                containerColor = MaterialTheme.colorScheme.surface,
-                dragHandle = { BottomSheetDefaults.DragHandle() }
-            ) {
-                Column(modifier = Modifier.padding(bottom = 32.dp).verticalScroll(rememberScrollState())) {
-                    Text(text = showActionDialogFor!!.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
-                    ActionMenuItem(icon = Icons.Default.Edit, title = LanguageManager.tr("edit_produk", settingsManager.language), subtitle = "Change details", color = EmeraldGreen, onClick = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null })
-                    ActionMenuItem(icon = Icons.Default.Add, title = "Add Stock", subtitle = "Restock item", color = AmberAccent, onClick = { productToRestock = showActionDialogFor; showActionDialogFor = null })
-                    ActionMenuItem(icon = Icons.Default.Delete, title = "Damaged Item", subtitle = "Record waste/expired", color = AmberAccentDark, onClick = { productToWaste = showActionDialogFor; showActionDialogFor = null })
-                    ActionMenuItem(icon = Icons.Default.List, title = "Manage Recipe (BOM)", subtitle = "Raw materials & composition", color = EmeraldGreenLight, onClick = { productToManageBom = showActionDialogFor; showActionDialogFor = null })
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-                    ActionMenuItem(icon = Icons.Default.Delete, title = "Delete Product", subtitle = "Delete permanently", color = ErrorRed, onClick = { productToDelete = showActionDialogFor; showActionDialogFor = null })
-                }
-            }
+            PosActionMenuBottomSheet(
+                product = showActionDialogFor!!,
+                onDismiss = { showActionDialogFor = null },
+                onEdit = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null },
+                onRestock = { productToRestock = showActionDialogFor; showActionDialogFor = null },
+                onWaste = { productToWaste = showActionDialogFor; showActionDialogFor = null },
+                onBom = { productToManageBom = showActionDialogFor; showActionDialogFor = null },
+                onSaveBarcode = { 
+                    val product = showActionDialogFor!!
+                    showActionDialogFor = null
+                    saveBarcodeToGallery(LocalContext.current, product)
+                },
+                onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }
+            )
         }
 
         if (productToRestock != null) {
@@ -515,26 +519,10 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
         }
 
         if (productToWaste != null) {
-            var qty by remember { mutableStateOf("") }
-            AlertDialog(
-                onDismissRequest = { productToWaste = null },
-                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = ErrorRed) },
-                title = { Text("Record Damaged Item") },
-                text = {
-                    Column {
-                        Text("Product: ${productToWaste!!.name}", fontWeight = FontWeight.Bold)
-                        Text("Stock: ${productToWaste!!.stock} pcs", color = SlateGrey)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        OutlinedTextField(value = qty, onValueChange = { if (it.length <= 5) qty = it }, label = { Text("Damaged Quantity") }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = { 
-                        val q = qty.toIntOrNull() ?: 0
-                        if (q > 0 && q <= productToWaste!!.stock) { viewModel.recordWaste(productToWaste!!, q, currentUser); productToWaste = null }
-                    }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("SAVE") }
-                },
-                dismissButton = { TextButton(onClick = { productToWaste = null }) { Text("Cancel") } }
+            WasteRecordDialog(
+                product = productToWaste!!,
+                onSave = { qty -> if (qty > 0 && qty <= productToWaste!!.stock) { viewModel.recordWaste(productToWaste!!, qty, currentUser); productToWaste = null } },
+                onDismiss = { productToWaste = null }
             )
         }
 
@@ -548,13 +536,10 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
         }
 
         if (productToDelete != null) {
-            AlertDialog(
-                onDismissRequest = { productToDelete = null },
-                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed) },
-                title = { Text("Delete Product?") },
-                text = { Text("Delete '${productToDelete!!.name}' permanently?") },
-                confirmButton = { Button(onClick = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), shape = RoundedCornerShape(12.dp)) { Text("DELETE") } },
-                dismissButton = { TextButton(onClick = { productToDelete = null }) { Text("Cancel") } }
+            DeleteProductConfirmDialog(
+                product = productToDelete!!,
+                onDelete = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null },
+                onDismiss = { productToDelete = null }
             )
         }
     }
