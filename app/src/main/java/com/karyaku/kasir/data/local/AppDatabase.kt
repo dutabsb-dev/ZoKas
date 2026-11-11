@@ -20,9 +20,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         VoucherEntity::class,    
         HoldOrderEntity::class,
         RawMaterialEntity::class,
-        ProductBomEntity::class
+        ProductBomEntity::class,
+        BranchEntity::class // <-- ENTITAS BARU DITAMBAHKAN
     ], 
-    version = 19, // UPDATE VERSI
+    version = 20, // <-- UPDATE VERSI
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,28 +35,43 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionItemDao(): TransactionItemDao
     abstract fun voucherDao(): VoucherDao       
     abstract fun holdOrderDao(): HoldOrderDao   
+    abstract fun branchDao(): BranchDao // <-- DAO BARU
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // MIGRASI AMAN: Menambahkan Index untuk performa query
-        private val MIGRATION_18_19 = object : Migration(18, 19) {
+        // MIGRASI AMAN DARI VERSI 19 KE 20
+        private val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // Index untuk Product (Barcode sering di-scan)
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_products_barcode ON products(barcode)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_products_name ON products(name)")
-                
-                // Index untuk Transaction (Sering difilter berdasarkan tanggal/status)
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_timestamp ON transactions(timestamp)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_status ON transactions(status)")
-                
-                // Index untuk TransactionItem
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_transaction_items_transactionId ON transaction_items(transactionId)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_transaction_items_productId ON transaction_items(productId)")
-                
-                // Index untuk AuditLog
-                database.execSQL("CREATE INDEX IF NOT EXISTS index_audit_logs_timestamp ON audit_logs(timestamp)")
+                // 1. Buat Tabel Cabang (Branches)
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `branches` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                        `name` TEXT NOT NULL, 
+                        `address` TEXT NOT NULL, 
+                        `phone` TEXT NOT NULL, 
+                        `isMainBranch` INTEGER NOT NULL, 
+                        `createdAt` INTEGER NOT NULL, 
+                        `updatedAt` INTEGER NOT NULL, 
+                        `isSynced` INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                // 2. Tambah kolom di Users
+                database.execSQL("ALTER TABLE users ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE users ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE users ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
+
+                // 3. Tambah kolom di Products
+                database.execSQL("ALTER TABLE products ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE products ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE products ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
+
+                // 4. Tambah kolom di Transactions
+                database.execSQL("ALTER TABLE transactions ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE transactions ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
             }
         }
 
@@ -66,8 +82,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pos_database"
                 )
-                .addMigrations(MIGRATION_18_19) // Terapkan migrasi
-                // .fallbackToDestructiveMigration() // DIHAPUS: Demi keamanan data user
+                .addMigrations(MIGRATION_19_20) // Terapkan migrasi
                 .build()
                 INSTANCE = instance
                 instance

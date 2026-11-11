@@ -16,7 +16,7 @@ data class ProductEntity(
     val category: String = "Umum",
     val costPrice: Long = 0,
     val barcode: String = "",
-    val variations: String = "",
+    val variations: String = "", 
     val commissionPerItem: Long = 0L,
     val promoType: String = "NONE",
     val promoMinQty: Int = 0,
@@ -26,5 +26,8 @@ data class ProductEntity(
     val isService: Boolean = false,
     val isCombo: Boolean = false,
     val comboPrice: Long = 0L,
-    val imagePath: String = "" // FITUR BARU: Path gambar lokal
+    val imagePath: String = "",
+    val branchId: Long = 1L, // Default ke cabang utama
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isSynced: Boolean = false
 )

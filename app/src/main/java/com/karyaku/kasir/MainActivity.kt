@@ -76,7 +76,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContent {
-            // SUNTIKKAN LocalActivity KE SELURUH UI
             CompositionLocalProvider(
                 LocalActivity provides this@MainActivity,
                 LocalActivityResultRegistryOwner provides this@MainActivity
@@ -160,7 +159,8 @@ fun MainContent(
                 database.customerDao(),
                 database.transactionItemDao(),
                 database.voucherDao(),
-                database.holdOrderDao()
+                database.holdOrderDao(),
+                database.branchDao() // <-- DITAMBAHKAN
             )
         )
 

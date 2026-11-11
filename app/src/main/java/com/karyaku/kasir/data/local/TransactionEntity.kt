@@ -15,12 +15,15 @@ data class TransactionEntity(
     val cashReceived: Long,
     val changeAmount: Long,
     val customerName: String = "Pelanggan Umum",
-    val status: String = "SUCCESS", // SUCCESS, UNPAID, VOIDED, REFUNDED
+    val status: String = "SUCCESS", 
     val totalCost: Long = 0,
     val tableName: String = "Take-Away",
     val voucherCode: String = "",
     val taxAmount: Long = 0,          
     val paymentMethod: String = "CASH", 
     val cashierName: String = "Kasir",
-    val totalCommission: Long = 0L
+    val totalCommission: Long = 0L,
+    val branchId: Long = 1L, // Transaksi ini terjadi di cabang mana
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isSynced: Boolean = false
 )

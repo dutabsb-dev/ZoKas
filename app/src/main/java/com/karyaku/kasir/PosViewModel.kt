@@ -29,7 +29,8 @@ class PosViewModel(
     private val customerDao: CustomerDao,
     private val transactionItemDao: TransactionItemDao,
     private val voucherDao: VoucherDao,
-    private val holdOrderDao: HoldOrderDao
+    private val holdOrderDao: HoldOrderDao,
+    private val branchDao: BranchDao // <-- DAO BARU
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
@@ -147,16 +148,47 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllShifts().catch { _shifts.value = emptyList() }.collectLatest { _shifts.value = it } }
     }
 
-    // FUNGSI BARU UNTUK SETUP WIZARD
-    fun registerInitialSetup(adminName: String, adminPin: String, cashierName: String, cashierPin: String, onSuccess: (UserEntity) -> Unit) {
+    // FUNGSI BARU UNTUK MENYIMPAN SELURUH DATA SETUP WIZARD
+    fun registerFullSetup(
+        businessType: String,
+        storeName: String,
+        storeAddress: String,
+        storePhone: String,
+        adminName: String,
+        adminPin: String,
+        cashierName: String,
+        cashierPin: String,
+        onSuccess: (UserEntity) -> Unit
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val admin = UserEntity(name = adminName, pin = adminPin, role = "OWNER")
-                val cashier = UserEntity(name = cashierName, pin = cashierPin, role = "CASHIER")
-                
+                // 1. Simpan Cabang Utama (Main Branch)
+                val mainBranch = BranchEntity(
+                    name = "$storeName (Pusat)",
+                    address = storeAddress,
+                    phone = storePhone,
+                    isMainBranch = true
+                )
+                val branchId = branchDao.insertBranch(mainBranch)
+
+                // 2. Simpan Admin (Owner)
+                val admin = UserEntity(
+                    name = adminName,
+                    pin = adminPin,
+                    role = "OWNER",
+                    branchId = branchId
+                )
                 val adminId = userDao.insertUser(admin)
+
+                // 3. Simpan Kasir
+                val cashier = UserEntity(
+                    name = cashierName,
+                    pin = cashierPin,
+                    role = "CASHIER",
+                    branchId = branchId
+                )
                 userDao.insertUser(cashier)
-                
+
                 withContext(Dispatchers.Main) {
                     onSuccess(admin.copy(id = adminId))
                 }
@@ -506,7 +538,7 @@ class PosViewModel(
     fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
-                userDao.insertUser(UserEntity(name = name, pin = pin, role = role))
+                userDao.insertUser(UserEntity(name = name, pin = pin, role = role, branchId = adminUser.branchId))
                 userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name", actionType = "AUTH")) 
             } catch (e: Exception) { e.printStackTrace() }
         } 
@@ -890,12 +922,13 @@ class PosViewModelFactory(
     private val customerDao: CustomerDao,
     private val transactionItemDao: TransactionItemDao,
     private val voucherDao: VoucherDao,
-    private val holdOrderDao: HoldOrderDao
+    private val holdOrderDao: HoldOrderDao,
+    private val branchDao: BranchDao // <-- TAMBAHAN
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao, customerDao, transactionItemDao, voucherDao, holdOrderDao) as T
+            return PosViewModel(productDao, transactionDao, userDao, cashFlowDao, customerDao, transactionItemDao, voucherDao, holdOrderDao, branchDao) as T // <-- TAMBAHAN
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
