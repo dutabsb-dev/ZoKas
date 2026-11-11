@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -39,8 +40,6 @@ import com.karyaku.kasir.data.local.RawMaterialEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-// FUNGSI findFragmentActivity() SUDAH DIHAPUS DARI SINI KARENA SUDAH ADA DI Utils.kt
 
 @Composable
 fun SettingsScreen(
@@ -59,7 +58,8 @@ fun SettingsScreen(
     viewModel: PosViewModel
 ) {
     val context = LocalContext.current
-    val activity = context.findFragmentActivity() // Memanggil fungsi dari Utils.kt
+    // MENGGUNAKAN LOCAL ACTIVITY YANG BARU
+    val activity = LocalActivity.current as? FragmentActivity
     val lang = language
     
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }

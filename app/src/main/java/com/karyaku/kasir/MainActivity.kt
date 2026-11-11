@@ -76,7 +76,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContent {
-            CompositionLocalProvider(LocalActivityResultRegistryOwner provides this@MainActivity) {
+            // SUNTIKKAN LocalActivity KE SELURUH UI
+            CompositionLocalProvider(
+                LocalActivity provides this@MainActivity,
+                LocalActivityResultRegistryOwner provides this@MainActivity
+            ) {
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }

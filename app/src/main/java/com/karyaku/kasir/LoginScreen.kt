@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.launch
@@ -40,7 +41,9 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val activity = context.findFragmentActivity()
+    
+    // MENGGUNAKAN LOCAL ACTIVITY
+    val activity = LocalActivity.current as? FragmentActivity
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
 
