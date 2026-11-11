@@ -50,11 +50,11 @@ private val DarkColors = darkColorScheme(
     tertiary = AmberAccent,
     onTertiary = Color.White,
     background = BackgroundDark,
-    onBackground = BackgroundLight,
+    onBackground = Color.White, // FIX: Teks luar menjadi Putih
     surface = SurfaceDark,
-    onSurface = BackgroundLight,
+    onSurface = Color.White, // FIX: Teks dalam card menjadi Putih
     surfaceVariant = Color(0xFF334155),
-    onSurfaceVariant = SlateGreyLight,
+    onSurfaceVariant = Color(0xFFE2E8F0), // FIX: Teks abu-abu terang (hampir putih)
     error = ErrorRed,
     onError = Color.White
 )

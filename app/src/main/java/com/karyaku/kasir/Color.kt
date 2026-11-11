@@ -11,7 +11,9 @@ val EmeraldGreenLight = Color(0xFF34D399)
 val SlateGrey = Color(0xFF64748B)
 val SlateGreyDark = Color(0xFF334155)
 val SlateGreyLight = Color(0xFF94A3B8)
-val SlateSurface = Color(0xFFF8FAFC)
+
+// FIX: Ubah warna Card agar tidak sama dengan BackgroundLight
+val SlateSurface = Color(0xFFF1F5F9) 
 
 // ACCENT: AMBER (Promo, Peringatan, Highlight)
 val AmberAccent = Color(0xFFF59E0B)

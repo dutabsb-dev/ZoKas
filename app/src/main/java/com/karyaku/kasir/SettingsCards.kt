@@ -12,6 +12,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,13 +45,13 @@ fun SettingsAppearanceCard(
                 Text(LanguageManager.tr("mode_gelap", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() }, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Column {
                 Text(LanguageManager.tr("ukuran_font", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Slider(value = uiScale, onValueChange = { onChangeUiScale(it) }, valueRange = 0.8f..1.5f, steps = 6, colors = SliderDefaults.colors(thumbColor = EmeraldGreen, activeTrackColor = EmeraldGreen))
-                Text("${LanguageManager.tr("skala", lang)}: ${(uiScale * 100).toInt()}%", fontSize = 12.sp, color = SlateGrey)
+                Text("${LanguageManager.tr("skala", lang)}: ${(uiScale * 100).toInt()}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(LanguageManager.tr("bahasa", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(if (lang == "in") "Indonesia" else "English") }
@@ -68,32 +73,32 @@ fun SettingsAccountCard(
 ) {
     val lang = language
     val context = LocalContext.current
-    val activity = LocalActivity.current as? FragmentActivity // FIX: Menggunakan LocalActivity
+    val activity = LocalActivity.current as? FragmentActivity
 
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(LanguageManager.tr("manajemen_akun", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SlateGreyDark)
+            Text("${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang)) }
+                Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp) }
                 if (currentUser.role == "OWNER") {
-                    Button(onClick = onManageStaffClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("kelola_karyawan", lang)) }
+                    Button(onClick = onManageStaffClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp) }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
-                Text(LanguageManager.tr("riwayat_shift", lang))
+                Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp)
             }
             
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Aktifkan login biometrik di halaman awal.", fontSize = 11.sp, color = SlateGrey)
+                    Text("Aktifkan login biometrik di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(
                     checked = isBiometricEnabled, 
@@ -142,7 +147,7 @@ fun SettingsAccountCard(
     }
 }
 
-// --- 3. CARD MODUL TOKO ---
+// --- 3. CARD MODUL TOKO (REDESIGN PROFESIONAL) ---
 @Composable
 fun SettingsModuleCard(
     isTableModeEnabled: Boolean, onTableModeToggle: (Boolean) -> Unit,
@@ -152,38 +157,96 @@ fun SettingsModuleCard(
     language: String
 ) {
     val lang = language
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Modul Toko", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Aktifkan fitur sesuai kebutuhan bisnis Anda.", fontSize = 12.sp, color = SlateGrey)
-            Spacer(modifier = Modifier.height(12.dp))
+    Card(
+        modifier = Modifier.fillMaxWidth(), 
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 16.dp)) {
+            // Header
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Text("Modul Toko", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Sesuaikan fitur dengan kebutuhan bisnis Anda.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Item 1: Mode Meja
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onTableModeToggle(!isTableModeEnabled) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Restaurant, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Mode Meja Restoran", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Tampilkan pilihan meja di halaman kasir.", fontSize = 11.sp, color = SlateGrey)
+                    Text("Mode Meja Restoran", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Tampilkan pilihan meja di halaman kasir.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Switch(checked = isTableModeEnabled, onCheckedChange = onTableModeToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Multi-Mata Uang (USD)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Tampilkan estimasi harga dalam USD.", fontSize = 11.sp, color = SlateGrey)
-                }
-                Switch(checked = enableMultiCurrency, onCheckedChange = onMultiCurrencyToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
-            }
-            if (enableMultiCurrency) {
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = exchangeRateUsd, onValueChange = onExchangeRateChange,
-                    label = { Text(LanguageManager.tr("kurs_usd", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)
+                Switch(
+                    checked = isTableModeEnabled, 
+                    onCheckedChange = onTableModeToggle, 
+                    colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = onRawMaterialClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) {
-                Text("Kelola Bahan Baku (Resep)")
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+
+            // Item 2: Multi-Currency
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onMultiCurrencyToggle(!enableMultiCurrency) }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Payments, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Multi-Mata Uang (USD)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Estimasi harga dalam Dolar AS.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = enableMultiCurrency, 
+                    onCheckedChange = onMultiCurrencyToggle, 
+                    colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
+                )
+            }
+
+            // Input Kurs (Hanya muncul jika Multi-Currency aktif)
+            if (enableMultiCurrency) {
+                OutlinedTextField(
+                    value = exchangeRateUsd, 
+                    onValueChange = onExchangeRateChange,
+                    label = { Text(LanguageManager.tr("kurs_usd", lang), fontSize = 12.sp) }, 
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp), 
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = MaterialTheme.colorScheme.surface)
+                )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+
+            // Item 3: Bahan Baku (Menu Style)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onRawMaterialClick() }
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Inventory, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Kelola Bahan Baku", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Atur stok bahan mentah & resep (BOM).", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -202,7 +265,7 @@ fun SettingsPrinterCard(
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(LanguageManager.tr("printer_kasir", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(if (savedPrinterMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedPrinterMac" else LanguageManager.tr("belum_printer", lang), fontSize = 12.sp, color = if(savedPrinterMac != null) EmeraldGreen else SlateGrey, fontWeight = FontWeight.Bold)
+            Text(if (savedPrinterMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedPrinterMac" else LanguageManager.tr("belum_printer", lang), fontSize = 12.sp, color = if(savedPrinterMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
             Button(
                 onClick = onPrinterClick, 
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp), 
@@ -210,10 +273,10 @@ fun SettingsPrinterCard(
                 shape = RoundedCornerShape(12.dp)
             ) { Text(LanguageManager.tr("pilih_printer", lang)) }
             
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             
             Text(LanguageManager.tr("printer_dapur", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(if (savedKitchenMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedKitchenMac" else LanguageManager.tr("belum_printer_dapur", lang), fontSize = 12.sp, color = if(savedKitchenMac != null) EmeraldGreen else SlateGrey, fontWeight = FontWeight.Bold)
+            Text(if (savedKitchenMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedKitchenMac" else LanguageManager.tr("belum_printer_dapur", lang), fontSize = 12.sp, color = if(savedKitchenMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
             Button(
                 onClick = onKitchenClick, 
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp), 
@@ -265,7 +328,7 @@ fun SettingsDiscountCard(
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(LanguageManager.tr("happy_hour", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(LanguageManager.tr("happy_hour_desc", lang), fontSize = 12.sp, color = SlateGrey)
+            Text(LanguageManager.tr("happy_hour_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = hhStart, onValueChange = onHhStartChange, label = { Text(LanguageManager.tr("mulai", lang)) }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
@@ -292,15 +355,15 @@ fun SettingsBackupCard(
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(LanguageManager.tr("data_backup", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(LanguageManager.tr("data_backup_desc", lang), fontSize = 12.sp, color = SlateGrey)
+            Text(LanguageManager.tr("data_backup_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onBackupClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("backup", lang)) }
                 Button(onClick = onRestoreClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("restore", lang)) }
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Text(LanguageManager.tr("manajemen_produk", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(LanguageManager.tr("manajemen_produk_desc", lang), fontSize = 12.sp, color = SlateGrey)
+            Text(LanguageManager.tr("manajemen_produk_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onExportCsvClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ekspor_csv", lang)) }

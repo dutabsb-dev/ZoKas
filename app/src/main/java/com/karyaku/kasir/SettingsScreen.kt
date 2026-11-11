@@ -303,7 +303,7 @@ fun SettingsScreen(
         item { Text(LanguageManager.tr("log_aktivitas", lang), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start) }
         
         if (auditLogs.isEmpty()) {
-            item { Text(LanguageManager.tr("belum_aktivitas", lang), fontSize = 12.sp, color = SlateGrey, modifier = Modifier.fillMaxWidth()) }
+            item { Text(LanguageManager.tr("belum_aktivitas", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth()) }
         } else {
             items(auditLogs) { log ->
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
