@@ -10,6 +10,8 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -38,10 +41,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-fun Context.findActivity(): Activity? {
+// Fungsi pembantu untuk mendapatkan FragmentActivity dari Context Compose
+fun Context.findFragmentActivity(): FragmentActivity? {
     var context = this
     while (context is ContextWrapper) {
-        if (context is Activity) return context
+        if (context is FragmentActivity) return context
         context = context.baseContext
     }
     return null
@@ -64,8 +68,10 @@ fun SettingsScreen(
     viewModel: PosViewModel
 ) {
     val context = LocalContext.current
+    val activity = context.findFragmentActivity()
     val lang = language
     
+    // State Profil Toko
     var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
@@ -73,11 +79,13 @@ fun SettingsScreen(
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var csvDataToExport by remember { mutableStateOf("") }
     
+    // State Promo
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
     var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
     var maxDiscountCap by remember { mutableStateOf(settingsManager.maxDiscountCap.toString()) }
     
+    // State Modular & Keamanan
     var enableMultiCurrency by remember { mutableStateOf(settingsManager.enableMultiCurrency) }
     var exchangeRateUsd by remember { mutableStateOf(settingsManager.exchangeRateUsd.toString()) }
     var isTableModeEnabled by remember { mutableStateOf(settingsManager.isTableModeEnabled) }
@@ -360,6 +368,47 @@ fun SettingsScreen(
                             }, 
                             colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
                         )
+                    }
+
+                    // FITUR TES SIDIK JARI (Membantu mendiagnosis masalah)
+                    if (isBiometricEnabled && activity != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val biometricManager = BiometricManager.from(context)
+                                if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) {
+                                    Toast.makeText(context, "Sidik jari belum didaftarkan di HP ini! Buka Pengaturan HP -> Keamanan.", Toast.LENGTH_LONG).show()
+                                    return@OutlinedButton
+                                }
+                                
+                                val executor = ContextCompat.getMainExecutor(context)
+                                val biometricPrompt = BiometricPrompt(activity, executor,
+                                    object : BiometricPrompt.AuthenticationCallback() {
+                                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                            super.onAuthenticationSucceeded(result)
+                                            Toast.makeText(context, "Tes Berhasil! Sensor sidik jari berfungsi.", Toast.LENGTH_SHORT).show()
+                                        }
+                                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                            super.onAuthenticationError(errorCode, errString)
+                                            Toast.makeText(context, "Gagal: $errString", Toast.LENGTH_SHORT).show()
+                                        }
+                                    })
+
+                                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                                    .setTitle("Tes Sidik Jari")
+                                    .setSubtitle("Sentuh sensor untuk menguji")
+                                    .setNegativeButtonText("Batal")
+                                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                                    .build()
+
+                                biometricPrompt.authenticate(promptInfo)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldGreen)
+                        ) {
+                            Text("TES FUNGSI SIDIK JARI", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                        }
                     }
                     
                     Spacer(modifier = Modifier.height(12.dp))

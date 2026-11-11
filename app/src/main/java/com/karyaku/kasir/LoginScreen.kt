@@ -31,7 +31,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.launch
 
-// Fungsi Robust untuk mencari FragmentActivity di dalam ContextWrapper
 fun Context.findFragmentActivity(): FragmentActivity? {
     var context = this
     while (context is ContextWrapper) {
@@ -53,17 +52,9 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    
-    // Paksa pencarian Activity
     val activity = context.findFragmentActivity()
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
-
-    // CEK BIOMETRIK YANG LEBIH BAIK
-    val biometricManager = BiometricManager.from(context)
-    // Cek apakah hardware ada (menggunakan Authenticators, bukan PackageManager yang sering bug)
-    val canAuthenticate = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
-    val hasHardware = canAuthenticate != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
 
     if (isInitializing) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -147,22 +138,17 @@ fun LoginScreen(
                 }
             }
 
-            // --- LOGIKA TOMBOL SIDIK JARI DENGAN DEBUGGING ---
-            // Syarat muncul: Toggle ON, Activity ditemukan, dan Hardware ada.
-            if (settingsManager.isBiometricEnabled && activity != null && hasHardware) {
+            // LOGIKA VISIBILITAS BARU: Muncul jika Toggle ON dan Activity valid
+            if (settingsManager.isBiometricEnabled && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
                     onClick = {
-                        // Cek status enrollment saat tombol diklik
-                        if (canAuthenticate == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) {
+                        val biometricManager = BiometricManager.from(context)
+                        if (biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) {
                             Toast.makeText(context, "Sidik jari belum didaftarkan! Buka Pengaturan HP -> Keamanan -> Sidik Jari.", Toast.LENGTH_LONG).show()
-                            return@OutlinedButton
-                        } else if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
-                            Toast.makeText(context, "Sensor sidik jari tidak tersedia atau terkunci sementara.", Toast.LENGTH_LONG).show()
                             return@OutlinedButton
                         }
 
-                        // Proses Autentikasi
                         val executor = ContextCompat.getMainExecutor(context)
                         val biometricPrompt = BiometricPrompt(activity, executor,
                             object : BiometricPrompt.AuthenticationCallback() {
@@ -173,7 +159,7 @@ fun LoginScreen(
                                         if (owner != null) {
                                             onLoginSuccess(owner) 
                                         } else {
-                                            errorMessage = "No registered Owner found in Database."
+                                            errorMessage = "No registered Owner found."
                                         }
                                     }
                                 }
@@ -201,18 +187,6 @@ fun LoginScreen(
                     Icon(Icons.Default.Fingerprint, contentDescription = "Fingerprint", tint = EmeraldGreen)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(LanguageManager.tr("login_fingerprint", settingsManager.language), color = EmeraldGreen, fontWeight = FontWeight.Bold)
-                }
-            } else {
-                // DEBUGGING: Jika tombol tidak muncul, kita cetak alasannya di Console/Logcat (atau Toast)
-                // Hapus blok else ini jika aplikasi sudah stabil.
-                LaunchedEffect(Unit) {
-                    if (settingsManager.isBiometricEnabled) {
-                        if (activity == null) {
-                            println("DEBUG_BIOMETRIC: Activity is NULL. Context cast failed.")
-                        } else if (!hasHardware) {
-                            println("DEBUG_BIOMETRIC: Hardware NOT FOUND. CanAuthenticate result: $canAuthenticate")
-                        }
-                    }
                 }
             }
         }
