@@ -43,7 +43,7 @@ import java.util.Locale
 fun ProductFormBottomSheet(
     productToEdit: ProductEntity? = null, 
     onDismiss: () -> Unit, 
-    onSave: (String, Long, Int, String, Long, String, String, Long, Long, Boolean, Boolean, String) -> Unit
+    onSave: (String, Long, Int, String, Long, String, String, Long, Long, Boolean, Boolean, String, Long, Int) -> Unit
 ) {
     val context = LocalContext.current
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
@@ -57,6 +57,10 @@ fun ProductFormBottomSheet(
     var expiryDate by remember { mutableStateOf(productToEdit?.expiryDate ?: 0L) }
     var isService by remember { mutableStateOf(productToEdit?.isService ?: false) }
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
+    
+    // FITUR BARU: Harga Grosir
+    var wholesalePrice by remember { mutableStateOf(productToEdit?.wholesalePrice?.toString() ?: "") }
+    var wholesaleMinQty by remember { mutableStateOf(productToEdit?.wholesaleMinQty?.toString() ?: "") }
     
     var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -114,7 +118,7 @@ fun ProductFormBottomSheet(
                     .fillMaxSize()
                     .imePadding() // FIX: Mendorong layar ke atas saat keyboard muncul
             ) {
-                // Top Bar sederhana untuk tombol Close
+                // Top Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -132,7 +136,7 @@ fun ProductFormBottomSheet(
                     }
                 }
 
-                // Konten Form (Bisa di-scroll)
+                // Konten Form
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -192,6 +196,29 @@ fun ProductFormBottomSheet(
                     if (!isService) {
                         OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                         Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // FITUR BARU: Input Grosir
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = wholesalePrice, 
+                                onValueChange = { if (it.length <= 10) wholesalePrice = it }, 
+                                label = { Text("Harga Grosir") }, 
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                                modifier = Modifier.weight(1f), 
+                                singleLine = true, 
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            OutlinedTextField(
+                                value = wholesaleMinQty, 
+                                onValueChange = { if (it.length <= 5) wholesaleMinQty = it }, 
+                                label = { Text("Min Qty") }, 
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                                modifier = Modifier.weight(1f), 
+                                singleLine = true, 
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                     OutlinedTextField(value = commission, onValueChange = { if (it.length <= 10) commission = it }, label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
@@ -213,7 +240,9 @@ fun ProductFormBottomSheet(
                         val cp = costPrice.toLongOrNull() ?: 0L
                         val s = if (isService) 0 else stock.toIntOrNull() ?: 0
                         val c = commission.toLongOrNull() ?: 0L
-                        if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo, imagePath) 
+                        val wp = wholesalePrice.toLongOrNull() ?: 0L
+                        val wm = wholesaleMinQty.toIntOrNull() ?: 0
+                        if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo, imagePath, wp, wm) 
                     }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
                         Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
@@ -232,7 +261,6 @@ fun PaymentBottomSheet(
     onDismiss: () -> Unit, 
     onConfirmPayment: (Long, String) -> Unit
 ) {
-    // FIX: Paksa Bottom Sheet untuk membuka layar penuh
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var cashInput by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("CASH") }
@@ -243,14 +271,13 @@ fun PaymentBottomSheet(
         onDismissRequest = onDismiss, 
         sheetState = sheetState, 
         shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-        windowInsets = WindowInsets(0) // Biarkan kita handle manual paddingnya
+        windowInsets = WindowInsets(0)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // .fillMaxHeight(0.95f) // Opsional: Memaksa tinggi maksimal
                 .padding(24.dp)
-                .imePadding() // FIX: Keyboard handling
+                .imePadding()
                 .verticalScroll(rememberScrollState()), 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

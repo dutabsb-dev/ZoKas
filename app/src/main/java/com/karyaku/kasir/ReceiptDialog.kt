@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +28,7 @@ import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.TransactionItemEntity
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,6 +55,10 @@ fun ReceiptDialog(
     var showPrinterError by remember { mutableStateOf(false) }
     var showShareFallbackDialog by remember { mutableStateOf(false) }
     var textToShare by remember { mutableStateOf("") }
+
+    val logoFile = remember(settingsManager.storeLogoPath) {
+        settingsManager.storeLogoPath?.let { File(it) }
+    }
 
     if (showPrinterError) {
         PrinterErrorDialog { showPrinterError = false }
@@ -95,10 +101,7 @@ fun ReceiptDialog(
                                 putExtra(Intent.EXTRA_TEXT, textToShare)
                                 type = "text/plain"
                             }
-
-                            // Cek WhatsApp Biasa
                             val waIntent = Intent(sendIntent).apply { setPackage("com.whatsapp") }
-                            // Cek WhatsApp Business
                             val waBusinessIntent = Intent(sendIntent).apply { setPackage("com.whatsapp.w4b") }
 
                             if (waIntent.resolveActivity(context.packageManager) != null) {
@@ -106,11 +109,9 @@ fun ReceiptDialog(
                             } else if (waBusinessIntent.resolveActivity(context.packageManager) != null) {
                                 context.startActivity(waBusinessIntent)
                             } else {
-                                // Jika kedua package gagal ditemukan, tampilkan dialog fallback
                                 showShareFallbackDialog = true
                             }
                         } catch (e: Exception) {
-                            // Fallback jika terjadi error sistem
                             showShareFallbackDialog = true
                         }
                     },
@@ -131,7 +132,7 @@ fun ReceiptDialog(
                         } else {
                             scope.launch {
                                 try {
-                                    val printData = generatePrintData(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
+                                    val printData = generatePrintData(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items, logoFile)
                                     val success = printerManager.printData(mac, printData)
                                     if (success) {
                                         Toast.makeText(context, "Struk dicetak!", Toast.LENGTH_SHORT).show()
@@ -157,12 +158,25 @@ fun ReceiptDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 
+                // UI LOGO
+                if (logoFile != null && logoFile.exists()) {
+                    coil.compose.AsyncImage(
+                        model = logoFile,
+                        contentDescription = "Logo Struk",
+                        modifier = Modifier.size(64.dp).padding(bottom = 8.dp)
+                    )
+                }
+
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
                 Text(text = storeAddress, fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
                 Text(text = "Telp: $storePhone", fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
                 
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Text(text = "Tipe: ${transaction.orderType}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                if (transaction.pickupDate > 0) {
+                     Text(text = "Ambil: ${dateFormat.format(Date(transaction.pickupDate))}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color.Red)
+                }
                 Text(text = "Kasir: ${transaction.cashierName} | ${transaction.tableName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
@@ -200,8 +214,16 @@ fun ReceiptDialog(
                         Text(formatRupiah(transaction.taxAmount), fontFamily = FontFamily.Monospace)
                     }
                 }
+                
+                // FITUR BARU: Service Charge
+                if (transaction.serviceCharge > 0) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Service Charge", fontFamily = FontFamily.Monospace)
+                        Text(formatRupiah(transaction.serviceCharge), fontFamily = FontFamily.Monospace)
+                    }
+                }
 
-                val diskon = subtotalItems + transaction.taxAmount - transaction.totalPrice
+                val diskon = subtotalItems + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
                 if (diskon > 0) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Diskon / Poin", fontFamily = FontFamily.Monospace)
@@ -248,6 +270,10 @@ private fun generateTextReceipt(
     sb.append("------------------------\n")
     sb.append("ID: #${transaction.id}\n")
     sb.append("Tgl: ${dateFormat.format(Date(transaction.timestamp))}\n")
+    sb.append("Tipe: ${transaction.orderType}\n")
+    if (transaction.pickupDate > 0) {
+        sb.append("Ambil: ${dateFormat.format(Date(transaction.pickupDate))}\n")
+    }
     sb.append("Kasir: ${transaction.cashierName}\n")
     sb.append("Pelanggan: ${transaction.customerName}\n")
     sb.append("------------------------\n")
@@ -265,8 +291,9 @@ private fun generateTextReceipt(
     sb.append("Subtotal: Rp $subtotal\n")
     
     if (transaction.taxAmount > 0) sb.append("Pajak: Rp ${transaction.taxAmount}\n")
+    if (transaction.serviceCharge > 0) sb.append("Service: Rp ${transaction.serviceCharge}\n")
     
-    val diskon = subtotal + transaction.taxAmount - transaction.totalPrice
+    val diskon = subtotal + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
     if (diskon > 0) sb.append("Diskon: -Rp $diskon\n")
     
     sb.append("*Total: Rp ${transaction.totalPrice}*\n")
@@ -285,10 +312,23 @@ private fun generateTextReceipt(
 private fun generatePrintData(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
-    dateFormat: SimpleDateFormat, items: List<TransactionItemEntity>?
+    dateFormat: SimpleDateFormat, items: List<TransactionItemEntity>?, logoFile: File?
 ): ByteArray {
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
+    
+    // FITUR BARU: Cetak Logo (Jika ada) ke Thermal
+    if (logoFile != null && logoFile.exists()) {
+        try {
+            val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
+            // Resize to fit thermal printer (max 384px width)
+            val resized = android.graphics.Bitmap.createScaledBitmap(bitmap, 200, 200, true)
+            output.write(EscPosCommands.printImage(resized))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     output.write(EscPosCommands.ALIGN_CENTER)
     output.write(EscPosCommands.BOLD_ON)
     output.write("$storeName\n".toByteArray())
@@ -297,6 +337,10 @@ private fun generatePrintData(
     output.write("================================\n".toByteArray())
     output.write("ID: #${transaction.id}\n".toByteArray())
     output.write("${dateFormat.format(Date(transaction.timestamp))}\n".toByteArray())
+    output.write("Tipe: ${transaction.orderType}\n".toByteArray())
+    if (transaction.pickupDate > 0) {
+        output.write("Ambil: ${dateFormat.format(Date(transaction.pickupDate))}\n".toByteArray())
+    }
     output.write("Kasir: ${transaction.cashierName} | ${transaction.tableName}\n".toByteArray())
     output.write("Pelanggan: ${transaction.customerName}\n".toByteArray())
     output.write("================================\n".toByteArray())
@@ -314,7 +358,9 @@ private fun generatePrintData(
     val subtotal = items?.sumOf { it.subtotal } ?: transaction.totalPrice
     output.write("Subtotal: Rp $subtotal\n".toByteArray())
     if (transaction.taxAmount > 0) output.write("Pajak   : Rp ${transaction.taxAmount}\n".toByteArray())
-    val diskon = subtotal + transaction.taxAmount - transaction.totalPrice
+    if (transaction.serviceCharge > 0) output.write("Service : Rp ${transaction.serviceCharge}\n".toByteArray())
+    
+    val diskon = subtotal + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
     if (diskon > 0) output.write("Diskon  : -Rp $diskon\n".toByteArray())
     
     output.write("Total   : Rp ${transaction.totalPrice}\n".toByteArray())

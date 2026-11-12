@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.AppDatabase
@@ -61,7 +63,7 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // AUTO-BACKUP HARIAN (FIX: Pindah ke Coroutine IO)
+        // AUTO-BACKUP HARIAN
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -294,6 +296,11 @@ fun MainNavigation(
         )
     }
 
+    // FITUR BARU: Logo Usaha di Header
+    val logoFile = remember(settingsManager.storeLogoPath) { 
+        settingsManager.storeLogoPath?.let { File(it) } 
+    }
+
     Scaffold(
         topBar = {
             Row(
@@ -303,11 +310,21 @@ fun MainNavigation(
                     .background(MaterialTheme.colorScheme.background),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo_zokas),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
-                )
+                if (logoFile != null && logoFile.exists()) {
+                    AsyncImage(
+                        model = logoFile,
+                        contentDescription = "Store Logo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_zokas),
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                    )
+                }
+                
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -455,8 +472,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
     val searchFocusRequester = remember { FocusRequester() }
-    
-    // FIX: Ambil Context di sini
     val context = LocalContext.current 
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -489,9 +504,9 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             ProductFormBottomSheet(
                 productToEdit = productToEdit, 
                 onDismiss = { showProductForm = false; productToEdit = null }, 
-                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath ->
-                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, currentUser.id, currentUser.name)
-                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath), currentUser.id, currentUser.name)
+                onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty ->
+                    if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty, currentUser.id, currentUser.name)
+                    else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty), currentUser.id, currentUser.name)
                     showProductForm = false; productToEdit = null
                 }
             )
@@ -508,7 +523,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 onSaveBarcode = { 
                     val product = showActionDialogFor!!
                     showActionDialogFor = null
-                    // FIX: Panggil context yang sudah dideklarasikan di atas
                     saveBarcodeToGallery(context, product) 
                 },
                 onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }

@@ -10,8 +10,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -55,6 +53,8 @@ fun SettingsScreen(
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
+    var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
+    var storeLogoPath by remember { mutableStateOf(settingsManager.storeLogoPath) }
     var csvDataToExport by remember { mutableStateOf("") }
     
     // State Promo & Keamanan
@@ -69,6 +69,15 @@ fun SettingsScreen(
     var isTableModeEnabled by remember { mutableStateOf(settingsManager.isTableModeEnabled) }
     var isBiometricEnabled by remember { mutableStateOf(settingsManager.isBiometricEnabled) }
     
+    // FITUR MODUL BARU
+    var enableOrderTypes by remember { mutableStateOf(settingsManager.enableOrderTypes) }
+    var enableWholesale by remember { mutableStateOf(settingsManager.enableWholesale) }
+    var enablePreOrder by remember { mutableStateOf(settingsManager.enablePreOrder) }
+    var enableMembership by remember { mutableStateOf(settingsManager.enableMembership) }
+    var enableSupplier by remember { mutableStateOf(settingsManager.enableSupplier) }
+    var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
+    var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) } // MODUL FINANCE
+    
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
     // State Dialog
@@ -77,10 +86,28 @@ fun SettingsScreen(
     var showUserManagementDialog by remember { mutableStateOf(false) }
     var showShiftHistory by remember { mutableStateOf(false) }
     var showRawMaterialDialog by remember { mutableStateOf(false) } 
+    var showMembershipDialog by remember { mutableStateOf(false) }
+    var showSupplierDialog by remember { mutableStateOf(false) }
+    var showPODialog by remember { mutableStateOf(false) }
+    var showReservationDialog by remember { mutableStateOf(false) }
+    
+    // State Dialog Finance
+    var showExpenseDialog by remember { mutableStateOf(false) }
+    var showReceivableDialog by remember { mutableStateOf(false) }
+    var showPayableDialog by remember { mutableStateOf(false) }
     
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
+    val memberships by viewModel.memberships.collectAsStateWithLifecycle()
+    val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
+    val products by viewModel.products.collectAsStateWithLifecycle()
+    val reservations by viewModel.reservations.collectAsStateWithLifecycle()
+    
+    // Data untuk Finance
+    val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val purchases by viewModel.purchases.collectAsStateWithLifecycle()
+    val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     
     val printerManager = remember { BluetoothPrinterManager(context) }
     var savedPrinterMac by remember { mutableStateOf(settingsManager.printerMacAddress) }
@@ -152,6 +179,82 @@ fun SettingsScreen(
     }
     if (showRawMaterialDialog) {
         RawMaterialManagementDialog(rawMaterials = rawMaterials, viewModel = viewModel, onDismiss = { showRawMaterialDialog = false })
+    }
+    if (showMembershipDialog) {
+        MembershipManagementDialog(
+            memberships = memberships,
+            onAddMembership = { name, price, quota, days ->
+                viewModel.addMembership(name, price, quota, days)
+            },
+            onDismiss = { showMembershipDialog = false }
+        )
+    }
+    if (showSupplierDialog) {
+        SupplierManagementDialog(
+            suppliers = suppliers,
+            onAddSupplier = { name, contact, phone, address ->
+                viewModel.addSupplier(name, contact, phone, address)
+            },
+            onDismiss = { showSupplierDialog = false }
+        )
+    }
+    if (showPODialog) {
+        PurchaseOrderDialog(
+            suppliers = suppliers,
+            products = products,
+            onCreatePO = { supplier, invoice, items, isPaid, updateCost ->
+                viewModel.createPurchaseOrder(supplier, invoice, items, isPaid, updateCost) {
+                    Toast.makeText(context, "PO Berhasil Disimpan!", Toast.LENGTH_SHORT).show()
+                    showPODialog = false
+                }
+            },
+            onDismiss = { showPODialog = false }
+        )
+    }
+    if (showReservationDialog) {
+        ReservationManagementDialog(
+            reservations = reservations,
+            onAddReservation = { name, phone, dateTime, resource, notes ->
+                viewModel.addReservation(name, phone, dateTime, resource, notes)
+            },
+            onUpdateStatus = { id, status ->
+                viewModel.updateReservationStatus(id, status)
+            },
+            onDeleteReservation = { id ->
+                viewModel.deleteReservation(id)
+            },
+            onDismiss = { showReservationDialog = false }
+        )
+    }
+    if (showExpenseDialog) {
+        ExpenseManagementDialog(
+            expenses = expenses,
+            onAddExpense = { category, amount, note ->
+                viewModel.addExpense(category, amount, note, currentUser)
+            },
+            onDismiss = { showExpenseDialog = false }
+        )
+    }
+    if (showReceivableDialog) {
+        ReceivableDialog(
+            transactions = transactions,
+            onPay = { tx, cash ->
+                viewModel.payUnpaidTransaction(tx, cash) {
+                    Toast.makeText(context, "Bon Lunas!", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { showReceivableDialog = false }
+        )
+    }
+    if (showPayableDialog) {
+        PayableDialog(
+            purchases = purchases,
+            onPay = { po ->
+                viewModel.payPurchase(po.id)
+                Toast.makeText(context, "Hutang ke ${po.supplierName} Lunas!", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showPayableDialog = false }
+        )
     }
     if (showPrinterDialog) {
         AlertDialog(
@@ -232,7 +335,7 @@ fun SettingsScreen(
             )
         }
 
-        // 3. Card Modul Toko (Table Mode, Multi-Currency, Bahan Baku)
+        // 3. Card Modul Toko
         item {
             SettingsModuleCard(
                 isTableModeEnabled = isTableModeEnabled, 
@@ -242,6 +345,27 @@ fun SettingsScreen(
                 exchangeRateUsd = exchangeRateUsd, 
                 onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
                 onRawMaterialClick = { showRawMaterialDialog = true },
+                enableOrderTypes = enableOrderTypes,
+                onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
+                enableWholesale = enableWholesale,
+                onWholesaleToggle = { enableWholesale = it; settingsManager.enableWholesale = it },
+                enablePreOrder = enablePreOrder,
+                onPreOrderToggle = { enablePreOrder = it; settingsManager.enablePreOrder = it },
+                enableMembership = enableMembership,
+                onMembershipToggle = { enableMembership = it; settingsManager.enableMembership = it },
+                onManageMembershipClick = { showMembershipDialog = true },
+                enableSupplier = enableSupplier,
+                onSupplierToggle = { enableSupplier = it; settingsManager.enableSupplier = it },
+                onManageSupplierClick = { showSupplierDialog = true },
+                onCreatePOClick = { showPODialog = true },
+                enableReservation = enableReservation,
+                onReservationToggle = { enableReservation = it; settingsManager.enableReservation = it },
+                onManageReservationClick = { showReservationDialog = true },
+                enableFinance = enableFinance,
+                onFinanceToggle = { enableFinance = it; settingsManager.enableFinance = it },
+                onManageReceivableClick = { showReceivableDialog = true },
+                onManagePayableClick = { showPayableDialog = true },
+                onManageExpenseClick = { showExpenseDialog = true },
                 language = language
             )
         }
@@ -273,6 +397,15 @@ fun SettingsScreen(
                 storePhone = storePhone, onStorePhoneChange = { storePhone = it; settingsManager.storePhone = it },
                 storeFooter = storeFooter, onStoreFooterChange = { storeFooter = it; settingsManager.storeFooter = it },
                 taxPercent = taxPercent, onTaxPercentChange = { taxPercent = it; val tax = it.toDoubleOrNull() ?: 0.0; settingsManager.taxPercent = tax; viewModel.setTaxPercent(tax) },
+                serviceChargePercent = serviceChargePercent, 
+                onServiceChargeChange = { 
+                    serviceChargePercent = it
+                    val sc = it.toDoubleOrNull() ?: 0.0
+                    settingsManager.serviceChargePercent = sc
+                    viewModel.setServiceChargePercent(sc) 
+                },
+                logoPath = storeLogoPath,
+                onLogoChange = { path -> storeLogoPath = path; settingsManager.storeLogoPath = path },
                 language = language
             )
         }

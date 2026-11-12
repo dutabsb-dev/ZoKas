@@ -2,6 +2,7 @@ package com.karyaku.kasir
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -18,7 +19,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.karyaku.kasir.data.local.CustomerEntity
+import com.karyaku.kasir.data.local.CustomerMembershipEntity
 import com.karyaku.kasir.data.local.ProductEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun PosCartSection(
@@ -26,14 +31,23 @@ fun PosCartSection(
     subtotal: Long, 
     discount: Long, 
     taxAmount: Long, 
+    serviceCharge: Long,
     totalPrice: Long, 
     selectedCustomer: CustomerEntity?, 
+    customerMemberships: List<CustomerMembershipEntity>,
     pointsUsed: Int,
     selectedTable: String, 
+    selectedOrderType: String,
+    pickupDate: Long,
     appliedVoucher: String, 
     voucherDiscount: Long, 
     isSplitBillMode: Boolean,
     isTableModeEnabled: Boolean,
+    enableOrderTypes: Boolean,
+    enablePreOrder: Boolean,
+    enableMembership: Boolean,
+    onOrderTypeChange: (String) -> Unit,
+    onPickupDateChange: (Long) -> Unit,
     onToggleSplitMode: () -> Unit, 
     onToggleSplitSelection: (CartItem) -> Unit, 
     onTableClick: () -> Unit, 
@@ -49,13 +63,51 @@ fun PosCartSection(
     onEditNotes: (ProductEntity) -> Unit, 
     onEditSerial: (ProductEntity) -> Unit, 
     onAssignStaff: (ProductEntity) -> Unit,
+    onApplyMembership: (CartItem, CustomerMembershipEntity) -> Unit,
+    onRemoveMembership: (CartItem) -> Unit,
     lang: String
 ) {
+    val dateFormat = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = if (pickupDate > 0) pickupDate else System.currentTimeMillis())
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    onPickupDateChange(datePickerState.selectedDateMillis ?: 0L)
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Batal") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).imePadding()) {
         
-        // Tombol Atas (Meja, Parkir, Lihat Parkir)
+        // Tombol Atas (Tipe Pesanan)
+        if (enableOrderTypes) {
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                val types = listOf("Dine-In", "Take-Away", "Delivery")
+                types.forEach { type ->
+                    FilterChip(
+                        selected = selectedOrderType == type,
+                        onClick = { onOrderTypeChange(type) },
+                        label = { Text(type, fontSize = 11.sp, fontWeight = if (selectedOrderType == type) FontWeight.Bold else FontWeight.Normal) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = EmeraldGreen, selectedLabelColor = MaterialTheme.colorScheme.onPrimary)
+                    )
+                }
+            }
+        }
+
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (isTableModeEnabled) {
+            if (isTableModeEnabled && selectedOrderType == "Dine-In") {
                 OutlinedButton(
                     onClick = onTableClick, 
                     modifier = Modifier.weight(1f).height(40.dp), 
@@ -66,13 +118,29 @@ fun PosCartSection(
                     Text(selectedTable, fontWeight = FontWeight.Bold, color = AmberAccent, fontSize = 11.sp, maxLines = 1) 
                 }
             }
+            
+            if (enablePreOrder) {
+                OutlinedButton(
+                    onClick = { showDatePicker = true }, 
+                    modifier = Modifier.weight(1f).height(40.dp), 
+                    contentPadding = PaddingValues(0.dp), 
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, ErrorRed)
+                ) { 
+                    Text(
+                        text = if (pickupDate > 0) dateFormat.format(Date(pickupDate)) else "Pre-Order",
+                        fontWeight = FontWeight.Bold, color = ErrorRed, fontSize = 11.sp, maxLines = 1
+                    ) 
+                }
+            }
+
             OutlinedButton(
                 onClick = onHoldClick, 
                 modifier = Modifier.weight(1f).height(40.dp), 
                 contentPadding = PaddingValues(0.dp), 
                 shape = RoundedCornerShape(12.dp)
             ) { 
-                Text("Parkir (F3)", fontWeight = FontWeight.Bold, color = EmeraldGreen, fontSize = 11.sp) 
+                Text("Parkir", fontWeight = FontWeight.Bold, color = EmeraldGreen, fontSize = 11.sp) 
             }
             OutlinedButton(
                 onClick = onViewHoldClick, 
@@ -141,13 +209,46 @@ fun PosCartSection(
                             if (item.assignedStaff.isNotEmpty()) {
                                 Text("Staf: ${item.assignedStaff}", fontSize = 10.sp, color = AmberAccent, fontWeight = FontWeight.Bold)
                             }
-                            Text(formatRupiah(item.product.price), fontSize = 11.sp, color = SlateGrey)
+                            
+                            val isWholesale = item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0
+                            val displayPrice = if (item.usedMembershipId != null) 0L else if (isWholesale) item.product.wholesalePrice else item.product.price
+                            
+                            Text(formatRupiah(displayPrice), fontSize = 11.sp, color = if(item.usedMembershipId != null || isWholesale) EmeraldGreen else SlateGrey, fontWeight = if(item.usedMembershipId != null || isWholesale) FontWeight.Bold else FontWeight.Normal)
+                            
                             if (item.notes.isNotEmpty()) { 
                                 Text("Cat: ${item.notes}", fontSize = 10.sp, color = ErrorRed, maxLines = 1, overflow = TextOverflow.Ellipsis) 
                             }
+
+                            // FITUR BARU: Paket Membership
+                            if (item.usedMembershipId != null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Paket: ${item.usedMembershipName}", fontSize = 10.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                                    IconButton(onClick = { onRemoveMembership(item) }, modifier = Modifier.size(20.dp)) {
+                                        Icon(Icons.Default.Close, contentDescription = "Batal Paket", tint = ErrorRed, modifier = Modifier.size(12.dp))
+                                    }
+                                }
+                            } else if (enableMembership && customerMemberships.isNotEmpty()) {
+                                var expanded by remember { mutableStateOf(false) }
+                                Box {
+                                    TextButton(onClick = { expanded = true }, contentPadding = PaddingValues(0.dp), modifier = Modifier.height(24.dp)) {
+                                        Text("Gunakan Paket", fontSize = 10.sp, color = EmeraldGreen)
+                                    }
+                                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                        customerMemberships.forEach { cm ->
+                                            DropdownMenuItem(
+                                                text = { Text("${cm.membershipName} (Sisa: ${cm.remainingQuota})", fontSize = 12.sp) },
+                                                onClick = {
+                                                    onApplyMembership(item, cm)
+                                                    expanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                         
-                        // Tombol Aksi (Edit, SN, Staf, +, -, Hapus)
+                        // Tombol Aksi
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { onEditNotes(item.product) }, modifier = Modifier.size(28.dp)) { 
                                 Icon(Icons.Default.Edit, contentDescription = "Edit Catatan", tint = EmeraldGreen, modifier = Modifier.size(16.dp)) 
@@ -197,6 +298,12 @@ fun PosCartSection(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Pajak:", fontSize = 12.sp, color = SlateGrey)
                 Text("+ ${formatRupiah(taxAmount)}", fontSize = 12.sp, color = AmberAccent)
+            }
+        }
+        if (serviceCharge > 0) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Service Charge:", fontSize = 12.sp, color = SlateGrey)
+                Text("+ ${formatRupiah(serviceCharge)}", fontSize = 12.sp, color = AmberAccent)
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

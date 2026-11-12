@@ -19,7 +19,9 @@ data class CartItem(
     var notes: String = "",
     var selectedVariation: String = "",
     var serialNumber: String = "",
-    var assignedStaff: String = "" 
+    var assignedStaff: String = "",
+    var usedMembershipId: Long? = null,
+    var usedMembershipName: String? = null
 )
 
 class PosViewModel(
@@ -35,6 +37,11 @@ class PosViewModel(
     private val voucherDao = database.voucherDao()
     private val holdOrderDao = database.holdOrderDao()
     private val branchDao = database.branchDao()
+    private val membershipDao = database.membershipDao()
+    private val supplierDao = database.supplierDao()
+    private val purchaseDao = database.purchaseDao()
+    private val reservationDao = database.reservationDao() 
+    private val expenseDao = database.expenseDao() // MODUL FINANCE BARU
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -44,6 +51,10 @@ class PosViewModel(
 
     val cashFlows: StateFlow<List<CashFlowEntity>> = cashFlowDao.getAllCashFlows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // STATE EXPENSES
+    private val _expenses = MutableStateFlow<List<ExpenseEntity>>(emptyList())
+    val expenses: StateFlow<List<ExpenseEntity>> = _expenses.asStateFlow()
 
     val inventoryValue: StateFlow<Long> = _products.map { products ->
         products.sumOf { it.stock * it.costPrice }
@@ -64,6 +75,21 @@ class PosViewModel(
     private val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
     val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
 
+    private val _memberships = MutableStateFlow<List<MembershipEntity>>(emptyList())
+    val memberships: StateFlow<List<MembershipEntity>> = _memberships.asStateFlow()
+
+    private val _customerMemberships = MutableStateFlow<List<CustomerMembershipEntity>>(emptyList())
+    val customerMemberships: StateFlow<List<CustomerMembershipEntity>> = _customerMemberships.asStateFlow()
+
+    private val _suppliers = MutableStateFlow<List<SupplierEntity>>(emptyList())
+    val suppliers: StateFlow<List<SupplierEntity>> = _suppliers.asStateFlow()
+
+    private val _purchases = MutableStateFlow<List<PurchaseEntity>>(emptyList())
+    val purchases: StateFlow<List<PurchaseEntity>> = _purchases.asStateFlow()
+
+    private val _reservations = MutableStateFlow<List<ReservationEntity>>(emptyList())
+    val reservations: StateFlow<List<ReservationEntity>> = _reservations.asStateFlow()
+
     private val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
     private val _searchQuery = MutableStateFlow("")
@@ -76,6 +102,13 @@ class PosViewModel(
     val appliedVoucher: StateFlow<String> = _appliedVoucher.asStateFlow()
     private val _selectedTable = MutableStateFlow("Take-Away")
     val selectedTable: StateFlow<String> = _selectedTable.asStateFlow()
+    
+    private val _selectedOrderType = MutableStateFlow("Dine-In")
+    val selectedOrderType: StateFlow<String> = _selectedOrderType.asStateFlow()
+    
+    private val _pickupDate = MutableStateFlow(0L)
+    val pickupDate: StateFlow<Long> = _pickupDate.asStateFlow()
+
     private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
     private val _selectedCustomer = MutableStateFlow<CustomerEntity?>(null)
@@ -92,18 +125,23 @@ class PosViewModel(
     private val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
-    val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, Long>(
+    val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
         _transactions, 
-        cashFlowDao.getAllCashFlows()
-    ) { txList, cashFlows ->
+        cashFlowDao.getAllCashFlows(),
+        _expenses
+    ) { txList, cashFlows, expenseList ->
         val labaKotor = txList.filter { it.status == "SUCCESS" }.sumOf { it.totalPrice - it.totalCost }
         val totalKasKeluar = cashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
-        labaKotor - totalKasKeluar
+        val totalExpenses = expenseList.sumOf { it.amount }
+        labaKotor - totalKasKeluar - totalExpenses
     }.catch { emit(0L) }
      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     private val _taxPercent = MutableStateFlow(0.0)
     val taxPercent: StateFlow<Double> = _taxPercent.asStateFlow()
+
+    private val _serviceChargePercent = MutableStateFlow(0.0)
+    val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
     val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
         val categories = productList.map { it.category }.distinct()
@@ -149,7 +187,18 @@ class PosViewModel(
         viewModelScope.launch { userDao.getAllUsers().catch { _users.value = emptyList() }.collectLatest { _users.value = it } }
         viewModelScope.launch { holdOrderDao.getAllHoldOrders().catch { _holdOrders.value = emptyList() }.collectLatest { _holdOrders.value = it } }
         viewModelScope.launch { userDao.getAllShifts().catch { _shifts.value = emptyList() }.collectLatest { _shifts.value = it } }
+        viewModelScope.launch { membershipDao.getAllMemberships().catch { _memberships.value = emptyList() }.collectLatest { _memberships.value = it } }
+        viewModelScope.launch { supplierDao.getAllSuppliers().catch { _suppliers.value = emptyList() }.collectLatest { _suppliers.value = it } }
+        viewModelScope.launch { purchaseDao.getAllPurchases().catch { _purchases.value = emptyList() }.collectLatest { _purchases.value = it } }
+        viewModelScope.launch { reservationDao.getAllReservations().catch { _reservations.value = emptyList() }.collectLatest { _reservations.value = it } }
+        viewModelScope.launch { expenseDao.getAllExpenses().catch { _expenses.value = emptyList() }.collectLatest { _expenses.value = it } }
     }
+
+    fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
+    fun setServiceChargePercent(charge: Double) { _serviceChargePercent.value = charge }
+    fun setTable(table: String) { _selectedTable.value = table }
+    fun setOrderType(type: String) { _selectedOrderType.value = type }
+    fun setPickupDate(date: Long) { _pickupDate.value = date }
 
     fun registerFullSetup(
         businessType: String,
@@ -173,7 +222,6 @@ class PosViewModel(
                     )
                     val branchId = branchDao.insertBranch(mainBranch)
 
-                    // FIX: Gunakan Hash PIN
                     val admin = UserEntity(
                         name = adminName,
                         pin = hashPin(adminPin), 
@@ -199,9 +247,6 @@ class PosViewModel(
             }
         }
     }
-
-    fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
-    fun setTable(table: String) { _selectedTable.value = table }
 
     suspend fun getFirstOwner(): UserEntity? {
         return try {
@@ -309,10 +354,161 @@ class PosViewModel(
         }
     }
 
+    fun addMembership(name: String, price: Long, quota: Int, days: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                membershipDao.insertMembership(MembershipEntity(name = name, price = price, quotaCount = quota, validDays = days))
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun buyMembership(customerId: Long, membership: MembershipEntity, onSuccess: () -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val expiryDate = System.currentTimeMillis() + (membership.validDays * 24 * 60 * 60 * 1000L)
+                val customerMembership = CustomerMembershipEntity(
+                    customerId = customerId,
+                    membershipId = membership.id,
+                    membershipName = membership.name,
+                    remainingQuota = membership.quotaCount,
+                    expiryDate = expiryDate
+                )
+                membershipDao.insertCustomerMembership(customerMembership)
+                withContext(Dispatchers.Main) { onSuccess() }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun applyMembershipToCart(cartItem: CartItem, customerMembership: CustomerMembershipEntity) {
+        val currentCart = _cart.value.toMutableList()
+        val idx = currentCart.indexOfFirst { it.product.id == cartItem.product.id && it.selectedVariation == cartItem.selectedVariation }
+        if (idx != -1) {
+            currentCart[idx] = currentCart[idx].copy(
+                usedMembershipId = customerMembership.id,
+                usedMembershipName = customerMembership.membershipName
+            )
+            _cart.value = currentCart
+        }
+    }
+
+    fun removeMembershipFromCart(cartItem: CartItem) {
+        val currentCart = _cart.value.toMutableList()
+        val idx = currentCart.indexOfFirst { it.product.id == cartItem.product.id && it.selectedVariation == cartItem.selectedVariation }
+        if (idx != -1) {
+            currentCart[idx] = currentCart[idx].copy(usedMembershipId = null, usedMembershipName = null)
+            _cart.value = currentCart
+        }
+    }
+
+    fun addSupplier(name: String, contact: String, phone: String, address: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                supplierDao.insertSupplier(SupplierEntity(name = name, contactPerson = contact, phone = phone, address = address))
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun createPurchaseOrder(
+        supplier: SupplierEntity,
+        invoiceNumber: String,
+        items: List<PurchaseItemEntity>,
+        isPaid: Boolean,
+        updateCostPrice: Boolean,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                database.withTransaction {
+                    val total = items.sumOf { it.subtotal }
+                    val purchase = PurchaseEntity(
+                        supplierId = supplier.id,
+                        supplierName = supplier.name,
+                        invoiceNumber = invoiceNumber,
+                        totalAmount = total,
+                        status = if (isPaid) "PAID" else "UNPAID"
+                    )
+                    val purchaseId = purchaseDao.insertPurchase(purchase)
+                    
+                    val itemsWithId = items.map { it.copy(purchaseId = purchaseId) }
+                    purchaseDao.insertPurchaseItems(itemsWithId)
+                    
+                    items.forEach { item ->
+                        val product = _products.value.find { it.id == item.productId }
+                        if (product != null) {
+                            val newStock = product.stock + item.quantity
+                            val newCost = if (updateCostPrice) item.costPrice else product.costPrice
+                            productDao.insertProduct(product.copy(stock = newStock, costPrice = newCost, isSynced = false, updatedAt = System.currentTimeMillis()))
+                        }
+                    }
+                }
+                withContext(Dispatchers.Main) { onSuccess() }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun payPurchase(purchaseId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                purchaseDao.markAsPaid(purchaseId)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun addReservation(customerName: String, phone: String, dateTime: Long, resourceName: String, notes: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                reservationDao.insertReservation(ReservationEntity(
+                    customerName = customerName,
+                    phone = phone,
+                    dateTime = dateTime,
+                    resourceName = resourceName,
+                    notes = notes
+                ))
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun updateReservationStatus(id: Long, status: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                reservationDao.updateStatus(id, status)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun deleteReservation(id: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                reservationDao.deleteReservation(id)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    // --- FUNGSI FINANCE BARU ---
+    fun addExpense(category: String, amount: Long, note: String, user: UserEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val expense = ExpenseEntity(
+                    category = category,
+                    amount = amount,
+                    note = note,
+                    userId = user.id,
+                    userName = user.name
+                )
+                expenseDao.insertExpense(expense)
+                userDao.insertAuditLog(AuditLogEntity(
+                    userId = user.id, userName = user.name,
+                    action = "PENGELUARAN: $category - ${formatRupiah(amount)} ($note)",
+                    actionType = "FINANCE"
+                ))
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
     fun exportProductsToCsv(): String {
-        val header = "Nama,HargaJual,HargaModal,Stok,Kategori,Barcode,Varian,Komisi,Expiry,IsService\n"
+        val header = "Nama,HargaJual,HargaModal,Stok,Kategori,Barcode,Varian,Komisi,Expiry,IsService,HargaGrosir,MinGrosir\n"
         val rows = _products.value.joinToString("\n") { 
-            "${it.name},${it.price},${it.costPrice},${it.stock},${it.category},${it.barcode},${it.variations},${it.commissionPerItem},${it.expiryDate},${it.isService}" 
+            "${it.name},${it.price},${it.costPrice},${it.stock},${it.category},${it.barcode},${it.variations},${it.commissionPerItem},${it.expiryDate},${it.isService},${it.wholesalePrice},${it.wholesaleMinQty}" 
         }
         return header + rows
     }
@@ -337,6 +533,8 @@ class PosViewModel(
                             val commission = if (parts.size > 7) parts[7].trim().toLongOrNull() ?: 0L else 0L
                             val expiry = if (parts.size > 8) parts[8].trim().toLongOrNull() ?: 0L else 0L
                             val isService = if (parts.size > 9) parts[9].trim().toBoolean() else false
+                            val wholesalePrice = if (parts.size > 10) parts[10].trim().toLongOrNull() ?: 0L else 0L
+                            val wholesaleMinQty = if (parts.size > 11) parts[11].trim().toIntOrNull() ?: 0 else 0
 
                             val existingProduct = _products.value.find { 
                                 (barcode.isNotEmpty() && it.barcode == barcode) || it.name.equals(name, ignoreCase = true)
@@ -346,6 +544,7 @@ class PosViewModel(
                                 productDao.insertProduct(existingProduct.copy(
                                     name = name, price = price, costPrice = costPrice, stock = stock, 
                                     category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService,
+                                    wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
                                     isSynced = false, updatedAt = System.currentTimeMillis()
                                 ))
                                 updateCount++
@@ -353,6 +552,7 @@ class PosViewModel(
                                 productDao.insertProduct(ProductEntity(
                                     name = name, price = price, costPrice = costPrice, stock = stock, 
                                     category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService,
+                                    wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
                                     isSynced = false, updatedAt = System.currentTimeMillis()
                                 ))
                                 insertCount++
@@ -407,6 +607,8 @@ class PosViewModel(
                     jsonObj.put("notes", item.notes)
                     jsonObj.put("serial", item.serialNumber)
                     jsonObj.put("staff", item.assignedStaff)
+                    jsonObj.put("membershipId", item.usedMembershipId ?: 0L)
+                    jsonObj.put("membershipName", item.usedMembershipName ?: "")
                     jsonArray.put(jsonObj)
                 }
                 val holdOrder = HoldOrderEntity(tableName = _selectedTable.value, customerName = customerName, cartJson = jsonArray.toString())
@@ -432,8 +634,10 @@ class PosViewModel(
                     val notes = obj.optString("notes", "")
                     val serial = obj.optString("serial", "")
                     val staff = obj.optString("staff", "")
+                    val memId = obj.optLong("membershipId", 0L).takeIf { it > 0 }
+                    val memName = obj.optString("membershipName", "").takeIf { it.isNotEmpty() }
                     val product = _products.value.find { it.id == productId }
-                    if (product != null) newCart.add(CartItem(product, qty, selectedVariation = variation, notes = notes, serialNumber = serial, assignedStaff = staff))
+                    if (product != null) newCart.add(CartItem(product, qty, selectedVariation = variation, notes = notes, serialNumber = serial, assignedStaff = staff, usedMembershipId = memId, usedMembershipName = memName))
                 }
                 holdOrderDao.deleteHoldOrder(order.id)
                 withContext(Dispatchers.Main) {
@@ -492,6 +696,16 @@ class PosViewModel(
         _selectedCustomer.value = customer
         _pointsUsed.value = 0
         _discount.value = 0
+        
+        if (customer != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                membershipDao.getActiveMembershipsForCustomer(customer.id).collectLatest {
+                    _customerMemberships.value = it
+                }
+            }
+        } else {
+            _customerMemberships.value = emptyList()
+        }
     }
     
     fun redeemPoints(pointsToRedeem: Int) {
@@ -520,7 +734,6 @@ class PosViewModel(
         } 
     }
 
-    // FIX KEAMANAN: Login menggunakan Hash
     suspend fun login(pin: String): UserEntity? {
         return try {
             val hashedPin = hashPin(pin)
@@ -532,7 +745,6 @@ class PosViewModel(
         } catch (e: Exception) { null }
     }
 
-    // FIX KEAMANAN: Update PIN menggunakan Hash
     fun updatePin(user: UserEntity, newPin: String) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
@@ -543,7 +755,6 @@ class PosViewModel(
         } 
     }
     
-    // FIX KEAMANAN: Tambah User menggunakan Hash
     fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
@@ -622,13 +833,21 @@ class PosViewModel(
         }
     }
 
-    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, imagePath: String, userId: Long, userName: String) {
+    fun addProduct(
+        name: String, price: Long, stock: Int, category: String, costPrice: Long, 
+        barcode: String, variations: String, commission: Long, expiry: Long, 
+        isService: Boolean, isCombo: Boolean, imagePath: String, 
+        wholesalePrice: Long, wholesaleMinQty: Int,
+        userId: Long, userName: String
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 productDao.insertProduct(ProductEntity(
                     name = name, price = price, stock = stock, category = category, costPrice = costPrice, 
                     barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
-                    isService = isService, isCombo = isCombo, imagePath = imagePath, isSynced = false, updatedAt = System.currentTimeMillis()
+                    isService = isService, isCombo = isCombo, imagePath = imagePath, 
+                    wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
+                    isSynced = false, updatedAt = System.currentTimeMillis()
                 ))
                 userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name", actionType = "INVENTORY"))
             } catch (e: Exception) { e.printStackTrace() }
@@ -644,7 +863,6 @@ class PosViewModel(
                 } else {
                     userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "EDIT PRODUK: ${product.name}", actionType = "INVENTORY"))
                 }
-                // FIX SYNC: Set isSynced ke false ketika ada update
                 productDao.insertProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -702,12 +920,20 @@ class PosViewModel(
     }
 
     fun getTotalPrice(): Long {
-        val subtotal = _cart.value.sumOf { it.product.price * it.quantity }
+        val subtotal = _cart.value.sumOf { item ->
+            if (item.usedMembershipId != null) {
+                0L
+            } else if (item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0) {
+                item.product.wholesalePrice * item.quantity
+            } else {
+                item.product.price * item.quantity
+            }
+        }
         val tax = (subtotal - _discount.value - _voucherDiscount.value) * (_taxPercent.value / 100.0)
-        return (subtotal + tax - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
+        val service = (subtotal - _discount.value - _voucherDiscount.value) * (_serviceChargePercent.value / 100.0)
+        return (subtotal + tax + service - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
     }
 
-    // FIX LOGIKA: Menggunakan Database Transaction (withTransaction)
     fun processPayment(
         cashReceived: Long,
         userId: Long,
@@ -725,13 +951,20 @@ class PosViewModel(
         var promoDiscount = 0L
 
         itemsToProcess.forEach { item ->
-            val itemSubtotal = item.product.price * item.quantity
+            val itemPrice = if (item.usedMembershipId != null) {
+                0L
+            } else if (item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0) {
+                item.product.wholesalePrice
+            } else {
+                item.product.price
+            }
+            val itemSubtotal = itemPrice * item.quantity
             subtotal += itemSubtotal
             totalCommission += (item.product.commissionPerItem * item.quantity)
 
             if (item.product.promoType == "BOGO" && item.quantity >= 2) {
                 val freeItems = item.quantity / 2
-                promoDiscount += freeItems * item.product.price
+                promoDiscount += freeItems * itemPrice
             } else if (item.product.promoType == "TIERED" && item.quantity >= item.product.promoMinQty) {
                 promoDiscount += (itemSubtotal * item.product.promoValue) / 100
             }
@@ -752,7 +985,8 @@ class PosViewModel(
         }
 
         val taxAmount = (subtotal - currentDiscount) * (_taxPercent.value / 100.0)
-        val total = (subtotal + taxAmount - currentDiscount).coerceAtLeast(0.0).toLong()
+        val serviceChargeAmount = (subtotal - currentDiscount) * (_serviceChargePercent.value / 100.0)
+        val total = (subtotal + taxAmount + serviceChargeAmount - currentDiscount).coerceAtLeast(0.0).toLong()
 
         val status = if (method == "BON") "UNPAID" else "SUCCESS"
         val change = if (method == "BON") 0L else if (cashReceived >= total) cashReceived - total else 0L
@@ -766,31 +1000,40 @@ class PosViewModel(
             customerName = customerName,
             totalCost = totalCost,
             tableName = _selectedTable.value,
+            orderType = _selectedOrderType.value,
+            serviceCharge = serviceChargeAmount.toLong(),
+            pickupDate = _pickupDate.value,
             voucherCode = if (isSplitBill) "" else _appliedVoucher.value,
             taxAmount = taxAmount.toLong(),
             paymentMethod = method,
             status = status,
             cashierName = userName,
             totalCommission = totalCommission,
-            isSynced = false, // Perlu di-sync ke cloud nanti
+            isSynced = false,
             updatedAt = System.currentTimeMillis()
         )
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Menggunakan withTransaction agar semua perintah di bawah ini berhasil atau gagal bersamaan
                 database.withTransaction {
                     val newId = transactionDao.insertTransaction(transaction)
                     val completedTransaction = transaction.copy(id = newId)
 
                     val itemEntities = itemsToProcess.map { cartItem ->
+                        val finalPrice = if (cartItem.usedMembershipId != null) {
+                            0L
+                        } else if (cartItem.product.wholesaleMinQty > 0 && cartItem.quantity >= cartItem.product.wholesaleMinQty && cartItem.product.wholesalePrice > 0) {
+                            cartItem.product.wholesalePrice
+                        } else {
+                            cartItem.product.price
+                        }
                         TransactionItemEntity(
                             transactionId = newId,
                             productId = cartItem.product.id,
                             productName = cartItem.product.name,
-                            price = cartItem.product.price,
+                            price = finalPrice,
                             quantity = cartItem.quantity,
-                            subtotal = cartItem.product.price * cartItem.quantity,
+                            subtotal = finalPrice * cartItem.quantity,
                             costPrice = cartItem.product.costPrice,
                             notes = if (cartItem.selectedVariation.isNotEmpty()) "Varian: ${cartItem.selectedVariation} | ${cartItem.notes}" else cartItem.notes,
                             serialNumber = cartItem.serialNumber,
@@ -815,6 +1058,14 @@ class PosViewModel(
                                     val newStock = (material.stock - (bom.quantityUsed * item.quantity)).coerceAtLeast(0.0)
                                     productDao.updateRawMaterialStock(material.id, newStock)
                                 }
+                            }
+                        }
+                        
+                        if (item.usedMembershipId != null) {
+                            val cm = _customerMemberships.value.find { it.id == item.usedMembershipId }
+                            if (cm != null) {
+                                val newQuota = (cm.remainingQuota - item.quantity).coerceAtLeast(0)
+                                membershipDao.updateRemainingQuota(cm.id, newQuota)
                             }
                         }
                     }
@@ -846,8 +1097,10 @@ class PosViewModel(
                         _appliedVoucher.value = ""
                         _pointsUsed.value = 0
                         _selectedCustomer.value = null
+                        _pickupDate.value = 0 
+                        _customerMemberships.value = emptyList()
                     }
-                    onSuccess(transaction.copy(id = transaction.id)) // Menggunakan ID sementara
+                    onSuccess(transaction.copy(id = transaction.id)) 
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -940,7 +1193,6 @@ class PosViewModel(
     }
 }
 
-// FIX: Factory disederhanakan untuk menerima Database saja
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {

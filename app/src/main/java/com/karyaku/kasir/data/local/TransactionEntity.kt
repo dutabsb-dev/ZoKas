@@ -23,7 +23,11 @@ data class TransactionEntity(
     val paymentMethod: String = "CASH", 
     val cashierName: String = "Kasir",
     val totalCommission: Long = 0L,
-    val branchId: Long = 1L, // Transaksi ini terjadi di cabang mana
+    // FITUR BARU
+    val orderType: String = "Dine-In",
+    val serviceCharge: Long = 0L,
+    val pickupDate: Long = 0L,
+    val branchId: Long = 1L,
     val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = false
 )

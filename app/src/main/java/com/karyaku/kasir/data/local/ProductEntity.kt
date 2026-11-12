@@ -27,7 +27,10 @@ data class ProductEntity(
     val isCombo: Boolean = false,
     val comboPrice: Long = 0L,
     val imagePath: String = "",
-    val branchId: Long = 1L, // Default ke cabang utama
+    // FITUR BARU: Harga Grosir
+    val wholesalePrice: Long = 0L,
+    val wholesaleMinQty: Int = 0,
+    val branchId: Long = 1L,
     val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = false
 )
