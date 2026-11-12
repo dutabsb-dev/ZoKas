@@ -45,13 +45,16 @@ fun PosScreen(
     currentUser: UserEntity, 
     onLogout: () -> Unit,
     showCfd: Boolean,
-    onDismissCfd: () -> Unit
+    onDismissCfd: () -> Unit,
+    actionTrigger: String? = null,
+    onActionHandled: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isPhone = configuration.screenWidthDp < 600
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val keyboardController = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
     
     val searchFocusRequester = remember { FocusRequester() }
 
@@ -119,6 +122,19 @@ fun PosScreen(
     var showTableSelector by remember { mutableStateOf(false) }
     var showVoucherDialog by remember { mutableStateOf(false) }
     var isSplitBillMode by remember { mutableStateOf(false) }
+
+    // --- TRIGGER DARI MENU TITIK TIGA ---
+    LaunchedEffect(actionTrigger) {
+        if (actionTrigger != null) {
+            when (actionTrigger) {
+                "MERGE" -> showMergeOrderDialog = true
+                "DRAWER" -> showDrawerConfirm = true
+                "HOLD" -> showHoldDialog = true
+                "CASHFLOW" -> showCashFlowDialog = true
+            }
+            onActionHandled() // Reset trigger di MainActivity
+        }
+    }
 
     // --- LOGIKA PERHITUNGAN ---
     val subtotal = cart.sumOf { 
@@ -291,7 +307,27 @@ fun PosScreen(
 
         if (showDrawerConfirm) {
             CashDrawerConfirmDialog(
-                onConfirm = { viewModel.logCashDrawerOpen(currentUser); Toast.makeText(context, "Laci dibuka.", Toast.LENGTH_SHORT).show(); showDrawerConfirm = false },
+                onConfirm = { 
+                    // FIX: Kirim perintah Bluetooth untuk membuka laci
+                    val mac = settingsManager.printerMacAddress
+                    if (mac != null) {
+                        scope.launch {
+                            val printerManager = BluetoothPrinterManager(context)
+                            val success = printerManager.openCashDrawer(mac)
+                            if (success) {
+                                Toast.makeText(context, "Laci berhasil dibuka!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Gagal buka laci. Periksa printer.", Toast.LENGTH_LONG).show()
+                            }
+                            viewModel.logCashDrawerOpen(currentUser)
+                            showDrawerConfirm = false 
+                        }
+                    } else {
+                        Toast.makeText(context, "Printer belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
+                        viewModel.logCashDrawerOpen(currentUser)
+                        showDrawerConfirm = false
+                    }
+                },
                 onDismiss = { showDrawerConfirm = false }
             )
         }

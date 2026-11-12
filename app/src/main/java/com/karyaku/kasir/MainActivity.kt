@@ -221,6 +221,9 @@ fun MainNavigation(
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     
+    // STATE UNTUK MENGIRIM SINYAL DARI MENU KE POSSCREEN
+    var posActionTrigger by remember { mutableStateOf<String?>(null) }
+
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -358,12 +361,32 @@ fun MainNavigation(
                         Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text(LanguageManager.tr("gabung_meja", language)) }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
-                        DropdownMenuItem(text = { Text(LanguageManager.tr("buka_laci", language)) }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { viewModel.logCashDrawerOpen(currentUser); showMenu = false })
-                        DropdownMenuItem(text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { showMenu = false })
-                        DropdownMenuItem(text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { showMenu = false })
+                        DropdownMenuItem(
+                            text = { Text(LanguageManager.tr("gabung_meja", language)) }, 
+                            leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, 
+                            onClick = { posActionTrigger = "MERGE"; showMenu = false } // FIX: Kirim sinyal
+                        )
+                        DropdownMenuItem(
+                            text = { Text(LanguageManager.tr("buka_laci", language)) }, 
+                            leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, 
+                            onClick = { posActionTrigger = "DRAWER"; showMenu = false } // FIX: Kirim sinyal
+                        )
+                        DropdownMenuItem(
+                            text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, 
+                            leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, 
+                            onClick = { posActionTrigger = "HOLD"; showMenu = false } // FIX: Kirim sinyal
+                        )
+                        DropdownMenuItem(
+                            text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, 
+                            leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, 
+                            onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } // FIX: Kirim sinyal
+                        )
                         HorizontalDivider()
-                        DropdownMenuItem(text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
+                        DropdownMenuItem(
+                            text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, 
+                            leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, 
+                            onClick = { onLogout(); showMenu = false }
+                        )
                     }
                 }
             }
@@ -444,7 +467,9 @@ fun MainNavigation(
                         currentUser = currentUser, 
                         onLogout = onLogout, 
                         showCfd = showCfd, 
-                        onDismissCfd = { showCfd = false }
+                        onDismissCfd = { showCfd = false },
+                        actionTrigger = posActionTrigger,
+                        onActionHandled = { posActionTrigger = null }
                     )
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     2 -> HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
