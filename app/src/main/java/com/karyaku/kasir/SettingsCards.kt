@@ -49,18 +49,18 @@ fun SettingsAppearanceCard(
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(LanguageManager.tr("mode_gelap", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(LanguageManager.tr("mode_gelap", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Switch(checked = isDarkMode, onCheckedChange = { onToggleDarkMode() }, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Column {
-                Text(LanguageManager.tr("ukuran_font", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(LanguageManager.tr("ukuran_font", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Slider(value = uiScale, onValueChange = { onChangeUiScale(it) }, valueRange = 0.8f..1.5f, steps = 6, colors = SliderDefaults.colors(thumbColor = EmeraldGreen, activeTrackColor = EmeraldGreen))
                 Text("${LanguageManager.tr("skala", lang)}: ${(uiScale * 100).toInt()}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(LanguageManager.tr("bahasa", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(LanguageManager.tr("bahasa", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(if (lang == "in") "Indonesia" else "English") }
             }
         }
@@ -84,27 +84,27 @@ fun SettingsAccountCard(
 
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(LanguageManager.tr("manajemen_akun", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(LanguageManager.tr("manajemen_akun", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(8.dp))
             Text("${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp) }
+                Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp, color = Color.White) }
                 if (currentUser.role == "OWNER") {
-                    Button(onClick = onManageStaffClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp) }
+                    Button(onClick = onManageStaffClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp, color = Color.White) }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
-                Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp)
+                Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
             }
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text("Aktifkan login biometrik di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(
@@ -154,7 +154,7 @@ fun SettingsAccountCard(
     }
 }
 
-// --- 3. CARD MODUL TOKO (DENGAN MODUL FINANCE) ---
+// --- 3. CARD MODUL TOKO ---
 @Composable
 fun SettingsModuleCard(
     isTableModeEnabled: Boolean, onTableModeToggle: (Boolean) -> Unit,
@@ -185,7 +185,7 @@ fun SettingsModuleCard(
     ) {
         Column(modifier = Modifier.padding(vertical = 16.dp)) {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Text("Modul Toko", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Modul Toko", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text("Sesuaikan fitur dengan kebutuhan bisnis Anda.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             
@@ -199,7 +199,7 @@ fun SettingsModuleCard(
                 Icon(Icons.Default.Restaurant, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Mode Meja Restoran", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Mode Meja Restoran", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Tampilkan pilihan meja di halaman kasir.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = isTableModeEnabled, onCheckedChange = onTableModeToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -215,7 +215,7 @@ fun SettingsModuleCard(
                 Icon(Icons.Default.Payments, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Multi-Mata Uang (USD)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Multi-Mata Uang (USD)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Estimasi harga dalam Dolar AS.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enableMultiCurrency, onCheckedChange = onMultiCurrencyToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -243,7 +243,7 @@ fun SettingsModuleCard(
                 Icon(Icons.Default.LocalDining, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Tipe Pesanan (Order Type)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Tipe Pesanan (Order Type)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Dine-In, Take-Away, Delivery, Pick-Up.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enableOrderTypes, onCheckedChange = onOrderTypesToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -259,7 +259,7 @@ fun SettingsModuleCard(
                 Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Harga Grosir (Retail)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Harga Grosir (Retail)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Harga khusus untuk pembelian jumlah banyak.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enableWholesale, onCheckedChange = onWholesaleToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -272,10 +272,10 @@ fun SettingsModuleCard(
                 modifier = Modifier.fillMaxWidth().clickable { onPreOrderToggle(!enablePreOrder) }.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Event, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Event, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Pre-Order (Pesanan Musiman)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Pre-Order (Pesanan Musiman)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Atur tanggal pengambilan pesanan pelanggan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enablePreOrder, onCheckedChange = onPreOrderToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -291,7 +291,7 @@ fun SettingsModuleCard(
                 Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Reservasi / Booking", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Reservasi / Booking", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Jadwal meja atau terapis (Salon/Klinik).", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enableReservation, onCheckedChange = onReservationToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -302,10 +302,10 @@ fun SettingsModuleCard(
                     modifier = Modifier.fillMaxWidth().clickable { onManageReservationClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Schedule, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Kelola Jadwal Reservasi", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Kelola Jadwal Reservasi", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text("Lihat & buat jadwal pelanggan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -322,7 +322,7 @@ fun SettingsModuleCard(
                 Icon(Icons.Default.CardMembership, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Paket Langganan (Membership)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Paket Langganan (Membership)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Jual paket kuota (cth: Facial 5x).", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enableMembership, onCheckedChange = onMembershipToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -333,10 +333,10 @@ fun SettingsModuleCard(
                     modifier = Modifier.fillMaxWidth().clickable { onManageMembershipClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.List, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Kelola Paket Langganan", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Kelola Paket Langganan", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text("Buat dan atur daftar paket.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -350,10 +350,10 @@ fun SettingsModuleCard(
                 modifier = Modifier.fillMaxWidth().clickable { onSupplierToggle(!enableSupplier) }.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Supplier & Pembelian (PO)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Supplier & Pembelian (PO)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Catat barang masuk dari supplier.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enableSupplier, onCheckedChange = onSupplierToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -364,10 +364,10 @@ fun SettingsModuleCard(
                     modifier = Modifier.fillMaxWidth().clickable { onManageSupplierClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Kelola Supplier", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Kelola Supplier", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text("Daftar pemasok barang.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -376,10 +376,10 @@ fun SettingsModuleCard(
                     modifier = Modifier.fillMaxWidth().clickable { onCreatePOClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.AddShoppingCart, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.AddShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Buat Pembelian (PO)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Buat Pembelian (PO)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text("Catat barang masuk & tambah stok.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -396,7 +396,7 @@ fun SettingsModuleCard(
                 Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Modul Keuangan (Finance)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Modul Keuangan (Finance)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Kelola hutang, piutang & pengeluaran.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = enableFinance, onCheckedChange = onFinanceToggle, colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen))
@@ -410,7 +410,7 @@ fun SettingsModuleCard(
                     Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Buku Piutang (Bon)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Buku Piutang (Bon)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text("Daftar bon pelanggan yang belum lunas.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -422,7 +422,7 @@ fun SettingsModuleCard(
                     Icon(Icons.Default.RequestQuote, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Buku Hutang (Supplier)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Buku Hutang (Supplier)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text("Daftar PO yang belum dibayar.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -431,10 +431,10 @@ fun SettingsModuleCard(
                     modifier = Modifier.fillMaxWidth().clickable { onManageExpenseClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.MoneyOff, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.MoneyOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Pengeluaran Operasional", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Pengeluaran Operasional", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text("Catat biaya gaji, listrik, sewa, dll.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -448,10 +448,10 @@ fun SettingsModuleCard(
                 modifier = Modifier.fillMaxWidth().clickable { onRawMaterialClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Inventory, contentDescription = null, tint = SlateGrey, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Inventory, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Kelola Bahan Baku", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Kelola Bahan Baku", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Atur stok bahan mentah & resep (BOM).", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -484,7 +484,7 @@ fun SettingsPrinterCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(LanguageManager.tr("printer_kasir", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(LanguageManager.tr("printer_kasir", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text(if (savedPrinterMac != null) "Terhubung" else "Belum diatur", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -494,15 +494,15 @@ fun SettingsPrinterCard(
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     
-                    Text(LanguageManager.tr("printer_kasir", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(LanguageManager.tr("printer_kasir", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text(if (savedPrinterMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedPrinterMac" else LanguageManager.tr("belum_printer", lang), fontSize = 12.sp, color = if(savedPrinterMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = onPrinterClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer", lang)) }
+                    Button(onClick = onPrinterClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer", lang), color = Color.White) }
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    Text(LanguageManager.tr("printer_dapur", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(LanguageManager.tr("printer_dapur", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text(if (savedKitchenMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedKitchenMac" else LanguageManager.tr("belum_printer_dapur", lang), fontSize = 12.sp, color = if(savedKitchenMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = onKitchenClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer_dapur", lang)) }
+                    Button(onClick = onKitchenClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer_dapur", lang), color = Color.White) }
                 }
             }
         }
@@ -553,7 +553,7 @@ fun SettingsStoreProfileCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(LanguageManager.tr("profil_toko", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(LanguageManager.tr("profil_toko", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text(storeName.ifBlank { "Belum diatur" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -571,12 +571,12 @@ fun SettingsStoreProfileCard(
                             if (!logoPath.isNullOrEmpty() && File(logoPath).exists()) {
                                 AsyncImage(model = File(logoPath), contentDescription = "Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                             } else {
-                                Icon(Icons.Default.Store, contentDescription = "Upload Logo", tint = SlateGrey)
+                                Icon(Icons.Default.Store, contentDescription = "Upload Logo", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
-                            Text("Logo Toko", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Logo Toko", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                             Text("Ketuk gambar untuk mengganti logo di struk & aplikasi.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -622,7 +622,7 @@ fun SettingsDiscountCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(LanguageManager.tr("happy_hour", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(LanguageManager.tr("happy_hour", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text("$hhStart - $hhEnd", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -660,20 +660,20 @@ fun SettingsBackupCard(
     val lang = language
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(LanguageManager.tr("data_backup", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(LanguageManager.tr("data_backup", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text(LanguageManager.tr("data_backup_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onBackupClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("backup", lang)) }
-                Button(onClick = onRestoreClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("restore", lang)) }
+                Button(onClick = onBackupClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("backup", lang), color = Color.White) }
+                Button(onClick = onRestoreClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("restore", lang), color = Color.White) }
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            Text(LanguageManager.tr("manajemen_produk", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(LanguageManager.tr("manajemen_produk", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text(LanguageManager.tr("manajemen_produk_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onExportCsvClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ekspor_csv", lang)) }
-                Button(onClick = onImportCsvClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("impor_csv", lang)) }
+                Button(onClick = onExportCsvClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ekspor_csv", lang), color = Color.White) }
+                Button(onClick = onImportCsvClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("impor_csv", lang), color = Color.White) }
             }
         }
     }

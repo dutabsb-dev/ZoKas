@@ -21,7 +21,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -153,6 +157,16 @@ fun PosScreen(
 
     if (showPrinterErrorDialog) {
         PrinterErrorDialog { showPrinterErrorDialog = false }
+    }
+
+    // --- FITUR CFD (CUSTOMER DISPLAY) ---
+    if (showCfd) {
+        CustomerDisplayDialog(
+            storeName = settingsManager.storeName ?: "ZoKas",
+            cart = cart,
+            totalPrice = totalPrice,
+            onDismiss = onDismissCfd
+        )
     }
 
     // --- ROOT UI ---
@@ -518,6 +532,81 @@ fun PosScreen(
                 Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("${cart.sumOf { it.quantity }} Item | ${formatRupiah(totalPrice)}", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomerDisplayDialog(
+    storeName: String,
+    cart: List<CartItem>,
+    totalPrice: Long,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = storeName,
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(48.dp))
+                
+                Text(
+                    text = "Total Belanja Anda",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = formatRupiah(totalPrice),
+                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp),
+                    fontWeight = FontWeight.Black,
+                    color = EmeraldGreen,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(48.dp))
+                
+                Text(
+                    text = "Terima Kasih",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Silakan lakukan pembayaran di kasir",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(64.dp))
+                
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.height(56.dp)
+                ) {
+                    Text("Tutup Layar Pelanggan", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+                }
             }
         }
     }
