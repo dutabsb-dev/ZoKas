@@ -14,6 +14,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.karyaku.kasir.data.local.ProductEntity
+import java.security.MessageDigest
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -37,7 +38,20 @@ fun formatRupiah(amount: Long): String {
     return format.format(amount).split(",")[0].replace("Rp", "Rp ")
 }
 
-// FITUR BARU: Fungsi Generate QR Code Bitmap dari String
+// FITUR KEAMANAN: Fungsi Hashing PIN (SHA-256)
+fun hashPin(pin: String): String {
+    return try {
+        val bytes = pin.toByteArray()
+        val md = MessageDigest.getInstance("SHA-256")
+        val digest = md.digest(bytes)
+        digest.fold("") { str, it -> str + "%02x".format(it) }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        pin // Fallback (seharusnya tidak terjadi)
+    }
+}
+
+// FITUR BARU: Fungsi Generate QR Code Bitmap dari String (Untuk QRIS)
 fun generateQrCodeBitmap(content: String, size: Int = 512): Bitmap? {
     return try {
         val bitMatrix = MultiFormatWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
