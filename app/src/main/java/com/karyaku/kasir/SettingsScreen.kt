@@ -7,12 +7,17 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape // <-- FIX IMPORT
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -112,6 +117,9 @@ fun SettingsScreen(
     var showPrinterDialog by remember { mutableStateOf(false) }
     var showKitchenDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
+
+    // State Log Aktivitas
+    var isAuditLogsExpanded by rememberSaveable { mutableStateOf(false) }
 
     // Launcher Izin & File
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
@@ -303,7 +311,7 @@ fun SettingsScreen(
     ) {
         item { 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(LanguageManager.tr("pengaturan", lang), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(LanguageManager.tr("pengaturan", lang), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             }
         }
 
@@ -429,22 +437,48 @@ fun SettingsScreen(
             )
         }
 
-        // 8. Log Aktivitas & Logout
-        item { Text(LanguageManager.tr("log_aktivitas", lang), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start) }
+        // 8. Log Aktivitas & Logout (MINIMIZE)
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isAuditLogsExpanded = !isAuditLogsExpanded }.padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(LanguageManager.tr("log_aktivitas", lang), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Icon(
+                    imageVector = if (isAuditLogsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         
-        if (auditLogs.isEmpty()) {
-            item { Text(LanguageManager.tr("belum_aktivitas", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth()) }
-        } else {
-            items(auditLogs) { log ->
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)
+        if (isAuditLogsExpanded) {
+            if (auditLogs.isEmpty()) {
+                item { Text(LanguageManager.tr("belum_aktivitas", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth()) }
+            } else {
+                items(auditLogs) { log ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), 
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)
+                    }
                 }
             }
         }
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold) }
+            Button(
+                onClick = onLogout, 
+                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), 
+                modifier = Modifier.fillMaxWidth().height(50.dp), 
+                shape = RoundedCornerShape(12.dp)
+            ) { 
+                // FIX: Warna Teks Putih
+                Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White) 
+            }
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
