@@ -695,13 +695,13 @@ fun SettingsDiscountCard(
     }
 }
 
-// --- 7. CARD BACKUP & CSV (MINIMIZE) ---
+// --- 7. CARD BACKUP & EXCEL (MINIMIZE) ---
 @Composable
 fun SettingsBackupCard(
     onBackupClick: () -> Unit,
     onRestoreClick: () -> Unit,
-    onExportCsvClick: () -> Unit,
-    onImportCsvClick: () -> Unit,
+    onExportExcelClick: () -> Unit,
+    onImportExcelClick: () -> Unit,
     language: String
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -736,12 +736,14 @@ fun SettingsBackupCard(
                         Button(onClick = onRestoreClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("restore", lang), color = Color.White) }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Text(LanguageManager.tr("manajemen_produk", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(LanguageManager.tr("manajemen_produk_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    
+                    // FITUR EXCEL
+                    Text("Manajemen Produk Massal (Excel)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Ekspor atau impor daftar produk sekaligus menggunakan file Excel (XLSX).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onExportCsvClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ekspor_csv", lang), color = Color.White) }
-                        Button(onClick = onImportCsvClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("impor_csv", lang), color = Color.White) }
+                        Button(onClick = onExportExcelClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("EKSPOR EXCEL", color = Color.White) }
+                        Button(onClick = onImportExcelClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text("IMPOR EXCEL", color = Color.White) }
                     }
                 }
             }
@@ -830,7 +832,7 @@ fun SettingsQrisCard(
     }
 }
 
-// --- 9. CARD PENGATURAN TRANSFER BANK (BARU) ---
+// --- 9. CARD PENGATURAN TRANSFER BANK ---
 @Composable
 fun SettingsBankTransferCard(
     bankName: String, onBankNameChange: (String) -> Unit,
@@ -900,7 +902,7 @@ fun PaymentMethodManagementDialog(
     onSave: (Set<String>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Virtual Account DIHAPUS dari daftar
+    // Virtual Account DIHAPUS
     val availableMethods = listOf("CASH", "QRIS", "Bank Transfer")
     val selectedMethods = remember { mutableStateListOf<String>().apply { addAll(currentMethods) } }
 

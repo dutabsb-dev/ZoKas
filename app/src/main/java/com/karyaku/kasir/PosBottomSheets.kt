@@ -374,7 +374,6 @@ fun PaymentBottomSheet(
                     Text("Memuat QRIS...", fontSize = 12.sp)
                 }
             } else if (paymentMethod == "Bank Transfer") {
-                // --- TAMPILAN TRANSFER BANK BARU ---
                 if (isTransferPaid) {
                     Surface(color = EmeraldGreen.copy(alpha = 0.1f), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -406,8 +405,14 @@ fun PaymentBottomSheet(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Menunggu notifikasi transfer masuk...", fontSize = 12.sp, color = EmeraldGreen)
                         }
-                    } else {
-                        Text("Deteksi otomatis nonaktif. Silakan cek mutasi bank manual.", fontSize = 12.sp, color = AmberAccent, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    // Tombol Konfirmasi Manual
+                    TextButton(onClick = { 
+                        // Paksa pembayaran sukses secara manual
+                        onConfirmPayment(totalPrice, "Bank Transfer") 
+                    }) {
+                        Text("Konfirmasi Manual (Sudah Transfer)", color = AmberAccent, fontWeight = FontWeight.Bold)
                     }
                 }
             } else {

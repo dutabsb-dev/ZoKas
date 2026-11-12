@@ -57,14 +57,13 @@ fun SettingsScreen(
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
     var storeLogoPath by remember { mutableStateOf(settingsManager.storeLogoPath) }
-    var csvDataToExport by remember { mutableStateOf("") }
     
     // State QRIS
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
     var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
     var showPaymentMethodsDialog by remember { mutableStateOf(false) }
 
-    // State Bank Transfer (BARU)
+    // State Bank Transfer
     var bankName by remember { mutableStateOf(settingsManager.bankName ?: "") }
     var bankAccountNumber by remember { mutableStateOf(settingsManager.bankAccountNumber ?: "") }
     var bankAccountName by remember { mutableStateOf(settingsManager.bankAccountName ?: "") }
@@ -150,22 +149,26 @@ fun SettingsScreen(
             else Toast.makeText(context, "Gagal restore database.", Toast.LENGTH_SHORT).show()
         }
     }
-    val createCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
+    
+    // Launcher Excel (Pengganti CSV)
+    val createExcelLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) { uri: Uri? ->
         if (uri != null) {
-            try {
-                context.contentResolver.openOutputStream(uri)?.use { outputStream -> outputStream.write(csvDataToExport.toByteArray()) }
-                Toast.makeText(context, "Data produk berhasil diekspor!", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) { Toast.makeText(context, "Gagal ekspor CSV: ${e.message}", Toast.LENGTH_SHORT).show() }
+            viewModel.exportProductsToExcel(context, uri) { success ->
+                if (success) Toast.makeText(context, "Data produk berhasil diekspor ke Excel!", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(context, "Gagal ekspor Excel.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
-    val openCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+    
+    val openExcelLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             try {
-                val csvText = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
-                viewModel.importProductsFromCsv(csvText) { inserts, updates ->
-                    Toast.makeText(context, "Import Selesai! $inserts Baru, $updates Diperbarui.", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: Exception) { Toast.makeText(context, "Gagal impor CSV: ${e.message}", Toast.LENGTH_SHORT).show() }
+                context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: Exception) { }
+            
+            viewModel.importProductsFromExcel(context, uri) { inserts, updates ->
+                Toast.makeText(context, "Import Excel Selesai! $inserts Baru, $updates Diperbarui.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -402,7 +405,7 @@ fun SettingsScreen(
             )
         }
 
-        // 5. Card Bank Transfer (BARU)
+        // 5. Card Bank Transfer
         item {
             SettingsBankTransferCard(
                 bankName = bankName,
@@ -468,13 +471,13 @@ fun SettingsScreen(
             )
         }
 
-        // 9. Card Backup & CSV
+        // 9. Card Backup & Excel
         item {
             SettingsBackupCard(
                 onBackupClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
                 onRestoreClick = { restoreBackupLauncher.launch(arrayOf("*/*")) },
-                onExportCsvClick = { csvDataToExport = viewModel.exportProductsToCsv(); createCsvLauncher.launch("Zokas_Produk_${System.currentTimeMillis()}.csv") },
-                onImportCsvClick = { openCsvLauncher.launch(arrayOf("text/*", "text/csv", "application/csv")) },
+                onExportExcelClick = { createExcelLauncher.launch("Zokas_Produk_${System.currentTimeMillis()}.xlsx") },
+                onImportExcelClick = { openExcelLauncher.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "*/*")) },
                 language = language
             )
         }

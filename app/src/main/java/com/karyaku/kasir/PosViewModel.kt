@@ -1,5 +1,7 @@
 package com.karyaku.kasir
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -135,7 +137,7 @@ class PosViewModel(
     private val _isQrisPaid = MutableStateFlow(false)
     val isQrisPaid: StateFlow<Boolean> = _isQrisPaid.asStateFlow()
 
-    // STATE TRANSFER MANUAL BARU
+    // STATE TRANSFER MANUAL
     private val _uniqueTransferAmount = MutableStateFlow(0L)
     val uniqueTransferAmount: StateFlow<Long> = _uniqueTransferAmount.asStateFlow()
     private val _isTransferPaid = MutableStateFlow(false)
@@ -222,7 +224,7 @@ class PosViewModel(
                         actionType = "TRANSACTION"
                     ))
                 }
-                // Cek Transfer Manual (Mencari string nominal unik)
+                // Cek Transfer Manual
                 if (_uniqueTransferAmount.value > 0 && !_isTransferPaid.value) {
                     val nominalStr = _uniqueTransferAmount.value.toString()
                     if (notificationText.contains(nominalStr)) {
@@ -253,7 +255,6 @@ class PosViewModel(
 
     // --- FUNGSI TRANSFER MANUAL BARU ---
     fun generateTransferPayment(baseAmount: Long) {
-        // Tambahkan 3 digit unik (001 - 999)
         val uniqueCode = Random.nextInt(1, 999)
         _uniqueTransferAmount.value = baseAmount + uniqueCode
         _isTransferPaid.value = false
@@ -628,63 +629,44 @@ class PosViewModel(
         }
     }
 
-    fun exportProductsToCsv(): String {
-        val header = "Nama,HargaJual,HargaModal,Stok,Kategori,Barcode,Varian,Komisi,Expiry,IsService,HargaGrosir,MinGrosir\n"
-        val rows = _products.value.joinToString("\n") { 
-            "${it.name},${it.price},${it.costPrice},${it.stock},${it.category},${it.barcode},${it.variations},${it.commissionPerItem},${it.expiryDate},${it.isService},${it.wholesalePrice},${it.wholesaleMinQty}" 
+    fun exportProductsToExcel(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = ExcelExporter.exportProductsToExcel(context, uri, _products.value)
+            withContext(Dispatchers.Main) { onResult(success) }
         }
-        return header + rows
     }
 
-    fun importProductsFromCsv(csvText: String, onResult: (Int, Int) -> Unit) {
+    fun importProductsFromExcel(context: android.content.Context, uri: android.net.Uri, onResult: (Int, Int) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             var insertCount = 0
             var updateCount = 0
             try {
-                val lines = csvText.split("\n")
-                for (i in 1 until lines.size) { 
-                    val parts = lines[i].split(",")
-                    if (parts.size >= 5) {
-                        try {
-                            val name = parts[0].trim()
-                            val price = parts[1].trim().toLongOrNull() ?: 0L
-                            val costPrice = parts[2].trim().toLongOrNull() ?: 0L
-                            val stock = parts[3].trim().toIntOrNull() ?: 0
-                            val category = parts[4].trim()
-                            val barcode = if (parts.size > 5) parts[5].trim() else ""
-                            val variations = if (parts.size > 6) parts[6].trim() else ""
-                            val commission = if (parts.size > 7) parts[7].trim().toLongOrNull() ?: 0L else 0L
-                            val expiry = if (parts.size > 8) parts[8].trim().toLongOrNull() ?: 0L else 0L
-                            val isService = if (parts.size > 9) parts[9].trim().toBoolean() else false
-                            val wholesalePrice = if (parts.size > 10) parts[10].trim().toLongOrNull() ?: 0L else 0L
-                            val wholesaleMinQty = if (parts.size > 11) parts[11].trim().toIntOrNull() ?: 0 else 0
-
-                            val existingProduct = _products.value.find { 
-                                (barcode.isNotEmpty() && it.barcode == barcode) || it.name.equals(name, ignoreCase = true)
-                            }
-
-                            if (existingProduct != null) {
-                                productDao.insertProduct(existingProduct.copy(
-                                    name = name, price = price, costPrice = costPrice, stock = stock, 
-                                    category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService,
-                                    wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
-                                    isSynced = false, updatedAt = System.currentTimeMillis()
-                                ))
-                                updateCount++
-                            } else {
-                                productDao.insertProduct(ProductEntity(
-                                    name = name, price = price, costPrice = costPrice, stock = stock, 
-                                    category = category, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService,
-                                    wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
-                                    isSynced = false, updatedAt = System.currentTimeMillis()
-                                ))
-                                insertCount++
-                            }
-                        } catch (e: Exception) { }
+                val importedProducts = ExcelExporter.importProductsFromExcel(context, uri)
+                if (importedProducts != null) {
+                    importedProducts.forEach { newProduct ->
+                        val existing = _products.value.find { 
+                            (newProduct.barcode.isNotEmpty() && it.barcode == newProduct.barcode) || 
+                            it.name.equals(newProduct.name, ignoreCase = true)
+                        }
+                        if (existing != null) {
+                            productDao.insertProduct(existing.copy(
+                                name = newProduct.name, price = newProduct.price, costPrice = newProduct.costPrice, 
+                                stock = newProduct.stock, category = newProduct.category, barcode = newProduct.barcode, 
+                                variations = newProduct.variations, commissionPerItem = newProduct.commissionPerItem, 
+                                expiryDate = newProduct.expiryDate, isService = newProduct.isService, 
+                                wholesalePrice = newProduct.wholesalePrice, wholesaleMinQty = newProduct.wholesaleMinQty,
+                                isSynced = false, updatedAt = System.currentTimeMillis()
+                            ))
+                            updateCount++
+                        } else {
+                            productDao.insertProduct(newProduct)
+                            insertCount++
+                        }
                     }
                 }
                 withContext(Dispatchers.Main) { onResult(insertCount, updateCount) }
             } catch (e: Exception) {
+                e.printStackTrace()
                 withContext(Dispatchers.Main) { onResult(0, 0) }
             }
         }
@@ -1224,7 +1206,7 @@ class PosViewModel(
                         _customerMemberships.value = emptyList()
                     }
                     resetQrisPayment()
-                    resetTransferPayment() // Reset Transfer
+                    resetTransferPayment()
                     onSuccess(transaction.copy(id = transaction.id)) 
                 }
             } catch (e: Exception) {
