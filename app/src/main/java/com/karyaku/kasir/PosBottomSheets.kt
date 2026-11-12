@@ -14,10 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -259,7 +256,10 @@ fun PaymentBottomSheet(
     settingsManager: SettingsManager,
     qrisString: String,
     isQrisPaid: Boolean,
+    uniqueTransferAmount: Long,
+    isTransferPaid: Boolean,
     onGenerateQris: () -> Unit,
+    onGenerateTransfer: () -> Unit,
     onDismiss: () -> Unit, 
     onConfirmPayment: (Long, String) -> Unit
 ) {
@@ -269,10 +269,12 @@ fun PaymentBottomSheet(
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
-    // Generate QRIS saat metode QRIS dipilih
+    // Generate QRIS / Transfer saat metode dipilih
     LaunchedEffect(paymentMethod) {
         if (paymentMethod == "QRIS" && qrisString.isEmpty()) {
             onGenerateQris()
+        } else if (paymentMethod == "Bank Transfer" && uniqueTransferAmount == 0L) {
+            onGenerateTransfer()
         }
     }
 
@@ -347,7 +349,6 @@ fun PaymentBottomSheet(
                     Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) EmeraldGreen else MaterialTheme.colorScheme.onSurface)
                 }
             } else if (paymentMethod == "QRIS") {
-                // --- TAMPILAN QRIS BARU ---
                 if (isQrisPaid) {
                     Surface(color = EmeraldGreen.copy(alpha = 0.1f), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -372,9 +373,46 @@ fun PaymentBottomSheet(
                     CircularProgressIndicator(color = EmeraldGreen)
                     Text("Memuat QRIS...", fontSize = 12.sp)
                 }
+            } else if (paymentMethod == "Bank Transfer") {
+                // --- TAMPILAN TRANSFER BANK BARU ---
+                if (isTransferPaid) {
+                    Surface(color = EmeraldGreen.copy(alpha = 0.1f), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Transfer Diterima!", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmeraldGreen)
+                        }
+                    }
+                } else {
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Transfer ke Rekening:", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(settingsManager.bankName ?: "-", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text(settingsManager.bankAccountNumber ?: "-", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = EmeraldGreen)
+                            Text("a/n ${settingsManager.bankAccountName ?: "-"}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                            
+                            Text("Nominal Transfer (Tepat):", fontSize = 14.sp, color = ErrorRed)
+                            Text(formatRupiah(uniqueTransferAmount), fontWeight = FontWeight.Black, fontSize = 28.sp, color = ErrorRed)
+                            Text("*Wajib transfer sesuai nominal hingga 3 digit terakhir", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (settingsManager.enableTransferAutoDetect) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = EmeraldGreen)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Menunggu notifikasi transfer masuk...", fontSize = 12.sp, color = EmeraldGreen)
+                        }
+                    } else {
+                        Text("Deteksi otomatis nonaktif. Silakan cek mutasi bank manual.", fontSize = 12.sp, color = AmberAccent, textAlign = TextAlign.Center)
+                    }
+                }
             } else {
                 Surface(color = ErrorRed.copy(alpha = 0.1f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    Text("Pembayaran via $paymentMethod", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(12.dp), textAlign = TextAlign.Center)
+                    Text("Pembayaran via $paymentMethod belum didukung secara offline.", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(12.dp), textAlign = TextAlign.Center)
                 }
             }
             
@@ -382,7 +420,7 @@ fun PaymentBottomSheet(
             Button(
                 onClick = { onConfirmPayment(if (paymentMethod == "CASH") cashReceived else totalPrice, paymentMethod) }, 
                 modifier = Modifier.fillMaxWidth().height(56.dp), 
-                enabled = (paymentMethod != "CASH" && (paymentMethod != "QRIS" || isQrisPaid)) || (paymentMethod == "CASH" && cashReceived >= totalPrice && totalPrice > 0), 
+                enabled = (paymentMethod == "CASH" && cashReceived >= totalPrice && totalPrice > 0) || (paymentMethod == "QRIS" && isQrisPaid) || (paymentMethod == "Bank Transfer" && isTransferPaid) || (paymentMethod != "CASH" && paymentMethod != "QRIS" && paymentMethod != "Bank Transfer"),
                 colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                 shape = RoundedCornerShape(12.dp)
             ) { 

@@ -85,9 +85,11 @@ fun PosScreen(
     val serviceChargePercent by viewModel.serviceChargePercent.collectAsStateWithLifecycle()
     val customerMemberships by viewModel.customerMemberships.collectAsStateWithLifecycle()
     
-    // STATE QRIS
+    // STATE QRIS & TRANSFER
     val qrisDynamicString by viewModel.qrisDynamicString.collectAsStateWithLifecycle()
     val isQrisPaid by viewModel.isQrisPaid.collectAsStateWithLifecycle()
+    val uniqueTransferAmount by viewModel.uniqueTransferAmount.collectAsStateWithLifecycle()
+    val isTransferPaid by viewModel.isTransferPaid.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { 
         viewModel.setTaxPercent(settingsManager.taxPercent) 
@@ -211,6 +213,8 @@ fun PosScreen(
                 settingsManager = settingsManager, 
                 qrisString = qrisDynamicString,
                 isQrisPaid = isQrisPaid,
+                uniqueTransferAmount = uniqueTransferAmount,
+                isTransferPaid = isTransferPaid,
                 onGenerateQris = {
                     val payload = settingsManager.qrisStaticPayload
                     if (payload.isNullOrBlank()) {
@@ -219,7 +223,14 @@ fun PosScreen(
                         viewModel.generateQrisPayment(totalToPay, payload)
                     }
                 },
-                onDismiss = { showPaymentSheet = false; viewModel.resetQrisPayment() }, 
+                onGenerateTransfer = {
+                    viewModel.generateTransferPayment(totalToPay)
+                },
+                onDismiss = { 
+                    showPaymentSheet = false
+                    viewModel.resetQrisPayment() 
+                    viewModel.resetTransferPayment()
+                }, 
                 onConfirmPayment = { cashReceived, method ->
                     viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method, settingsManager.maxDiscountCap) { newTransaction ->
                         showPaymentSheet = false

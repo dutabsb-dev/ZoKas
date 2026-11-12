@@ -59,10 +59,16 @@ fun SettingsScreen(
     var storeLogoPath by remember { mutableStateOf(settingsManager.storeLogoPath) }
     var csvDataToExport by remember { mutableStateOf("") }
     
-    // State QRIS (BARU)
+    // State QRIS
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
     var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
     var showPaymentMethodsDialog by remember { mutableStateOf(false) }
+
+    // State Bank Transfer (BARU)
+    var bankName by remember { mutableStateOf(settingsManager.bankName ?: "") }
+    var bankAccountNumber by remember { mutableStateOf(settingsManager.bankAccountNumber ?: "") }
+    var bankAccountName by remember { mutableStateOf(settingsManager.bankAccountName ?: "") }
+    var enableTransferAutoDetect by remember { mutableStateOf(settingsManager.enableTransferAutoDetect) }
 
     // State Promo & Keamanan
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
@@ -384,7 +390,7 @@ fun SettingsScreen(
             )
         }
 
-        // 4. Card QRIS & Pembayaran (BARU)
+        // 4. Card QRIS
         item {
             SettingsQrisCard(
                 qrisPayload = qrisPayload,
@@ -396,7 +402,22 @@ fun SettingsScreen(
             )
         }
 
-        // 5. Card Printer
+        // 5. Card Bank Transfer (BARU)
+        item {
+            SettingsBankTransferCard(
+                bankName = bankName,
+                onBankNameChange = { bankName = it; settingsManager.bankName = it },
+                accountNumber = bankAccountNumber,
+                onAccountNumberChange = { bankAccountNumber = it; settingsManager.bankAccountNumber = it },
+                accountName = bankAccountName,
+                onAccountNameChange = { bankAccountName = it; settingsManager.bankAccountName = it },
+                enableAutoDetect = enableTransferAutoDetect,
+                onToggleAutoDetect = { enableTransferAutoDetect = it; settingsManager.enableTransferAutoDetect = it },
+                language = language
+            )
+        }
+
+        // 6. Card Printer
         item {
             SettingsPrinterCard(
                 savedPrinterMac = savedPrinterMac,
@@ -415,7 +436,7 @@ fun SettingsScreen(
             )
         }
 
-        // 6. Card Profil Toko
+        // 7. Card Profil Toko
         item {
             SettingsStoreProfileCard(
                 storeName = storeName, onStoreNameChange = { storeName = it; settingsManager.storeName = it },
@@ -436,7 +457,7 @@ fun SettingsScreen(
             )
         }
 
-        // 7. Card Happy Hour & Diskon
+        // 8. Card Happy Hour & Diskon
         item {
             SettingsDiscountCard(
                 hhStart = hhStart, onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
@@ -447,7 +468,7 @@ fun SettingsScreen(
             )
         }
 
-        // 8. Card Backup & CSV
+        // 9. Card Backup & CSV
         item {
             SettingsBackupCard(
                 onBackupClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
@@ -458,7 +479,7 @@ fun SettingsScreen(
             )
         }
 
-        // 9. Log Aktivitas & Logout
+        // 10. Log Aktivitas & Logout
         item { Text(LanguageManager.tr("log_aktivitas", lang), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start, color = MaterialTheme.colorScheme.onSurface) }
         
         if (auditLogs.isEmpty()) {

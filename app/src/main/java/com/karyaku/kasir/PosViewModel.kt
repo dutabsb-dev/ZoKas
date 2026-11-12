@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.random.Random
 
 data class CartItem(
     val product: ProductEntity, 
@@ -128,12 +129,17 @@ class PosViewModel(
     private val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
-    // STATE QRIS BARU
+    // STATE QRIS
     private val _qrisDynamicString = MutableStateFlow("")
     val qrisDynamicString: StateFlow<String> = _qrisDynamicString.asStateFlow()
-    
     private val _isQrisPaid = MutableStateFlow(false)
     val isQrisPaid: StateFlow<Boolean> = _isQrisPaid.asStateFlow()
+
+    // STATE TRANSFER MANUAL BARU
+    private val _uniqueTransferAmount = MutableStateFlow(0L)
+    val uniqueTransferAmount: StateFlow<Long> = _uniqueTransferAmount.asStateFlow()
+    private val _isTransferPaid = MutableStateFlow(false)
+    val isTransferPaid: StateFlow<Boolean> = _isTransferPaid.asStateFlow()
 
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
         _transactions, 
@@ -204,19 +210,29 @@ class PosViewModel(
         viewModelScope.launch { expenseDao.getAllExpenses().catch { _expenses.value = emptyList() }.collectLatest { _expenses.value = it } }
         viewModelScope.launch { stockOpnameDao.getAllOpnames().catch { _stockOpnames.value = emptyList() }.collectLatest { _stockOpnames.value = it } }
         
-        // LISTENER UNTUK NOTIFIKASI QRIS
+        // LISTENER UNTUK NOTIFIKASI (QRIS & TRANSFER)
         viewModelScope.launch {
             PaymentNotificationListener.paymentEvents.collect { notificationText ->
-                // Jika sedang menunggu pembayaran QRIS, tandai sebagai lunas
+                // Cek QRIS
                 if (_qrisDynamicString.value.isNotEmpty() && !_isQrisPaid.value) {
-                    // Validasi sederhana: cek apakah ada nominal total di teks notifikasi (jika format bank menyertakan nominal)
-                    // Karena format tiap bank beda, kita asumsikan jika ada notif masuk dari bank, itu valid.
                     _isQrisPaid.value = true
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = 0, userName = "SYSTEM",
-                        action = "QRIS AUTO-DETECT: Pembayaran masuk terdeteksi dari notifikasi.",
+                        action = "QRIS AUTO-DETECT: Pembayaran masuk terdeteksi.",
                         actionType = "TRANSACTION"
                     ))
+                }
+                // Cek Transfer Manual (Mencari string nominal unik)
+                if (_uniqueTransferAmount.value > 0 && !_isTransferPaid.value) {
+                    val nominalStr = _uniqueTransferAmount.value.toString()
+                    if (notificationText.contains(nominalStr)) {
+                        _isTransferPaid.value = true
+                        userDao.insertAuditLog(AuditLogEntity(
+                            userId = 0, userName = "SYSTEM",
+                            action = "TRANSFER AUTO-DETECT: Dana masuk Rp $nominalStr terdeteksi.",
+                            actionType = "TRANSACTION"
+                        ))
+                    }
                 }
             }
         }
@@ -227,12 +243,25 @@ class PosViewModel(
         if (staticPayload.isBlank()) return
         val dynamicQris = QrisHelper.generateDynamicQris(staticPayload, amount)
         _qrisDynamicString.value = dynamicQris
-        _isQrisPaid.value = false // Reset status
+        _isQrisPaid.value = false
     }
 
     fun resetQrisPayment() {
         _qrisDynamicString.value = ""
         _isQrisPaid.value = false
+    }
+
+    // --- FUNGSI TRANSFER MANUAL BARU ---
+    fun generateTransferPayment(baseAmount: Long) {
+        // Tambahkan 3 digit unik (001 - 999)
+        val uniqueCode = Random.nextInt(1, 999)
+        _uniqueTransferAmount.value = baseAmount + uniqueCode
+        _isTransferPaid.value = false
+    }
+
+    fun resetTransferPayment() {
+        _uniqueTransferAmount.value = 0
+        _isTransferPaid.value = false
     }
 
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
@@ -1194,7 +1223,8 @@ class PosViewModel(
                         _pickupDate.value = 0 
                         _customerMemberships.value = emptyList()
                     }
-                    resetQrisPayment() // Reset QRIS setelah sukses
+                    resetQrisPayment()
+                    resetTransferPayment() // Reset Transfer
                     onSuccess(transaction.copy(id = transaction.id)) 
                 }
             } catch (e: Exception) {

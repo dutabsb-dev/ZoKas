@@ -22,7 +22,7 @@ class SettingsManager(context: Context) {
     var storeLogoPath: String? get() = prefs.getString("store_logo_path", null); set(value) = prefs.edit().putString("store_logo_path", value).apply()
     
     var paymentMethods: Set<String> 
-        get() = prefs.getStringSet("payment_methods", setOf("CASH", "QRIS")) ?: setOf("CASH", "QRIS")
+        get() = prefs.getStringSet("payment_methods", setOf("CASH", "QRIS", "Bank Transfer")) ?: setOf("CASH", "QRIS", "Bank Transfer")
         set(value) = prefs.edit().putStringSet("payment_methods", value).apply()
     
     var taxPercent: Double get() = prefs.getFloat("tax_percent", 0f).toDouble(); set(value) = prefs.edit().putFloat("tax_percent", value.toFloat()).apply()
@@ -50,7 +50,13 @@ class SettingsManager(context: Context) {
     var enableReservation: Boolean get() = prefs.getBoolean("enable_reservation", true); set(value) = prefs.edit().putBoolean("enable_reservation", value).apply()
     var enableFinance: Boolean get() = prefs.getBoolean("enable_finance", true); set(value) = prefs.edit().putBoolean("enable_finance", value).apply()
     
-    // FITUR QRIS BARU
+    // FITUR QRIS
     var qrisStaticPayload: String? get() = prefs.getString("qris_static_payload", null); set(value) = prefs.edit().putString("qris_static_payload", value).apply()
     var enableQrisAutoDetect: Boolean get() = prefs.getBoolean("enable_qris_auto_detect", false); set(value) = prefs.edit().putBoolean("enable_qris_auto_detect", value).apply()
+
+    // FITUR BANK TRANSFER BARU
+    var bankName: String? get() = prefs.getString("bank_name", "BCA"); set(value) = prefs.edit().putString("bank_name", value).apply()
+    var bankAccountNumber: String? get() = prefs.getString("bank_account_number", "1234567890"); set(value) = prefs.edit().putString("bank_account_number", value).apply()
+    var bankAccountName: String? get() = prefs.getString("bank_account_name", "Toko Sip"); set(value) = prefs.edit().putString("bank_account_name", value).apply()
+    var enableTransferAutoDetect: Boolean get() = prefs.getBoolean("enable_transfer_auto_detect", false); set(value) = prefs.edit().putBoolean("enable_transfer_auto_detect", value).apply()
 }

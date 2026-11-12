@@ -749,7 +749,7 @@ fun SettingsBackupCard(
     }
 }
 
-// --- 8. CARD PENGATURAN QRIS (BARU) ---
+// --- 8. CARD PENGATURAN QRIS ---
 @Composable
 fun SettingsQrisCard(
     qrisPayload: String,
@@ -830,14 +830,78 @@ fun SettingsQrisCard(
     }
 }
 
-// --- 9. DIALOG KELOLA METODE PEMBAYARAN ---
+// --- 9. CARD PENGATURAN TRANSFER BANK (BARU) ---
+@Composable
+fun SettingsBankTransferCard(
+    bankName: String, onBankNameChange: (String) -> Unit,
+    accountNumber: String, onAccountNumberChange: (String) -> Unit,
+    accountName: String, onAccountNameChange: (String) -> Unit,
+    enableAutoDetect: Boolean, onToggleAutoDetect: (Boolean) -> Unit,
+    language: String
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val lang = language
+
+    Card(
+        modifier = Modifier.fillMaxWidth(), 
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Transfer Bank Manual", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(if (accountNumber.isNotBlank()) "$bankName - $accountNumber" else "Belum diatur", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    
+                    OutlinedTextField(value = bankName, onValueChange = onBankNameChange, label = { Text("Nama Bank (cth: BCA)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = accountNumber, onValueChange = onAccountNumberChange, label = { Text("Nomor Rekening") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(value = accountName, onValueChange = onAccountNameChange, label = { Text("Atas Nama") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Deteksi Otomatis (Notifikasi)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Cocokkan nominal unik untuk konfirmasi lunas.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = enableAutoDetect, 
+                            onCheckedChange = onToggleAutoDetect, 
+                            colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- 10. DIALOG KELOLA METODE PEMBAYARAN ---
 @Composable
 fun PaymentMethodManagementDialog(
     currentMethods: Set<String>,
     onSave: (Set<String>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val availableMethods = listOf("CASH", "QRIS", "Bank Transfer", "Virtual Account")
+    // Virtual Account DIHAPUS dari daftar
+    val availableMethods = listOf("CASH", "QRIS", "Bank Transfer")
     val selectedMethods = remember { mutableStateListOf<String>().apply { addAll(currentMethods) } }
 
     AlertDialog(
