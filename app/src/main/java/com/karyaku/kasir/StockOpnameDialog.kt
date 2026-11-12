@@ -9,12 +9,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Search // <-- FIX IMPORT
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -30,9 +29,50 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// --- 1. DIALOG TAMBAH STOK SATUAN (RESTOCK) ---
+@Composable
+fun StockOpnameDialog(
+    product: ProductEntity,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    var qty by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tambah Stok: ${product.name}") },
+        text = {
+            Column {
+                Text("Stok saat ini: ${product.stock}", color = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = qty,
+                    onValueChange = { if (it.length <= 5) qty = it },
+                    label = { Text("Jumlah Barang Masuk") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { 
+                    val q = qty.toIntOrNull() ?: 0
+                    if (q > 0) onSave(q) 
+                },
+                enabled = (qty.toIntOrNull() ?: 0) > 0,
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("TAMBAH STOK", color = androidx.compose.ui.graphics.Color.White) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
+}
+
+// --- 2. DIALOG AUDIT STOK MASSAL (OPNAME) ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulkStockOpnameDialog( // <-- FIX NAMA FUNGSI
+fun BulkStockOpnameDialog(
     products: List<ProductEntity>,
     currentUser: UserEntity,
     viewModel: PosViewModel,
@@ -211,6 +251,7 @@ fun BulkStockOpnameDialog( // <-- FIX NAMA FUNGSI
     }
 }
 
+// --- 3. DIALOG RIWAYAT AUDIT STOK ---
 @Composable
 fun StockOpnameHistoryDialog(
     history: List<StockOpnameEntity>,
