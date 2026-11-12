@@ -3,6 +3,7 @@ package com.karyaku.kasir
 import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -41,8 +43,6 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    
-    // MENGGUNAKAN LOCAL ACTIVITY
     val activity = LocalActivity.current as? FragmentActivity
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
@@ -65,14 +65,15 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(32.dp)
         ) {
+            // FIX: Logo ZoKas PERMANEN di halaman login
             Image(
                 painter = painterResource(id = R.drawable.logo_zokas),
                 contentDescription = "Logo",
                 modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp))
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text(LanguageManager.tr("selamat_datang", settingsManager.language), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = SlateGreyDark, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            Text(LanguageManager.tr("masukkan_pin", settingsManager.language), style = MaterialTheme.typography.bodyMedium, color = SlateGrey)
+            Text(LanguageManager.tr("selamat_datang", settingsManager.language), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(LanguageManager.tr("masukkan_pin", settingsManager.language), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
@@ -123,13 +124,12 @@ fun LoginScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
-                    Text(LanguageManager.tr("login", settingsManager.language), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(LanguageManager.tr("login", settingsManager.language), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
 
-            // LOGIKA TOMBOL SIDIK JARI
             if (settingsManager.isBiometricEnabled && activity != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
@@ -173,7 +173,7 @@ fun LoginScreen(
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldGreen)
+                    border = BorderStroke(1.dp, EmeraldGreen)
                 ) {
                     Icon(Icons.Default.Fingerprint, contentDescription = "Fingerprint", tint = EmeraldGreen)
                     Spacer(modifier = Modifier.width(8.dp))

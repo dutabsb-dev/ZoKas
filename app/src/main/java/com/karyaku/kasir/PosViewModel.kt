@@ -185,9 +185,6 @@ class PosViewModel(
     init {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                if (voucherDao.getVoucherByCode("PROMO10") == null) {
-                    voucherDao.insertVoucher(VoucherEntity("PROMO10", 10000))
-                }
                 checkActiveShift()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -215,7 +212,6 @@ class PosViewModel(
         // LISTENER UNTUK NOTIFIKASI (QRIS & TRANSFER)
         viewModelScope.launch {
             PaymentNotificationListener.paymentEvents.collect { notificationText ->
-                // Cek QRIS
                 if (_qrisDynamicString.value.isNotEmpty() && !_isQrisPaid.value) {
                     _isQrisPaid.value = true
                     userDao.insertAuditLog(AuditLogEntity(
@@ -224,7 +220,6 @@ class PosViewModel(
                         actionType = "TRANSACTION"
                     ))
                 }
-                // Cek Transfer Manual
                 if (_uniqueTransferAmount.value > 0 && !_isTransferPaid.value) {
                     val nominalStr = _uniqueTransferAmount.value.toString()
                     if (notificationText.contains(nominalStr)) {
@@ -240,7 +235,6 @@ class PosViewModel(
         }
     }
 
-    // --- FUNGSI QRIS BARU ---
     fun generateQrisPayment(amount: Long, staticPayload: String) {
         if (staticPayload.isBlank()) return
         val dynamicQris = QrisHelper.generateDynamicQris(staticPayload, amount)
@@ -253,7 +247,6 @@ class PosViewModel(
         _isQrisPaid.value = false
     }
 
-    // --- FUNGSI TRANSFER MANUAL BARU ---
     fun generateTransferPayment(baseAmount: Long) {
         val uniqueCode = Random.nextInt(1, 999)
         _uniqueTransferAmount.value = baseAmount + uniqueCode
