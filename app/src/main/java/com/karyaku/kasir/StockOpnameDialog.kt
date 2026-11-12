@@ -1,7 +1,5 @@
 package com.karyaku.kasir
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,12 +9,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search // <-- FIX IMPORT
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -34,7 +32,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StockOpnameDialog(
+fun BulkStockOpnameDialog( // <-- FIX NAMA FUNGSI
     products: List<ProductEntity>,
     currentUser: UserEntity,
     viewModel: PosViewModel,
@@ -128,7 +126,7 @@ fun StockOpnameDialog(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(product.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                    Text("Sistem: ${product.stock} ${if(product.isService) "Layanan" else "Pcs"}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Sistem: ${product.stock} Pcs", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     
                                     if (physical != null && diff != 0) {
                                         val diffColor = if (diff < 0) ErrorRed else EmeraldGreen

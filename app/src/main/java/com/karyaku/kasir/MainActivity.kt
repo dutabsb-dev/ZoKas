@@ -220,6 +220,8 @@ fun MainNavigation(
     var showCfd by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
+    
+    // STATE UNTUK MENGIRIM SINYAL DARI MENU KE POSSCREEN
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
 
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
@@ -297,6 +299,7 @@ fun MainNavigation(
         )
     }
 
+    // FITUR BARU: Logo Usaha di Header
     val logoFile = remember(settingsManager.storeLogoPath) { 
         settingsManager.storeLogoPath?.let { File(it) } 
     }
@@ -361,22 +364,22 @@ fun MainNavigation(
                         DropdownMenuItem(
                             text = { Text(LanguageManager.tr("gabung_meja", language)) }, 
                             leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, 
-                            onClick = { posActionTrigger = "MERGE"; showMenu = false }
+                            onClick = { posActionTrigger = "MERGE"; showMenu = false } 
                         )
                         DropdownMenuItem(
                             text = { Text(LanguageManager.tr("buka_laci", language)) }, 
                             leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, 
-                            onClick = { posActionTrigger = "DRAWER"; showMenu = false }
+                            onClick = { posActionTrigger = "DRAWER"; showMenu = false } 
                         )
                         DropdownMenuItem(
                             text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, 
                             leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, 
-                            onClick = { posActionTrigger = "HOLD"; showMenu = false }
+                            onClick = { posActionTrigger = "HOLD"; showMenu = false } 
                         )
                         DropdownMenuItem(
                             text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, 
                             leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, 
-                            onClick = { posActionTrigger = "CASHFLOW"; showMenu = false }
+                            onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
@@ -500,8 +503,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
     
-    // STATE UNTUK STOCK OPNAME
-    var showStockOpnameDialog by remember { mutableStateOf(false) }
+    // STATE UNTUK STOCK OPNAME MASSAL
+    var showBulkStockOpnameDialog by remember { mutableStateOf(false) }
 
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
     val allProducts by viewModel.products.collectAsStateWithLifecycle()
@@ -526,13 +529,13 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             searchFocusRequester = searchFocusRequester
         )
 
-        // Tombol FAB untuk Tambah Produk & Audit Stok
+        // Tombol FAB untuk Tambah Produk & Audit Stok Massal
         Row(
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ExtendedFloatingActionButton(
-                onClick = { showStockOpnameDialog = true },
+                onClick = { showBulkStockOpnameDialog = true },
                 containerColor = AmberAccent,
                 contentColor = Color.White,
                 shape = RoundedCornerShape(12.dp),
@@ -560,12 +563,13 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        if (showStockOpnameDialog) {
-            StockOpnameDialog(
+        // FIX: Memanggil BulkStockOpnameDialog
+        if (showBulkStockOpnameDialog) {
+            BulkStockOpnameDialog(
                 products = allProducts,
                 currentUser = currentUser,
                 viewModel = viewModel,
-                onDismiss = { showStockOpnameDialog = false }
+                onDismiss = { showBulkStockOpnameDialog = false }
             )
         }
 
@@ -586,6 +590,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
+        // FIX: Ini tetap menggunakan StockOpnameDialog (dialog lama untuk restock satuan)
         if (productToRestock != null) {
             StockOpnameDialog(product = productToRestock!!, onDismiss = { productToRestock = null }, onSave = { qty -> viewModel.addStock(productToRestock!!, qty, currentUser); productToRestock = null })
         }
