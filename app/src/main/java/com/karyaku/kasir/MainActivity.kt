@@ -1,5 +1,6 @@
 package com.karyaku.kasir
 
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -60,6 +61,15 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // --- FITUR KUNCI ORIENTASI (HP vs TABLET) ---
+        val isTablet = resources.configuration.smallestScreenWidthDp >= 600
+        if (isTablet) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED // Bebas rotasi
+        } else {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT // Kunci Portrait
+        }
+
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
@@ -563,7 +573,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        // FIX: Memanggil BulkStockOpnameDialog
         if (showBulkStockOpnameDialog) {
             BulkStockOpnameDialog(
                 products = allProducts,
@@ -590,7 +599,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        // FIX: Ini tetap menggunakan StockOpnameDialog (dialog lama untuk restock satuan)
         if (productToRestock != null) {
             StockOpnameDialog(product = productToRestock!!, onDismiss = { productToRestock = null }, onSave = { qty -> viewModel.addStock(productToRestock!!, qty, currentUser); productToRestock = null })
         }
