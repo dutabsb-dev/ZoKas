@@ -546,6 +546,7 @@ fun PurchaseOrderDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class) // <-- FIX WARNING
 @Composable
 fun ReservationManagementDialog(
     reservations: List<ReservationEntity>,
@@ -714,8 +715,6 @@ fun ReservationManagementDialog(
         }
     )
 }
-
-// --- MODUL FINANCE BARU ---
 
 @Composable
 fun ExpenseManagementDialog(

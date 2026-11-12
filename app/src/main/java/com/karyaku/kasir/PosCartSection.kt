@@ -25,6 +25,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class) // <-- FIX WARNING
 @Composable
 fun PosCartSection(
     cart: List<CartItem>, 
@@ -219,7 +220,6 @@ fun PosCartSection(
                                 Text("Cat: ${item.notes}", fontSize = 10.sp, color = ErrorRed, maxLines = 1, overflow = TextOverflow.Ellipsis) 
                             }
 
-                            // FITUR BARU: Paket Membership
                             if (item.usedMembershipId != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text("Paket: ${item.usedMembershipName}", fontSize = 10.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)

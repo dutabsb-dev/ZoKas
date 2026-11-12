@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape // <-- FIX IMPORT
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -76,7 +77,7 @@ fun SettingsScreen(
     var enableMembership by remember { mutableStateOf(settingsManager.enableMembership) }
     var enableSupplier by remember { mutableStateOf(settingsManager.enableSupplier) }
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
-    var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) } // MODUL FINANCE
+    var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
     
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
@@ -90,8 +91,6 @@ fun SettingsScreen(
     var showSupplierDialog by remember { mutableStateOf(false) }
     var showPODialog by remember { mutableStateOf(false) }
     var showReservationDialog by remember { mutableStateOf(false) }
-    
-    // State Dialog Finance
     var showExpenseDialog by remember { mutableStateOf(false) }
     var showReceivableDialog by remember { mutableStateOf(false) }
     var showPayableDialog by remember { mutableStateOf(false) }
@@ -103,8 +102,6 @@ fun SettingsScreen(
     val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
     val reservations by viewModel.reservations.collectAsStateWithLifecycle()
-    
-    // Data untuk Finance
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val purchases by viewModel.purchases.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
