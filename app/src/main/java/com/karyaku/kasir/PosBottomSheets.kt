@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,8 +14,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -129,7 +130,8 @@ fun ProductFormBottomSheet(
                     Text(
                         text = if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk",
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Tutup")
@@ -163,8 +165,8 @@ fun ProductFormBottomSheet(
                             )
                         } else {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.AddAPhoto, contentDescription = "Upload", tint = SlateGrey)
-                                Text("Upload Gambar", fontSize = 10.sp, color = SlateGrey)
+                                Icon(Icons.Default.AddAPhoto, contentDescription = "Upload", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Upload Gambar", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -173,11 +175,11 @@ fun ProductFormBottomSheet(
                     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
                             Checkbox(checked = isService, onCheckedChange = { isService = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
-                            Text("Produk Jasa (Tanpa Stok)", fontSize = 14.sp)
+                            Text("Produk Jasa (Tanpa Stok)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
                             Checkbox(checked = isCombo, onCheckedChange = { isCombo = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
-                            Text("Produk Combo/Paket", fontSize = 14.sp)
+                            Text("Produk Combo/Paket", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                     
@@ -227,7 +229,7 @@ fun ProductFormBottomSheet(
                         onClick = { showDatePicker = true },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, SlateGrey)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Icon(Icons.Default.DateRange, contentDescription = null, tint = AmberAccent)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -244,7 +246,7 @@ fun ProductFormBottomSheet(
                         val wm = wholesaleMinQty.toIntOrNull() ?: 0
                         if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo, imagePath, wp, wm) 
                     }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
-                        Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -281,15 +283,15 @@ fun PaymentBottomSheet(
                 .verticalScroll(rememberScrollState()), 
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Pembayaran", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Text("Pembayaran", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = SlateGrey)
+            Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
             
             if (settingsManager.enableMultiCurrency && settingsManager.exchangeRateUsd > 0) {
                 val usdAmount = totalPrice / settingsManager.exchangeRateUsd
                 val formattedUsd = String.format(Locale.US, "$%.2f", usdAmount)
-                Text("≈ $formattedUsd USD", fontSize = 16.sp, color = SlateGrey)
+                Text("≈ $formattedUsd USD", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (totalCommission > 0) {
@@ -301,18 +303,30 @@ fun PaymentBottomSheet(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // FIX: Menggunakan horizontalScroll agar tombol tidak terpotong/berantakan jika metode banyak
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), 
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 val availableMethods = settingsManager.paymentMethods.toList()
                 availableMethods.forEach { method ->
                     Button(
                         onClick = { paymentMethod = method }, 
-                        modifier = Modifier.weight(1f).height(48.dp), 
+                        modifier = Modifier.height(48.dp), // Hapus weight(1f) agar lebar menyesuaikan teks
+                        contentPadding = PaddingValues(horizontal = 16.dp), // Padding kiri-kanan agar tidak mepet
                         shape = RoundedCornerShape(12.dp), 
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (paymentMethod == method) EmeraldGreen else MaterialTheme.colorScheme.surfaceVariant
                         )
                     ) { 
-                        Text(method, color = if (paymentMethod == method) Color.White else SlateGrey, fontWeight = FontWeight.Bold, fontSize = 12.sp) 
+                        Text(
+                            text = method, 
+                            color = if (paymentMethod == method) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, 
+                            fontWeight = FontWeight.Bold, 
+                            fontSize = 12.sp,
+                            maxLines = 1, // Cegah teks turun ke bawah
+                            textAlign = TextAlign.Center
+                        ) 
                     }
                 }
             }
@@ -322,12 +336,12 @@ fun PaymentBottomSheet(
                 OutlinedTextField(value = cashInput, onValueChange = { if (it.length <= 10) cashInput = it }, label = { Text("Uang Diterima (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Kembalian:", style = MaterialTheme.typography.titleMedium)
+                    Text("Kembalian:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) EmeraldGreen else MaterialTheme.colorScheme.onSurface)
                 }
             } else if (paymentMethod == "QRIS") {
-                Box(modifier = Modifier.size(200.dp).background(SlateSurface, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                    Text("SCAN QRIS DISINI", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = SlateGrey)
+                Box(modifier = Modifier.size(200.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                    Text("SCAN QRIS DISINI", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 Surface(color = ErrorRed.copy(alpha = 0.1f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -343,7 +357,7 @@ fun PaymentBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                 shape = RoundedCornerShape(12.dp)
             ) { 
-                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp, fontWeight = FontWeight.Bold) 
+                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White) 
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
