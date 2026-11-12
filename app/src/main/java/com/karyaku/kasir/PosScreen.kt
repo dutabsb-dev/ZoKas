@@ -477,7 +477,7 @@ fun PosScreen(
                                     options.setCameraId(0)
                                     options.setBeepEnabled(false)
                                     options.setBarcodeImageEnabled(true)
-                                    options.setOrientationLocked(false)
+                                    options.setOrientationLocked(true) // <--- FIX: Mengunci orientasi
                                     barcodeLauncher.launch(options)
                                 },
                                 searchFocusRequester = searchFocusRequester
@@ -561,7 +561,7 @@ fun PosScreen(
                                 options.setCameraId(0)
                                 options.setBeepEnabled(false)
                                 options.setBarcodeImageEnabled(true)
-                                options.setOrientationLocked(false)
+                                options.setOrientationLocked(true) // <--- FIX: Mengunci orientasi
                                 barcodeLauncher.launch(options)
                             },
                             searchFocusRequester = searchFocusRequester

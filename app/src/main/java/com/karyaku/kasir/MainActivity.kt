@@ -284,7 +284,7 @@ fun MainNavigation(
                             options.setCameraId(0)
                             options.setBeepEnabled(false)
                             options.setBarcodeImageEnabled(true)
-                            options.setOrientationLocked(false)
+                            options.setOrientationLocked(true)
                             barcodeLauncher.launch(options)
                         }) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = EmeraldGreen)
