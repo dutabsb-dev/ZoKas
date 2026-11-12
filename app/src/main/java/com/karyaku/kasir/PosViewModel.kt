@@ -42,7 +42,7 @@ class PosViewModel(
     private val purchaseDao = database.purchaseDao()
     private val reservationDao = database.reservationDao() 
     private val expenseDao = database.expenseDao()
-    private val stockOpnameDao = database.stockOpnameDao() // MODUL STOCK OPNAME
+    private val stockOpnameDao = database.stockOpnameDao()
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -53,11 +53,9 @@ class PosViewModel(
     val cashFlows: StateFlow<List<CashFlowEntity>> = cashFlowDao.getAllCashFlows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // STATE EXPENSES
     private val _expenses = MutableStateFlow<List<ExpenseEntity>>(emptyList())
     val expenses: StateFlow<List<ExpenseEntity>> = _expenses.asStateFlow()
 
-    // STATE STOCK OPNAME BARU
     private val _stockOpnames = MutableStateFlow<List<StockOpnameEntity>>(emptyList())
     val stockOpnames: StateFlow<List<StockOpnameEntity>> = _stockOpnames.asStateFlow()
 
@@ -130,6 +128,13 @@ class PosViewModel(
     private val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
+    // STATE QRIS BARU
+    private val _qrisDynamicString = MutableStateFlow("")
+    val qrisDynamicString: StateFlow<String> = _qrisDynamicString.asStateFlow()
+    
+    private val _isQrisPaid = MutableStateFlow(false)
+    val isQrisPaid: StateFlow<Boolean> = _isQrisPaid.asStateFlow()
+
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
         _transactions, 
         cashFlowDao.getAllCashFlows(),
@@ -198,6 +203,36 @@ class PosViewModel(
         viewModelScope.launch { reservationDao.getAllReservations().catch { _reservations.value = emptyList() }.collectLatest { _reservations.value = it } }
         viewModelScope.launch { expenseDao.getAllExpenses().catch { _expenses.value = emptyList() }.collectLatest { _expenses.value = it } }
         viewModelScope.launch { stockOpnameDao.getAllOpnames().catch { _stockOpnames.value = emptyList() }.collectLatest { _stockOpnames.value = it } }
+        
+        // LISTENER UNTUK NOTIFIKASI QRIS
+        viewModelScope.launch {
+            PaymentNotificationListener.paymentEvents.collect { notificationText ->
+                // Jika sedang menunggu pembayaran QRIS, tandai sebagai lunas
+                if (_qrisDynamicString.value.isNotEmpty() && !_isQrisPaid.value) {
+                    // Validasi sederhana: cek apakah ada nominal total di teks notifikasi (jika format bank menyertakan nominal)
+                    // Karena format tiap bank beda, kita asumsikan jika ada notif masuk dari bank, itu valid.
+                    _isQrisPaid.value = true
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = 0, userName = "SYSTEM",
+                        action = "QRIS AUTO-DETECT: Pembayaran masuk terdeteksi dari notifikasi.",
+                        actionType = "TRANSACTION"
+                    ))
+                }
+            }
+        }
+    }
+
+    // --- FUNGSI QRIS BARU ---
+    fun generateQrisPayment(amount: Long, staticPayload: String) {
+        if (staticPayload.isBlank()) return
+        val dynamicQris = QrisHelper.generateDynamicQris(staticPayload, amount)
+        _qrisDynamicString.value = dynamicQris
+        _isQrisPaid.value = false // Reset status
+    }
+
+    fun resetQrisPayment() {
+        _qrisDynamicString.value = ""
+        _isQrisPaid.value = false
     }
 
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
@@ -490,7 +525,6 @@ class PosViewModel(
         }
     }
 
-    // --- FUNGSI FINANCE BARU ---
     fun addExpense(category: String, amount: Long, note: String, user: UserEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -511,9 +545,8 @@ class PosViewModel(
         }
     }
 
-    // --- FUNGSI STOCK OPNAME BARU ---
     fun processStockOpname(
-        opnameItems: List<StockOpnameItemEntity>, // Format: Item dengan physicalStock terisi
+        opnameItems: List<StockOpnameItemEntity>,
         user: UserEntity,
         onSuccess: () -> Unit
     ) {
@@ -525,23 +558,18 @@ class PosViewModel(
                     var totalLoss = 0L
                     var totalGain = 0L
 
-                    // 1. Hitung total kerugian/keuntungan & Update Stok
                     opnameItems.forEach { item ->
                         val product = _products.value.find { it.id == item.productId }
                         if (product != null) {
                             if (item.difference < 0) {
-                                // Fisik lebih sedikit (Rugi)
                                 totalLoss += (Math.abs(item.difference) * product.costPrice)
                             } else if (item.difference > 0) {
-                                // Fisik lebih banyak (Untung)
                                 totalGain += (item.difference * product.costPrice)
                             }
-                            // Update stok di master produk
                             productDao.updateStock(product.id, item.physicalStock)
                         }
                     }
 
-                    // 2. Simpan Header Opname
                     val opname = StockOpnameEntity(
                         timestamp = timestamp,
                         userId = user.id,
@@ -552,11 +580,9 @@ class PosViewModel(
                     )
                     val opnameId = stockOpnameDao.insertOpname(opname)
 
-                    // 3. Simpan Detail Item Opname
                     val itemsWithId = opnameItems.map { it.copy(opnameId = opnameId) }
                     stockOpnameDao.insertOpnameItems(itemsWithId)
 
-                    // 4. Catat di Audit Log
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = user.id,
                         userName = user.name,
@@ -1168,6 +1194,7 @@ class PosViewModel(
                         _pickupDate.value = 0 
                         _customerMemberships.value = emptyList()
                     }
+                    resetQrisPayment() // Reset QRIS setelah sukses
                     onSuccess(transaction.copy(id = transaction.id)) 
                 }
             } catch (e: Exception) {

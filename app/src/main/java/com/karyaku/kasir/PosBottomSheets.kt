@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -14,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
@@ -22,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -59,7 +62,6 @@ fun ProductFormBottomSheet(
     var isService by remember { mutableStateOf(productToEdit?.isService ?: false) }
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
     
-    // FITUR BARU: Harga Grosir
     var wholesalePrice by remember { mutableStateOf(productToEdit?.wholesalePrice?.toString() ?: "") }
     var wholesaleMinQty by remember { mutableStateOf(productToEdit?.wholesaleMinQty?.toString() ?: "") }
     
@@ -105,7 +107,6 @@ fun ProductFormBottomSheet(
         }
     }
 
-    // FIX: Menggunakan Dialog Full Screen (bukan ModalBottomSheet)
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -117,9 +118,8 @@ fun ProductFormBottomSheet(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .imePadding() // FIX: Mendorong layar ke atas saat keyboard muncul
+                    .imePadding() 
             ) {
-                // Top Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -138,7 +138,6 @@ fun ProductFormBottomSheet(
                     }
                 }
 
-                // Konten Form
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -147,7 +146,6 @@ fun ProductFormBottomSheet(
                         .padding(bottom = 32.dp), 
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Upload Gambar
                     Box(
                         modifier = Modifier
                             .size(120.dp)
@@ -199,7 +197,6 @@ fun ProductFormBottomSheet(
                         OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         
-                        // FITUR BARU: Input Grosir
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = wholesalePrice, 
@@ -260,6 +257,9 @@ fun PaymentBottomSheet(
     totalPrice: Long, 
     totalCommission: Long,
     settingsManager: SettingsManager,
+    qrisString: String,
+    isQrisPaid: Boolean,
+    onGenerateQris: () -> Unit,
     onDismiss: () -> Unit, 
     onConfirmPayment: (Long, String) -> Unit
 ) {
@@ -268,6 +268,13 @@ fun PaymentBottomSheet(
     var paymentMethod by remember { mutableStateOf("CASH") }
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
+
+    // Generate QRIS saat metode QRIS dipilih
+    LaunchedEffect(paymentMethod) {
+        if (paymentMethod == "QRIS" && qrisString.isEmpty()) {
+            onGenerateQris()
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss, 
@@ -303,7 +310,7 @@ fun PaymentBottomSheet(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // FIX: Menggunakan horizontalScroll agar tombol tidak terpotong/berantakan jika metode banyak
+            // Tombol Metode Pembayaran
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), 
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -312,8 +319,8 @@ fun PaymentBottomSheet(
                 availableMethods.forEach { method ->
                     Button(
                         onClick = { paymentMethod = method }, 
-                        modifier = Modifier.height(48.dp), // Hapus weight(1f) agar lebar menyesuaikan teks
-                        contentPadding = PaddingValues(horizontal = 16.dp), // Padding kiri-kanan agar tidak mepet
+                        modifier = Modifier.height(48.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
                         shape = RoundedCornerShape(12.dp), 
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (paymentMethod == method) EmeraldGreen else MaterialTheme.colorScheme.surfaceVariant
@@ -324,7 +331,7 @@ fun PaymentBottomSheet(
                             color = if (paymentMethod == method) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, 
                             fontWeight = FontWeight.Bold, 
                             fontSize = 12.sp,
-                            maxLines = 1, // Cegah teks turun ke bawah
+                            maxLines = 1,
                             textAlign = TextAlign.Center
                         ) 
                     }
@@ -340,8 +347,30 @@ fun PaymentBottomSheet(
                     Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) EmeraldGreen else MaterialTheme.colorScheme.onSurface)
                 }
             } else if (paymentMethod == "QRIS") {
-                Box(modifier = Modifier.size(200.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                    Text("SCAN QRIS DISINI", textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // --- TAMPILAN QRIS BARU ---
+                if (isQrisPaid) {
+                    Surface(color = EmeraldGreen.copy(alpha = 0.1f), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Pembayaran Diterima!", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmeraldGreen)
+                        }
+                    }
+                } else if (qrisString.isNotEmpty()) {
+                    val bitmap = remember(qrisString) { generateQrCodeBitmap(qrisString) }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "QR Code",
+                            modifier = Modifier.size(250.dp)
+                        )
+                        Text("Scan dengan aplikasi Bank/E-Wallet", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        Text("Gagal membuat QR Code. Periksa Payload di Pengaturan.", color = ErrorRed)
+                    }
+                } else {
+                    CircularProgressIndicator(color = EmeraldGreen)
+                    Text("Memuat QRIS...", fontSize = 12.sp)
                 }
             } else {
                 Surface(color = ErrorRed.copy(alpha = 0.1f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -353,7 +382,7 @@ fun PaymentBottomSheet(
             Button(
                 onClick = { onConfirmPayment(if (paymentMethod == "CASH") cashReceived else totalPrice, paymentMethod) }, 
                 modifier = Modifier.fillMaxWidth().height(56.dp), 
-                enabled = (paymentMethod != "CASH") || (cashReceived >= totalPrice && totalPrice > 0), 
+                enabled = (paymentMethod != "CASH" && (paymentMethod != "QRIS" || isQrisPaid)) || (paymentMethod == "CASH" && cashReceived >= totalPrice && totalPrice > 0), 
                 colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                 shape = RoundedCornerShape(12.dp)
             ) { 

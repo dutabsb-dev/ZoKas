@@ -11,6 +11,8 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.MultiFormatWriter
 import com.karyaku.kasir.data.local.ProductEntity
 import java.text.NumberFormat
 import java.util.Locale
@@ -33,6 +35,25 @@ fun Context.findActivity(): Activity? {
 fun formatRupiah(amount: Long): String {
     val format = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
     return format.format(amount).split(",")[0].replace("Rp", "Rp ")
+}
+
+// FITUR BARU: Fungsi Generate QR Code Bitmap dari String
+fun generateQrCodeBitmap(content: String, size: Int = 512): Bitmap? {
+    return try {
+        val bitMatrix = MultiFormatWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
+        val width = bitMatrix.width
+        val height = bitMatrix.height
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bitmap
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
 }
 
 // Fungsi Simpan Barcode
@@ -96,13 +117,4 @@ fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
     } catch (e: Exception) {
         Toast.makeText(context, "Gagal simpan barcode: ${e.message}", Toast.LENGTH_LONG).show()
     }
-}
-
-// ... (Kode atas tetap sama, salin sampai habis lalu tambahkan fungsi ini di akhir file)
-
-fun hashPin(pin: String): String {
-    val bytes = pin.toByteArray()
-    val md = java.security.MessageDigest.getInstance("SHA-256")
-    val digest = md.digest(bytes)
-    return digest.fold("") { str, it -> str + "%02x".format(it) }
 }

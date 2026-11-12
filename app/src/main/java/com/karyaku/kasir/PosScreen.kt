@@ -84,6 +84,10 @@ fun PosScreen(
     val taxPercent by viewModel.taxPercent.collectAsStateWithLifecycle()
     val serviceChargePercent by viewModel.serviceChargePercent.collectAsStateWithLifecycle()
     val customerMemberships by viewModel.customerMemberships.collectAsStateWithLifecycle()
+    
+    // STATE QRIS
+    val qrisDynamicString by viewModel.qrisDynamicString.collectAsStateWithLifecycle()
+    val isQrisPaid by viewModel.isQrisPaid.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { 
         viewModel.setTaxPercent(settingsManager.taxPercent) 
@@ -202,8 +206,20 @@ fun PosScreen(
         if (showPaymentSheet) {
             val totalToPay = if (isSplitBillMode) cart.filter { it.isSelectedForSplit }.sumOf { it.product.price * it.quantity } else totalPrice
             PaymentBottomSheet(
-                totalPrice = totalToPay, totalCommission = cart.sumOf { it.product.commissionPerItem * it.quantity },
-                settingsManager = settingsManager, onDismiss = { showPaymentSheet = false }, 
+                totalPrice = totalToPay, 
+                totalCommission = cart.sumOf { it.product.commissionPerItem * it.quantity },
+                settingsManager = settingsManager, 
+                qrisString = qrisDynamicString,
+                isQrisPaid = isQrisPaid,
+                onGenerateQris = {
+                    val payload = settingsManager.qrisStaticPayload
+                    if (payload.isNullOrBlank()) {
+                        Toast.makeText(context, "QRIS belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
+                    } else {
+                        viewModel.generateQrisPayment(totalToPay, payload)
+                    }
+                },
+                onDismiss = { showPaymentSheet = false; viewModel.resetQrisPayment() }, 
                 onConfirmPayment = { cashReceived, method ->
                     viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method, settingsManager.maxDiscountCap) { newTransaction ->
                         showPaymentSheet = false
@@ -308,7 +324,6 @@ fun PosScreen(
         if (showDrawerConfirm) {
             CashDrawerConfirmDialog(
                 onConfirm = { 
-                    // FIX: Kirim perintah Bluetooth untuk membuka laci
                     val mac = settingsManager.printerMacAddress
                     if (mac != null) {
                         scope.launch {

@@ -69,7 +69,7 @@ fun SettingsAppearanceCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(LanguageManager.tr("bahasa", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { 
-                    Text(if (lang == "in") "Indonesia" else "English", color = Color.White) // FIX: Teks Putih
+                    Text(if (lang == "in") "Indonesia" else "English", color = Color.White) 
                 }
             }
         }
@@ -121,7 +121,7 @@ fun SettingsAccountCard(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
-                        Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White) // FIX: Teks Putih
+                        Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
                     }
                     
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -209,7 +209,6 @@ fun SettingsModuleCard(
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
     
-    // Helper for Switch Colors
     val switchColors = SwitchDefaults.colors(
         checkedTrackColor = EmeraldGreen,
         uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
@@ -748,4 +747,132 @@ fun SettingsBackupCard(
             }
         }
     }
+}
+
+// --- 8. CARD PENGATURAN QRIS (BARU) ---
+@Composable
+fun SettingsQrisCard(
+    qrisPayload: String,
+    onQrisPayloadChange: (String) -> Unit,
+    enableAutoDetect: Boolean,
+    onToggleAutoDetect: (Boolean) -> Unit,
+    onManagePaymentMethodsClick: () -> Unit,
+    language: String
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val lang = language
+
+    Card(
+        modifier = Modifier.fillMaxWidth(), 
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Pembayaran QRIS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(if (qrisPayload.isNotBlank()) "QRIS Statis Terpasang" else "Belum diatur", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    
+                    Button(
+                        onClick = onManagePaymentMethodsClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Kelola Metode Pembayaran", color = Color.White)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Text("QRIS Statis (Payload)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Tempelkan kode teks QRIS dari bank Anda. Aplikasi akan mengubah nominal otomatis.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = qrisPayload,
+                        onValueChange = onQrisPayloadChange,
+                        label = { Text("Payload String (000201...)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 3,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Deteksi Otomatis (Notifikasi)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Dengarkan notifikasi bank untuk konfirmasi lunas.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = enableAutoDetect, 
+                            onCheckedChange = onToggleAutoDetect, 
+                            colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- 9. DIALOG KELOLA METODE PEMBAYARAN ---
+@Composable
+fun PaymentMethodManagementDialog(
+    currentMethods: Set<String>,
+    onSave: (Set<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val availableMethods = listOf("CASH", "QRIS", "Bank Transfer", "Virtual Account")
+    val selectedMethods = remember { mutableStateListOf<String>().apply { addAll(currentMethods) } }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Metode Pembayaran") },
+        text = {
+            Column {
+                Text("Pilih metode yang diterima di toko:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                availableMethods.forEach { method ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            if (selectedMethods.contains(method)) selectedMethods.remove(method)
+                            else selectedMethods.add(method)
+                        }.padding(vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = selectedMethods.contains(method),
+                            onCheckedChange = null,
+                            colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen)
+                        )
+                        Text(method, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (selectedMethods.isNotEmpty()) onSave(selectedMethods.toSet()) },
+                enabled = selectedMethods.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("SIMPAN", color = Color.White) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }

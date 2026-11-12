@@ -7,14 +7,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -63,6 +59,11 @@ fun SettingsScreen(
     var storeLogoPath by remember { mutableStateOf(settingsManager.storeLogoPath) }
     var csvDataToExport by remember { mutableStateOf("") }
     
+    // State QRIS (BARU)
+    var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
+    var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
+    var showPaymentMethodsDialog by remember { mutableStateOf(false) }
+
     // State Promo & Keamanan
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
@@ -117,9 +118,6 @@ fun SettingsScreen(
     var showPrinterDialog by remember { mutableStateOf(false) }
     var showKitchenDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
-
-    // State Log Aktivitas
-    var isAuditLogsExpanded by rememberSaveable { mutableStateOf(false) }
 
     // Launcher Izin & File
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
@@ -261,6 +259,17 @@ fun SettingsScreen(
             onDismiss = { showPayableDialog = false }
         )
     }
+    if (showPaymentMethodsDialog) {
+        PaymentMethodManagementDialog(
+            currentMethods = settingsManager.paymentMethods,
+            onSave = { newMethods ->
+                settingsManager.paymentMethods = newMethods
+                showPaymentMethodsDialog = false
+                Toast.makeText(context, "Metode pembayaran diperbarui.", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showPaymentMethodsDialog = false }
+        )
+    }
     if (showPrinterDialog) {
         AlertDialog(
             onDismissRequest = { showPrinterDialog = false },
@@ -375,7 +384,19 @@ fun SettingsScreen(
             )
         }
 
-        // 4. Card Printer
+        // 4. Card QRIS & Pembayaran (BARU)
+        item {
+            SettingsQrisCard(
+                qrisPayload = qrisPayload,
+                onQrisPayloadChange = { qrisPayload = it; settingsManager.qrisStaticPayload = it },
+                enableAutoDetect = enableQrisAutoDetect,
+                onToggleAutoDetect = { enableQrisAutoDetect = it; settingsManager.enableQrisAutoDetect = it },
+                onManagePaymentMethodsClick = { showPaymentMethodsDialog = true },
+                language = language
+            )
+        }
+
+        // 5. Card Printer
         item {
             SettingsPrinterCard(
                 savedPrinterMac = savedPrinterMac,
@@ -394,7 +415,7 @@ fun SettingsScreen(
             )
         }
 
-        // 5. Card Profil Toko
+        // 6. Card Profil Toko
         item {
             SettingsStoreProfileCard(
                 storeName = storeName, onStoreNameChange = { storeName = it; settingsManager.storeName = it },
@@ -415,7 +436,7 @@ fun SettingsScreen(
             )
         }
 
-        // 6. Card Happy Hour & Diskon
+        // 7. Card Happy Hour & Diskon
         item {
             SettingsDiscountCard(
                 hhStart = hhStart, onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
@@ -426,7 +447,7 @@ fun SettingsScreen(
             )
         }
 
-        // 7. Card Backup & CSV
+        // 8. Card Backup & CSV
         item {
             SettingsBackupCard(
                 onBackupClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
@@ -437,48 +458,22 @@ fun SettingsScreen(
             )
         }
 
-        // 8. Log Aktivitas & Logout (MINIMIZE)
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { isAuditLogsExpanded = !isAuditLogsExpanded }.padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(LanguageManager.tr("log_aktivitas", lang), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Icon(
-                    imageVector = if (isAuditLogsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = "Toggle",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        // 9. Log Aktivitas & Logout
+        item { Text(LanguageManager.tr("log_aktivitas", lang), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start, color = MaterialTheme.colorScheme.onSurface) }
         
-        if (isAuditLogsExpanded) {
-            if (auditLogs.isEmpty()) {
-                item { Text(LanguageManager.tr("belum_aktivitas", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth()) }
-            } else {
-                items(auditLogs) { log ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), 
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)
-                    }
+        if (auditLogs.isEmpty()) {
+            item { Text(LanguageManager.tr("belum_aktivitas", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth()) }
+        } else {
+            items(auditLogs) { log ->
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = onLogout, 
-                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), 
-                modifier = Modifier.fillMaxWidth().height(50.dp), 
-                shape = RoundedCornerShape(12.dp)
-            ) { 
-                // FIX: Warna Teks Putih
-                Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White) 
-            }
+            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White) }
             Spacer(modifier = Modifier.height(32.dp))
         }
     }

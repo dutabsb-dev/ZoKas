@@ -48,7 +48,9 @@ class SettingsManager(context: Context) {
     var enableMembership: Boolean get() = prefs.getBoolean("enable_membership", true); set(value) = prefs.edit().putBoolean("enable_membership", value).apply()
     var enableSupplier: Boolean get() = prefs.getBoolean("enable_supplier", false); set(value) = prefs.edit().putBoolean("enable_supplier", value).apply()
     var enableReservation: Boolean get() = prefs.getBoolean("enable_reservation", true); set(value) = prefs.edit().putBoolean("enable_reservation", value).apply()
-    
-    // MODUL FINANCE BARU
     var enableFinance: Boolean get() = prefs.getBoolean("enable_finance", true); set(value) = prefs.edit().putBoolean("enable_finance", value).apply()
+    
+    // FITUR QRIS BARU
+    var qrisStaticPayload: String? get() = prefs.getString("qris_static_payload", null); set(value) = prefs.edit().putString("qris_static_payload", value).apply()
+    var enableQrisAutoDetect: Boolean get() = prefs.getBoolean("enable_qris_auto_detect", false); set(value) = prefs.edit().putBoolean("enable_qris_auto_detect", value).apply()
 }
