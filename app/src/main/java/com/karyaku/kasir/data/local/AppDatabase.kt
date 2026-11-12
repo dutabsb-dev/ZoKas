@@ -28,9 +28,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PurchaseEntity::class, 
         PurchaseItemEntity::class,
         ReservationEntity::class, 
-        ExpenseEntity::class // MODUL FINANCE BARU
+        ExpenseEntity::class,
+        StockOpnameEntity::class, // MODUL STOCK OPNAME
+        StockOpnameItemEntity::class // MODUL STOCK OPNAME
     ], 
-    version = 26, 
+    version = 27, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,6 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun purchaseDao(): PurchaseDao
     abstract fun reservationDao(): ReservationDao
     abstract fun expenseDao(): ExpenseDao
+    abstract fun stockOpnameDao(): StockOpnameDao // DAO BARU
 
     companion object {
         @Volatile
@@ -123,6 +126,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // 8. MIGRASI MODUL STOCK OPNAME (26 -> 27)
+        private val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Tabel Stock Opname
+                database.execSQL("CREATE TABLE IF NOT EXISTS `stock_opnames` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `userId` INTEGER NOT NULL, `userName` TEXT NOT NULL, `totalItemsChecked` INTEGER NOT NULL, `totalLossValue` INTEGER NOT NULL, `totalGainValue` INTEGER NOT NULL)")
+                
+                // Tabel Item Stock Opname
+                database.execSQL("CREATE TABLE IF NOT EXISTS `stock_opname_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `opnameId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `productName` TEXT NOT NULL, `systemStock` INTEGER NOT NULL, `physicalStock` INTEGER NOT NULL, `difference` INTEGER NOT NULL, FOREIGN KEY(`opnameId`) REFERENCES `stock_opnames`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                
+                // Index untuk performa query
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_opname_items_opnameId` ON `stock_opname_items` (`opnameId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_opname_items_productId` ON `stock_opname_items` (`productId`)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -137,7 +155,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_22_23, 
                     MIGRATION_23_24, 
                     MIGRATION_24_25,
-                    MIGRATION_25_26
+                    MIGRATION_25_26,
+                    MIGRATION_26_27
                 )
                 .fallbackToDestructiveMigration() 
                 .build()

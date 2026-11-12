@@ -41,7 +41,8 @@ class PosViewModel(
     private val supplierDao = database.supplierDao()
     private val purchaseDao = database.purchaseDao()
     private val reservationDao = database.reservationDao() 
-    private val expenseDao = database.expenseDao() // MODUL FINANCE BARU
+    private val expenseDao = database.expenseDao()
+    private val stockOpnameDao = database.stockOpnameDao() // MODUL STOCK OPNAME
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -55,6 +56,10 @@ class PosViewModel(
     // STATE EXPENSES
     private val _expenses = MutableStateFlow<List<ExpenseEntity>>(emptyList())
     val expenses: StateFlow<List<ExpenseEntity>> = _expenses.asStateFlow()
+
+    // STATE STOCK OPNAME BARU
+    private val _stockOpnames = MutableStateFlow<List<StockOpnameEntity>>(emptyList())
+    val stockOpnames: StateFlow<List<StockOpnameEntity>> = _stockOpnames.asStateFlow()
 
     val inventoryValue: StateFlow<Long> = _products.map { products ->
         products.sumOf { it.stock * it.costPrice }
@@ -192,6 +197,7 @@ class PosViewModel(
         viewModelScope.launch { purchaseDao.getAllPurchases().catch { _purchases.value = emptyList() }.collectLatest { _purchases.value = it } }
         viewModelScope.launch { reservationDao.getAllReservations().catch { _reservations.value = emptyList() }.collectLatest { _reservations.value = it } }
         viewModelScope.launch { expenseDao.getAllExpenses().catch { _expenses.value = emptyList() }.collectLatest { _expenses.value = it } }
+        viewModelScope.launch { stockOpnameDao.getAllOpnames().catch { _stockOpnames.value = emptyList() }.collectLatest { _stockOpnames.value = it } }
     }
 
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
@@ -502,6 +508,68 @@ class PosViewModel(
                     actionType = "FINANCE"
                 ))
             } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    // --- FUNGSI STOCK OPNAME BARU ---
+    fun processStockOpname(
+        opnameItems: List<StockOpnameItemEntity>, // Format: Item dengan physicalStock terisi
+        user: UserEntity,
+        onSuccess: () -> Unit
+    ) {
+        if (opnameItems.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                database.withTransaction {
+                    val timestamp = System.currentTimeMillis()
+                    var totalLoss = 0L
+                    var totalGain = 0L
+
+                    // 1. Hitung total kerugian/keuntungan & Update Stok
+                    opnameItems.forEach { item ->
+                        val product = _products.value.find { it.id == item.productId }
+                        if (product != null) {
+                            if (item.difference < 0) {
+                                // Fisik lebih sedikit (Rugi)
+                                totalLoss += (Math.abs(item.difference) * product.costPrice)
+                            } else if (item.difference > 0) {
+                                // Fisik lebih banyak (Untung)
+                                totalGain += (item.difference * product.costPrice)
+                            }
+                            // Update stok di master produk
+                            productDao.updateStock(product.id, item.physicalStock)
+                        }
+                    }
+
+                    // 2. Simpan Header Opname
+                    val opname = StockOpnameEntity(
+                        timestamp = timestamp,
+                        userId = user.id,
+                        userName = user.name,
+                        totalItemsChecked = opnameItems.size,
+                        totalLossValue = totalLoss,
+                        totalGainValue = totalGain
+                    )
+                    val opnameId = stockOpnameDao.insertOpname(opname)
+
+                    // 3. Simpan Detail Item Opname
+                    val itemsWithId = opnameItems.map { it.copy(opnameId = opnameId) }
+                    stockOpnameDao.insertOpnameItems(itemsWithId)
+
+                    // 4. Catat di Audit Log
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = user.id,
+                        userName = user.name,
+                        action = "STOCK OPNAME: ${opnameItems.size} item diaudit. Rugi: ${formatRupiah(totalLoss)}, Untung: ${formatRupiah(totalGain)}",
+                        actionType = "INVENTORY"
+                    ))
+                }
+                withContext(Dispatchers.Main) {
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
