@@ -6,6 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color as AndroidColor
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -20,19 +25,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.TransactionItemEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,14 +63,7 @@ fun ReceiptDialog(
     val printerManager = remember { BluetoothPrinterManager(context) }
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-    // ================================================================
-    // FIX #1: Loading state eksplisit.
-    //   itemsNullable == null  -> Flow belum emit (loading awal)
-    //   itemsNullable == []    -> emit tapi kosong (edge case)
-    //   itemsNullable == list  -> ready
-    // Tombol Share & Print didisable selama loading agar tidak mengirim
-    // struk kosong.
-    // ================================================================
+    // State eksplisit untuk loading items
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val itemsNullable by itemsFlow.collectAsStateWithLifecycle(
         initialValue = null as List<TransactionItemEntity>?
@@ -71,10 +74,12 @@ fun ReceiptDialog(
     var showPrinterError by remember { mutableStateOf(false) }
     var showShareFallbackDialog by remember { mutableStateOf(false) }
     var textToShare by remember { mutableStateOf("") }
+    var isGeneratingImage by remember { mutableStateOf(false) }
 
     // Ambil logo dari SettingsManager
     val logoFile = remember(settingsManager.storeLogoPath) {
-        settingsManager.storeLogoPath?.let { File(it) }
+        val path = settingsManager.storeLogoPath
+        if (!path.isNullOrBlank()) File(path) else null
     }
 
     if (showPrinterError) {
@@ -108,40 +113,92 @@ fun ReceiptDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Column {
+                // TOMBOL WHATSAPP (Kirim Gambar + Teks)
                 Button(
                     onClick = {
-                        try {
+                        if (!isItemsLoaded) return@Button
+                        scope.launch {
+                            isGeneratingImage = true
                             textToShare = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
-
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, textToShare)
-                                type = "text/plain"
+                            
+                            // Generate gambar struk di background thread
+                            val bitmap = withContext(Dispatchers.IO) {
+                                generateReceiptBitmap(
+                                    transaction = transaction,
+                                    storeName = storeName,
+                                    storeAddress = storeAddress,
+                                    storePhone = storePhone,
+                                    storeFooter = storeFooter,
+                                    dateFormat = dateFormat,
+                                    items = items,
+                                    logoFile = logoFile
+                                )
                             }
-                            val waIntent = Intent(sendIntent).apply { setPackage("com.whatsapp") }
-                            val waBusinessIntent = Intent(sendIntent).apply { setPackage("com.whatsapp.w4b") }
+                            
+                            isGeneratingImage = false
 
-                            if (waIntent.resolveActivity(context.packageManager) != null) {
-                                context.startActivity(waIntent)
-                            } else if (waBusinessIntent.resolveActivity(context.packageManager) != null) {
-                                context.startActivity(waBusinessIntent)
+                            if (bitmap != null) {
+                                // Simpan bitmap ke cache
+                                val cachePath = File(context.cacheDir, "images")
+                                cachePath.mkdirs()
+                                val file = File(cachePath, "receipt_${transaction.id}.png")
+                                try {
+                                    val stream = FileOutputStream(file)
+                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                                    stream.close()
+
+                                    // Gunakan FileProvider untuk keamanan Android 7+
+                                    val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                    
+                                    // Intent kirim gambar + teks (caption)
+                                    val shareIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, textToShare)
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        type = "image/png"
+                                    }
+                                    
+                                    // Coba buka WhatsApp / WA Business / System Chooser
+                                    try {
+                                        val waIntent = Intent(shareIntent).apply { setPackage("com.whatsapp") }
+                                        context.startActivity(waIntent)
+                                    } catch (e: Exception) {
+                                        try {
+                                            val waBizIntent = Intent(shareIntent).apply { setPackage("com.whatsapp.w4b") }
+                                            context.startActivity(waBizIntent)
+                                        } catch (e2: Exception) {
+                                            // Jika WA tidak ada, buka share sheet bawaan Android
+                                            val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
+                                            context.startActivity(chooser)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    showShareFallbackDialog = true
+                                }
                             } else {
                                 showShareFallbackDialog = true
                             }
-                        } catch (e: Exception) {
-                            showShareFallbackDialog = true
                         }
                     },
-                    enabled = isItemsLoaded,
+                    enabled = isItemsLoaded && !isGeneratingImage,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Share, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("KIRIM STRUK (WHATSAPP)", fontWeight = FontWeight.Bold, color = Color.White)
+                    if (isGeneratingImage) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("MEMPROSES GAMBAR...", fontWeight = FontWeight.Bold, color = Color.White)
+                    } else {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("KIRIM STRUK (WHATSAPP)", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
 
+                // TOMBOL CETAK THERMAL
                 Button(
                     onClick = {
                         val mac = settingsManager.printerMacAddress
@@ -182,6 +239,7 @@ fun ReceiptDialog(
                     AsyncImage(
                         model = logoFile,
                         contentDescription = "Store Logo",
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier.size(64.dp).padding(bottom = 8.dp)
                     )
                 }
@@ -200,9 +258,6 @@ fun ReceiptDialog(
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
 
-                // ============================================================
-                // FIX #1: Tiga state eksplisit — loading / kosong / ada item.
-                // ============================================================
                 when {
                     !isItemsLoaded -> {
                         Row(
@@ -210,27 +265,13 @@ fun ReceiptDialog(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = EmeraldGreen
-                            )
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = EmeraldGreen)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Memuat rincian...",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp,
-                                color = SlateGrey
-                            )
+                            Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = SlateGrey)
                         }
                     }
                     items.isEmpty() -> {
-                        Text(
-                            "Tidak ada item tercatat.",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            color = SlateGrey
-                        )
+                        Text("Tidak ada item tercatat.", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = SlateGrey)
                     }
                     else -> {
                         items.forEach { item ->
@@ -252,10 +293,6 @@ fun ReceiptDialog(
                     }
                 }
 
-                // ============================================================
-                // FIX #1: Bagian perhitungan HANYA dirender setelah loaded.
-                // Jika belum loaded, tidak ada teks "Subtotal Rp 0" palsu.
-                // ============================================================
                 if (isItemsLoaded) {
                     val subtotalItems = items.sumOf { it.subtotal }
 
@@ -314,6 +351,9 @@ fun ReceiptDialog(
     )
 }
 
+// ================================================================
+// HELPER: GENERATE TEXT (Untuk Caption WhatsApp)
+// ================================================================
 private fun generateTextReceipt(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -365,6 +405,182 @@ private fun generateTextReceipt(
     return sb.toString()
 }
 
+// ================================================================
+// HELPER: GENERATE BITMAP (Untuk Gambar WhatsApp)
+// ================================================================
+private fun generateReceiptBitmap(
+    transaction: TransactionEntity,
+    storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
+    dateFormat: SimpleDateFormat, items: List<TransactionItemEntity>?, logoFile: File?
+): Bitmap? {
+    return try {
+        val width = 600
+        var height = 200 // Default height, akan ditambah sesuai isi
+        
+        // Hitung tinggi total (estimasi kasar)
+        val lineHeight = 30f
+        val textSize = 24f
+        height += (items?.size ?: 0) * 60
+        height += 400 // Ruang untuk header & footer
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(AndroidColor.WHITE)
+
+        val paint = Paint().apply {
+            color = AndroidColor.BLACK
+            textSize = textSize
+            typeface = Typeface.MONOSPACE
+            isAntiAlias = true
+        }
+        val boldPaint = Paint().apply {
+            color = AndroidColor.BLACK
+            textSize = textSize
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            isAntiAlias = true
+        }
+        val centerPaint = Paint().apply {
+            color = AndroidColor.BLACK
+            textSize = textSize
+            typeface = Typeface.MONOSPACE
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+        val centerBoldPaint = Paint().apply {
+            color = AndroidColor.BLACK
+            textSize = textSize + 10f // Lebih besar untuk judul
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+
+        var y = 50f
+        val centerX = width / 2f
+        val leftX = 40f
+        val rightX = width - 40f
+
+        // Gambar Logo
+        if (logoFile != null && logoFile.exists()) {
+            val logoBitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
+            if (logoBitmap != null) {
+                // Resize logo
+                val logoWidth = 120
+                val logoHeight = (logoBitmap.height.toFloat() / logoBitmap.width.toFloat() * logoWidth).toInt()
+                val scaledLogo = Bitmap.createScaledBitmap(logoBitmap, logoWidth, logoHeight, true)
+                
+                // Taruh di tengah
+                val left = (width - logoWidth) / 2f
+                canvas.drawBitmap(scaledLogo, left, y, null)
+                y += logoHeight + 20f
+            }
+        }
+
+        canvas.drawText(storeName, centerX, y, centerBoldPaint); y += 35f
+        canvas.drawText(storeAddress, centerX, y, centerPaint); y += 25f
+        canvas.drawText("Telp: $storePhone", centerX, y, centerPaint); y += 35f
+
+        val line = "=============================================="
+        canvas.drawText(line, centerX, y, centerPaint); y += 30f
+
+        // Info Transaksi
+        val dateStr = dateFormat.format(Date(transaction.timestamp))
+        canvas.drawText("ID: #${transaction.id} | $dateStr", leftX, y, paint); y += 30f
+        canvas.drawText("Tipe: ${transaction.orderType}", leftX, y, boldPaint); y += 30f
+        if (transaction.pickupDate > 0) {
+            canvas.drawText("Ambil: ${dateFormat.format(Date(transaction.pickupDate))}", leftX, y, paint); y += 30f
+        }
+        canvas.drawText("Kasir: ${transaction.cashierName} | ${transaction.tableName}", leftX, y, paint); y += 30f
+        canvas.drawText("Pelanggan: ${transaction.customerName}", leftX, y, paint); y += 30f
+
+        canvas.drawText(line, centerX, y, centerPaint); y += 30f
+
+        // Items
+        items?.forEach { item ->
+            val itemName = "${item.quantity}x ${item.productName}"
+            val itemPrice = formatRupiah(item.subtotal)
+            
+            canvas.drawText(itemName, leftX, y, paint)
+            val priceWidth = paint.measureText(itemPrice)
+            canvas.drawText(itemPrice, rightX - priceWidth, y, paint)
+            y += 30f
+
+            if (item.notes.isNotEmpty()) {
+                canvas.drawText("  *Cat: ${item.notes}", leftX, y, paint); y += 25f
+            }
+            if (item.serialNumber.isNotEmpty()) {
+                canvas.drawText("  *SN: ${item.serialNumber}", leftX, y, paint); y += 25f
+            }
+            if (item.assignedStaff.isNotEmpty()) {
+                canvas.drawText("  *Staf: ${item.assignedStaff}", leftX, y, paint); y += 25f
+            }
+        }
+
+        val dashLine = "----------------------------------------------"
+        canvas.drawText(dashLine, centerX, y, centerPaint); y += 30f
+
+        // Ringkasan
+        val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
+        canvas.drawText("Subtotal:", leftX, y, paint)
+        var valStr = formatRupiah(subtotalItems)
+        var valWidth = paint.measureText(valStr)
+        canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+
+        if (transaction.taxAmount > 0) {
+            canvas.drawText("Pajak:", leftX, y, paint)
+            valStr = formatRupiah(transaction.taxAmount)
+            valWidth = paint.measureText(valStr)
+            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+        }
+        if (transaction.serviceCharge > 0) {
+            canvas.drawText("Service Charge:", leftX, y, paint)
+            valStr = formatRupiah(transaction.serviceCharge)
+            valWidth = paint.measureText(valStr)
+            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+        }
+
+        val diskon = subtotalItems + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
+        if (diskon > 0) {
+            canvas.drawText("Diskon/Poin:", leftX, y, paint)
+            valStr = "- ${formatRupiah(diskon)}"
+            valWidth = paint.measureText(valStr)
+            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+        }
+
+        y += 10f
+        canvas.drawText("Total Belanja:", leftX, y, boldPaint)
+        valStr = formatRupiah(transaction.totalPrice)
+        valWidth = boldPaint.measureText(valStr)
+        canvas.drawText(valStr, rightX - valWidth, y, boldPaint); y += 35f
+
+        if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
+            canvas.drawText("METODE: BON (BELUM BAYAR)", leftX, y, boldPaint); y += 30f
+        } else {
+            canvas.drawText("Tunai:", leftX, y, paint)
+            valStr = formatRupiah(transaction.cashReceived)
+            valWidth = paint.measureText(valStr)
+            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+
+            canvas.drawText("Kembalian:", leftX, y, paint)
+            valStr = formatRupiah(transaction.changeAmount)
+            valWidth = paint.measureText(valStr)
+            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+        }
+
+        y += 20f
+        canvas.drawText(line, centerX, y, centerPaint); y += 30f
+        canvas.drawText(storeFooter, centerX, y, centerPaint)
+
+        // Crop bitmap jika ada ruang kosong berlebih di bawah
+        Bitmap.createBitmap(bitmap, 0, 0, width, (y + 50).toInt())
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+// ================================================================
+// HELPER: GENERATE PRINT DATA (Untuk Bluetooth Thermal)
+// ================================================================
 private fun generatePrintData(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,

@@ -14,9 +14,6 @@ import kotlin.random.Random
 // ====================================================================
 // FILE 4 — CART, PAYMENT, QRIS/TRANSFER, REFUND/VOID, HOLD ORDER
 // ====================================================================
-// Extension functions untuk PosViewModel.
-// B-2 patch: Integrasi pembuatan Kitchen Ticket saat payment.
-// ====================================================================
 
 // ================================================================
 // CART MANAGEMENT
@@ -201,12 +198,7 @@ fun PosViewModel.getTotalPrice(): Long {
 }
 
 // ================================================================
-// PROCESS PAYMENT (MODUL B-2 PATCH)
-// ================================================================
-// Perubahan:
-//   + Di dalam withTransaction, setelah insertTransactionItems,
-//     kita buat KitchenTicketEntity (jika ada item non-service).
-//   + Items disimpan sebagai JSON snapshot.
+// PROCESS PAYMENT
 // ================================================================
 fun PosViewModel.processPayment(
     cashReceived: Long,
@@ -300,8 +292,12 @@ fun PosViewModel.processPayment(
 
     viewModelScope.launch(Dispatchers.IO) {
         try {
+            // FIX: Simpan transaksi final dengan ID asli dari database
+            var finalTransaction: TransactionEntity? = null
+            
             database.withTransaction {
                 val newId = transactionDao.insertTransaction(transaction)
+                finalTransaction = transaction.copy(id = newId)
 
                 val itemEntities = itemsToProcess.map { cartItem ->
                     val finalPrice = if (cartItem.usedMembershipId != null) {
@@ -327,10 +323,7 @@ fun PosViewModel.processPayment(
                 }
                 transactionItemDao.insertTransactionItems(itemEntities)
 
-                // ========================================================
                 // MODUL B-2: BUAT KITCHEN TICKET
-                // ========================================================
-                // Hanya buat tiket jika ada minimal 1 item yang bukan jasa.
                 val foodItems = itemsToProcess.filter { !it.product.isService }
                 if (foodItems.isNotEmpty()) {
                     val kdsJson = JSONArray()
@@ -428,7 +421,8 @@ fun PosViewModel.processPayment(
                 }
                 resetQrisPayment()
                 resetTransferPayment()
-                onSuccess(transaction.copy(id = transaction.id)) 
+                // FIX: Gunakan finalTransaction dengan ID asli
+                onSuccess(finalTransaction!!) 
             }
         } catch (e: Exception) {
             e.printStackTrace()
