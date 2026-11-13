@@ -19,17 +19,17 @@ import kotlinx.coroutines.launch
 // STATE: ACTIVE TICKETS
 // ================================================================
 val PosViewModel.activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> =
-    kitchenTicketDao.getActiveTickets()
-        .catch { emit(emptyList()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    this.kitchenTicketDao.getActiveTickets()
+        .catch { emit(emptyList<KitchenTicketEntity>()) }
+        .stateIn(this.viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
 // ================================================================
 // UPDATE STATUS
 // ================================================================
 fun PosViewModel.updateKitchenTicketStatus(ticketId: Long, newStatus: String) {
-    viewModelScope.launch(Dispatchers.IO) {
+    this.viewModelScope.launch(Dispatchers.IO) {
         try {
-            kitchenTicketDao.updateStatus(ticketId, newStatus)
+            this@updateKitchenTicketStatus.kitchenTicketDao.updateStatus(ticketId, newStatus)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -40,9 +40,9 @@ fun PosViewModel.updateKitchenTicketStatus(ticketId: Long, newStatus: String) {
 // CLEAR COMPLETED
 // ================================================================
 fun PosViewModel.clearCompletedKitchenTickets() {
-    viewModelScope.launch(Dispatchers.IO) {
+    this.viewModelScope.launch(Dispatchers.IO) {
         try {
-            kitchenTicketDao.clearCompletedTickets()
+            this@clearCompletedKitchenTickets.kitchenTicketDao.clearCompletedTickets()
         } catch (e: Exception) {
             e.printStackTrace()
         }
