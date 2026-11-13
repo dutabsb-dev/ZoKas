@@ -317,6 +317,25 @@ class PosViewModel(
         }
     }
 
+    // ================================================================
+    // FIX SESI 3 — processBarcodeScan
+    // ================================================================
+    // Masalah lama:
+    //   getProductByBarcode() pakai LIMIT 1 → jika ada 2+ produk dengan
+    //   barcode sama (bisa terjadi via import Excel), query mengembalikan
+    //   produk arbitrer → SALAH TAMBAH KE CART tanpa peringatan.
+    //
+    // Perbaikan:
+    //   - getProductsByBarcodeList() → kembalikan SEMUA match.
+    //   - Jika 0 match  → "Barcode tidak ditemukan"
+    //   - Jika 1 match  → proceed normal (tambah ke cart)
+    //   - Jika >1 match → REFUSE, tampilkan nama-nama produk yang
+    //                     bertabrakan, dan catat audit log WARNING
+    //                     agar admin bisa bersihkan data barcode.
+    //
+    // Catatan: barcode kosong ("") TIDAK dianggap match (difilter di DAO)
+    //   karena banyak produk default barcode="".
+    // ================================================================
     fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -342,23 +361,59 @@ class PosViewModel(
                     } catch (e: Exception) { }
                 }
 
-                val product = productDao.getProductByBarcode(cleanBarcode)
-                if (product != null) {
-                    if (product.isService || product.stock > 0) {
-                        val finalProduct = if (parsedExpiry > 0) {
-                            product.copy(expiryDate = parsedExpiry, batchNumber = parsedBatch)
-                        } else product
-                        
-                        withContext(Dispatchers.Main) { addToCart(finalProduct) }
-                        withContext(Dispatchers.Main) { onResult(true, "Berhasil tambah: ${product.name}") }
-                    } else {
-                        withContext(Dispatchers.Main) { onResult(false, "Stok ${product.name} habis!") }
+                // Ambil SEMUA produk dengan barcode ini (bukan LIMIT 1).
+                val matches = productDao.getProductsByBarcodeList(cleanBarcode)
+
+                when {
+                    matches.isEmpty() -> {
+                        withContext(Dispatchers.Main) {
+                            onResult(false, "Barcode tidak ditemukan: $cleanBarcode")
+                        }
                     }
-                } else {
-                    withContext(Dispatchers.Main) { onResult(false, "Barcode tidak ditemukan!") }
+                    matches.size == 1 -> {
+                        // 1 match — perilaku normal.
+                        val product = matches.first()
+                        if (product.isService || product.stock > 0) {
+                            val finalProduct = if (parsedExpiry > 0) {
+                                product.copy(expiryDate = parsedExpiry, batchNumber = parsedBatch)
+                            } else product
+                            
+                            withContext(Dispatchers.Main) { addToCart(finalProduct) }
+                            withContext(Dispatchers.Main) { 
+                                onResult(true, "Berhasil tambah: ${product.name}") 
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) { 
+                                onResult(false, "Stok ${product.name} habis!") 
+                            }
+                        }
+                    }
+                    else -> {
+                        // > 1 match — duplikat barcode, REFUSE add.
+                        val names = matches.joinToString(", ") { it.name }
+                        val count = matches.size
+                        
+                        // Catat audit log WARNING agar admin tahu ada
+                        // data barcode ganda yang harus dibersihkan.
+                        userDao.insertAuditLog(AuditLogEntity(
+                            userId = 0,
+                            userName = "SYSTEM",
+                            action = "BARCODE DUPLIKAT TERDETEKSI: '$cleanBarcode' dipakai oleh $count produk: $names. Scan dibatalkan.",
+                            actionType = "INVENTORY"
+                        ))
+                        
+                        withContext(Dispatchers.Main) {
+                            onResult(
+                                false, 
+                                "Barcode duplikat ($count produk: $names). Perbaiki dulu di menu Produk."
+                            )
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "Gagal scan: ${e.message}") }
+                withContext(Dispatchers.Main) { 
+                    onResult(false, "Gagal scan: ${e.message}") 
+                }
             }
         }
     }
@@ -619,8 +674,8 @@ class PosViewModel(
         }
     }
 
-    // ================================================================
-    // [AWAL SESI 2c — lanjutan dari SESI 2b]
+    //     // ================================================================
+    // [AWAL SESI 3c — lanjutan dari SESI 3b]
     // Dimulai dari: fun exportProductsToExcel(...)
     // ================================================================
 
@@ -925,18 +980,8 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 2 — closeShift
-    // Masalah lama:
-    //   totalPenjualan menjumlahkan SEMUA transaksi SUCCESS, termasuk
-    //   QRIS, transfer, dan BON. Akibatnya expectedCash membengkak,
-    //   selisih kas tampak minus padahal laci cocok.
-    //
-    // Perbaikan:
-    //   Filter hanya transaksi paymentMethod == "CASH" sebagai uang fisik.
-    //   - QRIS / Bank Transfer → tidak masuk laci, tidak dihitung.
-    //   - BON (paymentMethod == "BON") → tidak masuk laci sampai dilunasi.
-    //   - Pelunasan BON nanti otomatis masuk lewat cash_flows (type=IN)
-    //     karena payUnpaidTransaction mencatatnya sebagai kas masuk.
+    // FIX SESI 2 — closeShift (dipertahankan)
+    // Filter paymentMethod == "CASH" saja sebagai uang fisik laci.
     // ================================================================
     fun closeShift(user: UserEntity, uangFisik: Long, note: String, onSuccess: (ShiftEntity) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -976,6 +1021,18 @@ class PosViewModel(
         }
     }
 
+    // ================================================================
+    // FIX SESI 3 — addProduct (deteksi barcode duplikat)
+    // ================================================================
+    // Perbaikan:
+    //   Sebelum insert, cek apakah barcode (jika tidak kosong) sudah
+    //   dipakai produk lain. Jika ya, TETAP insert (tidak diblokir,
+    //   karena ada kemungkinan user sengaja punya produk dengan barcode
+    //   sama untuk varian berbeda), TAPI:
+    //     1. Catat audit log WARNING agar admin tahu.
+    //     2. Setelah insert, scan produk itu akan gagal (ditolak di
+    //        processBarcodeScan) sampai admin perbaiki barcode-nya.
+    // ================================================================
     fun addProduct(
         name: String, price: Long, stock: Int, category: String, costPrice: Long, 
         barcode: String, variations: String, commission: Long, expiry: Long, 
@@ -985,6 +1042,16 @@ class PosViewModel(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Cek duplikat barcode (hanya jika barcode tidak kosong).
+                var duplicateWarning: String? = null
+                if (barcode.isNotBlank()) {
+                    val existing = productDao.getProductsByBarcodeList(barcode)
+                    if (existing.isNotEmpty()) {
+                        val otherNames = existing.joinToString(", ") { it.name }
+                        duplicateWarning = "Barcode '$barcode' juga dipakai oleh: $otherNames"
+                    }
+                }
+
                 productDao.insertProduct(ProductEntity(
                     name = name, price = price, stock = stock, category = category, costPrice = costPrice, 
                     barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
@@ -992,21 +1059,53 @@ class PosViewModel(
                     wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
                     isSynced = false, updatedAt = System.currentTimeMillis()
                 ))
+                
                 userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name", actionType = "INVENTORY"))
+                
+                // Audit log WARNING tambahan jika barcode duplikat.
+                if (duplicateWarning != null) {
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = userId, 
+                        userName = userName, 
+                        action = "PERINGATAN BARCODE DUPLIKAT: Produk '$name' ditambahkan. $duplicateWarning. Scan barcode ini akan ditolak sampai diperbaiki.",
+                        actionType = "INVENTORY"
+                    ))
+                }
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
     // ================================================================
-    // FIX SESI 1 — updateProduct (dipertahankan)
+    // FIX SESI 1 + SESI 3 — updateProduct
+    // ================================================================
+    // Perbaikan:
+    //   1. (Sesi 1) Pakai saveProduct() (UPDATE in-place, tanpa DELETE).
+    //   2. (Sesi 1) Audit log HANYA setelah DB write sukses.
+    //   3. (Sesi 3) Deteksi barcode duplikat (exclude self) sebelum update.
+    //      Jika duplikat, TETAP update (tidak diblokir), TAPI catat
+    //      audit log WARNING agar admin tahu scan akan gagal.
     // ================================================================
     fun updateProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val oldProduct = _products.value.find { it.id == product.id }
 
+                // Cek duplikat barcode (exclude self).
+                var duplicateWarning: String? = null
+                if (product.barcode.isNotBlank()) {
+                    val sameBarcode = productDao.getProductsByBarcodeList(product.barcode)
+                        .filter { it.id != product.id }
+                    if (sameBarcode.isNotEmpty()) {
+                        val otherNames = sameBarcode.joinToString(", ") { it.name }
+                        duplicateWarning = "Barcode '${product.barcode}' juga dipakai oleh: $otherNames"
+                    }
+                }
+
+                // 1) Tulis ke DB dulu. Jika FK / constraint gagal, exception
+                //    akan ditangkap dan audit log TIDAK akan tercatat.
                 productDao.saveProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
 
+                // 2) Audit log baru setelah DB dipastikan sukses.
                 if (oldProduct != null && oldProduct.price != product.price) {
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = userId,
@@ -1019,6 +1118,16 @@ class PosViewModel(
                         userId = userId,
                         userName = userName,
                         action = "EDIT PRODUK: ${product.name}",
+                        actionType = "INVENTORY"
+                    ))
+                }
+                
+                // 3) Audit log WARNING jika barcode duplikat.
+                if (duplicateWarning != null) {
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = userId,
+                        userName = userName,
+                        action = "PERINGATAN BARCODE DUPLIKAT: Produk '${product.name}' diubah. $duplicateWarning. Scan barcode ini akan ditolak sampai diperbaiki.",
                         actionType = "INVENTORY"
                     ))
                 }
@@ -1269,24 +1378,9 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 2 — payUnpaidTransaction
-    // Masalah lama:
-    //   1. DAO lama menimpa paymentMethod jadi 'CASH' → history mundur,
-    //      laporan shift lama jadi salah (seolah ada cash masuk kemarin).
-    //   2. Tidak ada record kapan BON dilunasi.
-    //   3. Pelunasan tidak masuk hitungan kas shift aktif, karena
-    //      closeShift hanya menjumlah transaksi dengan timestamp di
-    //      dalam shift. BON yang dibuat kemarin tapi dilunasi hari ini
-    //      tidak akan masuk kas shift hari ini.
-    //
-    // Perbaikan:
-    //   1. DAO baru: status='SUCCESS', paymentMethod TETAP 'BON',
-    //      paidAt & paidMethod diisi, cashReceived & changeAmount diisi.
-    //   2. Catat pelunasan sebagai cash_flows (type=IN) di shift aktif
-    //      → otomatis terhitung di closeShift lewat getTotalCashIn.
-    //   3. Jika tidak ada shift aktif, tetap update transaksi tapi
-    //      pelunasan tidak masuk rekap kas shift (dengan log peringatan
-    //      di audit log).
+    // FIX SESI 2 — payUnpaidTransaction (dipertahankan)
+    // Status jadi SUCCESS, paymentMethod TETAP 'BON', paidAt/paidMethod
+    // diisi, dan pelunasan dicatat sebagai cash_flows IN di shift aktif.
     // ================================================================
     fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1295,7 +1389,6 @@ class PosViewModel(
                 val shift = _activeShift.value
                 
                 database.withTransaction {
-                    // 1. Update transaksi — paymentMethod TIDAK diubah.
                     transactionDao.updateTransactionStatus(
                         transactionId = transaction.id,
                         cashReceived = cashReceived,
@@ -1303,9 +1396,6 @@ class PosViewModel(
                         paidMethod = "CASH"
                     )
 
-                    // 2. Catat pelunasan sebagai kas masuk shift aktif
-                    //    (jika ada). Jika tidak ada shift, pelunasan tetap
-                    //    sukses tapi tidak masuk rekap kas.
                     if (shift != null) {
                         cashFlowDao.insertCashFlow(
                             CashFlowEntity(
@@ -1319,7 +1409,6 @@ class PosViewModel(
                         )
                     }
 
-                    // 3. Audit log pelunasan
                     userDao.insertAuditLog(
                         AuditLogEntity(
                             userId = shift?.userId ?: 0L,
