@@ -99,6 +99,12 @@ fun SettingsScreen(
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
     
+    // ================================================================
+    // MODUL G — CRM SETTINGS
+    // ================================================================
+    var enableBirthdayDiscount by remember { mutableStateOf(settingsManager.enableBirthdayDiscount) }
+    var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.birthdayDiscountPercent.toFloat()) }
+    
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     
     // State Dialog
@@ -114,12 +120,10 @@ fun SettingsScreen(
     var showExpenseDialog by remember { mutableStateOf(false) }
     var showReceivableDialog by remember { mutableStateOf(false) }
     var showPayableDialog by remember { mutableStateOf(false) }
-    
-    // ================================================================
-    // MODUL D-1 + D-2: State dialog multi-cabang
-    // ================================================================
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
+    // MODUL G: dialog kelola pelanggan (CRM)
+    var showCustomerManagementDialog by remember { mutableStateOf(false) }
     
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
@@ -131,8 +135,8 @@ fun SettingsScreen(
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val purchases by viewModel.purchases.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
+    val customers by viewModel.customers.collectAsStateWithLifecycle()
     
-    // Data cabang
     val currentBranch by viewModel.currentBranch.collectAsStateWithLifecycle()
     val allBranches by viewModel.allBranches.collectAsStateWithLifecycle()
     
@@ -205,7 +209,6 @@ fun SettingsScreen(
         )
     }
     
-    // MODUL D-1: Dialog kelola cabang
     if (showBranchManagementDialog) {
         BranchManagementDialog(
             viewModel = viewModel,
@@ -214,12 +217,20 @@ fun SettingsScreen(
         )
     }
     
-    // MODUL D-2: Dialog transfer stok
     if (showStockTransferDialog) {
         StockTransferDialog(
             viewModel = viewModel,
             currentUser = currentUser,
             onDismiss = { showStockTransferDialog = false }
+        )
+    }
+    
+    // MODUL G: dialog CRM
+    if (showCustomerManagementDialog) {
+        CustomerManagementDialog(
+            viewModel = viewModel,
+            currentUser = currentUser,
+            onDismiss = { showCustomerManagementDialog = false }
         )
     }
     
@@ -392,9 +403,7 @@ fun SettingsScreen(
             )
         }
 
-        // ============================================================
-        // 2b. MODUL D-1 + D-2: Card Multi-Cabang (hanya OWNER)
-        // ============================================================
+        // 2b. Card Multi-Cabang (OWNER)
         if (currentUser.role == "OWNER") {
             item {
                 SettingsBranchManagementCard(
@@ -403,6 +412,28 @@ fun SettingsScreen(
                     onManageClick = { showBranchManagementDialog = true },
                     onTransferClick = { showStockTransferDialog = true },
                     canTransfer = allBranches.size > 1
+                )
+            }
+        }
+
+        // ============================================================
+        // 2c. MODUL G — Card CRM (OWNER)
+        // ============================================================
+        if (currentUser.role == "OWNER") {
+            item {
+                SettingsCrmCard(
+                    enableBirthdayDiscount = enableBirthdayDiscount,
+                    onToggleBirthdayDiscount = { isOn ->
+                        enableBirthdayDiscount = isOn
+                        settingsManager.enableBirthdayDiscount = isOn
+                    },
+                    birthdayDiscountPercent = birthdayDiscountPercent,
+                    onChangeBirthdayPercent = { newVal ->
+                        birthdayDiscountPercent = newVal
+                        settingsManager.birthdayDiscountPercent = newVal.toDouble()
+                    },
+                    totalCustomers = customers.size,
+                    onManageClick = { showCustomerManagementDialog = true }
                 )
             }
         }
@@ -556,12 +587,6 @@ fun SettingsScreen(
 // ====================================================================
 // MODUL D-1 + D-2 — Card Multi-Cabang (khusus OWNER)
 // ====================================================================
-// Card ringkas di Pengaturan. Menampilkan cabang aktif + total cabang,
-// dengan 2 tombol:
-//   - KELOLA CABANG (outlined) : buka BranchManagementDialog
-//   - TRANSFER STOK (filled)   : buka StockTransferDialog
-// Tombol TRANSFER disabled jika hanya ada 1 cabang.
-// ====================================================================
 @Composable
 private fun SettingsBranchManagementCard(
     currentBranch: BranchEntity?,
@@ -613,7 +638,6 @@ private fun SettingsBranchManagementCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Info cabang aktif
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -663,14 +687,10 @@ private fun SettingsBranchManagementCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ============================================================
-            // 2 TOMBOL BERDAMPINGAN
-            // ============================================================
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Tombol Kelola Cabang (outlined)
                 OutlinedButton(
                     onClick = onManageClick,
                     modifier = Modifier.weight(1f).height(46.dp),
@@ -694,7 +714,6 @@ private fun SettingsBranchManagementCard(
                     )
                 }
 
-                // Tombol Transfer Stok (filled)
                 Button(
                     onClick = onTransferClick,
                     modifier = Modifier.weight(1f).height(46.dp),
@@ -722,7 +741,6 @@ private fun SettingsBranchManagementCard(
                 }
             }
 
-            // Info tambahan jika belum bisa transfer
             if (!canTransfer) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
@@ -730,6 +748,171 @@ private fun SettingsBranchManagementCard(
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
+            }
+        }
+    }
+}
+
+// ====================================================================
+// MODUL G — Card CRM (khusus OWNER)
+// ====================================================================
+// Card ringkas di Pengaturan. Menampilkan total pelanggan + toggle
+// birthday discount + slider persen + tombol "KELOLA PELANGGAN".
+// ====================================================================
+@Composable
+private fun SettingsCrmCard(
+    enableBirthdayDiscount: Boolean,
+    onToggleBirthdayDiscount: (Boolean) -> Unit,
+    birthdayDiscountPercent: Float,
+    onChangeBirthdayPercent: (Float) -> Unit,
+    totalCustomers: Int,
+    onManageClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(AmberAccent.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.People,
+                        contentDescription = null,
+                        tint = AmberAccentDark,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "CRM & Pelanggan",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "$totalCustomers pelanggan terdaftar",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Toggle birthday discount
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Cake,
+                    contentDescription = null,
+                    tint = if (enableBirthdayDiscount) EmeraldGreen else SlateGrey,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Diskon Ulang Tahun",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Otomatis untuk pelanggan di hari ulang tahunnya",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = enableBirthdayDiscount,
+                    onCheckedChange = onToggleBirthdayDiscount,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = EmeraldGreen,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                    )
+                )
+            }
+
+            // Slider persen (hanya tampil jika aktif)
+            if (enableBirthdayDiscount) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Besar Diskon",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Surface(
+                        color = AmberAccent.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            "${birthdayDiscountPercent.toInt()}%",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AmberAccentDark,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Slider(
+                    value = birthdayDiscountPercent,
+                    onValueChange = onChangeBirthdayPercent,
+                    valueRange = 5f..50f,
+                    steps = 8,
+                    colors = SliderDefaults.colors(
+                        thumbColor = AmberAccent,
+                        activeTrackColor = AmberAccent
+                    )
+                )
+                Text(
+                    "Berlaku untuk transaksi non-tunai juga. Tetap dibatasi oleh Max Diskon global.",
+                    fontSize = 9.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tombol kelola
+            Button(
+                onClick = onManageClick,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.Group,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "KELOLA PELANGGAN",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
                 )
             }
         }

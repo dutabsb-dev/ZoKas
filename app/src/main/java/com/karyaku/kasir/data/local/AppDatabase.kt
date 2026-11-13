@@ -32,10 +32,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExpenseEntity::class,
         StockOpnameEntity::class,
         StockOpnameItemEntity::class,
-        StockTransferEntity::class,     // MODUL D-2
-        StockTransferItemEntity::class  // MODUL D-2
+        StockTransferEntity::class,
+        StockTransferItemEntity::class
     ], 
-    version = 31, 
+    version = 32, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,40 +55,32 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reservationDao(): ReservationDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun stockOpnameDao(): StockOpnameDao
-    abstract fun stockTransferDao(): StockTransferDao // MODUL D-2
+    abstract fun stockTransferDao(): StockTransferDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // 1. MIGRASI MULTI-CABANG (19 -> 20)
         private val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `branches` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `isMainBranch` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isSynced` INTEGER NOT NULL)")
                 database.execSQL("INSERT INTO `branches` (id, name, address, phone, isMainBranch, createdAt, updatedAt, isSynced) VALUES (1, 'Cabang Pusat', '-', '-', 1, ${System.currentTimeMillis()}, ${System.currentTimeMillis()}, 0)")
-                
                 database.execSQL("ALTER TABLE users ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
                 database.execSQL("ALTER TABLE users ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE users ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
-                
                 database.execSQL("ALTER TABLE products ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
                 database.execSQL("ALTER TABLE products ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE products ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
-                
                 database.execSQL("ALTER TABLE transactions ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
                 database.execSQL("ALTER TABLE transactions ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0")
             }
         }
 
-        // 2. MIGRASI PLACEHOLDER (20 -> 21)
         private val MIGRATION_20_21 = object : Migration(20, 21) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                // Placeholder
-            }
+            override fun migrate(database: SupportSQLiteDatabase) { /* Placeholder */ }
         }
 
-        // 3. MIGRASI FITUR GROSIR, ORDER TYPE, SERVICE CHARGE (21 -> 22)
         private val MIGRATION_21_22 = object : Migration(21, 22) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE products ADD COLUMN wholesalePrice INTEGER NOT NULL DEFAULT 0")
@@ -99,7 +91,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
         
-        // 4. MIGRASI MODUL MEMBERSHIP (22 -> 23)
         private val MIGRATION_22_23 = object : Migration(22, 23) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `memberships` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `price` INTEGER NOT NULL, `quotaCount` INTEGER NOT NULL, `validDays` INTEGER NOT NULL)")
@@ -107,7 +98,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // 5. MIGRASI MODUL SUPPLIER & PO (23 -> 24)
         private val MIGRATION_23_24 = object : Migration(23, 24) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `suppliers` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `contactPerson` TEXT NOT NULL, `phone` TEXT NOT NULL, `address` TEXT NOT NULL)")
@@ -117,33 +107,27 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // 6. MIGRASI MODUL RESERVASI (24 -> 25)
         private val MIGRATION_24_25 = object : Migration(24, 25) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `reservations` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `customerName` TEXT NOT NULL, `phone` TEXT NOT NULL, `dateTime` INTEGER NOT NULL, `resourceName` TEXT NOT NULL, `status` TEXT NOT NULL, `notes` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)")
             }
         }
 
-        // 7. MIGRASI MODUL FINANCE / PENGELUARAN (25 -> 26)
         private val MIGRATION_25_26 = object : Migration(25, 26) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `expenses` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `category` TEXT NOT NULL, `amount` INTEGER NOT NULL, `note` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `userId` INTEGER NOT NULL, `userName` TEXT NOT NULL)")
             }
         }
 
-        // 8. MIGRASI MODUL STOCK OPNAME (26 -> 27)
         private val MIGRATION_26_27 = object : Migration(26, 27) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `stock_opnames` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `userId` INTEGER NOT NULL, `userName` TEXT NOT NULL, `totalItemsChecked` INTEGER NOT NULL, `totalLossValue` INTEGER NOT NULL, `totalGainValue` INTEGER NOT NULL)")
-                
                 database.execSQL("CREATE TABLE IF NOT EXISTS `stock_opname_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `opnameId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `productName` TEXT NOT NULL, `systemStock` INTEGER NOT NULL, `physicalStock` INTEGER NOT NULL, `difference` INTEGER NOT NULL, FOREIGN KEY(`opnameId`) REFERENCES `stock_opnames`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
-                
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_opname_items_opnameId` ON `stock_opname_items` (`opnameId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_opname_items_productId` ON `stock_opname_items` (`productId`)")
             }
         }
 
-        // 9. MIGRASI PHASE 0 SESI 2: BON pelunasan tracking (27 -> 28)
         private val MIGRATION_27_28 = object : Migration(27, 28) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE transactions ADD COLUMN paidAt INTEGER NOT NULL DEFAULT 0")
@@ -151,16 +135,11 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // 10. MIGRASI MODUL E — Hutang Supplier Cicilan (28 -> 29)
         private val MIGRATION_28_29 = object : Migration(28, 29) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE purchases ADD COLUMN paidAmount INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("ALTER TABLE purchases ADD COLUMN paidAt INTEGER NOT NULL DEFAULT 0")
-                
-                database.execSQL(
-                    "UPDATE purchases SET paidAmount = totalAmount, paidAt = timestamp WHERE status = 'PAID'"
-                )
-                
+                database.execSQL("UPDATE purchases SET paidAmount = totalAmount, paidAt = timestamp WHERE status = 'PAID'")
                 database.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `purchase_payments` (
@@ -176,16 +155,13 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_payments_purchaseId` ON `purchase_payments` (`purchaseId`)")
             }
         }
 
-        // 11. MIGRASI MODUL D-1 — Multi-Cabang Shift (29 -> 30)
         private val MIGRATION_29_30 = object : Migration(29, 30) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE shifts ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
-                
                 database.execSQL(
                     """
                     UPDATE shifts 
@@ -195,19 +171,11 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_branchId` ON `shifts` (`branchId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_status` ON `shifts` (`status`)")
             }
         }
 
-        // ================================================================
-        // 12. MIGRASI MODUL D-2 — Transfer Stok Antar Cabang (30 -> 31)
-        // ================================================================
-        // Tabel baru untuk header & item transfer stok antar cabang.
-        // Instant transfer: tidak perlu seed data lama karena hanya
-        // menyimpan aktivitas yang terjadi setelah v31.
-        // ================================================================
         private val MIGRATION_30_31 = object : Migration(30, 31) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
@@ -227,7 +195,6 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                
                 database.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `stock_transfer_items` (
@@ -242,11 +209,28 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
-                
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfers_fromBranchId` ON `stock_transfers` (`fromBranchId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfers_toBranchId` ON `stock_transfers` (`toBranchId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfers_timestamp` ON `stock_transfers` (`timestamp`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfer_items_transferId` ON `stock_transfer_items` (`transferId`)")
+            }
+        }
+
+        // ================================================================
+        // 13. MIGRASI MODUL G — CRM Lanjutan (31 → 32)
+        // ================================================================
+        // Tambah 3 field di customers: birthDate, lastVisitDate, totalSpending.
+        // Backfill: lastVisitDate & totalSpending = 0 (belum ada data historis
+        // pelanggan lama). Kalau ingin backfill dari transaksi lama, perlu
+        // query agregasi — tapi karena CRM baru dimulai, mulai dari 0 saja.
+        // ================================================================
+        private val MIGRATION_31_32 = object : Migration(31, 32) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE customers ADD COLUMN birthDate INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE customers ADD COLUMN lastVisitDate INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE customers ADD COLUMN totalSpending INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_customers_name` ON `customers` (`name`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_customers_points` ON `customers` (`points`)")
             }
         }
 
@@ -269,7 +253,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_27_28,
                     MIGRATION_28_29,
                     MIGRATION_29_30,
-                    MIGRATION_30_31
+                    MIGRATION_30_31,
+                    MIGRATION_31_32
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18

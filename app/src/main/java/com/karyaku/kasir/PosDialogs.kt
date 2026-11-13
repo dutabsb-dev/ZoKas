@@ -4,8 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,8 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue // FIX IMPORT ERROR
-import androidx.compose.runtime.setValue // FIX IMPORT ERROR
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,16 +24,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.karyaku.kasir.data.local.CustomerEntity
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.ShiftEntity
 import com.karyaku.kasir.data.local.UserEntity
-import com.karyaku.kasir.data.local.RawMaterialEntity // FIX IMPORT ERROR
+import com.karyaku.kasir.data.local.RawMaterialEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// --- MENU AKSI PRODUK (BOTTOM SHEET) ---
+// ====================================================================
+// MENU AKSI PRODUK (BOTTOM SHEET)
+// ====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosActionMenuBottomSheet(
@@ -71,7 +70,9 @@ fun ActionMenuItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
     }
 }
 
-// --- DIALOG MATRIX 2D ---
+// ====================================================================
+// DIALOG MATRIX 2D
+// ====================================================================
 @Composable
 fun ProductMatrixDialog(
     product: ProductEntity,
@@ -117,7 +118,9 @@ fun ProductMatrixDialog(
     )
 }
 
-// --- DIALOG VARIAN TEKS BIASA ---
+// ====================================================================
+// DIALOG VARIAN TEKS BIASA
+// ====================================================================
 @Composable
 fun ProductVariantDialog(
     product: ProductEntity,
@@ -148,7 +151,9 @@ fun ProductVariantDialog(
     )
 }
 
-// --- DIALOG GABUNG MEJA ---
+// ====================================================================
+// DIALOG GABUNG MEJA
+// ====================================================================
 @Composable
 fun MergeTableDialog(
     onMerge: (String, String) -> Unit,
@@ -188,7 +193,9 @@ fun MergeTableDialog(
     )
 }
 
-// --- DIALOG SERIAL NUMBER ---
+// ====================================================================
+// DIALOG SERIAL NUMBER
+// ====================================================================
 @Composable
 fun SerialNumberDialog(
     product: ProductEntity,
@@ -213,7 +220,9 @@ fun SerialNumberDialog(
     )
 }
 
-// --- DIALOG ASSIGN STAFF ---
+// ====================================================================
+// DIALOG ASSIGN STAFF
+// ====================================================================
 @Composable
 fun AssignStaffDialog(
     product: ProductEntity,
@@ -243,7 +252,9 @@ fun AssignStaffDialog(
     )
 }
 
-// --- DIALOG LAPORAN TUTUP KASIR ---
+// ====================================================================
+// DIALOG LAPORAN TUTUP KASIR
+// ====================================================================
 @Composable
 fun ShiftReportDialog(
     shift: ShiftEntity,
@@ -273,7 +284,9 @@ fun ShiftReportDialog(
     )
 }
 
-// --- DIALOG PIN DISKON ---
+// ====================================================================
+// DIALOG PIN DISKON
+// ====================================================================
 @Composable
 fun PinDiscountDialog(
     onVerify: (String) -> Unit,
@@ -300,7 +313,9 @@ fun PinDiscountDialog(
     )
 }
 
-// --- DIALOG BUKA LACI ---
+// ====================================================================
+// DIALOG BUKA LACI
+// ====================================================================
 @Composable
 fun CashDrawerConfirmDialog(
     onConfirm: () -> Unit,
@@ -316,7 +331,9 @@ fun CashDrawerConfirmDialog(
     )
 }
 
-// --- DIALOG CATAT WASTE ---
+// ====================================================================
+// DIALOG CATAT WASTE
+// ====================================================================
 @Composable
 fun WasteRecordDialog(
     product: ProductEntity,
@@ -341,7 +358,9 @@ fun WasteRecordDialog(
     )
 }
 
-// --- DIALOG CATATAN PESANAN ---
+// ====================================================================
+// DIALOG CATATAN PESANAN
+// ====================================================================
 @Composable
 fun OrderNotesDialog(
     product: ProductEntity,
@@ -366,7 +385,9 @@ fun OrderNotesDialog(
     )
 }
 
-// --- DIALOG BUKA KASIR (OPEN SHIFT) ---
+// ====================================================================
+// DIALOG BUKA KASIR (OPEN SHIFT)
+// ====================================================================
 @Composable
 fun OpenShiftDialog(
     modalAwal: String,
@@ -388,7 +409,9 @@ fun OpenShiftDialog(
     )
 }
 
-// --- DIALOG KAS MASUK / KELUAR ---
+// ====================================================================
+// DIALOG KAS MASUK / KELUAR
+// ====================================================================
 @Composable
 fun CashFlowDialog(
     onSave: (String, Long, String) -> Unit,
@@ -418,7 +441,9 @@ fun CashFlowDialog(
     )
 }
 
-// --- DIALOG DISKON MANUAL ---
+// ====================================================================
+// DIALOG DISKON MANUAL
+// ====================================================================
 @Composable
 fun ManualDiscountDialog(
     currentDiscount: Long,
@@ -441,7 +466,9 @@ fun ManualDiscountDialog(
     )
 }
 
-// --- DIALOG PILIH MEJA ---
+// ====================================================================
+// DIALOG PILIH MEJA
+// ====================================================================
 @Composable
 fun TableSelectorDialog(
     currentTable: String,
@@ -474,7 +501,9 @@ fun TableSelectorDialog(
     )
 }
 
-// --- DIALOG VOUCHER ---
+// ====================================================================
+// DIALOG VOUCHER
+// ====================================================================
 @Composable
 fun VoucherDialog(
     currentCode: String,
@@ -497,66 +526,9 @@ fun VoucherDialog(
     )
 }
 
-// --- DIALOG PELANGGAN ---
-@Composable
-fun CustomerDialog(
-    customers: List<CustomerEntity>, 
-    selectedCustomer: CustomerEntity?, 
-    onSelect: (CustomerEntity?) -> Unit, 
-    onAddCustomer: (String, String) -> Unit, 
-    onRedeemPoints: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var showAddForm by remember { mutableStateOf(false) }
-    var showRedeemForm by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf("") }
-    var newPhone by remember { mutableStateOf("") }
-    var pointsToRedeem by remember { mutableStateOf("") }
-    var searchQuery by remember { mutableStateOf("") }
-    val filteredCustomers = customers.filter { it.name.contains(searchQuery, ignoreCase = true) || it.phone.contains(searchQuery, ignoreCase = true) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss, 
-        icon = { Icon(Icons.Default.Person, contentDescription = null, tint = AmberAccent) },
-        title = { Text(when { showAddForm -> "Tambah Pelanggan"; showRedeemForm -> "Tukar Poin"; else -> "Pilih Pelanggan" }) },
-        text = {
-            when {
-                showAddForm -> { Column { OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Nama") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)); Spacer(modifier = Modifier.height(8.dp)); OutlinedTextField(value = newPhone, onValueChange = { newPhone = it }, label = { Text("No HP") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) } }
-                showRedeemForm && selectedCustomer != null -> { Column { Text("Poin: ${selectedCustomer.points}"); Spacer(modifier = Modifier.height(8.dp)); OutlinedTextField(value = pointsToRedeem, onValueChange = { if (it.length <= 5) pointsToRedeem = it }, label = { Text("Jumlah Poin") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) } }
-                else -> {
-                    Column {
-                        OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), placeholder = { Text("Cari...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }, shape = RoundedCornerShape(12.dp))
-                        TextButton(onClick = { onSelect(null); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text("Pelanggan Umum", fontWeight = FontWeight.Bold, color = AmberAccent) }
-                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) { 
-                            items(filteredCustomers) { customer -> 
-                                TextButton(onClick = { onSelect(customer); onDismiss() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) { 
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { 
-                                        Column {
-                                            Text("${customer.name} (${customer.points} Poin)", fontWeight = FontWeight.Bold)
-                                            val tier = if (customer.points >= 1000) "Platinum (10%)" else if (customer.points >= 500) "Gold (5%)" else if (customer.points >= 100) "Silver (2%)" else "Member"
-                                            Text(tier, fontSize = 11.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)
-                                        }
-                                        Text(if (customer.phone == "-") "" else customer.phone, fontSize = 12.sp, color = SlateGrey) 
-                                    } 
-                                } 
-                            } 
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            when {
-                showAddForm -> { Button(onClick = { if (newName.isNotBlank()) { onAddCustomer(newName, if(newPhone.isBlank()) "-" else newPhone); showAddForm = false } }, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text("SIMPAN") } }
-                showRedeemForm && selectedCustomer != null -> { Button(onClick = { val pts = pointsToRedeem.toIntOrNull() ?: 0; if (pts > 0 && pts <= selectedCustomer.points) { onRedeemPoints(pts); onDismiss() } }, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text("TUKAR") } }
-                else -> { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { if (selectedCustomer != null && selectedCustomer.points > 0) Button(onClick = { showRedeemForm = true }, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text("Tukar Poin") }; Button(onClick = { showAddForm = true }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("+ Pelanggan") } } }
-            }
-        },
-        dismissButton = { TextButton(onClick = { if (showAddForm || showRedeemForm) { showAddForm = false; showRedeemForm = false } else onDismiss() }) { Text("Tutup") } }
-    )
-}
-
-// --- DIALOG HAPUS PRODUK ---
+// ====================================================================
+// DIALOG HAPUS PRODUK
+// ====================================================================
 @Composable
 fun DeleteProductConfirmDialog(
     product: ProductEntity,
@@ -573,6 +545,9 @@ fun DeleteProductConfirmDialog(
     )
 }
 
+// ====================================================================
+// DIALOG MANAJEMEN BOM (RESEP)
+// ====================================================================
 @Composable
 fun BomManagementDialog(
     product: ProductEntity,

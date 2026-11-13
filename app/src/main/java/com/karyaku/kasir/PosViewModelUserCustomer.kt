@@ -101,9 +101,18 @@ fun PosViewModel.redeemPoints(pointsToRedeem: Int) {
     }
 }
 
-fun PosViewModel.addCustomer(name: String, phone: String) {
+// MODUL G-2a: addCustomer sekarang menerima birthDate (default 0 = tidak diisi).
+fun PosViewModel.addCustomer(name: String, phone: String, birthDate: Long = 0L) {
     viewModelScope.launch(Dispatchers.IO) {
-        try { customerDao.insertCustomer(CustomerEntity(name = name, phone = phone)) }
+        try { 
+            customerDao.insertCustomer(
+                CustomerEntity(
+                    name = name, 
+                    phone = phone,
+                    birthDate = birthDate
+                )
+            ) 
+        }
         catch (e: Exception) { e.printStackTrace() }
     }
 }

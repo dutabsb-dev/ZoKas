@@ -15,6 +15,9 @@ import kotlin.random.Random
 // FILE 4 — CART, PAYMENT, QRIS/TRANSFER, REFUND/VOID, HOLD ORDER
 // ====================================================================
 // Extension functions untuk PosViewModel.
+// G-2b patch:
+//   - processPayment: birthday discount + updateCustomerStats
+//   - refundTransaction: reduce totalSpending
 // ====================================================================
 
 // ================================================================
@@ -182,7 +185,7 @@ fun PosViewModel.resetTransferPayment() {
 }
 
 // ================================================================
-// PRICING & PAYMENT
+// PRICING (preview, tidak berubah)
 // ================================================================
 fun PosViewModel.getTotalPrice(): Long {
     val subtotal = _cart.value.sumOf { item ->
@@ -199,6 +202,15 @@ fun PosViewModel.getTotalPrice(): Long {
     return (subtotal + tax + service - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
 }
 
+// ================================================================
+// PROCESS PAYMENT (MODUL G-2b PATCH)
+// ================================================================
+// Perubahan:
+//   + Parameter `birthdayDiscountPercent: Double = 0.0`
+//   + Birthday discount calc (jika hari ini == birthDate pelanggan)
+//   + updateCustomerStats (lastVisitDate, totalSpending, points) atomik
+//     menggantikan updateCustomerPoints yang lama
+// ================================================================
 fun PosViewModel.processPayment(
     cashReceived: Long,
     userId: Long,
@@ -206,6 +218,7 @@ fun PosViewModel.processPayment(
     isSplitBill: Boolean = false,
     method: String = "CASH",
     maxDiscountCap: Long = 0L,
+    birthdayDiscountPercent: Double = 0.0,
     onSuccess: (TransactionEntity) -> Unit
 ) {
     val itemsToProcess = if (isSplitBill) _cart.value.filter { it.isSelectedForSplit } else _cart.value
@@ -243,7 +256,17 @@ fun PosViewModel.processPayment(
         else if (customer.points >= 100) tierDiscount = (subtotal * 0.02).toLong()
     }
 
-    var currentDiscount = if (isSplitBill) promoDiscount else (_discount.value + _voucherDiscount.value + tierDiscount + promoDiscount)
+    // MODUL G-2b: birthday discount (hanya untuk non-split bill)
+    var birthdayDiscount = 0L
+    if (!isSplitBill && customer != null && birthdayDiscountPercent > 0.0 && isBirthdayToday(customer)) {
+        birthdayDiscount = (subtotal * birthdayDiscountPercent / 100.0).toLong()
+    }
+
+    var currentDiscount = if (isSplitBill) {
+        promoDiscount
+    } else {
+        _discount.value + _voucherDiscount.value + tierDiscount + promoDiscount + birthdayDiscount
+    }
     
     if (maxDiscountCap > 0 && currentDiscount > maxDiscountCap) {
         currentDiscount = maxDiscountCap
@@ -335,18 +358,32 @@ fun PosViewModel.processPayment(
                     }
                 }
 
+                // MODUL G-2b: update stats pelanggan (lastVisitDate, totalSpending, points) atomik.
+                // Berlaku untuk non-split bill, ada pelanggan, dan BUKAN metode BON.
                 if (!isSplitBill && _selectedCustomer.value != null && method != "BON") {
                     val earnedPoints = (total / 10000).toInt()
                     val finalPoints = (customer!!.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
-                    customerDao.updateCustomerPoints(customer.id, finalPoints)
+                    customerDao.updateCustomerStats(
+                        customerId = customer.id,
+                        visitTime = System.currentTimeMillis(),
+                        spent = total,
+                        newPoints = finalPoints
+                    )
                 }
 
                 if (totalCommission > 0) { userDao.addCommission(userId, totalCommission) }
 
+                // MODUL G-2b: audit log dengan info birthday discount (jika ada).
+                val auditAction = buildString {
+                    append("TRANSAKSI ($method) Cabang #${_currentBranchId.value}: ${formatRupiah(total)} ($customerName)")
+                    if (birthdayDiscount > 0) {
+                        append(" [BIRTHDAY DISCOUNT: ${formatRupiah(birthdayDiscount)}]")
+                    }
+                }
                 userDao.insertAuditLog(
                     AuditLogEntity(
                         userId = userId, userName = userName, 
-                        action = "TRANSAKSI ($method) Cabang #${_currentBranchId.value}: ${formatRupiah(total)} ($customerName)",
+                        action = auditAction,
                         actionType = "TRANSACTION"
                     )
                 )
@@ -375,6 +412,14 @@ fun PosViewModel.processPayment(
     }
 }
 
+// ================================================================
+// PAY UNPAID TRANSACTION (BON pelunasan)
+// ================================================================
+// Catatan: BON yang lunas TIDAK memberikan poin/update stats CRM
+// untuk kesederhanaan dan konsistensi dengan design awal. Kalau
+// nanti mau ubah, tinggal tambah updateCustomerStatsByCustomerName
+// di sini setelah transactionDao.updateTransactionStatus.
+// ================================================================
 fun PosViewModel.payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -417,6 +462,15 @@ fun PosViewModel.payUnpaidTransaction(transaction: TransactionEntity, cashReceiv
     }
 }
 
+// ================================================================
+// REFUND (MODUL G-2b PATCH)
+// ================================================================
+// Perubahan:
+//   + Setelah refund, kurangi totalSpending pelanggan yang relevan
+//     (via getCustomerByNameOnce, skip jika "Pelanggan Umum").
+//   + Poin TIDAK di-rollback (kebijakan bisnis: pelanggan tetap
+//     pegang poin yang sudah didapat).
+// ================================================================
 fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -440,9 +494,19 @@ fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, 
                 }
 
                 transactionDao.refundTransaction(transaction.id)
+
+                // MODUL G-2b: reduce totalSpending pelanggan yang relevan.
+                // Skip jika "Pelanggan Umum" (bukan pelanggan terdaftar).
+                if (transaction.customerName != "Pelanggan Umum" && transaction.customerName.isNotBlank()) {
+                    val customer = customerDao.getCustomerByNameOnce(transaction.customerName)
+                    if (customer != null) {
+                        customerDao.reduceCustomerSpending(customer.id, transaction.totalPrice)
+                    }
+                }
+
                 userDao.insertAuditLog(AuditLogEntity(
                     userId = currentUser.id, userName = currentUser.name, 
-                    action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name})",
+                    action = "REFUND TRANSAKSI #${transaction.id} (Oleh: ${supervisor.name}) - ${formatRupiah(transaction.totalPrice)}",
                     actionType = "TRANSACTION"
                 ))
             }
@@ -454,6 +518,13 @@ fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, 
     }
 }
 
+// ================================================================
+// VOID TRANSACTION
+// ================================================================
+// Void = transaksi dibatalkan sebelum/sesudah dibayar. Kalau SUCCESS,
+// void seharusnya juga kurangi spending pelanggan. Untuk amannya,
+// kita terapkan patch yang sama seperti refund.
+// ================================================================
 fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -465,6 +536,7 @@ fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: 
             }
 
             val itemsToRestore = transactionItemDao.getItemsByTransaction(transaction.id).first()
+            val wasSuccess = transaction.status == "SUCCESS"
             
             database.withTransaction {
                 itemsToRestore.forEach { item ->
@@ -477,6 +549,17 @@ fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: 
                 }
 
                 transactionDao.voidTransaction(transaction.id)
+
+                // MODUL G-2b: kalau transaksi sebelumnya SUCCESS, kurangi
+                // totalSpending pelanggan (uang sebenarnya sudah diterima
+                // lalu di-void = dianggap tidak jadi).
+                if (wasSuccess && transaction.customerName != "Pelanggan Umum" && transaction.customerName.isNotBlank()) {
+                    val customer = customerDao.getCustomerByNameOnce(transaction.customerName)
+                    if (customer != null) {
+                        customerDao.reduceCustomerSpending(customer.id, transaction.totalPrice)
+                    }
+                }
+
                 userDao.insertAuditLog(AuditLogEntity(
                     userId = currentUser.id, userName = currentUser.name, 
                     action = "VOID TRANSAKSI #${transaction.id} (Oleh Supervisor: ${supervisor.name})",
@@ -491,6 +574,9 @@ fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: 
     }
 }
 
+// ================================================================
+// MISC POS
+// ================================================================
 fun PosViewModel.logCashDrawerOpen(user: UserEntity) {
     viewModelScope.launch(Dispatchers.IO) { 
         try {

@@ -231,8 +231,16 @@ fun PosScreen(
                     viewModel.resetQrisPayment() 
                     viewModel.resetTransferPayment()
                 }, 
-                onConfirmPayment = { cashReceived, method ->
-                    viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method, settingsManager.maxDiscountCap) { newTransaction ->
+                                onConfirmPayment = { cashReceived, method ->
+                    viewModel.processPayment(
+                        cashReceived = cashReceived,
+                        userId = currentUser.id,
+                        userName = currentUser.name,
+                        isSplitBill = isSplitBillMode,
+                        method = method,
+                        maxDiscountCap = settingsManager.maxDiscountCap,
+                        birthdayDiscountPercent = if (settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0
+                    ) { newTransaction ->
                         showPaymentSheet = false
                         if (!isSplitBillMode) showCartOnPhone = false
                         completedTransaction = newTransaction
@@ -410,11 +418,13 @@ fun PosScreen(
             )
         }
 
-        if (showCustomerDialog) {
-            CustomerDialog(
-                customers = customers, selectedCustomer = selectedCustomer,
+                if (showCustomerDialog) {
+            CustomerDialogV2(
+                viewModel = viewModel,
+                customers = customers,
+                selectedCustomer = selectedCustomer,
                 onSelect = { viewModel.setCustomer(it); showCustomerDialog = false },
-                onAddCustomer = { name, phone -> viewModel.addCustomer(name, phone) },
+                onAddCustomer = { name, phone, birthDate -> viewModel.addCustomer(name, phone, birthDate) },
                 onRedeemPoints = { points -> viewModel.redeemPoints(points) },
                 onDismiss = { showCustomerDialog = false }
             )
