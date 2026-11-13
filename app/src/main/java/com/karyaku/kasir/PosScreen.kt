@@ -192,11 +192,10 @@ fun PosScreen(
     }
 
     // --- FITUR CFD (CUSTOMER DISPLAY) ---
-    // FIX #2: sekarang menerima `cart` utuh dan menampilkan daftar item
-    // dengan auto-scroll ke bawah saat item baru ditambahkan.
     if (showCfd) {
         CustomerDisplayDialog(
             storeName = settingsManager.storeName ?: "ZoKas",
+            storeLogoPath = settingsManager.storeLogoPath, // FIX: Tambahkan Logo
             cart = cart,
             totalPrice = totalPrice,
             onDismiss = onDismissCfd
@@ -621,19 +620,12 @@ fun PosScreen(
 }
 
 // ====================================================================
-// FIX #2: CUSTOMER DISPLAY DIALOG (CFD) — REDESIGN
-// ====================================================================
-// Perubahan:
-//   - Menampilkan daftar item (gambar, nama, varian, qty, harga, subtotal).
-//   - LazyColumn scrollable vertikal.
-//   - Auto-scroll ke bawah saat item baru masuk (pakai LaunchedEffect
-//     yang trigger saat `cart.size` atau total qty berubah).
-//   - Header & footer tetap ringkas agar list item dapat ruang maksimal.
-//   - Empty state eksplisit saat cart kosong.
+// CUSTOMER DISPLAY DIALOG (CFD)
 // ====================================================================
 @Composable
 fun CustomerDisplayDialog(
     storeName: String,
+    storeLogoPath: String?,
     cart: List<CartItem>,
     totalPrice: Long,
     onDismiss: () -> Unit
@@ -647,16 +639,10 @@ fun CustomerDisplayDialog(
             color = MaterialTheme.colorScheme.background
         ) {
             val listState = rememberLazyListState()
-            // Total quantity dipakai sebagai trigger agar auto-scroll
-            // tetap jalan meski kasir menambah qty ke item yang sama
-            // (cart.size tetap, tetapi total qty berubah).
             val totalQty = cart.sumOf { it.quantity }
 
-            // AUTO-SCROLL: setiap kali item baru / qty berubah, gulir ke
-            // item terakhir agar pelanggan langsung melihat pesanan baru.
             LaunchedEffect(cart.size, totalQty) {
                 if (cart.isNotEmpty()) {
-                    // delay kecil agar layout selesai dulu sebelum scroll.
                     kotlinx.coroutines.delay(50)
                     listState.animateScrollToItem(cart.size - 1)
                 }
@@ -669,6 +655,19 @@ fun CustomerDisplayDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // ---------------- HEADER ----------------
+                val logoFile = remember(storeLogoPath) {
+                    if (!storeLogoPath.isNullOrBlank()) File(storeLogoPath) else null
+                }
+
+                if (logoFile != null && logoFile.exists()) {
+                    AsyncImage(
+                        model = logoFile,
+                        contentDescription = "Store Logo",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(72.dp).padding(bottom = 8.dp)
+                    )
+                }
+
                 Text(
                     text = storeName,
                     style = MaterialTheme.typography.titleLarge,
@@ -773,13 +772,8 @@ fun CustomerDisplayDialog(
     }
 }
 
-// ====================================================================
-// Baris item untuk CFD
-// ====================================================================
 @Composable
 private fun CfdItemRow(item: CartItem) {
-    // Logika harga sama persis dengan perhitungan subtotal di PosScreen,
-    // supaya tidak ada selisih visual antara keranjang, struk, dan CFD.
     val unitPrice = when {
         item.usedMembershipId != null -> 0L
         item.product.wholesaleMinQty > 0
@@ -798,7 +792,6 @@ private fun CfdItemRow(item: CartItem) {
             modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Gambar produk atau ikon fallback
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -851,7 +844,6 @@ private fun CfdItemRow(item: CartItem) {
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Qty badge kecil
             Surface(
                 color = EmeraldGreen.copy(alpha = 0.12f),
                 shape = CircleShape
