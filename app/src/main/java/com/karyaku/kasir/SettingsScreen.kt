@@ -7,8 +7,8 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -116,9 +116,10 @@ fun SettingsScreen(
     var showPayableDialog by remember { mutableStateOf(false) }
     
     // ================================================================
-    // MODUL D-1: State dialog kelola cabang
+    // MODUL D-1 + D-2: State dialog multi-cabang
     // ================================================================
     var showBranchManagementDialog by remember { mutableStateOf(false) }
+    var showStockTransferDialog by remember { mutableStateOf(false) }
     
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
@@ -131,9 +132,7 @@ fun SettingsScreen(
     val purchases by viewModel.purchases.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     
-    // ================================================================
-    // MODUL D-1: Data cabang untuk kartu "Kelola Cabang"
-    // ================================================================
+    // Data cabang
     val currentBranch by viewModel.currentBranch.collectAsStateWithLifecycle()
     val allBranches by viewModel.allBranches.collectAsStateWithLifecycle()
     
@@ -206,14 +205,21 @@ fun SettingsScreen(
         )
     }
     
-    // ================================================================
     // MODUL D-1: Dialog kelola cabang
-    // ================================================================
     if (showBranchManagementDialog) {
         BranchManagementDialog(
             viewModel = viewModel,
             currentUser = currentUser,
             onDismiss = { showBranchManagementDialog = false }
+        )
+    }
+    
+    // MODUL D-2: Dialog transfer stok
+    if (showStockTransferDialog) {
+        StockTransferDialog(
+            viewModel = viewModel,
+            currentUser = currentUser,
+            onDismiss = { showStockTransferDialog = false }
         )
     }
     
@@ -387,14 +393,16 @@ fun SettingsScreen(
         }
 
         // ============================================================
-        // 2b. MODUL D-1: Card Multi-Cabang (hanya OWNER)
+        // 2b. MODUL D-1 + D-2: Card Multi-Cabang (hanya OWNER)
         // ============================================================
         if (currentUser.role == "OWNER") {
             item {
                 SettingsBranchManagementCard(
                     currentBranch = currentBranch,
                     totalBranches = allBranches.size,
-                    onManageClick = { showBranchManagementDialog = true }
+                    onManageClick = { showBranchManagementDialog = true },
+                    onTransferClick = { showStockTransferDialog = true },
+                    canTransfer = allBranches.size > 1
                 )
             }
         }
@@ -546,17 +554,21 @@ fun SettingsScreen(
 }
 
 // ====================================================================
-// MODUL D-1 — Card Multi-Cabang (khusus OWNER)
+// MODUL D-1 + D-2 — Card Multi-Cabang (khusus OWNER)
 // ====================================================================
 // Card ringkas di Pengaturan. Menampilkan cabang aktif + total cabang,
-// dengan tombol "Kelola Cabang" yang membuka BranchManagementDialog.
-// Akses utama tetap via menu titik tiga, ini alternatif di Pengaturan.
+// dengan 2 tombol:
+//   - KELOLA CABANG (outlined) : buka BranchManagementDialog
+//   - TRANSFER STOK (filled)   : buka StockTransferDialog
+// Tombol TRANSFER disabled jika hanya ada 1 cabang.
 // ====================================================================
 @Composable
 private fun SettingsBranchManagementCard(
     currentBranch: BranchEntity?,
     totalBranches: Int,
-    onManageClick: () -> Unit
+    onManageClick: () -> Unit,
+    onTransferClick: () -> Unit,
+    canTransfer: Boolean
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -651,24 +663,73 @@ private fun SettingsBranchManagementCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
-                onClick = onManageClick,
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
-                shape = RoundedCornerShape(12.dp)
+            // ============================================================
+            // 2 TOMBOL BERDAMPINGAN
+            // ============================================================
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    Icons.Default.Settings,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+                // Tombol Kelola Cabang (outlined)
+                OutlinedButton(
+                    onClick = onManageClick,
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, EmeraldGreen),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldGreen),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = EmeraldGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "KELOLA",
+                        color = EmeraldGreen,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+
+                // Tombol Transfer Stok (filled)
+                Button(
+                    onClick = onTransferClick,
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    enabled = canTransfer,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EmeraldGreen,
+                        disabledContainerColor = EmeraldGreen.copy(alpha = 0.3f)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.SwapHoriz,
+                        contentDescription = null,
+                        tint = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "TRANSFER",
+                        color = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            // Info tambahan jika belum bisa transfer
+            if (!canTransfer) {
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "KELOLA CABANG",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
+                    text = "Butuh minimal 2 cabang untuk transfer stok.",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                 )
             }
         }

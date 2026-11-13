@@ -73,7 +73,7 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // PHASE 0 SESI 3: Auto backup aman pakai VACUUM INTO
+        // Auto backup VACUUM INTO
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -200,8 +200,6 @@ fun MainContent(
                 settingsManager = settingsManager,
                 viewModel = posViewModel,
                 onSetupComplete = { newAdmin -> 
-                    // MODUL D-1: inisialisasi cabang untuk admin baru
-                    // (cabang default dari user.branchId yang dibuat setup).
                     posViewModel.initCurrentBranchForUser(newAdmin)
                     onUserChange(newAdmin) 
                 }
@@ -211,8 +209,6 @@ fun MainContent(
                 viewModel = posViewModel, 
                 settingsManager = settingsManager, 
                 onLoginSuccess = { user -> 
-                    // MODUL D-1: inisialisasi cabang sesuai user yang login.
-                    // OWNER: bisa switch. CASHIER: terkunci ke branchId user.
                     posViewModel.initCurrentBranchForUser(user)
                     onUserChange(user) 
                 }
@@ -266,8 +262,9 @@ fun MainNavigation(
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
-    // MODUL D-1: dialog kelola cabang
     var showBranchManagementDialog by remember { mutableStateOf(false) }
+    // MODUL D-2: dialog transfer stok
+    var showStockTransferDialog by remember { mutableStateOf(false) }
 
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
@@ -356,9 +353,7 @@ fun MainNavigation(
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
             ) {
-                // ============================================================
                 // BARIS 1: Logo, Nama Toko, Status Online, Ikon Aksi
-                // ============================================================
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -435,12 +430,17 @@ fun MainNavigation(
                                     onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
                                 )
                                 HorizontalDivider()
-                                // MODUL D-1: Kelola Cabang (khusus OWNER)
+                                // MODUL D-1 + D-2: Menu Multi-Cabang (khusus OWNER)
                                 if (currentUser.role == "OWNER") {
                                     DropdownMenuItem(
                                         text = { Text("Kelola Cabang") }, 
                                         leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = EmeraldGreen) }, 
                                         onClick = { showBranchManagementDialog = true; showMenu = false } 
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Transfer Stok") }, 
+                                        leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = EmeraldGreen) }, 
+                                        onClick = { showStockTransferDialog = true; showMenu = false } 
                                     )
                                 }
                                 DropdownMenuItem(
@@ -453,9 +453,7 @@ fun MainNavigation(
                     }
                 }
 
-                // ============================================================
                 // BARIS 2: Branch Selector + Badge Shift Aktif
-                // ============================================================
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -475,7 +473,6 @@ fun MainNavigation(
                     
                     Spacer(modifier = Modifier.weight(1f))
                     
-                    // Badge shift aktif — hanya tampil kalau ada shift.
                     val shift = activeShift
                     if (shift != null) {
                         Surface(
@@ -599,17 +596,21 @@ fun MainNavigation(
                 }
             }
 
-            // ============================================================
             // MODUL D-1: Dialog Kelola Cabang
-            // ============================================================
-            // BranchManagementDialog akan dibuat di Sesi D-1f.
-            // Build akan gagal sampai file itu ada — ini NORMAL.
-            // ============================================================
             if (showBranchManagementDialog) {
                 BranchManagementDialog(
                     viewModel = viewModel,
                     currentUser = currentUser,
                     onDismiss = { showBranchManagementDialog = false }
+                )
+            }
+
+            // MODUL D-2: Dialog Transfer Stok
+            if (showStockTransferDialog) {
+                StockTransferDialog(
+                    viewModel = viewModel,
+                    currentUser = currentUser,
+                    onDismiss = { showStockTransferDialog = false }
                 )
             }
         }

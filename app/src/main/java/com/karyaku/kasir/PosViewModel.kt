@@ -47,15 +47,10 @@ class PosViewModel(
     private val reservationDao = database.reservationDao() 
     private val expenseDao = database.expenseDao()
     private val stockOpnameDao = database.stockOpnameDao()
+    private val stockTransferDao = database.stockTransferDao() // MODUL D-2
 
     // ================================================================
     // MODUL D-1: STATE MULTI-CABANG
-    // ================================================================
-    // _currentBranchId : cabang yang sedang aktif di UI.
-    //                    Default 1L sebelum user login.
-    // _isBranchSwitchLocked : true kalau user CASHIER (tidak bisa switch).
-    // _allBranches      : daftar semua cabang (untuk dropdown).
-    // currentBranch     : BranchEntity cabang aktif (untuk header).
     // ================================================================
     private val _currentBranchId = MutableStateFlow(1L)
     val currentBranchId: StateFlow<Long> = _currentBranchId.asStateFlow()
@@ -69,6 +64,19 @@ class PosViewModel(
     val currentBranch: StateFlow<BranchEntity?> = combine(_currentBranchId, _allBranches) { id, branches ->
         branches.find { it.id == id }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // ================================================================
+    // MODUL D-2: STATE TRANSFER STOK
+    // ================================================================
+    // stockTransfers           : semua transfer lintas cabang (OWNER view).
+    // transfersForCurrentBranch: transfer yang melibatkan cabang aktif,
+    //                            baik sebagai asal maupun tujuan.
+    // ================================================================
+    private val _stockTransfers = MutableStateFlow<List<StockTransferEntity>>(emptyList())
+    val stockTransfers: StateFlow<List<StockTransferEntity>> = _stockTransfers.asStateFlow()
+
+    private val _transfersForCurrentBranch = MutableStateFlow<List<StockTransferEntity>>(emptyList())
+    val transfersForCurrentBranch: StateFlow<List<StockTransferEntity>> = _transfersForCurrentBranch.asStateFlow()
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -224,19 +232,13 @@ class PosViewModel(
 
         // ============================================================
         // MODUL D-1: Flow cabang-aware.
-        // Setiap kali _currentBranchId berubah, re-subscribe query
-        // ke cabang baru. Data global (raw materials, suppliers, dsb)
-        // tetap ter-load sekali.
         // ============================================================
-
-        // Global branches.
         viewModelScope.launch {
             branchDao.getAllBranches().catch { _allBranches.value = emptyList() }.collectLatest {
                 _allBranches.value = it
             }
         }
 
-        // Produk per cabang.
         viewModelScope.launch {
             _currentBranchId.collectLatest { branchId ->
                 productDao.getProductsByBranch(branchId)
@@ -245,7 +247,6 @@ class PosViewModel(
             }
         }
 
-        // Transaksi per cabang.
         viewModelScope.launch {
             _currentBranchId.collectLatest { branchId ->
                 transactionDao.getTransactionsByBranch(branchId)
@@ -254,7 +255,6 @@ class PosViewModel(
             }
         }
 
-        // User per cabang.
         viewModelScope.launch {
             _currentBranchId.collectLatest { branchId ->
                 userDao.getUsersByBranch(branchId)
@@ -263,12 +263,30 @@ class PosViewModel(
             }
         }
 
-        // Shift per cabang.
         viewModelScope.launch {
             _currentBranchId.collectLatest { branchId ->
                 userDao.getShiftsByBranch(branchId)
                     .catch { _shifts.value = emptyList() }
                     .collectLatest { _shifts.value = it }
+            }
+        }
+
+        // ============================================================
+        // MODUL D-2: Flow transfer stok.
+        // ============================================================
+        // Semua transfer (global) — untuk OWNER yang ingin lihat semua.
+        viewModelScope.launch {
+            stockTransferDao.getAllTransfers()
+                .catch { _stockTransfers.value = emptyList() }
+                .collectLatest { _stockTransfers.value = it }
+        }
+
+        // Transfer yang melibatkan cabang aktif (asal atau tujuan).
+        viewModelScope.launch {
+            _currentBranchId.collectLatest { branchId ->
+                stockTransferDao.getTransfersForBranch(branchId)
+                    .catch { _transfersForCurrentBranch.value = emptyList() }
+                    .collectLatest { _transfersForCurrentBranch.value = it }
             }
         }
 
@@ -315,10 +333,6 @@ class PosViewModel(
     // ================================================================
     // MODUL D-1: INIT CABANG UNTUK USER YANG LOGIN
     // ================================================================
-    // Dipanggil MainActivity setelah login sukses.
-    // - CASHIER: lock ke user.branchId (tidak bisa switch).
-    // - OWNER  : bebas, default ke user.branchId.
-    // ================================================================
     fun initCurrentBranchForUser(user: UserEntity) {
         _currentBranchId.value = user.branchId
         _isBranchSwitchLocked.value = (user.role != "OWNER")
@@ -329,11 +343,6 @@ class PosViewModel(
 
     // ================================================================
     // MODUL D-1: SWITCH CABANG
-    // ================================================================
-    // Validasi:
-    //   1. Locked (CASHIER) → tolak.
-    //   2. Ada shift aktif di cabang sekarang → tolak (tutup dulu).
-    //   3. Cabang tidak ada di database → tolak.
     // ================================================================
     fun switchBranch(newBranchId: Long, onResult: (Boolean, String) -> Unit) {
         if (_isBranchSwitchLocked.value) {
@@ -522,10 +531,9 @@ class PosViewModel(
                     )
                     userDao.insertUser(cashier)
 
-                    // MODUL D-1: setelah setup, cabang aktif = cabang utama.
                     withContext(Dispatchers.Main) {
                         _currentBranchId.value = branchId
-                        _isBranchSwitchLocked.value = false // OWNER
+                        _isBranchSwitchLocked.value = false
                         onSuccess(admin.copy(id = adminId))
                     }
                 }
@@ -544,7 +552,7 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 3 — processBarcodeScan (dipertahankan)
+    // FIX SESI 3 — processBarcodeScan (dipertahankan, branch-aware)
     // ================================================================
     fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -581,7 +589,6 @@ class PosViewModel(
                     }
                     matches.size == 1 -> {
                         val product = matches.first()
-                        // MODUL D-1: pastikan produk milik cabang aktif.
                         if (product.branchId != _currentBranchId.value) {
                             withContext(Dispatchers.Main) {
                                 onResult(false, "Produk '${product.name}' milik cabang lain.")
@@ -881,7 +888,7 @@ class PosViewModel(
     }
 
     //     // ================================================================
-    // [AWAL SESI D-1c — lanjutan dari SESI D-1b]
+    // [AWAL SESI D-2c — lanjutan dari SESI D-2b]
     // Dimulai dari: fun exportProductsToExcel(...)
     // ================================================================
 
@@ -894,9 +901,6 @@ class PosViewModel(
 
     // ================================================================
     // FIX SESI 1 — importProductsFromExcel (dipertahankan, branch-aware)
-    // ================================================================
-    // Produk baru hasil import otomatis diberi branchId = currentBranchId.
-    // Produk existing yang di-update TIDAK dipindah cabang (tetap branchId lama).
     // ================================================================
     fun importProductsFromExcel(context: android.content.Context, uri: android.net.Uri, onResult: (Int, Int) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1116,9 +1120,6 @@ class PosViewModel(
     // ================================================================
     // MODUL D-1 — checkActiveShift (branch-aware)
     // ================================================================
-    // Sebelumnya: getActiveShift() mengambil shift OPEN pertama di DB,
-    // tanpa peduli cabang. Sekarang: filter by currentBranchId.
-    // ================================================================
     fun checkActiveShift() { 
         viewModelScope.launch(Dispatchers.IO) { 
             try { 
@@ -1148,14 +1149,10 @@ class PosViewModel(
         } 
     }
     
-    // ================================================================
-    // MODUL D-1 — addUser (isi branchId = currentBranchId)
-    // ================================================================
     fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
                 val hashedPin = hashPin(pin)
-                // MODUL D-1: karyawan baru selalu masuk ke cabang aktif.
                 userDao.insertUser(UserEntity(
                     name = name, 
                     pin = hashedPin, 
@@ -1187,7 +1184,7 @@ class PosViewModel(
     }
 
     // ================================================================
-    // MODUL D-1 — openShift (isi branchId)
+    // MODUL D-1 — openShift
     // ================================================================
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1225,14 +1222,6 @@ class PosViewModel(
 
     // ================================================================
     // FIX SESI 2 + MODUL D-1 — closeShift
-    // ================================================================
-    // Perubahan:
-    //   1. Filter transaksi by shift.branchId (bukan currentBranchId).
-    //      Alasan: shift milik cabang X tetap harus ditutup dengan
-    //      perhitungan cabang X, meskipun user sudah switch ke cabang Y
-    //      (edge case yang bisa terjadi kalau switch tanpa tutup shift,
-    //      meski UI sudah mencegah).
-    //   2. Filter paymentMethod == "CASH" (dari Sesi 2).
     // ================================================================
     fun closeShift(user: UserEntity, uangFisik: Long, note: String, onSuccess: (ShiftEntity) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1276,10 +1265,6 @@ class PosViewModel(
     // ================================================================
     // FIX SESI 3 + MODUL D-1 — addProduct
     // ================================================================
-    // Perubahan:
-    //   1. (Sesi 3) Deteksi barcode duplikat → audit log WARNING.
-    //   2. (D-1)    Isi branchId = currentBranchId otomatis.
-    // ================================================================
     fun addProduct(
         name: String, price: Long, stock: Int, category: String, costPrice: Long, 
         barcode: String, variations: String, commission: Long, expiry: Long, 
@@ -1291,8 +1276,6 @@ class PosViewModel(
             try {
                 var duplicateWarning: String? = null
                 if (barcode.isNotBlank()) {
-                    // Cek duplikat di cabang yang sama (barcode boleh sama
-                    // di cabang berbeda — biasanya produk beda per cabang).
                     val existing = productDao.getProductsByBarcodeList(barcode)
                         .filter { it.branchId == _currentBranchId.value }
                     if (existing.isNotEmpty()) {
@@ -1334,17 +1317,9 @@ class PosViewModel(
     // ================================================================
     // FIX SESI 1 + SESI 3 + MODUL D-1 — updateProduct
     // ================================================================
-    // Perubahan:
-    //   1. (Sesi 1) saveProduct (UPDATE in-place), audit log setelah sukses.
-    //   2. (Sesi 3) Deteksi barcode duplikat di cabang yang sama.
-    //   3. (D-1)    Proteksi cross-branch: tolak jika product.branchId
-    //               berbeda dari currentBranchId (mencegah user di cabang A
-    //               mengedit produk milik cabang B via manipulasi data).
-    // ================================================================
     fun updateProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Proteksi: hanya bisa edit produk cabang sendiri.
                 if (product.branchId != _currentBranchId.value) {
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = userId,
@@ -1400,7 +1375,6 @@ class PosViewModel(
     fun deleteProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Proteksi: hanya bisa hapus produk cabang sendiri.
                 if (product.branchId != _currentBranchId.value) {
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = userId,
@@ -1475,9 +1449,6 @@ class PosViewModel(
 
     // ================================================================
     // MODUL D-1 — processPayment (isi branchId)
-    // ================================================================
-    // Perubahan: TransactionEntity.branchId = currentBranchId saat transaksi
-    // dibuat. Ini memastikan transaksi tercatat di cabang yang benar.
     // ================================================================
     fun processPayment(
         cashReceived: Long,
@@ -1554,7 +1525,7 @@ class PosViewModel(
             status = status,
             cashierName = userName,
             totalCommission = totalCommission,
-            branchId = _currentBranchId.value,  // MODUL D-1
+            branchId = _currentBranchId.value,
             isSynced = false,
             updatedAt = System.currentTimeMillis()
         )
@@ -1778,7 +1749,6 @@ class PosViewModel(
     // ================================================================
     // MODUL E — HUTANG SUPPLIER CICILAN (dipertahankan)
     // ================================================================
-
     fun getPaymentsForPurchase(purchaseId: Long): Flow<List<PurchasePaymentEntity>> {
         return purchasePaymentDao.getPaymentsByPurchase(purchaseId)
     }
@@ -1889,6 +1859,192 @@ class PosViewModel(
                     }
                 }
             } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    // ================================================================
+    // ================================================================
+    // MODUL D-2 — TRANSFER STOK ANTAR CABANG
+    // ================================================================
+    // ================================================================
+
+    /**
+     * Ambil riwayat item per transfer (untuk detail di UI).
+     */
+    fun getTransferItems(transferId: Long): Flow<List<StockTransferItemEntity>> {
+        return stockTransferDao.getItemsForTransfer(transferId)
+    }
+
+    /**
+     * Transfer stok dari cabang aktif (from) ke cabang tujuan (to).
+     *
+     * Parameter items: List<Pair<ProductEntity, Int>> = (produk source, qty).
+     *   produk source WAJIB milik cabang aktif saat ini.
+     *
+     * Alur transaksional:
+     *   1. Validasi: from ≠ to, items tidak kosong, qty > 0.
+     *   2. Untuk setiap item:
+     *      a. Baca fresh source product dari DB.
+     *      b. Validasi: milik from branch, bukan jasa, stok cukup.
+     *      c. Kurangi stok source.
+     *      d. Cari produk existing di destination (by barcode → fallback name).
+     *      e. Jika ada: tambah stoknya.
+     *      f. Jika tidak: auto-create produk baru di destination.
+     *   3. Insert header stock_transfers + semua items.
+     *   4. Audit log INVENTORY.
+     *
+     * Jika satu item gagal validasi, seluruh transfer di-rollback.
+     * Tidak ada partial transfer.
+     */
+    fun transferStock(
+        toBranchId: Long,
+        items: List<Pair<ProductEntity, Int>>,
+        note: String,
+        user: UserEntity,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val fromBranchId = _currentBranchId.value
+
+        if (fromBranchId == toBranchId) {
+            onResult(false, "Cabang asal dan tujuan tidak boleh sama.")
+            return
+        }
+        if (items.isEmpty()) {
+            onResult(false, "Minimal 1 item harus ditransfer.")
+            return
+        }
+        val invalidQty = items.firstOrNull { it.second <= 0 }
+        if (invalidQty != null) {
+            onResult(false, "Qty harus lebih dari 0.")
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                var totalItems = 0
+                var totalQty = 0
+                var fromBranchName = ""
+                var toBranchName = ""
+
+                database.withTransaction {
+                    val fromBranch = branchDao.getBranchById(fromBranchId)
+                        ?: throw IllegalStateException("Cabang asal tidak ditemukan.")
+                    val toBranch = branchDao.getBranchById(toBranchId)
+                        ?: throw IllegalStateException("Cabang tujuan tidak ditemukan.")
+
+                    fromBranchName = fromBranch.name
+                    toBranchName = toBranch.name
+
+                    // Snapshot produk destination (suspend, aman di transaction).
+                    val destProducts = productDao.getProductsByBranchOnce(toBranchId).toMutableList()
+
+                    val transferItemsToInsert = mutableListOf<StockTransferItemEntity>()
+
+                    items.forEach { (requestProduct, qty) ->
+                        // 1. Fresh read source
+                        val source = productDao.getProductById(requestProduct.id)
+                            ?: throw IllegalStateException("Produk '${requestProduct.name}' tidak ditemukan.")
+
+                        if (source.branchId != fromBranchId) {
+                            throw IllegalStateException("Produk '${source.name}' bukan milik cabang asal.")
+                        }
+                        if (source.isService) {
+                            throw IllegalStateException("Produk '${source.name}' adalah jasa, tidak bisa ditransfer.")
+                        }
+                        if (source.stock < qty) {
+                            throw IllegalStateException("Stok '${source.name}' tidak cukup (tersedia: ${source.stock}, diminta: $qty).")
+                        }
+
+                        // 2. Kurangi stok source
+                        productDao.updateStock(source.id, source.stock - qty)
+
+                        // 3. Cari / buat produk di destination
+                        val destExisting = destProducts.find { dest ->
+                            (source.barcode.isNotBlank() && dest.barcode == source.barcode) ||
+                            dest.name.equals(source.name, ignoreCase = true)
+                        }
+
+                        val finalDestId: Long
+                        if (destExisting != null) {
+                            productDao.updateStock(destExisting.id, destExisting.stock + qty)
+                            finalDestId = destExisting.id
+                            // Update cache lokal agar item berikutnya akurat
+                            val idx = destProducts.indexOfFirst { it.id == destExisting.id }
+                            if (idx != -1) {
+                                destProducts[idx] = destExisting.copy(stock = destExisting.stock + qty)
+                            }
+                        } else {
+                            // Auto-create produk baru di destination.
+                            // Copy semua field source, override id=0, stock=qty, branchId.
+                            val newProduct = source.copy(
+                                id = 0L,
+                                stock = qty,
+                                branchId = toBranchId,
+                                isSynced = false,
+                                updatedAt = System.currentTimeMillis()
+                            )
+                            val newId = productDao.insertProduct(newProduct)
+                            finalDestId = newId
+                            destProducts.add(newProduct.copy(id = newId))
+                        }
+
+                        transferItemsToInsert.add(
+                            StockTransferItemEntity(
+                                transferId = 0L,
+                                sourceProductId = source.id,
+                                destinationProductId = finalDestId,
+                                productName = source.name,
+                                barcode = source.barcode,
+                                quantity = qty
+                            )
+                        )
+                        totalQty += qty
+                    }
+
+                    totalItems = transferItemsToInsert.size
+
+                    // 4. Insert header
+                    val transfer = StockTransferEntity(
+                        fromBranchId = fromBranchId,
+                        fromBranchName = fromBranch.name,
+                        toBranchId = toBranchId,
+                        toBranchName = toBranch.name,
+                        note = note,
+                        userId = user.id,
+                        userName = user.name,
+                        totalItems = totalItems,
+                        totalQuantity = totalQty
+                    )
+                    val transferId = stockTransferDao.insertTransfer(transfer)
+
+                    // 5. Insert items dengan transferId
+                    stockTransferDao.insertTransferItems(
+                        transferItemsToInsert.map { it.copy(transferId = transferId) }
+                    )
+
+                    // 6. Audit log
+                    userDao.insertAuditLog(
+                        AuditLogEntity(
+                            userId = user.id,
+                            userName = user.name,
+                            action = "TRANSFER STOK: $fromBranchName → $toBranchName, $totalItems item (${totalQty} pcs). Catatan: ${note.ifBlank { "-" }}",
+                            actionType = "INVENTORY"
+                        )
+                    )
+                }
+
+                withContext(Dispatchers.Main) {
+                    onResult(
+                        true,
+                        "Transfer berhasil: $totalItems item ($totalQty pcs) dari $fromBranchName ke $toBranchName."
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onResult(false, "Transfer gagal: ${e.message}")
+                }
+            }
         }
     }
 }

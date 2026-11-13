@@ -14,10 +14,7 @@ interface ProductDao {
 
     // ================================================================
     // PHASE 0 — SESI 1: FIX SILENT FAILURE
-    // insertProduct ABORT (fail loud), updateProduct UPDATE in-place,
-    // saveProduct @Transaction wrapper. (Dipertahankan di Sesi 3)
     // ================================================================
-
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertProduct(product: ProductEntity): Long
 
@@ -34,9 +31,8 @@ interface ProductDao {
     }
 
     // ================================================================
-    // Query umum — tidak diubah.
+    // Query umum
     // ================================================================
-
     @Query("SELECT * FROM products ORDER BY id DESC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
@@ -52,28 +48,29 @@ interface ProductDao {
     // ================================================================
     // PHASE 0 — SESI 3: Barcode lookup aman
     // ================================================================
-    // Masalah lama:
-    //   getProductByBarcode() pakai LIMIT 1 → jika ada 2+ produk
-    //   dengan barcode sama (bisa terjadi via import Excel), query
-    //   mengembalikan produk arbitrer → SALAH TAMBAH KE CART.
-    //
-    // Perbaikan:
-    //   - getProductsByBarcodeList(): kembalikan SEMUA match,
-    //     filter out barcode kosong (karena "" bukan barcode valid).
-    //   - Caller (processBarcodeScan) wajib deteksi duplikat.
-    //
-    // Method lama getProductByBarcode dipertahankan untuk kompatibilitas
-    // (tidak dipakai lagi oleh processBarcodeScan, tapi jaga-jaga jika
-    // ada kode lain yang memanggil).
-    // ================================================================
-
     @Query("SELECT * FROM products WHERE barcode = :barcode AND barcode != ''")
     suspend fun getProductsByBarcodeList(barcode: String): List<ProductEntity>
 
     @Query("SELECT * FROM products WHERE barcode = :barcode AND barcode != '' LIMIT 1")
     suspend fun getProductByBarcode(barcode: String): ProductEntity?
 
-    // Bahan Baku & Resep — tidak diubah.
+    // ================================================================
+    // MODUL D-2: Query suspend untuk transfer stok
+    // ================================================================
+    // Kenapa perlu method ini?
+    //   - transferStock() jalan di dalam withTransaction.
+    //   - Query Flow (getProductsByBranch, getAllProducts) TIDAK BOLEH
+    //     dipanggil .first() di dalam transaction — Room akan deadlock.
+    //   - Jadi kita butuh query suspend (bukan Flow) untuk snapshot
+    //     produk fresh di dalam transaction.
+    // ================================================================
+    @Query("SELECT * FROM products WHERE id = :id LIMIT 1")
+    suspend fun getProductById(id: Long): ProductEntity?
+
+    @Query("SELECT * FROM products WHERE branchId = :branchId")
+    suspend fun getProductsByBranchOnce(branchId: Long): List<ProductEntity>
+
+    // Bahan Baku & Resep
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRawMaterial(material: RawMaterialEntity)
 

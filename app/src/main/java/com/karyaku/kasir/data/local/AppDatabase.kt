@@ -31,9 +31,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ReservationEntity::class, 
         ExpenseEntity::class,
         StockOpnameEntity::class,
-        StockOpnameItemEntity::class
+        StockOpnameItemEntity::class,
+        StockTransferEntity::class,     // MODUL D-2
+        StockTransferItemEntity::class  // MODUL D-2
     ], 
-    version = 30, 
+    version = 31, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -53,6 +55,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reservationDao(): ReservationDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun stockOpnameDao(): StockOpnameDao
+    abstract fun stockTransferDao(): StockTransferDao // MODUL D-2
 
     companion object {
         @Volatile
@@ -178,18 +181,11 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ================================================================
         // 11. MIGRASI MODUL D-1 — Multi-Cabang Shift (29 -> 30)
-        // ================================================================
-        // Shift per cabang agar buka/tutup kasir terisolasi per cabang.
-        // Backfill: shift lama dianggap milik cabang user-nya. Kalau user
-        // tidak ditemukan (data corrupt), default ke cabang 1.
-        // ================================================================
         private val MIGRATION_29_30 = object : Migration(29, 30) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE shifts ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
                 
-                // Backfill dari user.branchId (kalau user masih ada).
                 database.execSQL(
                     """
                     UPDATE shifts 
@@ -202,6 +198,55 @@ abstract class AppDatabase : RoomDatabase() {
                 
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_branchId` ON `shifts` (`branchId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_status` ON `shifts` (`status`)")
+            }
+        }
+
+        // ================================================================
+        // 12. MIGRASI MODUL D-2 — Transfer Stok Antar Cabang (30 -> 31)
+        // ================================================================
+        // Tabel baru untuk header & item transfer stok antar cabang.
+        // Instant transfer: tidak perlu seed data lama karena hanya
+        // menyimpan aktivitas yang terjadi setelah v31.
+        // ================================================================
+        private val MIGRATION_30_31 = object : Migration(30, 31) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `stock_transfers` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `fromBranchId` INTEGER NOT NULL,
+                        `fromBranchName` TEXT NOT NULL,
+                        `toBranchId` INTEGER NOT NULL,
+                        `toBranchName` TEXT NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `note` TEXT NOT NULL,
+                        `userId` INTEGER NOT NULL,
+                        `userName` TEXT NOT NULL,
+                        `totalItems` INTEGER NOT NULL,
+                        `totalQuantity` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `stock_transfer_items` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `transferId` INTEGER NOT NULL,
+                        `sourceProductId` INTEGER NOT NULL,
+                        `destinationProductId` INTEGER NOT NULL,
+                        `productName` TEXT NOT NULL,
+                        `barcode` TEXT NOT NULL,
+                        `quantity` INTEGER NOT NULL,
+                        FOREIGN KEY(`transferId`) REFERENCES `stock_transfers`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfers_fromBranchId` ON `stock_transfers` (`fromBranchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfers_toBranchId` ON `stock_transfers` (`toBranchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfers_timestamp` ON `stock_transfers` (`timestamp`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_transfer_items_transferId` ON `stock_transfer_items` (`transferId`)")
             }
         }
 
@@ -223,7 +268,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_26_27,
                     MIGRATION_27_28,
                     MIGRATION_28_29,
-                    MIGRATION_29_30
+                    MIGRATION_29_30,
+                    MIGRATION_30_31
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
