@@ -43,7 +43,12 @@ class PosViewModel(
     internal val expenseDao = database.expenseDao()
     internal val stockOpnameDao = database.stockOpnameDao()
     internal val stockTransferDao = database.stockTransferDao()
-    internal val kitchenTicketDao = database.kitchenTicketDao() // MODUL B (KDS)
+    internal val kitchenTicketDao = database.kitchenTicketDao() // MODUL B
+
+    // STATE KDS (KITCHEN DISPLAY SYSTEM)
+    val activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> = kitchenTicketDao.getActiveTickets()
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // STATE MULTI-CABANG
     internal val _currentBranchId = MutableStateFlow(1L)
