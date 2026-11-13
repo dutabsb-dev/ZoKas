@@ -402,8 +402,8 @@ private fun generateReceiptBitmap(
     return try {
         val width = 600
         var height = 200
-        
-        val textSize = 24f
+        val textSizeBase = 24f // Renamed for safety
+
         height += (items?.size ?: 0) * 60
         height += 400
 
@@ -413,33 +413,32 @@ private fun generateReceiptBitmap(
 
         val paint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSize
+            textSize = textSizeBase
             typeface = Typeface.MONOSPACE
             isAntiAlias = true
         }
         val boldPaint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSize
+            textSize = textSizeBase
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             isAntiAlias = true
         }
         val centerPaint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSize
+            textSize = textSizeBase
             typeface = Typeface.MONOSPACE
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
         }
         val centerBoldPaint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSize + 10f
+            textSize = textSizeBase + 10f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
         }
 
-        // Menggunakan array 1 elemen agar nilai y bisa diubah-ubah (mutabel)
-        val yPosition = floatArrayOf(50f)
+        var y = 50f
         val centerX = width / 2f
         val leftX = 40f
         val rightX = width - 40f
@@ -452,102 +451,102 @@ private fun generateReceiptBitmap(
                 val scaledLogo = Bitmap.createScaledBitmap(logoBitmap, logoWidth, logoHeight, true)
                 
                 val left = (width - logoWidth) / 2f
-                canvas.drawBitmap(scaledLogo, left, yPosition[0], null)
-                yPosition[0] += logoHeight + 20f
+                canvas.drawBitmap(scaledLogo, left, y, null)
+                y += logoHeight + 20f
             }
         }
 
-        canvas.drawText(storeName, centerX, yPosition[0], centerBoldPaint); yPosition[0] += 35f
-        canvas.drawText(storeAddress, centerX, yPosition[0], centerPaint); yPosition[0] += 25f
-        canvas.drawText("Telp: $storePhone", centerX, yPosition[0], centerPaint); yPosition[0] += 35f
+        canvas.drawText(storeName, centerX, y, centerBoldPaint); y += 35f
+        canvas.drawText(storeAddress, centerX, y, centerPaint); y += 25f
+        canvas.drawText("Telp: $storePhone", centerX, y, centerPaint); y += 35f
 
         val line = "=============================================="
-        canvas.drawText(line, centerX, yPosition[0], centerPaint); yPosition[0] += 30f
+        canvas.drawText(line, centerX, y, centerPaint); y += 30f
 
         val dateStr = dateFormat.format(Date(transaction.timestamp))
-        canvas.drawText("ID: #${transaction.id} | $dateStr", leftX, yPosition[0], paint); yPosition[0] += 30f
-        canvas.drawText("Tipe: ${transaction.orderType}", leftX, yPosition[0], boldPaint); yPosition[0] += 30f
+        canvas.drawText("ID: #${transaction.id} | $dateStr", leftX, y, paint); y += 30f
+        canvas.drawText("Tipe: ${transaction.orderType}", leftX, y, boldPaint); y += 30f
         if (transaction.pickupDate > 0) {
-            canvas.drawText("Ambil: ${dateFormat.format(Date(transaction.pickupDate))}", leftX, yPosition[0], paint); yPosition[0] += 30f
+            canvas.drawText("Ambil: ${dateFormat.format(Date(transaction.pickupDate))}", leftX, y, paint); y += 30f
         }
-        canvas.drawText("Kasir: ${transaction.cashierName} | ${transaction.tableName}", leftX, yPosition[0], paint); yPosition[0] += 30f
-        canvas.drawText("Pelanggan: ${transaction.customerName}", leftX, yPosition[0], paint); yPosition[0] += 30f
+        canvas.drawText("Kasir: ${transaction.cashierName} | ${transaction.tableName}", leftX, y, paint); y += 30f
+        canvas.drawText("Pelanggan: ${transaction.customerName}", leftX, y, paint); y += 30f
 
-        canvas.drawText(line, centerX, yPosition[0], centerPaint); yPosition[0] += 30f
+        canvas.drawText(line, centerX, y, centerPaint); y += 30f
 
         items?.forEach { item ->
-            canvas.drawText("${item.quantity}x ${item.productName}", leftX, yPosition[0], paint)
+            canvas.drawText("${item.quantity}x ${item.productName}", leftX, y, paint)
             val priceText = formatRupiah(item.subtotal)
-            canvas.drawText(priceText, rightX - paint.measureText(priceText), yPosition[0], paint)
-            yPosition[0] += 30f
+            canvas.drawText(priceText, rightX - paint.measureText(priceText), y, paint)
+            y += 30f
 
             if (item.notes.isNotEmpty()) {
-                canvas.drawText("  *Cat: ${item.notes}", leftX, yPosition[0], paint); yPosition[0] += 25f
+                canvas.drawText("  *Cat: ${item.notes}", leftX, y, paint); y += 25f
             }
             if (item.serialNumber.isNotEmpty()) {
-                canvas.drawText("  *SN: ${item.serialNumber}", leftX, yPosition[0], paint); yPosition[0] += 25f
+                canvas.drawText("  *SN: ${item.serialNumber}", leftX, y, paint); y += 25f
             }
             if (item.assignedStaff.isNotEmpty()) {
-                canvas.drawText("  *Staf: ${item.assignedStaff}", leftX, yPosition[0], paint); yPosition[0] += 25f
+                canvas.drawText("  *Staf: ${item.assignedStaff}", leftX, y, paint); y += 25f
             }
         }
 
         val dashLine = "----------------------------------------------"
-        canvas.drawText(dashLine, centerX, yPosition[0], centerPaint); yPosition[0] += 30f
+        canvas.drawText(dashLine, centerX, y, centerPaint); y += 30f
 
         val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
-        canvas.drawText("Subtotal:", leftX, yPosition[0], paint)
+        canvas.drawText("Subtotal:", leftX, y, paint)
         
         val valStrSubtotal = formatRupiah(subtotalItems)
         val valWidthSubtotal = paint.measureText(valStrSubtotal)
-        canvas.drawText(valStrSubtotal, rightX - valWidthSubtotal, yPosition[0], paint); yPosition[0] += 30f
+        canvas.drawText(valStrSubtotal, rightX - valWidthSubtotal, y, paint); y += 30f
 
         if (transaction.taxAmount > 0) {
-            canvas.drawText("Pajak:", leftX, yPosition[0], paint)
+            canvas.drawText("Pajak:", leftX, y, paint)
             val valStrPajak = formatRupiah(transaction.taxAmount)
             val valWidthPajak = paint.measureText(valStrPajak)
-            canvas.drawText(valStrPajak, rightX - valWidthPajak, yPosition[0], paint); yPosition[0] += 30f
+            canvas.drawText(valStrPajak, rightX - valWidthPajak, y, paint); y += 30f
         }
         if (transaction.serviceCharge > 0) {
-            canvas.drawText("Service Charge:", leftX, yPosition[0], paint)
+            canvas.drawText("Service Charge:", leftX, y, paint)
             val valStrService = formatRupiah(transaction.serviceCharge)
             val valWidthService = paint.measureText(valStrService)
-            canvas.drawText(valStrService, rightX - valWidthService, yPosition[0], paint); yPosition[0] += 30f
+            canvas.drawText(valStrService, rightX - valWidthService, y, paint); y += 30f
         }
 
         val diskon = subtotalItems + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
         if (diskon > 0) {
-            canvas.drawText("Diskon/Poin:", leftX, yPosition[0], paint)
+            canvas.drawText("Diskon/Poin:", leftX, y, paint)
             val valStrDiskon = "- ${formatRupiah(diskon)}"
             val valWidthDiskon = paint.measureText(valStrDiskon)
-            canvas.drawText(valStrDiskon, rightX - valWidthDiskon, yPosition[0], paint); yPosition[0] += 30f
+            canvas.drawText(valStrDiskon, rightX - valWidthDiskon, y, paint); y += 30f
         }
 
-        yPosition[0] += 10f
-        canvas.drawText("Total Belanja:", leftX, yPosition[0], boldPaint)
+        y += 10f
+        canvas.drawText("Total Belanja:", leftX, y, boldPaint)
         val valStrTotal = formatRupiah(transaction.totalPrice)
         val valWidthTotal = boldPaint.measureText(valStrTotal)
-        canvas.drawText(valStrTotal, rightX - valWidthTotal, yPosition[0], boldPaint); yPosition[0] += 35f
+        canvas.drawText(valStrTotal, rightX - valWidthTotal, y, boldPaint); y += 35f
 
         if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
-            canvas.drawText("METODE: BON (BELUM BAYAR)", leftX, yPosition[0], boldPaint); yPosition[0] += 30f
+            canvas.drawText("METODE: BON (BELUM BAYAR)", leftX, y, boldPaint); y += 30f
         } else {
-            canvas.drawText("Tunai:", leftX, yPosition[0], paint)
+            canvas.drawText("Tunai:", leftX, y, paint)
             val valStrTunai = formatRupiah(transaction.cashReceived)
             val valWidthTunai = paint.measureText(valStrTunai)
-            canvas.drawText(valStrTunai, rightX - valWidthTunai, yPosition[0], paint); yPosition[0] += 30f
+            canvas.drawText(valStrTunai, rightX - valWidthTunai, y, paint); y += 30f
 
-            canvas.drawText("Kembalian:", leftX, yPosition[0], paint)
+            canvas.drawText("Kembalian:", leftX, y, paint)
             val valStrKembali = formatRupiah(transaction.changeAmount)
             val valWidthKembali = paint.measureText(valStrKembali)
-            canvas.drawText(valStrKembali, rightX - valWidthKembali, yPosition[0], paint); yPosition[0] += 30f
+            canvas.drawText(valStrKembali, rightX - valWidthKembali, y, paint); y += 30f
         }
 
-        yPosition[0] += 20f
-        canvas.drawText(line, centerX, yPosition[0], centerPaint); yPosition[0] += 30f
-        canvas.drawText(storeFooter, centerX, yPosition[0], centerPaint)
+        y += 20f
+        canvas.drawText(line, centerX, y, centerPaint); y += 30f
+        canvas.drawText(storeFooter, centerX, y, centerPaint)
 
-        Bitmap.createBitmap(bitmap, 0, 0, width, (yPosition[0] + 50).toInt())
+        Bitmap.createBitmap(bitmap, 0, 0, width, (y + 50).toInt())
     } catch (e: Exception) {
         e.printStackTrace()
         null
