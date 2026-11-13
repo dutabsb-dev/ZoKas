@@ -9,27 +9,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * ============================================================
- * REFACTOR: PosViewModel dipecah menjadi 7 file.
- * ============================================================
- * File 1 (ini)         : Class + state + init + factory
- * File 2 BranchShift   : D-1 (branch CRUD, switch, shift, cash flow, setup)
- * File 3 Product       : Product CRUD, stok, BOM, raw material, Excel, waste
- * File 4 Pos           : Cart, payment, QRIS/transfer, barcode, refund, void
- * File 5 UserCustomer  : Auth, PIN, user, customer, membership, voucher
- * File 6 SupplierTrans : Modul E (supplier, PO, payment) + Modul D-2 (transfer)
- * File 7 Misc          : Reservation, expense, stock opname, getTransactionItems
- *
- * Yang berubah: 
- *   - Semua DAO & state `_xxx` dari `private` jadi `internal` (agar extension
- *     bisa akses lintas file dalam satu module).
- *   - Semua fungsi pindah jadi extension functions `fun PosViewModel.xxx() { }`.
- *
- * API PUBLIK TIDAK BERUBAH — UI tidak perlu diubah.
- * ============================================================
- */
-
 data class CartItem(
     val product: ProductEntity, 
     var quantity: Int = 1, 
@@ -46,9 +25,7 @@ class PosViewModel(
     internal val database: AppDatabase
 ) : ViewModel() {
 
-    // ================================================================
-    // DAO REFERENCES (internal — dibutuhkan extension functions)
-    // ================================================================
+    // DAO REFERENCES
     internal val productDao = database.productDao()
     internal val transactionDao = database.transactionDao()
     internal val userDao = database.userDao()
@@ -66,11 +43,9 @@ class PosViewModel(
     internal val expenseDao = database.expenseDao()
     internal val stockOpnameDao = database.stockOpnameDao()
     internal val stockTransferDao = database.stockTransferDao()
-    internal val kitchenTicketDao = database.kitchenTicketDao()
+    internal val kitchenTicketDao = database.kitchenTicketDao() // MODUL B (KDS)
 
-    // ================================================================
-    // MODUL D-1: STATE MULTI-CABANG
-    // ================================================================
+    // STATE MULTI-CABANG
     internal val _currentBranchId = MutableStateFlow(1L)
     val currentBranchId: StateFlow<Long> = _currentBranchId.asStateFlow()
 
@@ -84,27 +59,21 @@ class PosViewModel(
         branches.find { it.id == id }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // ================================================================
-    // MODUL D-2: STATE TRANSFER STOK
-    // ================================================================
+    // STATE TRANSFER STOK
     internal val _stockTransfers = MutableStateFlow<List<StockTransferEntity>>(emptyList())
     val stockTransfers: StateFlow<List<StockTransferEntity>> = _stockTransfers.asStateFlow()
 
     internal val _transfersForCurrentBranch = MutableStateFlow<List<StockTransferEntity>>(emptyList())
     val transfersForCurrentBranch: StateFlow<List<StockTransferEntity>> = _transfersForCurrentBranch.asStateFlow()
 
-    // ================================================================
     // STATE PRODUK & BAHAN BAKU
-    // ================================================================
     internal val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
     internal val _rawMaterials = MutableStateFlow<List<RawMaterialEntity>>(emptyList())
     val rawMaterials: StateFlow<List<RawMaterialEntity>> = _rawMaterials.asStateFlow()
 
-    // ================================================================
     // STATE KAS & KEUANGAN
-    // ================================================================
     val cashFlows: StateFlow<List<CashFlowEntity>> = cashFlowDao.getAllCashFlows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -118,15 +87,11 @@ class PosViewModel(
         products.sumOf { it.stock * it.costPrice }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
-    // ================================================================
     // STATE BEST SELLER
-    // ================================================================
     internal val _bestSellers = MutableStateFlow<List<BestSellerData>>(emptyList())
     val bestSellers: StateFlow<List<BestSellerData>> = _bestSellers.asStateFlow()
 
-    // ================================================================
     // STATE PELANGGAN & MEMBERSHIP
-    // ================================================================
     internal val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
 
@@ -136,24 +101,18 @@ class PosViewModel(
     internal val _customerMemberships = MutableStateFlow<List<CustomerMembershipEntity>>(emptyList())
     val customerMemberships: StateFlow<List<CustomerMembershipEntity>> = _customerMemberships.asStateFlow()
 
-    // ================================================================
     // STATE USER & SHIFT
-    // ================================================================
     internal val _users = MutableStateFlow<List<UserEntity>>(emptyList())
     val users: StateFlow<List<UserEntity>> = _users.asStateFlow()
 
     internal val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
     val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
 
-    // ================================================================
     // STATE HOLD ORDER (PARKIR MEJA)
-    // ================================================================
     internal val _holdOrders = MutableStateFlow<List<HoldOrderEntity>>(emptyList())
     val holdOrders: StateFlow<List<HoldOrderEntity>> = _holdOrders.asStateFlow()
 
-    // ================================================================
-    // STATE SUPPLIER & PURCHASE (MODUL E)
-    // ================================================================
+    // STATE SUPPLIER & PURCHASE
     internal val _suppliers = MutableStateFlow<List<SupplierEntity>>(emptyList())
     val suppliers: StateFlow<List<SupplierEntity>> = _suppliers.asStateFlow()
 
@@ -167,24 +126,18 @@ class PosViewModel(
         .map { it ?: 0L }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
-    // ================================================================
     // STATE RESERVASI
-    // ================================================================
     internal val _reservations = MutableStateFlow<List<ReservationEntity>>(emptyList())
     val reservations: StateFlow<List<ReservationEntity>> = _reservations.asStateFlow()
 
-    // ================================================================
     // STATE FILTER PRODUK
-    // ================================================================
     internal val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
     internal val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // ================================================================
     // STATE DISKON & VOUCHER
-    // ================================================================
     internal val _discount = MutableStateFlow(0L)
     val discount: StateFlow<Long> = _discount.asStateFlow()
 
@@ -194,9 +147,7 @@ class PosViewModel(
     internal val _appliedVoucher = MutableStateFlow("")
     val appliedVoucher: StateFlow<String> = _appliedVoucher.asStateFlow()
 
-    // ================================================================
     // STATE MEJA & TIPE PESANAN
-    // ================================================================
     internal val _selectedTable = MutableStateFlow("Take-Away")
     val selectedTable: StateFlow<String> = _selectedTable.asStateFlow()
 
@@ -206,9 +157,7 @@ class PosViewModel(
     internal val _pickupDate = MutableStateFlow(0L)
     val pickupDate: StateFlow<Long> = _pickupDate.asStateFlow()
 
-    // ================================================================
     // STATE KERANJANG
-    // ================================================================
     internal val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
 
@@ -218,9 +167,7 @@ class PosViewModel(
     internal val _pointsUsed = MutableStateFlow(0)
     val pointsUsed: StateFlow<Int> = _pointsUsed.asStateFlow()
 
-    // ================================================================
     // STATE TRANSAKSI & SHIFT AKTIF
-    // ================================================================
     internal val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
     val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
 
@@ -230,15 +177,11 @@ class PosViewModel(
     internal val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    // ================================================================
     // STATE INIT
-    // ================================================================
     internal val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
-    // ================================================================
     // STATE QRIS & TRANSFER MANUAL
-    // ================================================================
     internal val _qrisDynamicString = MutableStateFlow("")
     val qrisDynamicString: StateFlow<String> = _qrisDynamicString.asStateFlow()
 
@@ -251,18 +194,14 @@ class PosViewModel(
     internal val _isTransferPaid = MutableStateFlow(false)
     val isTransferPaid: StateFlow<Boolean> = _isTransferPaid.asStateFlow()
 
-    // ================================================================
     // STATE PAJAK & SERVICE CHARGE
-    // ================================================================
     internal val _taxPercent = MutableStateFlow(0.0)
     val taxPercent: StateFlow<Double> = _taxPercent.asStateFlow()
 
     internal val _serviceChargePercent = MutableStateFlow(0.0)
     val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
-    // ================================================================
     // COMPUTED FLOWS
-    // ================================================================
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
         _transactions,
         cashFlowDao.getAllCashFlows(),
@@ -296,9 +235,7 @@ class PosViewModel(
         (holdTables + unpaidTables).distinct()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // ================================================================
     // INIT BLOCK
-    // ================================================================
     init {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -369,9 +306,7 @@ class PosViewModel(
             }
         }
 
-        // Global: raw materials, audit logs, customers, hold orders,
-        // best sellers, memberships, suppliers, purchases, reservations,
-        // expenses, stock opnames.
+        // Global: raw materials, audit logs, customers, hold orders, best sellers, memberships, suppliers, purchases, reservations, expenses, stock opnames.
         viewModelScope.launch { productDao.getAllRawMaterials().catch { _rawMaterials.value = emptyList() }.collectLatest { _rawMaterials.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().catch { _auditLogs.value = emptyList() }.collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().catch { _customers.value = emptyList() }.collectLatest { _customers.value = it } }
