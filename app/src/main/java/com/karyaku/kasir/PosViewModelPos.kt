@@ -15,9 +15,7 @@ import kotlin.random.Random
 // FILE 4 — CART, PAYMENT, QRIS/TRANSFER, REFUND/VOID, HOLD ORDER
 // ====================================================================
 // Extension functions untuk PosViewModel.
-// G-2b patch:
-//   - processPayment: birthday discount + updateCustomerStats
-//   - refundTransaction: reduce totalSpending
+// B-2 patch: Integrasi pembuatan Kitchen Ticket saat payment.
 // ====================================================================
 
 // ================================================================
@@ -203,13 +201,12 @@ fun PosViewModel.getTotalPrice(): Long {
 }
 
 // ================================================================
-// PROCESS PAYMENT (MODUL G-2b PATCH)
+// PROCESS PAYMENT (MODUL B-2 PATCH)
 // ================================================================
 // Perubahan:
-//   + Parameter `birthdayDiscountPercent: Double = 0.0`
-//   + Birthday discount calc (jika hari ini == birthDate pelanggan)
-//   + updateCustomerStats (lastVisitDate, totalSpending, points) atomik
-//     menggantikan updateCustomerPoints yang lama
+//   + Di dalam withTransaction, setelah insertTransactionItems,
+//     kita buat KitchenTicketEntity (jika ada item non-service).
+//   + Items disimpan sebagai JSON snapshot.
 // ================================================================
 fun PosViewModel.processPayment(
     cashReceived: Long,
@@ -256,7 +253,6 @@ fun PosViewModel.processPayment(
         else if (customer.points >= 100) tierDiscount = (subtotal * 0.02).toLong()
     }
 
-    // MODUL G-2b: birthday discount (hanya untuk non-split bill)
     var birthdayDiscount = 0L
     if (!isSplitBill && customer != null && birthdayDiscountPercent > 0.0 && isBirthdayToday(customer)) {
         birthdayDiscount = (subtotal * birthdayDiscountPercent / 100.0).toLong()
@@ -331,6 +327,37 @@ fun PosViewModel.processPayment(
                 }
                 transactionItemDao.insertTransactionItems(itemEntities)
 
+                // ========================================================
+                // MODUL B-2: BUAT KITCHEN TICKET
+                // ========================================================
+                // Hanya buat tiket jika ada minimal 1 item yang bukan jasa.
+                val foodItems = itemsToProcess.filter { !it.product.isService }
+                if (foodItems.isNotEmpty()) {
+                    val kdsJson = JSONArray()
+                    foodItems.forEach { item ->
+                        val obj = JSONObject()
+                        obj.put("name", item.product.name)
+                        obj.put("qty", item.quantity)
+                        val noteStr = if (item.selectedVariation.isNotEmpty()) {
+                            "Varian: ${item.selectedVariation} | ${item.notes}"
+                        } else {
+                            item.notes
+                        }
+                        obj.put("notes", noteStr)
+                        kdsJson.put(obj)
+                    }
+                    kitchenTicketDao.insertTicket(
+                        KitchenTicketEntity(
+                            transactionId = newId,
+                            tableName = _selectedTable.value,
+                            orderType = _selectedOrderType.value,
+                            customerName = customerName,
+                            status = "PENDING",
+                            itemsJson = kdsJson.toString()
+                        )
+                    )
+                }
+
                 itemsToProcess.forEach { item ->
                     if (!item.product.isService && !item.product.isCombo) {
                         val product = _products.value.find { it.id == item.product.id }
@@ -358,8 +385,6 @@ fun PosViewModel.processPayment(
                     }
                 }
 
-                // MODUL G-2b: update stats pelanggan (lastVisitDate, totalSpending, points) atomik.
-                // Berlaku untuk non-split bill, ada pelanggan, dan BUKAN metode BON.
                 if (!isSplitBill && _selectedCustomer.value != null && method != "BON") {
                     val earnedPoints = (total / 10000).toInt()
                     val finalPoints = (customer!!.points - _pointsUsed.value + earnedPoints).coerceAtLeast(0)
@@ -373,7 +398,6 @@ fun PosViewModel.processPayment(
 
                 if (totalCommission > 0) { userDao.addCommission(userId, totalCommission) }
 
-                // MODUL G-2b: audit log dengan info birthday discount (jika ada).
                 val auditAction = buildString {
                     append("TRANSAKSI ($method) Cabang #${_currentBranchId.value}: ${formatRupiah(total)} ($customerName)")
                     if (birthdayDiscount > 0) {
@@ -414,11 +438,6 @@ fun PosViewModel.processPayment(
 
 // ================================================================
 // PAY UNPAID TRANSACTION (BON pelunasan)
-// ================================================================
-// Catatan: BON yang lunas TIDAK memberikan poin/update stats CRM
-// untuk kesederhanaan dan konsistensi dengan design awal. Kalau
-// nanti mau ubah, tinggal tambah updateCustomerStatsByCustomerName
-// di sini setelah transactionDao.updateTransactionStatus.
 // ================================================================
 fun PosViewModel.payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
@@ -465,12 +484,6 @@ fun PosViewModel.payUnpaidTransaction(transaction: TransactionEntity, cashReceiv
 // ================================================================
 // REFUND (MODUL G-2b PATCH)
 // ================================================================
-// Perubahan:
-//   + Setelah refund, kurangi totalSpending pelanggan yang relevan
-//     (via getCustomerByNameOnce, skip jika "Pelanggan Umum").
-//   + Poin TIDAK di-rollback (kebijakan bisnis: pelanggan tetap
-//     pegang poin yang sudah didapat).
-// ================================================================
 fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -495,8 +508,6 @@ fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, 
 
                 transactionDao.refundTransaction(transaction.id)
 
-                // MODUL G-2b: reduce totalSpending pelanggan yang relevan.
-                // Skip jika "Pelanggan Umum" (bukan pelanggan terdaftar).
                 if (transaction.customerName != "Pelanggan Umum" && transaction.customerName.isNotBlank()) {
                     val customer = customerDao.getCustomerByNameOnce(transaction.customerName)
                     if (customer != null) {
@@ -520,10 +531,6 @@ fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, 
 
 // ================================================================
 // VOID TRANSACTION
-// ================================================================
-// Void = transaksi dibatalkan sebelum/sesudah dibayar. Kalau SUCCESS,
-// void seharusnya juga kurangi spending pelanggan. Untuk amannya,
-// kita terapkan patch yang sama seperti refund.
 // ================================================================
 fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
@@ -550,9 +557,6 @@ fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: 
 
                 transactionDao.voidTransaction(transaction.id)
 
-                // MODUL G-2b: kalau transaksi sebelumnya SUCCESS, kurangi
-                // totalSpending pelanggan (uang sebenarnya sudah diterima
-                // lalu di-void = dianggap tidak jadi).
                 if (wasSuccess && transaction.customerName != "Pelanggan Umum" && transaction.customerName.isNotBlank()) {
                     val customer = customerDao.getCustomerByNameOnce(transaction.customerName)
                     if (customer != null) {

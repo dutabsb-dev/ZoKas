@@ -33,9 +33,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StockOpnameEntity::class,
         StockOpnameItemEntity::class,
         StockTransferEntity::class,
-        StockTransferItemEntity::class
+        StockTransferItemEntity::class,
+        KitchenTicketEntity::class // MODUL B
     ], 
-    version = 32, 
+    version = 33, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -56,6 +57,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun stockOpnameDao(): StockOpnameDao
     abstract fun stockTransferDao(): StockTransferDao
+    abstract fun kitchenTicketDao(): KitchenTicketDao // MODUL B
 
     companion object {
         @Volatile
@@ -162,15 +164,7 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_29_30 = object : Migration(29, 30) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE shifts ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
-                database.execSQL(
-                    """
-                    UPDATE shifts 
-                    SET branchId = COALESCE(
-                        (SELECT branchId FROM users WHERE users.id = shifts.userId),
-                        1
-                    )
-                    """.trimIndent()
-                )
+                database.execSQL("UPDATE shifts SET branchId = COALESCE((SELECT branchId FROM users WHERE users.id = shifts.userId), 1)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_branchId` ON `shifts` (`branchId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_status` ON `shifts` (`status`)")
             }
@@ -216,14 +210,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ================================================================
-        // 13. MIGRASI MODUL G — CRM Lanjutan (31 → 32)
-        // ================================================================
-        // Tambah 3 field di customers: birthDate, lastVisitDate, totalSpending.
-        // Backfill: lastVisitDate & totalSpending = 0 (belum ada data historis
-        // pelanggan lama). Kalau ingin backfill dari transaksi lama, perlu
-        // query agregasi — tapi karena CRM baru dimulai, mulai dari 0 saja.
-        // ================================================================
         private val MIGRATION_31_32 = object : Migration(31, 32) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE customers ADD COLUMN birthDate INTEGER NOT NULL DEFAULT 0")
@@ -231,6 +217,31 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE customers ADD COLUMN totalSpending INTEGER NOT NULL DEFAULT 0")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_customers_name` ON `customers` (`name`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_customers_points` ON `customers` (`points`)")
+            }
+        }
+
+        // ================================================================
+        // 14. MIGRASI MODUL B — KDS (32 -> 33)
+        // ================================================================
+        private val MIGRATION_32_33 = object : Migration(32, 33) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `kitchen_tickets` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `transactionId` INTEGER NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `tableName` TEXT NOT NULL,
+                        `orderType` TEXT NOT NULL,
+                        `customerName` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `itemsJson` TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_kitchen_tickets_status` ON `kitchen_tickets` (`status`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_kitchen_tickets_timestamp` ON `kitchen_tickets` (`timestamp`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_kitchen_tickets_transactionId` ON `kitchen_tickets` (`transactionId`)")
             }
         }
 
@@ -242,19 +253,10 @@ abstract class AppDatabase : RoomDatabase() {
                     "pos_database"
                 )
                 .addMigrations(
-                    MIGRATION_19_20, 
-                    MIGRATION_20_21, 
-                    MIGRATION_21_22, 
-                    MIGRATION_22_23, 
-                    MIGRATION_23_24, 
-                    MIGRATION_24_25,
-                    MIGRATION_25_26,
-                    MIGRATION_26_27,
-                    MIGRATION_27_28,
-                    MIGRATION_28_29,
-                    MIGRATION_29_30,
-                    MIGRATION_30_31,
-                    MIGRATION_31_32
+                    MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, 
+                    MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
+                    MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
+                    MIGRATION_31_32, MIGRATION_32_33
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18

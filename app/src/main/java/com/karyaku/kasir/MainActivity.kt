@@ -263,7 +263,6 @@ fun MainNavigation(
     var showSearchDialog by remember { mutableStateOf(false) }
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
-    // MODUL D-2: dialog transfer stok
     var showStockTransferDialog by remember { mutableStateOf(false) }
 
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
@@ -353,7 +352,6 @@ fun MainNavigation(
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
             ) {
-                // BARIS 1: Logo, Nama Toko, Status Online, Ikon Aksi
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -430,7 +428,6 @@ fun MainNavigation(
                                     onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
                                 )
                                 HorizontalDivider()
-                                // MODUL D-1 + D-2: Menu Multi-Cabang (khusus OWNER)
                                 if (currentUser.role == "OWNER") {
                                     DropdownMenuItem(
                                         text = { Text("Kelola Cabang") }, 
@@ -453,7 +450,6 @@ fun MainNavigation(
                     }
                 }
 
-                // BARIS 2: Branch Selector + Badge Shift Aktif
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -504,6 +500,7 @@ fun MainNavigation(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
+                // 1. Tab Kasir
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Storefront, contentDescription = "Cashier") },
                     label = { Text(LanguageManager.tr("kasir", language), textAlign = TextAlign.Center) },
@@ -517,6 +514,8 @@ fun MainNavigation(
                         indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 )
+
+                // 2. Tab Produk
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
                     label = { Text(LanguageManager.tr("produk", language), textAlign = TextAlign.Center) },
@@ -530,6 +529,8 @@ fun MainNavigation(
                         indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 )
+
+                // 3. Tab Laporan
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
                     label = { Text(LanguageManager.tr("laporan", language), textAlign = TextAlign.Center) },
@@ -543,6 +544,23 @@ fun MainNavigation(
                         indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 )
+
+                // 4. Tab Dapur (KDS) — BARU
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },
+                    label = { Text("Dapur", textAlign = TextAlign.Center) },
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+
+                // 5. Tab Pengaturan
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                     label = { Text(LanguageManager.tr("pengaturan", language), textAlign = TextAlign.Center) },
@@ -593,10 +611,10 @@ fun MainNavigation(
                         storeLogoPath = storeLogoPath,
                         onLogoChange = onLogoChange
                     )
+                    4 -> KitchenScreen(viewModel = viewModel) // MODUL B: KDS
                 }
             }
 
-            // MODUL D-1: Dialog Kelola Cabang
             if (showBranchManagementDialog) {
                 BranchManagementDialog(
                     viewModel = viewModel,
@@ -605,7 +623,6 @@ fun MainNavigation(
                 )
             }
 
-            // MODUL D-2: Dialog Transfer Stok
             if (showStockTransferDialog) {
                 StockTransferDialog(
                     viewModel = viewModel,

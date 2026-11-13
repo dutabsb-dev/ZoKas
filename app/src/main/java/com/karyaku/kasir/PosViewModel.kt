@@ -66,6 +66,7 @@ class PosViewModel(
     internal val expenseDao = database.expenseDao()
     internal val stockOpnameDao = database.stockOpnameDao()
     internal val stockTransferDao = database.stockTransferDao()
+    internal val kitchenTicketDao = database.kitchenTicketDao()
 
     // ================================================================
     // MODUL D-1: STATE MULTI-CABANG
