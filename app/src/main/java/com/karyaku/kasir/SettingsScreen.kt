@@ -7,8 +7,12 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -59,14 +63,25 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val lang = language
-    
+
     // State Profil Toko & Pengaturan
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
-    
+
+    // ================================================================
+    // FIX #3: State lokal untuk businessType.
+    // Mengikuti pola yang sama dengan isTableModeEnabled / isDarkMode
+    // di file ini: local remember state + tulis ke settingsManager saat
+    // berubah. Nanti MainNavigation akan membaca ulang
+    // settingsManager.businessType pada recompose berikutnya (saat user
+    // berpindah tab), sehingga Tab Dapur & menu Gabung Meja otomatis
+    // menyesuaikan.
+    // ================================================================
+    var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
+
     // State QRIS
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
     var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
@@ -83,13 +98,13 @@ fun SettingsScreen(
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
     var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
     var maxDiscountCap by remember { mutableStateOf(settingsManager.maxDiscountCap.toString()) }
-    
+
     // State Modular
     var enableMultiCurrency by remember { mutableStateOf(settingsManager.enableMultiCurrency) }
     var exchangeRateUsd by remember { mutableStateOf(settingsManager.exchangeRateUsd.toString()) }
     var isTableModeEnabled by remember { mutableStateOf(settingsManager.isTableModeEnabled) }
     var isBiometricEnabled by remember { mutableStateOf(settingsManager.isBiometricEnabled) }
-    
+
     // FITUR MODUL BARU
     var enableOrderTypes by remember { mutableStateOf(settingsManager.enableOrderTypes) }
     var enableWholesale by remember { mutableStateOf(settingsManager.enableWholesale) }
@@ -98,21 +113,21 @@ fun SettingsScreen(
     var enableSupplier by remember { mutableStateOf(settingsManager.enableSupplier) }
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
-    
+
     // ================================================================
     // MODUL G — CRM SETTINGS
     // ================================================================
     var enableBirthdayDiscount by remember { mutableStateOf(settingsManager.enableBirthdayDiscount) }
     var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.birthdayDiscountPercent.toFloat()) }
-    
+
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
-    
+
     // State Dialog
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
     var showUserManagementDialog by remember { mutableStateOf(false) }
     var showShiftHistory by remember { mutableStateOf(false) }
-    var showRawMaterialDialog by remember { mutableStateOf(false) } 
+    var showRawMaterialDialog by remember { mutableStateOf(false) }
     var showMembershipDialog by remember { mutableStateOf(false) }
     var showSupplierDialog by remember { mutableStateOf(false) }
     var showPODialog by remember { mutableStateOf(false) }
@@ -124,7 +139,7 @@ fun SettingsScreen(
     var showStockTransferDialog by remember { mutableStateOf(false) }
     // MODUL G: dialog kelola pelanggan (CRM)
     var showCustomerManagementDialog by remember { mutableStateOf(false) }
-    
+
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
@@ -136,10 +151,10 @@ fun SettingsScreen(
     val purchases by viewModel.purchases.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     val customers by viewModel.customers.collectAsStateWithLifecycle()
-    
+
     val currentBranch by viewModel.currentBranch.collectAsStateWithLifecycle()
     val allBranches by viewModel.allBranches.collectAsStateWithLifecycle()
-    
+
     val printerManager = remember { BluetoothPrinterManager(context) }
     var savedPrinterMac by remember { mutableStateOf(settingsManager.printerMacAddress) }
     var savedKitchenMac by remember { mutableStateOf(settingsManager.kitchenPrinterMacAddress) }
@@ -172,7 +187,7 @@ fun SettingsScreen(
             else Toast.makeText(context, "Gagal restore database.", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     val createExcelLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) { uri: Uri? ->
         if (uri != null) {
             viewModel.exportProductsToExcel(context, uri) { success ->
@@ -181,13 +196,13 @@ fun SettingsScreen(
             }
         }
     }
-    
+
     val openExcelLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             try {
                 context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (e: Exception) { }
-            
+
             viewModel.importProductsFromExcel(context, uri) { inserts, updates ->
                 Toast.makeText(context, "Import Excel Selesai! $inserts Baru, $updates Diperbarui.", Toast.LENGTH_LONG).show()
             }
@@ -208,7 +223,7 @@ fun SettingsScreen(
             onDeleteUser = { user -> viewModel.deleteUser(user, currentUser) }
         )
     }
-    
+
     if (showBranchManagementDialog) {
         BranchManagementDialog(
             viewModel = viewModel,
@@ -216,7 +231,7 @@ fun SettingsScreen(
             onDismiss = { showBranchManagementDialog = false }
         )
     }
-    
+
     if (showStockTransferDialog) {
         StockTransferDialog(
             viewModel = viewModel,
@@ -224,7 +239,7 @@ fun SettingsScreen(
             onDismiss = { showStockTransferDialog = false }
         )
     }
-    
+
     // MODUL G: dialog CRM
     if (showCustomerManagementDialog) {
         CustomerManagementDialog(
@@ -233,7 +248,7 @@ fun SettingsScreen(
             onDismiss = { showCustomerManagementDialog = false }
         )
     }
-    
+
     if (showShiftHistory) {
         ShiftHistoryDialog(shifts = shifts, onDismiss = { showShiftHistory = false })
     }
@@ -372,7 +387,7 @@ fun SettingsScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { 
+        item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(LanguageManager.tr("pengaturan", lang), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             }
@@ -387,14 +402,43 @@ fun SettingsScreen(
             )
         }
 
+        // ============================================================
+        // 1b. FIX #3: CARD TIPE USAHA (Owner only)
+        // Menentukan visibilitas Tab Dapur & menu Gabung Meja.
+        // Perubahan di card ini juga toggle isTableModeEnabled
+        // otomatis (Kuliner → aktif; lainnya → nonaktif) supaya
+        // user tidak perlu ke Modul Toko untuk menyesuaikan.
+        // ============================================================
+        if (currentUser.role == "OWNER") {
+            item {
+                SettingsBusinessTypeCard(
+                    currentBusinessType = businessTypeState,
+                    onBusinessTypeChange = { newType ->
+                        businessTypeState = newType
+                        settingsManager.businessType = newType
+                        // Auto-toggle mode meja sesuai tipe usaha.
+                        val autoTable = newType.equals("KULINER", ignoreCase = true)
+                        isTableModeEnabled = autoTable
+                        settingsManager.isTableModeEnabled = autoTable
+                        Toast.makeText(
+                            context,
+                            "Tipe usaha diperbarui. Tab & menu akan menyesuaikan saat Anda pindah tab.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    },
+                    language = lang
+                )
+            }
+        }
+
         // 2. Card Manajemen Akun & Biometrik
         item {
             SettingsAccountCard(
                 currentUser = currentUser,
                 isBiometricEnabled = isBiometricEnabled,
-                onBiometricToggle = { isChecked -> 
+                onBiometricToggle = { isChecked ->
                     isBiometricEnabled = isChecked
-                    settingsManager.isBiometricEnabled = isChecked 
+                    settingsManager.isBiometricEnabled = isChecked
                 },
                 onChangePinClick = { showChangePinDialog = true },
                 onManageStaffClick = { showUserManagementDialog = true },
@@ -403,7 +447,10 @@ fun SettingsScreen(
             )
         }
 
-        // 2b. Card Multi-Cabang (OWNER)
+        // ============================================================
+        // 2b. FIX #6: Card Multi-Cabang (OWNER) — sekarang COLLAPSIBLE
+        // Default collapsed agar halaman Pengaturan ringkas.
+        // ============================================================
         if (currentUser.role == "OWNER") {
             item {
                 SettingsBranchManagementCard(
@@ -417,7 +464,7 @@ fun SettingsScreen(
         }
 
         // ============================================================
-        // 2c. MODUL G — Card CRM (OWNER)
+        // 2c. FIX #6: Card CRM (OWNER) — sekarang COLLAPSIBLE
         // ============================================================
         if (currentUser.role == "OWNER") {
             item {
@@ -441,11 +488,11 @@ fun SettingsScreen(
         // 3. Card Modul Toko
         item {
             SettingsModuleCard(
-                isTableModeEnabled = isTableModeEnabled, 
+                isTableModeEnabled = isTableModeEnabled,
                 onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
-                enableMultiCurrency = enableMultiCurrency, 
+                enableMultiCurrency = enableMultiCurrency,
                 onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
-                exchangeRateUsd = exchangeRateUsd, 
+                exchangeRateUsd = exchangeRateUsd,
                 onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
                 onRawMaterialClick = { showRawMaterialDialog = true },
                 enableOrderTypes = enableOrderTypes,
@@ -522,18 +569,18 @@ fun SettingsScreen(
         // 7. Card Profil Toko
         item {
             SettingsStoreProfileCard(
-                storeName = storeName ?: "", 
+                storeName = storeName ?: "",
                 onStoreNameChange = onStoreNameChange,
                 storeAddress = storeAddress, onStoreAddressChange = { storeAddress = it; settingsManager.storeAddress = it },
                 storePhone = storePhone, onStorePhoneChange = { storePhone = it; settingsManager.storePhone = it },
                 storeFooter = storeFooter, onStoreFooterChange = { storeFooter = it; settingsManager.storeFooter = it },
                 taxPercent = taxPercent, onTaxPercentChange = { taxPercent = it; val tax = it.toDoubleOrNull() ?: 0.0; settingsManager.taxPercent = tax; viewModel.setTaxPercent(tax) },
-                serviceChargePercent = serviceChargePercent, 
-                onServiceChargeChange = { 
+                serviceChargePercent = serviceChargePercent,
+                onServiceChargeChange = {
                     serviceChargePercent = it
                     val sc = it.toDoubleOrNull() ?: 0.0
                     settingsManager.serviceChargePercent = sc
-                    viewModel.setServiceChargePercent(sc) 
+                    viewModel.setServiceChargePercent(sc)
                 },
                 logoPath = storeLogoPath,
                 onLogoChange = onLogoChange,
@@ -563,29 +610,139 @@ fun SettingsScreen(
             )
         }
 
-        // 10. Log Aktivitas & Logout
-        item { Text(LanguageManager.tr("log_aktivitas", lang), fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start, color = MaterialTheme.colorScheme.onSurface) }
-        
-        if (auditLogs.isEmpty()) {
-            item { Text(LanguageManager.tr("belum_aktivitas", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth()) }
-        } else {
-            items(auditLogs) { log ->
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    Text("[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ${log.action}", fontSize = 11.sp, modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
+        // ============================================================
+        // 10. FIX #6: Log Aktivitas — sekarang COLLAPSIBLE (single card).
+        // Sebelumnya: setiap log jadi Card terpisah di LazyColumn →
+        // halaman super panjang jika audit log banyak. Sekarang: 1 card
+        // collapsible dengan maksimal 30 entri terbaru untuk performa.
+        // ============================================================
+        item {
+            SettingsAuditLogCard(
+                auditLogs = auditLogs,
+                dateFormat = dateFormat
+            )
         }
 
+        // Logout
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White) }
+            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) {
+                Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White)
+            }
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 // ====================================================================
-// MODUL D-1 + D-2 — Card Multi-Cabang (khusus OWNER)
+// FIX #6: CARD LOG AKTIVITAS (COLLAPSIBLE)
+// ====================================================================
+// Menampilkan maksimal 30 entri terbaru saat di-expand. Sebelumnya,
+// semua log dirender sebagai item Card terpisah → performa & scroll
+// buruk jika log sudah ribuan. Audit log tetap tersimpan lengkap di DB.
+// ====================================================================
+@Composable
+private fun SettingsAuditLogCard(
+    auditLogs: List<AuditLogEntity>,
+    dateFormat: SimpleDateFormat
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val displayedLogs = remember(auditLogs, isExpanded) {
+        if (isExpanded) auditLogs.take(30) else emptyList()
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Log Aktivitas (Audit)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        if (auditLogs.isEmpty()) "Belum ada aktivitas."
+                        else "${auditLogs.size} aktivitas tercatat",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    if (displayedLogs.isEmpty()) {
+                        Text(
+                            "Belum ada aktivitas.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    } else {
+                        displayedLogs.forEach { log ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.Top) {
+                                    Box(
+                                        modifier = Modifier.size(6.dp).padding(top = 6.dp)
+                                            .background(EmeraldGreen, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            log.action,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (auditLogs.size > 30) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                "Menampilkan 30 dari ${auditLogs.size} aktivitas terbaru.",
+                                fontSize = 10.sp,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ====================================================================
+// FIX #6: CARD MULTI-CABANG (COLLAPSIBLE)
 // ====================================================================
 @Composable
 private fun SettingsBranchManagementCard(
@@ -595,170 +752,183 @@ private fun SettingsBranchManagementCard(
     onTransferClick: () -> Unit,
     canTransfer: Boolean
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(EmeraldGreen.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Storefront,
-                        contentDescription = null,
-                        tint = EmeraldGreen,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Multi-Cabang",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (totalBranches > 1)
-                            "$totalBranches cabang terdaftar"
-                        else
-                            "Kelola cabang toko Anda",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            Spacer(modifier = Modifier.height(12.dp))
-
+        Column {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-                    .padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = EmeraldGreen,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "CABANG AKTIF",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = currentBranch?.name ?: "-",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (currentBranch?.isMainBranch == true) {
-                    Surface(
-                        color = AmberAccent.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(4.dp)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(EmeraldGreen.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
+                        Icon(
+                            Icons.Default.Storefront,
+                            contentDescription = null,
+                            tint = EmeraldGreen,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "UTAMA",
-                            fontSize = 9.sp,
+                            text = "Multi-Cabang",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = AmberAccentDark,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (totalBranches > 1)
+                                "$totalBranches cabang terdaftar"
+                            else
+                                "Kelola cabang toko Anda",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onManageClick,
-                    modifier = Modifier.weight(1f).height(46.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, EmeraldGreen),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldGreen),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = EmeraldGreen,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        "KELOLA",
-                        color = EmeraldGreen,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
-                    )
-                }
-
-                Button(
-                    onClick = onTransferClick,
-                    modifier = Modifier.weight(1f).height(46.dp),
-                    enabled = canTransfer,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EmeraldGreen,
-                        disabledContainerColor = EmeraldGreen.copy(alpha = 0.3f)
-                    ),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.SwapHoriz,
-                        contentDescription = null,
-                        tint = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        "TRANSFER",
-                        color = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            if (!canTransfer) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Butuh minimal 2 cabang untuk transfer stok.",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = EmeraldGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "CABANG AKTIF",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = currentBranch?.name ?: "-",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (currentBranch?.isMainBranch == true) {
+                            Surface(
+                                color = AmberAccent.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "UTAMA",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AmberAccentDark,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onManageClick,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, EmeraldGreen),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldGreen),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = EmeraldGreen,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "KELOLA",
+                                color = EmeraldGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = onTransferClick,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            enabled = canTransfer,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EmeraldGreen,
+                                disabledContainerColor = EmeraldGreen.copy(alpha = 0.3f)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "TRANSFER",
+                                color = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    if (!canTransfer) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Butuh minimal 2 cabang untuk transfer stok.",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 // ====================================================================
-// MODUL G — Card CRM (khusus OWNER)
-// ====================================================================
-// Card ringkas di Pengaturan. Menampilkan total pelanggan + toggle
-// birthday discount + slider persen + tombol "KELOLA PELANGGAN".
+// FIX #6: CARD CRM (COLLAPSIBLE)
 // ====================================================================
 @Composable
 private fun SettingsCrmCard(
@@ -769,151 +939,167 @@ private fun SettingsCrmCard(
     totalCustomers: Int,
     onManageClick: () -> Unit
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(AmberAccent.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.People,
-                        contentDescription = null,
-                        tint = AmberAccentDark,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "CRM & Pelanggan",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "$totalCustomers pelanggan terdaftar",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Toggle birthday discount
+        Column {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(
-                    Icons.Default.Cake,
-                    contentDescription = null,
-                    tint = if (enableBirthdayDiscount) EmeraldGreen else SlateGrey,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Diskon Ulang Tahun",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        "Otomatis untuk pelanggan di hari ulang tahunnya",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = enableBirthdayDiscount,
-                    onCheckedChange = onToggleBirthdayDiscount,
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = EmeraldGreen,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                    )
-                )
-            }
-
-            // Slider persen (hanya tampil jika aktif)
-            if (enableBirthdayDiscount) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Besar Diskon",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Surface(
-                        color = AmberAccent.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(6.dp)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(AmberAccent.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center
                     ) {
+                        Icon(
+                            Icons.Default.People,
+                            contentDescription = null,
+                            tint = AmberAccentDark,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "${birthdayDiscountPercent.toInt()}%",
-                            fontSize = 12.sp,
+                            text = "CRM & Pelanggan",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = AmberAccentDark,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "$totalCustomers pelanggan terdaftar",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                Slider(
-                    value = birthdayDiscountPercent,
-                    onValueChange = onChangeBirthdayPercent,
-                    valueRange = 5f..50f,
-                    steps = 8,
-                    colors = SliderDefaults.colors(
-                        thumbColor = AmberAccent,
-                        activeTrackColor = AmberAccent
-                    )
-                )
-                Text(
-                    "Berlaku untuk transaksi non-tunai juga. Tetap dibatasi oleh Max Diskon global.",
-                    fontSize = 9.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-            // Tombol kelola
-            Button(
-                onClick = onManageClick,
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(
-                    Icons.Default.Group,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "KELOLA PELANGGAN",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
-                )
+                    // Toggle birthday discount
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Cake,
+                            contentDescription = null,
+                            tint = if (enableBirthdayDiscount) EmeraldGreen else SlateGrey,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Diskon Ulang Tahun",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Otomatis untuk pelanggan di hari ulang tahunnya",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = enableBirthdayDiscount,
+                            onCheckedChange = onToggleBirthdayDiscount,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = EmeraldGreen,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+
+                    // Slider persen (hanya tampil jika aktif)
+                    if (enableBirthdayDiscount) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Besar Diskon",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Surface(
+                                color = AmberAccent.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    "${birthdayDiscountPercent.toInt()}%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AmberAccentDark,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Slider(
+                            value = birthdayDiscountPercent,
+                            onValueChange = onChangeBirthdayPercent,
+                            valueRange = 5f..50f,
+                            steps = 8,
+                            colors = SliderDefaults.colors(
+                                thumbColor = AmberAccent,
+                                activeTrackColor = AmberAccent
+                            )
+                        )
+                        Text(
+                            "Berlaku untuk transaksi non-tunai juga. Tetap dibatasi oleh Max Diskon global.",
+                            fontSize = 9.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Tombol kelola
+                    Button(
+                        onClick = onManageClick,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Group,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "KELOLA PELANGGAN",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
             }
         }
     }

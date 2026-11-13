@@ -12,6 +12,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,6 +30,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -51,8 +54,8 @@ fun SettingsAppearanceCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(LanguageManager.tr("mode_gelap", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Switch(
-                    checked = isDarkMode, 
-                    onCheckedChange = { onToggleDarkMode() }, 
+                    checked = isDarkMode,
+                    onCheckedChange = { onToggleDarkMode() },
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = EmeraldGreen,
                         uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
@@ -68,8 +71,8 @@ fun SettingsAppearanceCard(
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(LanguageManager.tr("bahasa", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { 
-                    Text(if (lang == "in") "Indonesia" else "English", color = Color.White) 
+                Button(onClick = { onToggleLanguage() }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) {
+                    Text(if (lang == "in") "Indonesia" else "English", color = Color.White)
                 }
             }
         }
@@ -105,14 +108,14 @@ fun SettingsAccountCard(
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     Text("${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp, color = Color.White) }
                         if (currentUser.role == "OWNER") {
@@ -123,17 +126,17 @@ fun SettingsAccountCard(
                     Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
                         Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
                     }
-                    
+
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text("Aktifkan login biometrik di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(
-                            checked = isBiometricEnabled, 
-                            onCheckedChange = { isChecked -> 
+                            checked = isBiometricEnabled,
+                            onCheckedChange = { isChecked ->
                                 if (isChecked) {
                                     if (activity == null) {
                                         Toast.makeText(context, "ERROR: Activity tidak ditemukan.", Toast.LENGTH_LONG).show()
@@ -170,12 +173,180 @@ fun SettingsAccountCard(
                                 } else {
                                     onBiometricToggle(false)
                                 }
-                            }, 
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedTrackColor = EmeraldGreen,
                                 uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                             )
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- 2b. CARD TIPE USAHA (NEW - Fix #3 sisi Setting) ---
+// Mengizinkan OWNER mengganti tipe usaha (KULINER/RETAIL/JASA/MUSIMAN).
+// Perubahan akan mempengaruhi visibilitas Tab Dapur & menu Gabung Meja
+// (lihat MainActivity.kt Fix #3 UI). Data transaksi/produk TIDAK tersentuh.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsBusinessTypeCard(
+    currentBusinessType: String,
+    onBusinessTypeChange: (String) -> Unit,
+    language: String
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf<String?>(null) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    val businessTypes = listOf(
+        "KULINER" to "Kuliner (Restoran, Cafe, Warung)",
+        "RETAIL" to "Retail (Toko, Minimarket, Bangunan)",
+        "JASA" to "Jasa (Salon, Laundry, Servis)",
+        "MUSIMAN" to "Musiman (Event, Toko Kue)"
+    )
+    val currentLabel = businessTypes.find { it.first == currentBusinessType }?.second ?: currentBusinessType
+
+    if (showConfirmDialog != null) {
+        val newType = showConfirmDialog!!
+        val newLabel = businessTypes.find { it.first == newType }?.second ?: newType
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = null },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AmberAccent) },
+            title = { Text("Ganti Tipe Usaha?", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Tipe usaha akan diubah menjadi:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(newLabel, fontWeight = FontWeight.Bold, color = EmeraldGreen)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Perubahan yang akan terjadi:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (newType == "KULINER") {
+                        Text("• Tab \"Dapur\" (KDS) akan MUNCUL di bottom nav", fontSize = 11.sp)
+                        Text("• Menu \"Gabung Meja\" akan muncul di dropdown kasir", fontSize = 11.sp)
+                        Text("• Mode Meja otomatis DIAKTIFKAN", fontSize = 11.sp)
+                    } else {
+                        Text("• Tab \"Dapur\" (KDS) akan DISEMBUNYIKAN", fontSize = 11.sp)
+                        Text("• Menu \"Gabung Meja\" akan hilang dari dropdown", fontSize = 11.sp)
+                        Text("• Mode Meja otomatis DINONAKTIFKAN", fontSize = 11.sp)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh.",
+                        fontSize = 10.sp,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onBusinessTypeChange(newType)
+                        showConfirmDialog = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("GANTI", color = Color.White, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = null }) { Text("Batal") }
+            }
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Tipe Usaha",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        currentLabel,
+                        fontSize = 11.sp,
+                        color = EmeraldGreen,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    Text(
+                        "Pilih tipe usaha yang paling sesuai. Menu aplikasi akan menyesuaikan otomatis (Tab Dapur & Gabung Meja hanya muncul untuk Kuliner).",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box {
+                        OutlinedButton(
+                            onClick = { dropdownExpanded = true },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, EmeraldGreen)
+                        ) {
+                            Icon(Icons.Default.Store, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                currentLabel,
+                                color = EmeraldGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Start,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(18.dp))
+                        }
+                        DropdownMenu(
+                            expanded = dropdownExpanded,
+                            onDismissRequest = { dropdownExpanded = false }
+                        ) {
+                            businessTypes.forEach { (key, label) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (currentBusinessType == key) {
+                                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                            } else {
+                                                Spacer(modifier = Modifier.width(24.dp))
+                                            }
+                                            Text(label, fontSize = 13.sp, fontWeight = if (currentBusinessType == key) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    },
+                                    onClick = {
+                                        dropdownExpanded = false
+                                        if (currentBusinessType != key) {
+                                            showConfirmDialog = key
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -208,14 +379,14 @@ fun SettingsModuleCard(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
-    
+
     val switchColors = SwitchDefaults.colors(
         checkedTrackColor = EmeraldGreen,
         uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     )
 
     Card(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -236,7 +407,6 @@ fun SettingsModuleCard(
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                    // Mode Meja
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onTableModeToggle(!isTableModeEnabled) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -252,7 +422,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Multi Currency
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onMultiCurrencyToggle(!enableMultiCurrency) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -268,11 +437,11 @@ fun SettingsModuleCard(
 
                     if (enableMultiCurrency) {
                         OutlinedTextField(
-                            value = exchangeRateUsd, 
+                            value = exchangeRateUsd,
                             onValueChange = onExchangeRateChange,
-                            label = { Text(LanguageManager.tr("kurs_usd", lang), fontSize = 12.sp) }, 
+                            label = { Text(LanguageManager.tr("kurs_usd", lang), fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), 
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = MaterialTheme.colorScheme.surface)
                         )
@@ -280,7 +449,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Tipe Pesanan
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onOrderTypesToggle(!enableOrderTypes) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -296,7 +464,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Harga Grosir
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onWholesaleToggle(!enableWholesale) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -312,7 +479,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Pre-Order
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onPreOrderToggle(!enablePreOrder) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -328,7 +494,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Reservasi (Booking)
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onReservationToggle(!enableReservation) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -359,7 +524,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Membership
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onMembershipToggle(!enableMembership) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -390,7 +554,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Supplier & PO
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onSupplierToggle(!enableSupplier) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -433,7 +596,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // MODUL KEUANGAN (FINANCE)
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onFinanceToggle(!enableFinance) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -488,7 +650,6 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Bahan Baku
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onRawMaterialClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -520,7 +681,7 @@ fun SettingsPrinterCard(
     val lang = language
 
     Card(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -536,17 +697,17 @@ fun SettingsPrinterCard(
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     Text(LanguageManager.tr("printer_kasir", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text(if (savedPrinterMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedPrinterMac" else LanguageManager.tr("belum_printer", lang), fontSize = 12.sp, color = if(savedPrinterMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = onPrinterClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer", lang), color = Color.White) }
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Text(LanguageManager.tr("printer_dapur", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text(if (savedKitchenMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedKitchenMac" else LanguageManager.tr("belum_printer_dapur", lang), fontSize = 12.sp, color = if(savedKitchenMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = onKitchenClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer_dapur", lang), color = Color.White) }
@@ -589,7 +750,7 @@ fun SettingsStoreProfileCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -605,11 +766,11 @@ fun SettingsStoreProfileCard(
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                         Box(
                             modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface).clickable { logoPickerLauncher.launch("image/*") },
@@ -658,7 +819,7 @@ fun SettingsDiscountCard(
     val lang = language
 
     Card(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -674,11 +835,11 @@ fun SettingsDiscountCard(
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     Text(LanguageManager.tr("happy_hour_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -706,9 +867,9 @@ fun SettingsBackupCard(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
-    
+
     Card(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -724,11 +885,11 @@ fun SettingsBackupCard(
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     Text(LanguageManager.tr("data_backup_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -736,7 +897,7 @@ fun SettingsBackupCard(
                         Button(onClick = onRestoreClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("restore", lang), color = Color.White) }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     // FITUR EXCEL
                     Text("Manajemen Produk Massal (Excel)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text("Ekspor atau impor daftar produk sekaligus menggunakan file Excel (XLSX).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -765,7 +926,7 @@ fun SettingsQrisCard(
     val lang = language
 
     Card(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -781,11 +942,11 @@ fun SettingsQrisCard(
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     Button(
                         onClick = onManagePaymentMethodsClick,
                         modifier = Modifier.fillMaxWidth(),
@@ -794,9 +955,9 @@ fun SettingsQrisCard(
                     ) {
                         Text("Kelola Metode Pembayaran", color = Color.White)
                     }
-                    
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     Text("QRIS Statis (Payload)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Tempelkan kode teks QRIS dari bank Anda. Aplikasi akan mengubah nominal otomatis.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -808,9 +969,9 @@ fun SettingsQrisCard(
                         maxLines = 3,
                         shape = RoundedCornerShape(12.dp)
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -821,8 +982,8 @@ fun SettingsQrisCard(
                             Text("Dengarkan notifikasi bank untuk konfirmasi lunas.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(
-                            checked = enableAutoDetect, 
-                            onCheckedChange = onToggleAutoDetect, 
+                            checked = enableAutoDetect,
+                            onCheckedChange = onToggleAutoDetect,
                             colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
                         )
                     }
@@ -845,7 +1006,7 @@ fun SettingsBankTransferCard(
     val lang = language
 
     Card(
-        modifier = Modifier.fillMaxWidth(), 
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -861,19 +1022,19 @@ fun SettingsBankTransferCard(
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            
+
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    
+
                     OutlinedTextField(value = bankName, onValueChange = onBankNameChange, label = { Text("Nama Bank (cth: BCA)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = accountNumber, onValueChange = onAccountNumberChange, label = { Text("Nomor Rekening") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = accountName, onValueChange = onAccountNameChange, label = { Text("Atas Nama") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -884,8 +1045,8 @@ fun SettingsBankTransferCard(
                             Text("Cocokkan nominal unik untuk konfirmasi lunas.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(
-                            checked = enableAutoDetect, 
-                            onCheckedChange = onToggleAutoDetect, 
+                            checked = enableAutoDetect,
+                            onCheckedChange = onToggleAutoDetect,
                             colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
                         )
                     }

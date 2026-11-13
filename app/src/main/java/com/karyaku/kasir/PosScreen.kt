@@ -6,6 +6,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,19 +18,23 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.ProductEntity
@@ -36,13 +44,14 @@ import com.karyaku.kasir.data.local.CustomerEntity
 import com.karyaku.kasir.data.local.ShiftEntity
 import com.karyaku.kasir.data.local.RawMaterialEntity
 import kotlinx.coroutines.launch
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosScreen(
-    viewModel: PosViewModel, 
-    settingsManager: SettingsManager, 
-    currentUser: UserEntity, 
+    viewModel: PosViewModel,
+    settingsManager: SettingsManager,
+    currentUser: UserEntity,
     onLogout: () -> Unit,
     showCfd: Boolean,
     onDismissCfd: () -> Unit,
@@ -55,7 +64,7 @@ fun PosScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
-    
+
     val searchFocusRequester = remember { FocusRequester() }
 
     // --- STATE DARI VIEWMODEL ---
@@ -70,7 +79,7 @@ fun PosScreen(
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val pointsUsed by viewModel.pointsUsed.collectAsStateWithLifecycle()
     val holdOrders by viewModel.holdOrders.collectAsStateWithLifecycle()
-    val occupiedTables by viewModel.occupiedTables.collectAsStateWithLifecycle() 
+    val occupiedTables by viewModel.occupiedTables.collectAsStateWithLifecycle()
     val voucherDiscount by viewModel.voucherDiscount.collectAsStateWithLifecycle()
     val appliedVoucher by viewModel.appliedVoucher.collectAsStateWithLifecycle()
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
@@ -84,15 +93,15 @@ fun PosScreen(
     val taxPercent by viewModel.taxPercent.collectAsStateWithLifecycle()
     val serviceChargePercent by viewModel.serviceChargePercent.collectAsStateWithLifecycle()
     val customerMemberships by viewModel.customerMemberships.collectAsStateWithLifecycle()
-    
+
     // STATE QRIS & TRANSFER
     val qrisDynamicString by viewModel.qrisDynamicString.collectAsStateWithLifecycle()
     val isQrisPaid by viewModel.isQrisPaid.collectAsStateWithLifecycle()
     val uniqueTransferAmount by viewModel.uniqueTransferAmount.collectAsStateWithLifecycle()
     val isTransferPaid by viewModel.isTransferPaid.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) { 
-        viewModel.setTaxPercent(settingsManager.taxPercent) 
+    LaunchedEffect(Unit) {
+        viewModel.setTaxPercent(settingsManager.taxPercent)
         viewModel.setServiceChargePercent(settingsManager.serviceChargePercent)
     }
 
@@ -105,25 +114,25 @@ fun PosScreen(
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToEditNotes by remember { mutableStateOf<ProductEntity?>(null) } 
+    var productToEditNotes by remember { mutableStateOf<ProductEntity?>(null) }
     var productToSelectVariant by remember { mutableStateOf<ProductEntity?>(null) }
     var productToSelectMatrix by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToEditSerial by remember { mutableStateOf<ProductEntity?>(null) } 
-    var productToAssignStaff by remember { mutableStateOf<ProductEntity?>(null) } 
-    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) } 
+    var productToEditSerial by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToAssignStaff by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
-    
+
     var showOpenShiftDialog by remember { mutableStateOf(false) }
     var showCloseShiftDialog by remember { mutableStateOf(false) }
     var showCashFlowDialog by remember { mutableStateOf(false) }
-    var showDiscountDialog by remember { mutableStateOf(false) } 
+    var showDiscountDialog by remember { mutableStateOf(false) }
     var showCustomerDialog by remember { mutableStateOf(false) }
     var modalAwal by remember { mutableStateOf("") }
     var showDrawerConfirm by remember { mutableStateOf(false) }
     var showPinForDiscount by remember { mutableStateOf(false) }
     var showShiftReport by remember { mutableStateOf<ShiftEntity?>(null) }
     var showMergeOrderDialog by remember { mutableStateOf(false) }
-    var showPrinterErrorDialog by remember { mutableStateOf(false) } 
+    var showPrinterErrorDialog by remember { mutableStateOf(false) }
     var showHoldDialog by remember { mutableStateOf(false) }
     var showTableSelector by remember { mutableStateOf(false) }
     var showVoucherDialog by remember { mutableStateOf(false) }
@@ -137,26 +146,26 @@ fun PosScreen(
                 "DRAWER" -> showDrawerConfirm = true
                 "HOLD" -> showHoldDialog = true
                 "CASHFLOW" -> showCashFlowDialog = true
-                "CLOSE_SHIFT" -> showCloseShiftDialog = true // TAMBAHKAN BARIS INI
+                "CLOSE_SHIFT" -> showCloseShiftDialog = true
             }
-            onActionHandled() // Reset trigger di MainActivity
+            onActionHandled()
         }
     }
 
     // --- LOGIKA PERHITUNGAN ---
-    val subtotal = cart.sumOf { 
+    val subtotal = cart.sumOf {
         if (it.usedMembershipId != null) {
             0L
         } else if (it.product.wholesaleMinQty > 0 && it.quantity >= it.product.wholesaleMinQty && it.product.wholesalePrice > 0) {
             it.product.wholesalePrice * it.quantity
         } else {
-            it.product.price * it.quantity 
+            it.product.price * it.quantity
         }
     }
     val happyHourDiscountAmount = 0L
     var tierDiscount = 0L
     var promoDiscountUI = 0L
-    
+
     var totalDiscount = discount + happyHourDiscountAmount + tierDiscount + promoDiscountUI
     if (settingsManager.maxDiscountCap > 0 && totalDiscount > settingsManager.maxDiscountCap) {
         totalDiscount = settingsManager.maxDiscountCap
@@ -169,7 +178,7 @@ fun PosScreen(
     // --- BARCODE LAUNCHER ---
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
-            viewModel.processBarcodeScan(result.contents) { success, msg -> 
+            viewModel.processBarcodeScan(result.contents) { success, msg ->
                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 if (success) keyboardController?.hide()
             }
@@ -183,6 +192,8 @@ fun PosScreen(
     }
 
     // --- FITUR CFD (CUSTOMER DISPLAY) ---
+    // FIX #2: sekarang menerima `cart` utuh dan menampilkan daftar item
+    // dengan auto-scroll ke bawah saat item baru ditambahkan.
     if (showCfd) {
         CustomerDisplayDialog(
             storeName = settingsManager.storeName ?: "ZoKas",
@@ -209,9 +220,9 @@ fun PosScreen(
         if (showPaymentSheet) {
             val totalToPay = if (isSplitBillMode) cart.filter { it.isSelectedForSplit }.sumOf { it.product.price * it.quantity } else totalPrice
             PaymentBottomSheet(
-                totalPrice = totalToPay, 
+                totalPrice = totalToPay,
                 totalCommission = cart.sumOf { it.product.commissionPerItem * it.quantity },
-                settingsManager = settingsManager, 
+                settingsManager = settingsManager,
                 qrisString = qrisDynamicString,
                 isQrisPaid = isQrisPaid,
                 uniqueTransferAmount = uniqueTransferAmount,
@@ -227,11 +238,11 @@ fun PosScreen(
                 onGenerateTransfer = {
                     viewModel.generateTransferPayment(totalToPay)
                 },
-                onDismiss = { 
+                onDismiss = {
                     showPaymentSheet = false
-                    viewModel.resetQrisPayment() 
+                    viewModel.resetQrisPayment()
                     viewModel.resetTransferPayment()
-                }, 
+                },
                 onConfirmPayment = { cashReceived, method ->
                     viewModel.processPayment(
                         cashReceived = cashReceived,
@@ -253,7 +264,7 @@ fun PosScreen(
 
         if (showProductForm) {
             ProductFormBottomSheet(
-                productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null }, 
+                productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null },
                 onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty ->
                     if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty, currentUser.id, currentUser.name)
                     else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty), currentUser.id, currentUser.name)
@@ -270,7 +281,7 @@ fun PosScreen(
                 onRestock = { productToRestock = showActionDialogFor; showActionDialogFor = null },
                 onWaste = { productToWaste = showActionDialogFor; showActionDialogFor = null },
                 onBom = { productToManageBom = showActionDialogFor; showActionDialogFor = null },
-                onSaveBarcode = { 
+                onSaveBarcode = {
                     val product = showActionDialogFor!!
                     showActionDialogFor = null
                     saveBarcodeToGallery(context, product)
@@ -334,7 +345,7 @@ fun PosScreen(
             PinDiscountDialog(
                 onVerify = { pin ->
                     val supervisor = users.find { it.pin == hashPin(pin) && (it.role == "OWNER" || it.role == "SUPERVISOR" || it.id == currentUser.id) }
-                    if (supervisor != null) { showPinForDiscount = false; showDiscountDialog = true } 
+                    if (supervisor != null) { showPinForDiscount = false; showDiscountDialog = true }
                     else { Toast.makeText(context, "PIN Salah atau Akses Ditolak!", Toast.LENGTH_SHORT).show() }
                 },
                 onDismiss = { showPinForDiscount = false }
@@ -343,7 +354,7 @@ fun PosScreen(
 
         if (showDrawerConfirm) {
             CashDrawerConfirmDialog(
-                onConfirm = { 
+                onConfirm = {
                     val mac = settingsManager.printerMacAddress
                     if (mac != null) {
                         scope.launch {
@@ -355,7 +366,7 @@ fun PosScreen(
                                 Toast.makeText(context, "Gagal buka laci. Periksa printer.", Toast.LENGTH_LONG).show()
                             }
                             viewModel.logCashDrawerOpen(currentUser)
-                            showDrawerConfirm = false 
+                            showDrawerConfirm = false
                         }
                     } else {
                         Toast.makeText(context, "Printer belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
@@ -391,19 +402,19 @@ fun PosScreen(
             )
         }
 
-        if (showCloseShiftDialog && activeShift != null) { 
+        if (showCloseShiftDialog && activeShift != null) {
             CloseShiftWizardDialog(
                 shift = activeShift!!, transactions = transactions, cashFlows = cashFlows,
                 onDismiss = { showCloseShiftDialog = false },
-                onConfirm = { uangFisik, note -> 
-                    viewModel.closeShift(currentUser, uangFisik, note) { closedShift -> 
+                onConfirm = { uangFisik, note ->
+                    viewModel.closeShift(currentUser, uangFisik, note) { closedShift ->
                         showCloseShiftDialog = false
-                        showShiftReport = closedShift 
-                    } 
+                        showShiftReport = closedShift
+                    }
                 }
-            ) 
+            )
         }
-        
+
         if (showCashFlowDialog) {
             CashFlowDialog(
                 onSave = { type, amount, note -> viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false },
@@ -457,9 +468,9 @@ fun PosScreen(
 
         if (completedTransaction != null) {
             ReceiptDialog(
-                transaction = completedTransaction!!, viewModel = viewModel, 
-                storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "", 
-                storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "", 
+                transaction = completedTransaction!!, viewModel = viewModel,
+                storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "",
+                storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "",
                 settingsManager = settingsManager, onDismiss = { completedTransaction = null }
             )
         }
@@ -476,20 +487,20 @@ fun PosScreen(
         Column(modifier = Modifier.fillMaxSize().imePadding()) {
             BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 val isWideScreen = maxWidth > 600.dp || isLandscape
-                
+
                 if (isWideScreen) {
                     Row(modifier = Modifier.fillMaxSize()) {
                         // KIRI: Katalog
-                        Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
+                        Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) {
                             PosProductSection(
-                                products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
-                                onProductClick = { prod -> 
+                                products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
+                                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
+                                onProductClick = { prod ->
                                     if (prod.variations.contains("|")) productToSelectMatrix = prod
-                                    else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
-                                    else viewModel.addToCart(prod) 
-                                }, 
-                                onProductLongClick = { showActionDialogFor = it }, 
+                                    else if (prod.variations.isNotEmpty()) productToSelectVariant = prod
+                                    else viewModel.addToCart(prod)
+                                },
+                                onProductLongClick = { showActionDialogFor = it },
                                 onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                                 onCameraScanClick = {
                                     val options = ScanOptions()
@@ -498,32 +509,32 @@ fun PosScreen(
                                     options.setCameraId(0)
                                     options.setBeepEnabled(false)
                                     options.setBarcodeImageEnabled(true)
-                                    options.setOrientationLocked(true) 
+                                    options.setOrientationLocked(true)
                                     barcodeLauncher.launch(options)
                                 },
                                 searchFocusRequester = searchFocusRequester
-                            ) 
+                            )
                         }
                         VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                        
+
                         // KANAN: Keranjang
                         Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
                             PosCartSection(
-                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice, 
-                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, 
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
+                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                                 selectedOrderType = selectedOrderType, pickupDate = pickupDate,
-                                appliedVoucher = appliedVoucher, 
+                                appliedVoucher = appliedVoucher,
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
                                 onOrderTypeChange = { viewModel.setOrderType(it) }, onPickupDateChange = { viewModel.setPickupDate(it) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, 
-                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
-                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
-                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, 
-                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
-                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) },
+                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
+                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) },
+                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) },
+                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } },
                                 onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
                                 onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
                                 onApplyMembership = { cartItem, cm -> viewModel.applyMembershipToCart(cartItem, cm) },
@@ -536,27 +547,27 @@ fun PosScreen(
                     // LAYOUT HP (Portrait)
                     if (showCartOnPhone) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { 
+                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                                 Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) 
+                                Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
                             PosCartSection(
-                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice, 
-                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, 
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
+                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                                 selectedOrderType = selectedOrderType, pickupDate = pickupDate,
-                                appliedVoucher = appliedVoucher, 
+                                appliedVoucher = appliedVoucher,
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
                                 onOrderTypeChange = { viewModel.setOrderType(it) }, onPickupDateChange = { viewModel.setPickupDate(it) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, 
-                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
-                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
-                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, 
-                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
-                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) },
+                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
+                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) },
+                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) },
+                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } },
                                 onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
                                 onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
                                 onApplyMembership = { cartItem, cm -> viewModel.applyMembershipToCart(cartItem, cm) },
@@ -566,14 +577,14 @@ fun PosScreen(
                         }
                     } else {
                         PosProductSection(
-                            products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
-                            onProductClick = { prod -> 
+                            products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
+                            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
+                            onProductClick = { prod ->
                                 if (prod.variations.contains("|")) productToSelectMatrix = prod
-                                else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
-                                else viewModel.addToCart(prod) 
-                            }, 
-                            onProductLongClick = { showActionDialogFor = it }, 
+                                else if (prod.variations.isNotEmpty()) productToSelectVariant = prod
+                                else viewModel.addToCart(prod)
+                            },
+                            onProductLongClick = { showActionDialogFor = it },
                             onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                             onCameraScanClick = {
                                 val options = ScanOptions()
@@ -582,7 +593,7 @@ fun PosScreen(
                                 options.setCameraId(0)
                                 options.setBeepEnabled(false)
                                 options.setBarcodeImageEnabled(true)
-                                options.setOrientationLocked(true) 
+                                options.setOrientationLocked(true)
                                 barcodeLauncher.launch(options)
                             },
                             searchFocusRequester = searchFocusRequester
@@ -591,7 +602,7 @@ fun PosScreen(
                 }
             }
         }
-        
+
         // FAB Keranjang (Hanya di HP Portrait)
         if (cart.isNotEmpty() && !showCartOnPhone && isPhone && !isLandscape) {
             ExtendedFloatingActionButton(
@@ -609,6 +620,17 @@ fun PosScreen(
     }
 }
 
+// ====================================================================
+// FIX #2: CUSTOMER DISPLAY DIALOG (CFD) — REDESIGN
+// ====================================================================
+// Perubahan:
+//   - Menampilkan daftar item (gambar, nama, varian, qty, harga, subtotal).
+//   - LazyColumn scrollable vertikal.
+//   - Auto-scroll ke bawah saat item baru masuk (pakai LaunchedEffect
+//     yang trigger saat `cart.size` atau total qty berubah).
+//   - Header & footer tetap ringkas agar list item dapat ruang maksimal.
+//   - Empty state eksplisit saat cart kosong.
+// ====================================================================
 @Composable
 fun CustomerDisplayDialog(
     storeName: String,
@@ -624,62 +646,231 @@ fun CustomerDisplayDialog(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
+            val listState = rememberLazyListState()
+            // Total quantity dipakai sebagai trigger agar auto-scroll
+            // tetap jalan meski kasir menambah qty ke item yang sama
+            // (cart.size tetap, tetapi total qty berubah).
+            val totalQty = cart.sumOf { it.quantity }
+
+            // AUTO-SCROLL: setiap kali item baru / qty berubah, gulir ke
+            // item terakhir agar pelanggan langsung melihat pesanan baru.
+            LaunchedEffect(cart.size, totalQty) {
+                if (cart.isNotEmpty()) {
+                    // delay kecil agar layout selesai dulu sebelum scroll.
+                    kotlinx.coroutines.delay(50)
+                    listState.animateScrollToItem(cart.size - 1)
+                }
+            }
+
             Column(
-                modifier = Modifier.fillMaxSize().padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // ---------------- HEADER ----------------
                 Text(
                     text = storeName,
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                
-                Spacer(modifier = Modifier.height(48.dp))
-                
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Total Belanja Anda",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
                 Text(
                     text = formatRupiah(totalPrice),
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp),
+                    style = MaterialTheme.typography.displayMedium.copy(fontSize = 42.sp),
                     fontWeight = FontWeight.Black,
                     color = EmeraldGreen,
                     textAlign = TextAlign.Center
                 )
-                
-                Spacer(modifier = Modifier.height(48.dp))
-                
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ---------------- LIST ITEM (scrollable) ----------------
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    if (cart.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.ShoppingCart,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Belum ada item",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "Silakan tambahkan produk di kasir.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
+                            items(cart, key = { it.product.id to it.selectedVariation }) { item ->
+                                CfdItemRow(item = item)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ---------------- FOOTER ----------------
                 Text(
                     text = "Terima Kasih",
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Silakan lakukan pembayaran di kasir",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
                 )
-                
-                Spacer(modifier = Modifier.height(64.dp))
-                
+                Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.height(56.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    Text("Tutup Layar Pelanggan", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+                    Text(
+                        "Tutup Layar Pelanggan",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
+        }
+    }
+}
+
+// ====================================================================
+// Baris item untuk CFD
+// ====================================================================
+@Composable
+private fun CfdItemRow(item: CartItem) {
+    // Logika harga sama persis dengan perhitungan subtotal di PosScreen,
+    // supaya tidak ada selisih visual antara keranjang, struk, dan CFD.
+    val unitPrice = when {
+        item.usedMembershipId != null -> 0L
+        item.product.wholesaleMinQty > 0
+            && item.quantity >= item.product.wholesaleMinQty
+            && item.product.wholesalePrice > 0 -> item.product.wholesalePrice
+        else -> item.product.price
+    }
+    val lineTotal = unitPrice * item.quantity
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Gambar produk atau ikon fallback
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center
+            ) {
+                if (item.product.imagePath.isNotEmpty()) {
+                    AsyncImage(
+                        model = File(item.product.imagePath),
+                        contentDescription = item.product.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Inventory2,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.product.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (item.selectedVariation.isNotEmpty()) {
+                    Text(
+                        text = "Varian: ${item.selectedVariation}",
+                        fontSize = 11.sp,
+                        color = EmeraldGreen,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Text(
+                    text = "${item.quantity} × ${formatRupiah(unitPrice)}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Qty badge kecil
+            Surface(
+                color = EmeraldGreen.copy(alpha = 0.12f),
+                shape = CircleShape
+            ) {
+                Text(
+                    text = "${item.quantity}x",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    color = EmeraldGreen,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = formatRupiah(lineTotal),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }

@@ -62,7 +62,7 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         val isTablet = resources.configuration.smallestScreenWidthDp >= 600
         if (isTablet) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -101,25 +101,25 @@ class MainActivity : AppCompatActivity() {
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
                 var language by rememberSaveable { mutableStateOf(settingsManager.language) }
-                
+
                 var storeNameState by remember { mutableStateOf(settingsManager.storeName) }
                 var storeLogoPathState by remember { mutableStateOf(settingsManager.storeLogoPath) }
 
                 val userSaver = listSaver<UserEntity?, Any>(
-                    save = { user -> 
-                        if (user == null) emptyList() 
-                        else listOf(user.id, user.name, user.pin, user.role, user.totalCommission, user.branchId) 
+                    save = { user ->
+                        if (user == null) emptyList()
+                        else listOf(user.id, user.name, user.pin, user.role, user.totalCommission, user.branchId)
                     },
-                    restore = { list -> 
-                        if (list.isEmpty()) null 
+                    restore = { list ->
+                        if (list.isEmpty()) null
                         else UserEntity(
-                            id = list[0] as Long, 
-                            name = list[1] as String, 
-                            pin = list[2] as String, 
-                            role = list[3] as String, 
+                            id = list[0] as Long,
+                            name = list[1] as String,
+                            pin = list[2] as String,
+                            role = list[3] as String,
                             totalCommission = list[4] as Long,
                             branchId = if (list.size > 5) list[5] as Long else 1L
-                        ) 
+                        )
                     }
                 )
                 var currentUser by rememberSaveable(stateSaver = userSaver) { mutableStateOf<UserEntity?>(null) }
@@ -143,13 +143,13 @@ class MainActivity : AppCompatActivity() {
                             language = language,
                             storeName = storeNameState,
                             storeLogoPath = storeLogoPathState,
-                            onStoreNameChange = { newName -> 
+                            onStoreNameChange = { newName ->
                                 storeNameState = newName
-                                settingsManager.storeName = newName 
+                                settingsManager.storeName = newName
                             },
-                            onLogoChange = { newPath -> 
+                            onLogoChange = { newPath ->
                                 storeLogoPathState = newPath
-                                settingsManager.storeLogoPath = newPath 
+                                settingsManager.storeLogoPath = newPath
                             },
                             onUserChange = { currentUser = it },
                             onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
@@ -199,18 +199,18 @@ fun MainContent(
             SetupWizardScreen(
                 settingsManager = settingsManager,
                 viewModel = posViewModel,
-                onSetupComplete = { newAdmin -> 
+                onSetupComplete = { newAdmin ->
                     posViewModel.initCurrentBranchForUser(newAdmin)
-                    onUserChange(newAdmin) 
+                    onUserChange(newAdmin)
                 }
             )
         } else if (currentUser == null) {
             LoginScreen(
-                viewModel = posViewModel, 
-                settingsManager = settingsManager, 
-                onLoginSuccess = { user -> 
+                viewModel = posViewModel,
+                settingsManager = settingsManager,
+                onLoginSuccess = { user ->
                     posViewModel.initCurrentBranchForUser(user)
-                    onUserChange(user) 
+                    onUserChange(user)
                 }
             )
         } else {
@@ -265,6 +265,24 @@ fun MainNavigation(
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
 
+    // ================================================================
+    // FIX #3 (UI side): Baca businessType langsung dari SettingsManager.
+    // Nilai ini di-recompute setiap kali MainNavigation recompose
+    // (yaitu setiap kali selectedTab berubah, atau state observed berubah).
+    // Jika user mengubah tipe usaha dari menu Setting (Sesi 4),
+    // tab Dapur & menu Gabung Meja akan hilang saat user pindah tab.
+    // ================================================================
+    val businessType = settingsManager.businessType
+    val isKuliner = businessType.equals("KULINER", ignoreCase = true)
+
+    // Safety redirect: jika user somehow masih di tab Dapur (4) padahal
+    // tipe usaha bukan Kuliner, langsung alihkan ke tab Kasir.
+    LaunchedEffect(isKuliner, selectedTab) {
+        if (!isKuliner && selectedTab == 4) {
+            selectedTab = 0
+        }
+    }
+
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -284,10 +302,10 @@ fun MainNavigation(
 
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
-            viewModel.processBarcodeScan(result.contents) { success, msg -> 
+            viewModel.processBarcodeScan(result.contents) { success, msg ->
                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 if (success) {
-                    showSearchDialog = false 
+                    showSearchDialog = false
                     viewModel.setSearchQuery("")
                 }
             }
@@ -302,7 +320,7 @@ fun MainNavigation(
             text = {
                 OutlinedTextField(
                     value = query,
-                    onValueChange = { 
+                    onValueChange = {
                         query = it
                         viewModel.setSearchQuery(it)
                     },
@@ -316,7 +334,7 @@ fun MainNavigation(
                             options.setCameraId(0)
                             options.setBeepEnabled(false)
                             options.setBarcodeImageEnabled(true)
-                            options.setOrientationLocked(true) 
+                            options.setOrientationLocked(true)
                             barcodeLauncher.launch(options)
                         }) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = EmeraldGreen)
@@ -327,12 +345,12 @@ fun MainNavigation(
                     shape = RoundedCornerShape(12.dp)
                 )
             },
-            confirmButton = { 
-                TextButton(onClick = { showSearchDialog = false }) { Text(LanguageManager.tr("tutup", language)) } 
+            confirmButton = {
+                TextButton(onClick = { showSearchDialog = false }) { Text(LanguageManager.tr("tutup", language)) }
             },
             dismissButton = {
                 if (query.isNotEmpty()) {
-                    TextButton(onClick = { 
+                    TextButton(onClick = {
                         query = ""
                         viewModel.setSearchQuery("")
                     }) { Text(LanguageManager.tr("hapus", language), color = ErrorRed) }
@@ -341,8 +359,8 @@ fun MainNavigation(
         )
     }
 
-    val logoFile = remember(storeLogoPath) { 
-        storeLogoPath?.let { File(it) } 
+    val logoFile = remember(storeLogoPath) {
+        storeLogoPath?.let { File(it) }
     }
 
     Scaffold(
@@ -372,7 +390,7 @@ fun MainNavigation(
                             modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -393,62 +411,70 @@ fun MainNavigation(
                             )
                         }
                     }
-                    
-                    IconButton(onClick = { showSearchDialog = true }) { 
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) 
-                    }
-                    IconButton(onClick = { showCfd = true }) { 
-                        Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) 
-                    }
-                    
+
+                    // ============================================================
+                    // FIX #5: Ikon Search & CFD hanya tampil di Tab Kasir (0).
+                    // Ikon MoreVert beserta seluruh menu-nya juga hanya tampil
+                    // di Tab Kasir (existing behavior, tetap dipertahankan).
+                    // ============================================================
                     if (selectedTab == 0) {
+                        IconButton(onClick = { showSearchDialog = true }) {
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = { showCfd = true }) {
+                            Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary)
+                        }
+
                         Box {
-                            IconButton(onClick = { showMenu = true }) { 
-                                Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                // FIX #3: Gabung Meja hanya relevan untuk Kuliner.
+                                if (isKuliner) {
+                                    DropdownMenuItem(
+                                        text = { Text(LanguageManager.tr("gabung_meja", language)) },
+                                        leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) },
+                                        onClick = { posActionTrigger = "MERGE"; showMenu = false }
+                                    )
+                                }
                                 DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("gabung_meja", language)) }, 
-                                    leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, 
-                                    onClick = { posActionTrigger = "MERGE"; showMenu = false } 
+                                    text = { Text(LanguageManager.tr("buka_laci", language)) },
+                                    leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) },
+                                    onClick = { posActionTrigger = "DRAWER"; showMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("buka_laci", language)) }, 
-                                    leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, 
-                                    onClick = { posActionTrigger = "DRAWER"; showMenu = false } 
+                                    text = { Text(LanguageManager.tr("pesanan_parkir", language)) },
+                                    leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) },
+                                    onClick = { posActionTrigger = "HOLD"; showMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, 
-                                    leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, 
-                                    onClick = { posActionTrigger = "HOLD"; showMenu = false } 
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, 
-                                    leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, 
-                                    onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
+                                    text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) },
+                                    leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) },
+                                    onClick = { posActionTrigger = "CASHFLOW"; showMenu = false }
                                 )
                                 HorizontalDivider()
                                 if (currentUser.role == "OWNER") {
                                     DropdownMenuItem(
-                                        text = { Text("Kelola Cabang") }, 
-                                        leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = EmeraldGreen) }, 
-                                        onClick = { showBranchManagementDialog = true; showMenu = false } 
+                                        text = { Text("Kelola Cabang") },
+                                        leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = EmeraldGreen) },
+                                        onClick = { showBranchManagementDialog = true; showMenu = false }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Transfer Stok") }, 
-                                        leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = EmeraldGreen) }, 
-                                        onClick = { showStockTransferDialog = true; showMenu = false } 
+                                        text = { Text("Transfer Stok") },
+                                        leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = EmeraldGreen) },
+                                        onClick = { showStockTransferDialog = true; showMenu = false }
                                     )
                                 }
                                 // MENU TUTUP KASIR
                                 DropdownMenuItem(
-                                    text = { Text("Tutup Kasir (Close Harian)") }, 
-                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) }, 
-                                    onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false } 
+                                    text = { Text("Tutup Kasir (Close Harian)") },
+                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) },
+                                    onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, 
-                                    leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, 
+                                    text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) },
+                                    leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) },
                                     onClick = { onLogout(); showMenu = false }
                                 )
                             }
@@ -464,17 +490,17 @@ fun MainNavigation(
                 ) {
                     BranchSelectorHeader(
                         viewModel = viewModel,
-                        onManageBranchesClick = { 
+                        onManageBranchesClick = {
                             if (currentUser.role == "OWNER") {
-                                showBranchManagementDialog = true 
+                                showBranchManagementDialog = true
                             } else {
                                 Toast.makeText(context, "Hanya OWNER yang bisa mengelola cabang.", Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
-                    
+
                     Spacer(modifier = Modifier.weight(1f))
-                    
+
                     val shift = activeShift
                     if (shift != null) {
                         Surface(
@@ -551,25 +577,27 @@ fun MainNavigation(
                     )
                 )
 
-                // 4. Tab Dapur (KDS)
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },
-                    label = { Text("Dapur", textAlign = TextAlign.Center) },
-                    selected = selectedTab == 4,
-                    onClick = { selectedTab = 4 },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                // 4. Tab Dapur (KDS) — FIX #3: hanya tampil untuk Kuliner.
+                if (isKuliner) {
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },
+                        label = { Text("Dapur", textAlign = TextAlign.Center) },
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
-                )
+                }
 
-                // 5. Tab Pengaturan
+                // 5. Tab Setting — FIX #4: label diganti "Setting" (teks pendek).
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text(LanguageManager.tr("pengaturan", language), textAlign = TextAlign.Center) },
+                    label = { Text("Setting", textAlign = TextAlign.Center) },
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
                     colors = NavigationBarItemDefaults.colors(
@@ -594,11 +622,11 @@ fun MainNavigation(
             ) { targetTab ->
                 when (targetTab) {
                     0 -> PosScreen(
-                        viewModel = viewModel, 
-                        settingsManager = settingsManager, 
-                        currentUser = currentUser, 
-                        onLogout = onLogout, 
-                        showCfd = showCfd, 
+                        viewModel = viewModel,
+                        settingsManager = settingsManager,
+                        currentUser = currentUser,
+                        onLogout = onLogout,
+                        showCfd = showCfd,
                         onDismissCfd = { showCfd = false },
                         actionTrigger = posActionTrigger,
                         onActionHandled = { posActionTrigger = null }
@@ -617,7 +645,11 @@ fun MainNavigation(
                         storeLogoPath = storeLogoPath,
                         onLogoChange = onLogoChange
                     )
-                    4 -> KitchenScreen(viewModel = viewModel) // MODUL B: KDS
+                    // FIX #3: guard tambahan. Bila somehow selectedTab = 4
+                    // sementara bukan Kuliner, tidak render KitchenScreen.
+                    4 -> if (isKuliner) {
+                        KitchenScreen(viewModel = viewModel)
+                    }
                 }
             }
 
@@ -647,7 +679,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    
+
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
@@ -660,21 +692,21 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
     val allProducts by viewModel.products.collectAsStateWithLifecycle()
     val searchFocusRequester = remember { FocusRequester() }
-    val context = LocalContext.current 
+    val context = LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         PosProductSection(
-            products = filteredProducts, 
-            categories = categories, 
-            selectedCategory = selectedCategory, 
-            onCategorySelect = { viewModel.setCategory(it) }, 
+            products = filteredProducts,
+            categories = categories,
+            selectedCategory = selectedCategory,
+            onCategorySelect = { viewModel.setCategory(it) },
             searchQuery = searchQuery,
             onSearchChange = { viewModel.setSearchQuery(it) },
-            onProductClick = { 
+            onProductClick = {
                 productToEdit = it
                 showProductForm = true
-            }, 
-            onProductLongClick = { showActionDialogFor = it }, 
+            },
+            onProductLongClick = { showActionDialogFor = it },
             onBarcodeScan = { },
             onCameraScanClick = { },
             searchFocusRequester = searchFocusRequester
@@ -692,7 +724,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 icon = { Icon(Icons.Default.FactCheck, contentDescription = "Audit") },
                 text = { Text("Audit Stok", fontWeight = FontWeight.Bold) }
             )
-            
+
             FloatingActionButton(
                 onClick = { productToEdit = null; showProductForm = true },
                 containerColor = EmeraldGreen
@@ -703,8 +735,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
         if (showProductForm) {
             ProductFormBottomSheet(
-                productToEdit = productToEdit, 
-                onDismiss = { showProductForm = false; productToEdit = null }, 
+                productToEdit = productToEdit,
+                onDismiss = { showProductForm = false; productToEdit = null },
                 onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty ->
                     if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty, currentUser.id, currentUser.name)
                     else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty), currentUser.id, currentUser.name)
@@ -730,10 +762,10 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 onRestock = { productToRestock = showActionDialogFor; showActionDialogFor = null },
                 onWaste = { productToWaste = showActionDialogFor; showActionDialogFor = null },
                 onBom = { productToManageBom = showActionDialogFor; showActionDialogFor = null },
-                onSaveBarcode = { 
+                onSaveBarcode = {
                     val product = showActionDialogFor!!
                     showActionDialogFor = null
-                    saveBarcodeToGallery(context, product) 
+                    saveBarcodeToGallery(context, product)
                 },
                 onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }
             )

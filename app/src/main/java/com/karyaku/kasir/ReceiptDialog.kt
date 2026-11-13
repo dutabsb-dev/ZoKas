@@ -53,8 +53,20 @@ fun ReceiptDialog(
     val printerManager = remember { BluetoothPrinterManager(context) }
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
+    // ================================================================
+    // FIX #1: Loading state eksplisit.
+    //   itemsNullable == null  -> Flow belum emit (loading awal)
+    //   itemsNullable == []    -> emit tapi kosong (edge case)
+    //   itemsNullable == list  -> ready
+    // Tombol Share & Print didisable selama loading agar tidak mengirim
+    // struk kosong.
+    // ================================================================
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
-    val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val itemsNullable by itemsFlow.collectAsStateWithLifecycle(
+        initialValue = null as List<TransactionItemEntity>?
+    )
+    val isItemsLoaded = itemsNullable != null
+    val items: List<TransactionItemEntity> = itemsNullable ?: emptyList()
 
     var showPrinterError by remember { mutableStateOf(false) }
     var showShareFallbackDialog by remember { mutableStateOf(false) }
@@ -100,7 +112,7 @@ fun ReceiptDialog(
                     onClick = {
                         try {
                             textToShare = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
-                            
+
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, textToShare)
@@ -120,6 +132,7 @@ fun ReceiptDialog(
                             showShareFallbackDialog = true
                         }
                     },
+                    enabled = isItemsLoaded,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
                     shape = RoundedCornerShape(12.dp)
@@ -128,7 +141,7 @@ fun ReceiptDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("KIRIM STRUK (WHATSAPP)", fontWeight = FontWeight.Bold, color = Color.White)
                 }
-                
+
                 Button(
                     onClick = {
                         val mac = settingsManager.printerMacAddress
@@ -151,6 +164,7 @@ fun ReceiptDialog(
                             }
                         }
                     },
+                    enabled = isItemsLoaded,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                     shape = RoundedCornerShape(12.dp)
@@ -162,7 +176,7 @@ fun ReceiptDialog(
         title = null,
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                
+
                 // TAMPILKAN LOGO TOKO DI PREVIEW
                 if (logoFile != null && logoFile.exists()) {
                     AsyncImage(
@@ -175,85 +189,123 @@ fun ReceiptDialog(
                 Text(text = storeName, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp, textAlign = TextAlign.Center)
                 Text(text = storeAddress, fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
                 Text(text = "Telp: $storePhone", fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
-                
+
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "ID: #${transaction.id} | ${dateFormat.format(Date(transaction.timestamp))}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = "Tipe: ${transaction.orderType}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 if (transaction.pickupDate > 0) {
-                     Text(text = "Ambil: ${dateFormat.format(Date(transaction.pickupDate))}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color.Red)
+                    Text(text = "Ambil: ${dateFormat.format(Date(transaction.pickupDate))}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color.Red)
                 }
                 Text(text = "Kasir: ${transaction.cashierName} | ${transaction.tableName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "Pelanggan: ${transaction.customerName}", fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                
-                if (items.isEmpty()) {
-                    Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = SlateGrey)
-                } else {
-                    items.forEach { item ->
+
+                // ============================================================
+                // FIX #1: Tiga state eksplisit — loading / kosong / ada item.
+                // ============================================================
+                when {
+                    !isItemsLoaded -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = EmeraldGreen
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Memuat rincian...",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                color = SlateGrey
+                            )
+                        }
+                    }
+                    items.isEmpty() -> {
+                        Text(
+                            "Tidak ada item tercatat.",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            color = SlateGrey
+                        )
+                    }
+                    else -> {
+                        items.forEach { item ->
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("${item.quantity}x ${item.productName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                                Text(formatRupiah(item.subtotal), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                            }
+                            if (item.notes.isNotEmpty()) {
+                                Text("  *Cat: ${item.notes}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = SlateGreyDark)
+                            }
+                            if (item.serialNumber.isNotEmpty()) {
+                                Text("  *SN: ${item.serialNumber}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Blue)
+                            }
+                            if (item.assignedStaff.isNotEmpty()) {
+                                Text("  *Staf: ${item.assignedStaff}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Magenta)
+                            }
+                        }
+                        Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                    }
+                }
+
+                // ============================================================
+                // FIX #1: Bagian perhitungan HANYA dirender setelah loaded.
+                // Jika belum loaded, tidak ada teks "Subtotal Rp 0" palsu.
+                // ============================================================
+                if (isItemsLoaded) {
+                    val subtotalItems = items.sumOf { it.subtotal }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Subtotal", fontFamily = FontFamily.Monospace)
+                        Text(formatRupiah(subtotalItems), fontFamily = FontFamily.Monospace)
+                    }
+
+                    if (transaction.taxAmount > 0) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("${item.quantity}x ${item.productName}", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                            Text(formatRupiah(item.subtotal), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                        }
-                        if (item.notes.isNotEmpty()) {
-                            Text("  *Cat: ${item.notes}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = SlateGreyDark)
-                        }
-                        if (item.serialNumber.isNotEmpty()) {
-                            Text("  *SN: ${item.serialNumber}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Blue)
-                        }
-                        if (item.assignedStaff.isNotEmpty()) {
-                            Text("  *Staf: ${item.assignedStaff}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color.Magenta)
+                            Text("Pajak", fontFamily = FontFamily.Monospace)
+                            Text(formatRupiah(transaction.taxAmount), fontFamily = FontFamily.Monospace)
                         }
                     }
-                    Text(text = "-------------------------", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                }
 
-                val subtotalItems = items.sumOf { it.subtotal }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Subtotal", fontFamily = FontFamily.Monospace)
-                    Text(formatRupiah(subtotalItems), fontFamily = FontFamily.Monospace)
-                }
-                
-                if (transaction.taxAmount > 0) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Pajak", fontFamily = FontFamily.Monospace)
-                        Text(formatRupiah(transaction.taxAmount), fontFamily = FontFamily.Monospace)
+                    if (transaction.serviceCharge > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Service Charge", fontFamily = FontFamily.Monospace)
+                            Text(formatRupiah(transaction.serviceCharge), fontFamily = FontFamily.Monospace)
+                        }
                     }
-                }
 
-                if (transaction.serviceCharge > 0) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Service Charge", fontFamily = FontFamily.Monospace)
-                        Text(formatRupiah(transaction.serviceCharge), fontFamily = FontFamily.Monospace)
+                    val diskon = subtotalItems + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
+                    if (diskon > 0) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Diskon / Poin", fontFamily = FontFamily.Monospace)
+                            Text("- ${formatRupiah(diskon)}", fontFamily = FontFamily.Monospace)
+                        }
                     }
-                }
 
-                val diskon = subtotalItems + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
-                if (diskon > 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Diskon / Poin", fontFamily = FontFamily.Monospace)
-                        Text("- ${formatRupiah(diskon)}", fontFamily = FontFamily.Monospace)
+                        Text("Total Belanja", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text(formatRupiah(transaction.totalPrice), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                    }
+
+                    if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
+                        Text("METODE: BON (BELUM BAYAR)", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = ErrorRed)
+                    } else {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Tunai", fontFamily = FontFamily.Monospace)
+                            Text(formatRupiah(transaction.cashReceived), fontFamily = FontFamily.Monospace)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Kembalian", fontFamily = FontFamily.Monospace)
+                            Text(formatRupiah(transaction.changeAmount), fontFamily = FontFamily.Monospace)
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Total Belanja", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                    Text(formatRupiah(transaction.totalPrice), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                }
-                
-                if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
-                    Text("METODE: BON (BELUM BAYAR)", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = ErrorRed)
-                } else {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Tunai", fontFamily = FontFamily.Monospace)
-                        Text(formatRupiah(transaction.cashReceived), fontFamily = FontFamily.Monospace)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Kembalian", fontFamily = FontFamily.Monospace)
-                        Text(formatRupiah(transaction.changeAmount), fontFamily = FontFamily.Monospace)
-                    }
-                }
-                
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = "=========================", fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                 Text(text = storeFooter, fontFamily = FontFamily.Monospace, fontSize = 10.sp, textAlign = TextAlign.Center)
@@ -281,7 +333,7 @@ private fun generateTextReceipt(
     sb.append("Kasir: ${transaction.cashierName}\n")
     sb.append("Pelanggan: ${transaction.customerName}\n")
     sb.append("------------------------\n")
-    
+
     items?.forEach {
         sb.append("${it.quantity}x ${it.productName}\n")
         if (it.notes.isNotEmpty()) { sb.append("   *Cat: ${it.notes}*\n") }
@@ -290,18 +342,18 @@ private fun generateTextReceipt(
         sb.append("   Rp ${it.subtotal}\n")
     }
     sb.append("------------------------\n")
-    
+
     val subtotal = items?.sumOf { it.subtotal } ?: transaction.totalPrice
     sb.append("Subtotal: Rp $subtotal\n")
-    
+
     if (transaction.taxAmount > 0) sb.append("Pajak: Rp ${transaction.taxAmount}\n")
     if (transaction.serviceCharge > 0) sb.append("Service: Rp ${transaction.serviceCharge}\n")
-    
+
     val diskon = subtotal + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
     if (diskon > 0) sb.append("Diskon: -Rp $diskon\n")
-    
+
     sb.append("*Total: Rp ${transaction.totalPrice}*\n")
-    
+
     if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
         sb.append("*STATUS: BON (BELUM BAYAR)*\n")
     } else {
@@ -320,7 +372,7 @@ private fun generatePrintData(
 ): ByteArray {
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
-    
+
     // --- FITUR CETAK LOGO ---
     if (logoFile != null && logoFile.exists()) {
         try {
@@ -332,7 +384,7 @@ private fun generatePrintData(
                 val newWidth = maxWidth
                 val newHeight = (newWidth / ratio).toInt()
                 val resizedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
-                
+
                 output.write(EscPosCommands.ALIGN_CENTER)
                 output.write(EscPosCommands.printImage(resizedBitmap))
                 output.write(byteArrayOf(0x0A)) // Line feed setelah gambar
@@ -358,7 +410,7 @@ private fun generatePrintData(
     output.write("Pelanggan: ${transaction.customerName}\n".toByteArray())
     output.write("================================\n".toByteArray())
     output.write(EscPosCommands.ALIGN_LEFT)
-    
+
     items?.forEach {
         output.write("${it.quantity}x ${it.productName}\n".toByteArray())
         if (it.notes.isNotEmpty()) { output.write("  *Cat: ${it.notes}\n".toByteArray()) }
@@ -367,17 +419,17 @@ private fun generatePrintData(
         output.write("  Rp ${it.subtotal}\n".toByteArray())
     }
     output.write("--------------------------------\n".toByteArray())
-    
+
     val subtotal = items?.sumOf { it.subtotal } ?: transaction.totalPrice
     output.write("Subtotal: Rp $subtotal\n".toByteArray())
     if (transaction.taxAmount > 0) output.write("Pajak   : Rp ${transaction.taxAmount}\n".toByteArray())
     if (transaction.serviceCharge > 0) output.write("Service : Rp ${transaction.serviceCharge}\n".toByteArray())
-    
+
     val diskon = subtotal + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
     if (diskon > 0) output.write("Diskon  : -Rp $diskon\n".toByteArray())
-    
+
     output.write("Total   : Rp ${transaction.totalPrice}\n".toByteArray())
-    
+
     if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
         output.write("STATUS  : BON (BELUM BAYAR)\n".toByteArray())
     } else {
