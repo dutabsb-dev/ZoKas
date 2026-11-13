@@ -43,10 +43,32 @@ class PosViewModel(
     private val membershipDao = database.membershipDao()
     private val supplierDao = database.supplierDao()
     private val purchaseDao = database.purchaseDao()
-    private val purchasePaymentDao = database.purchasePaymentDao() // MODUL E
+    private val purchasePaymentDao = database.purchasePaymentDao()
     private val reservationDao = database.reservationDao() 
     private val expenseDao = database.expenseDao()
     private val stockOpnameDao = database.stockOpnameDao()
+
+    // ================================================================
+    // MODUL D-1: STATE MULTI-CABANG
+    // ================================================================
+    // _currentBranchId : cabang yang sedang aktif di UI.
+    //                    Default 1L sebelum user login.
+    // _isBranchSwitchLocked : true kalau user CASHIER (tidak bisa switch).
+    // _allBranches      : daftar semua cabang (untuk dropdown).
+    // currentBranch     : BranchEntity cabang aktif (untuk header).
+    // ================================================================
+    private val _currentBranchId = MutableStateFlow(1L)
+    val currentBranchId: StateFlow<Long> = _currentBranchId.asStateFlow()
+
+    private val _isBranchSwitchLocked = MutableStateFlow(false)
+    val isBranchSwitchLocked: StateFlow<Boolean> = _isBranchSwitchLocked.asStateFlow()
+
+    private val _allBranches = MutableStateFlow<List<BranchEntity>>(emptyList())
+    val allBranches: StateFlow<List<BranchEntity>> = _allBranches.asStateFlow()
+
+    val currentBranch: StateFlow<BranchEntity?> = combine(_currentBranchId, _allBranches) { id, branches ->
+        branches.find { it.id == id }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -94,14 +116,7 @@ class PosViewModel(
     private val _purchases = MutableStateFlow<List<PurchaseEntity>>(emptyList())
     val purchases: StateFlow<List<PurchaseEntity>> = _purchases.asStateFlow()
 
-    // ================================================================
-    // MODUL E — Hutang Supplier Cicilan
-    // ================================================================
-    // outstandingPurchases: PO yang belum lunas penuh (UNPAID + PARTIAL),
-    //   urut FIFO (paling lama dulu). Dipakai di SupplierDebtDialog.
-    // totalOutstandingDebt: total sisa hutang gabungan semua supplier,
-    //   untuk badge/ringkasan di UI.
-    // ================================================================
+    // MODUL E: outstanding + total debt
     val outstandingPurchases: StateFlow<List<PurchaseEntity>> = purchaseDao.getOutstandingPurchases()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -206,16 +221,65 @@ class PosViewModel(
                 withContext(Dispatchers.Main) { _isInitializing.value = false }
             }
         }
-        
-        viewModelScope.launch { productDao.getAllProducts().catch { _products.value = emptyList() }.collectLatest { _products.value = it } }
+
+        // ============================================================
+        // MODUL D-1: Flow cabang-aware.
+        // Setiap kali _currentBranchId berubah, re-subscribe query
+        // ke cabang baru. Data global (raw materials, suppliers, dsb)
+        // tetap ter-load sekali.
+        // ============================================================
+
+        // Global branches.
+        viewModelScope.launch {
+            branchDao.getAllBranches().catch { _allBranches.value = emptyList() }.collectLatest {
+                _allBranches.value = it
+            }
+        }
+
+        // Produk per cabang.
+        viewModelScope.launch {
+            _currentBranchId.collectLatest { branchId ->
+                productDao.getProductsByBranch(branchId)
+                    .catch { _products.value = emptyList() }
+                    .collectLatest { _products.value = it }
+            }
+        }
+
+        // Transaksi per cabang.
+        viewModelScope.launch {
+            _currentBranchId.collectLatest { branchId ->
+                transactionDao.getTransactionsByBranch(branchId)
+                    .catch { _transactions.value = emptyList() }
+                    .collectLatest { _transactions.value = it }
+            }
+        }
+
+        // User per cabang.
+        viewModelScope.launch {
+            _currentBranchId.collectLatest { branchId ->
+                userDao.getUsersByBranch(branchId)
+                    .catch { _users.value = emptyList() }
+                    .collectLatest { _users.value = it }
+            }
+        }
+
+        // Shift per cabang.
+        viewModelScope.launch {
+            _currentBranchId.collectLatest { branchId ->
+                userDao.getShiftsByBranch(branchId)
+                    .catch { _shifts.value = emptyList() }
+                    .collectLatest { _shifts.value = it }
+            }
+        }
+
+        // Global: raw materials, audit logs, customers, hold orders,
+        // best sellers, memberships, suppliers, purchases, reservations,
+        // expenses, stock opnames.
         viewModelScope.launch { productDao.getAllRawMaterials().catch { _rawMaterials.value = emptyList() }.collectLatest { _rawMaterials.value = it } }
-        viewModelScope.launch { transactionDao.getAllTransactions().catch { _transactions.value = emptyList() }.collectLatest { _transactions.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().catch { _auditLogs.value = emptyList() }.collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().catch { _customers.value = emptyList() }.collectLatest { _customers.value = it } }
         viewModelScope.launch { transactionItemDao.getBestSellers().catch { _bestSellers.value = emptyList() }.collectLatest { _bestSellers.value = it } }
-        viewModelScope.launch { userDao.getAllUsers().catch { _users.value = emptyList() }.collectLatest { _users.value = it } }
         viewModelScope.launch { holdOrderDao.getAllHoldOrders().catch { _holdOrders.value = emptyList() }.collectLatest { _holdOrders.value = it } }
-        viewModelScope.launch { userDao.getAllShifts().catch { _shifts.value = emptyList() }.collectLatest { _shifts.value = it } }
         viewModelScope.launch { membershipDao.getAllMemberships().catch { _memberships.value = emptyList() }.collectLatest { _memberships.value = it } }
         viewModelScope.launch { supplierDao.getAllSuppliers().catch { _suppliers.value = emptyList() }.collectLatest { _suppliers.value = it } }
         viewModelScope.launch { purchaseDao.getAllPurchases().catch { _purchases.value = emptyList() }.collectLatest { _purchases.value = it } }
@@ -244,6 +308,149 @@ class PosViewModel(
                         ))
                     }
                 }
+            }
+        }
+    }
+
+    // ================================================================
+    // MODUL D-1: INIT CABANG UNTUK USER YANG LOGIN
+    // ================================================================
+    // Dipanggil MainActivity setelah login sukses.
+    // - CASHIER: lock ke user.branchId (tidak bisa switch).
+    // - OWNER  : bebas, default ke user.branchId.
+    // ================================================================
+    fun initCurrentBranchForUser(user: UserEntity) {
+        _currentBranchId.value = user.branchId
+        _isBranchSwitchLocked.value = (user.role != "OWNER")
+        viewModelScope.launch(Dispatchers.IO) {
+            try { checkActiveShift() } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    // ================================================================
+    // MODUL D-1: SWITCH CABANG
+    // ================================================================
+    // Validasi:
+    //   1. Locked (CASHIER) → tolak.
+    //   2. Ada shift aktif di cabang sekarang → tolak (tutup dulu).
+    //   3. Cabang tidak ada di database → tolak.
+    // ================================================================
+    fun switchBranch(newBranchId: Long, onResult: (Boolean, String) -> Unit) {
+        if (_isBranchSwitchLocked.value) {
+            onResult(false, "Hanya OWNER yang bisa pindah cabang.")
+            return
+        }
+        if (newBranchId == _currentBranchId.value) {
+            onResult(true, "Sudah di cabang ini.")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val targetBranch = branchDao.getBranchById(newBranchId)
+                if (targetBranch == null) {
+                    withContext(Dispatchers.Main) { onResult(false, "Cabang tidak ditemukan.") }
+                    return@launch
+                }
+
+                val activeShift = userDao.getActiveShiftByBranch(_currentBranchId.value)
+                if (activeShift != null) {
+                    withContext(Dispatchers.Main) {
+                        onResult(false, "Masih ada shift aktif di cabang ini. Tutup kasir dulu sebelum pindah cabang.")
+                    }
+                    return@launch
+                }
+
+                withContext(Dispatchers.Main) {
+                    _currentBranchId.value = newBranchId
+                    _activeShift.value = null
+                    _cart.value = emptyList()
+                    _discount.value = 0
+                    _voucherDiscount.value = 0
+                    _appliedVoucher.value = ""
+                    _selectedCustomer.value = null
+                    _pointsUsed.value = 0
+                    _customerMemberships.value = emptyList()
+                    _pickupDate.value = 0
+                    onResult(true, "Pindah ke ${targetBranch.name}")
+                }
+                checkActiveShift()
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal pindah cabang: ${e.message}") }
+            }
+        }
+    }
+
+    // ================================================================
+    // MODUL D-1: CRUD CABANG
+    // ================================================================
+    fun addBranch(name: String, address: String, phone: String, onResult: (Boolean, String) -> Unit) {
+        if (_isBranchSwitchLocked.value) {
+            onResult(false, "Hanya OWNER yang bisa menambah cabang.")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val branch = BranchEntity(
+                    name = name,
+                    address = address,
+                    phone = phone,
+                    isMainBranch = false
+                )
+                val newId = branchDao.insertBranch(branch)
+                withContext(Dispatchers.Main) {
+                    onResult(true, "Cabang '$name' ditambahkan (ID: $newId).")
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal tambah cabang: ${e.message}") }
+            }
+        }
+    }
+
+    fun updateBranch(branch: BranchEntity, onResult: (Boolean, String) -> Unit) {
+        if (_isBranchSwitchLocked.value) {
+            onResult(false, "Hanya OWNER yang bisa mengedit cabang.")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                branchDao.updateBranch(branch.copy(updatedAt = System.currentTimeMillis()))
+                withContext(Dispatchers.Main) { onResult(true, "Cabang diperbarui.") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal update cabang: ${e.message}") }
+            }
+        }
+    }
+
+    fun deleteBranch(branch: BranchEntity, onResult: (Boolean, String) -> Unit) {
+        if (_isBranchSwitchLocked.value) {
+            onResult(false, "Hanya OWNER yang bisa menghapus cabang.")
+            return
+        }
+        if (branch.isMainBranch) {
+            onResult(false, "Cabang utama tidak bisa dihapus.")
+            return
+        }
+        if (branch.id == _currentBranchId.value) {
+            onResult(false, "Tidak bisa hapus cabang yang sedang aktif. Pindah cabang dulu.")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val txCount = branchDao.getTransactionCountForBranch(branch.id)
+                val prodCount = branchDao.getProductCountForBranch(branch.id)
+                if (txCount > 0 || prodCount > 0) {
+                    withContext(Dispatchers.Main) {
+                        onResult(
+                            false,
+                            "Cabang punya $txCount transaksi & $prodCount produk. Pindahkan datanya dulu."
+                        )
+                    }
+                    return@launch
+                }
+                branchDao.deleteBranch(branch.id)
+                withContext(Dispatchers.Main) { onResult(true, "Cabang '${branch.name}' dihapus.") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal hapus cabang: ${e.message}") }
             }
         }
     }
@@ -315,7 +522,10 @@ class PosViewModel(
                     )
                     userDao.insertUser(cashier)
 
+                    // MODUL D-1: setelah setup, cabang aktif = cabang utama.
                     withContext(Dispatchers.Main) {
+                        _currentBranchId.value = branchId
+                        _isBranchSwitchLocked.value = false // OWNER
                         onSuccess(admin.copy(id = adminId))
                     }
                 }
@@ -335,7 +545,6 @@ class PosViewModel(
 
     // ================================================================
     // FIX SESI 3 — processBarcodeScan (dipertahankan)
-    // Deteksi duplikat barcode → tolak scan + audit log WARNING.
     // ================================================================
     fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -372,6 +581,13 @@ class PosViewModel(
                     }
                     matches.size == 1 -> {
                         val product = matches.first()
+                        // MODUL D-1: pastikan produk milik cabang aktif.
+                        if (product.branchId != _currentBranchId.value) {
+                            withContext(Dispatchers.Main) {
+                                onResult(false, "Produk '${product.name}' milik cabang lain.")
+                            }
+                            return@launch
+                        }
                         if (product.isService || product.stock > 0) {
                             val finalProduct = if (parsedExpiry > 0) {
                                 product.copy(expiryDate = parsedExpiry, batchNumber = parsedBatch)
@@ -538,8 +754,6 @@ class PosViewModel(
                         invoiceNumber = invoiceNumber,
                         totalAmount = total,
                         status = if (isPaid) "PAID" else "UNPAID",
-                        // MODUL E: kalau lunas langsung saat create PO,
-                        // paidAmount = totalAmount dan paidAt = now.
                         paidAmount = if (isPaid) total else 0L,
                         paidAt = if (isPaid) System.currentTimeMillis() else 0L
                     )
@@ -667,7 +881,7 @@ class PosViewModel(
     }
 
     //     // ================================================================
-    // [AWAL SESI E-1c — lanjutan dari SESI E-1b]
+    // [AWAL SESI D-1c — lanjutan dari SESI D-1b]
     // Dimulai dari: fun exportProductsToExcel(...)
     // ================================================================
 
@@ -679,7 +893,10 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 1 — importProductsFromExcel (dipertahankan)
+    // FIX SESI 1 — importProductsFromExcel (dipertahankan, branch-aware)
+    // ================================================================
+    // Produk baru hasil import otomatis diberi branchId = currentBranchId.
+    // Produk existing yang di-update TIDAK dipindah cabang (tetap branchId lama).
     // ================================================================
     fun importProductsFromExcel(context: android.content.Context, uri: android.net.Uri, onResult: (Int, Int) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -689,6 +906,7 @@ class PosViewModel(
                 val importedProducts = ExcelExporter.importProductsFromExcel(context, uri)
                 if (importedProducts != null) {
                     val freshProducts = productDao.getAllProducts().first()
+                    val activeBranchId = _currentBranchId.value
 
                     importedProducts.forEach { newProduct ->
                         try {
@@ -715,7 +933,11 @@ class PosViewModel(
                                 ))
                                 updateCount++
                             } else {
-                                productDao.saveProduct(newProduct)
+                                productDao.saveProduct(newProduct.copy(
+                                    branchId = activeBranchId,
+                                    isSynced = false,
+                                    updatedAt = System.currentTimeMillis()
+                                ))
                                 insertCount++
                             }
                         } catch (itemEx: Exception) {
@@ -891,10 +1113,17 @@ class PosViewModel(
         return transactionItemDao.getItemsByTransaction(transactionId) 
     }
     
+    // ================================================================
+    // MODUL D-1 — checkActiveShift (branch-aware)
+    // ================================================================
+    // Sebelumnya: getActiveShift() mengambil shift OPEN pertama di DB,
+    // tanpa peduli cabang. Sekarang: filter by currentBranchId.
+    // ================================================================
     fun checkActiveShift() { 
         viewModelScope.launch(Dispatchers.IO) { 
-            try { _activeShift.value = userDao.getActiveShift() } 
-            catch (e: Exception) { e.printStackTrace() }
+            try { 
+                _activeShift.value = userDao.getActiveShiftByBranch(_currentBranchId.value)
+            } catch (e: Exception) { e.printStackTrace() }
         } 
     }
 
@@ -919,12 +1148,21 @@ class PosViewModel(
         } 
     }
     
+    // ================================================================
+    // MODUL D-1 — addUser (isi branchId = currentBranchId)
+    // ================================================================
     fun addUser(name: String, pin: String, role: String, adminUser: UserEntity) { 
         viewModelScope.launch(Dispatchers.IO) { 
             try {
                 val hashedPin = hashPin(pin)
-                userDao.insertUser(UserEntity(name = name, pin = hashedPin, role = role, branchId = adminUser.branchId))
-                userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name", actionType = "AUTH")) 
+                // MODUL D-1: karyawan baru selalu masuk ke cabang aktif.
+                userDao.insertUser(UserEntity(
+                    name = name, 
+                    pin = hashedPin, 
+                    role = role, 
+                    branchId = _currentBranchId.value
+                ))
+                userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name (Cabang aktif)", actionType = "AUTH")) 
             } catch (e: Exception) { e.printStackTrace() }
         } 
     }
@@ -948,12 +1186,26 @@ class PosViewModel(
         } 
     }
 
+    // ================================================================
+    // MODUL D-1 — openShift (isi branchId)
+    // ================================================================
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val shift = ShiftEntity(userId = user.id, userName = user.name, openingCash = modalAwal)
+                val activeBranchId = _currentBranchId.value
+                val shift = ShiftEntity(
+                    userId = user.id, 
+                    userName = user.name, 
+                    openingCash = modalAwal,
+                    branchId = activeBranchId
+                )
                 userDao.insertShift(shift)
-                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "BUKA KASIR: Modal ${formatRupiah(modalAwal)}", actionType = "SYSTEM"))
+                userDao.insertAuditLog(AuditLogEntity(
+                    userId = user.id, 
+                    userName = user.name, 
+                    action = "BUKA KASIR (Cabang #$activeBranchId): Modal ${formatRupiah(modalAwal)}", 
+                    actionType = "SYSTEM"
+                ))
                 checkActiveShift()
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -972,8 +1224,15 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 2 — closeShift (dipertahankan)
-    // Filter paymentMethod == "CASH" saja sebagai uang fisik laci.
+    // FIX SESI 2 + MODUL D-1 — closeShift
+    // ================================================================
+    // Perubahan:
+    //   1. Filter transaksi by shift.branchId (bukan currentBranchId).
+    //      Alasan: shift milik cabang X tetap harus ditutup dengan
+    //      perhitungan cabang X, meskipun user sudah switch ke cabang Y
+    //      (edge case yang bisa terjadi kalau switch tanpa tutup shift,
+    //      meski UI sudah mencegah).
+    //   2. Filter paymentMethod == "CASH" (dari Sesi 2).
     // ================================================================
     fun closeShift(user: UserEntity, uangFisik: Long, note: String, onSuccess: (ShiftEntity) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -984,6 +1243,7 @@ class PosViewModel(
                         it.timestamp >= shift.startTime 
                         && it.status == "SUCCESS" 
                         && it.paymentMethod == "CASH"
+                        && it.branchId == shift.branchId
                     }.sumOf { it.totalPrice }
                     
                     val totalKasKeluar = cashFlowDao.getTotalCashOut(shift.id) ?: 0L
@@ -995,7 +1255,7 @@ class PosViewModel(
                     userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih)
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = user.id, userName = user.name, 
-                        action = "TUTUP KASIR: Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)} | Catatan: $note", 
+                        action = "TUTUP KASIR (Cabang #${shift.branchId}): Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)} | Catatan: $note", 
                         actionType = "SYSTEM"
                     ))
                     checkActiveShift()
@@ -1014,7 +1274,11 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 3 — addProduct (deteksi barcode duplikat, dipertahankan)
+    // FIX SESI 3 + MODUL D-1 — addProduct
+    // ================================================================
+    // Perubahan:
+    //   1. (Sesi 3) Deteksi barcode duplikat → audit log WARNING.
+    //   2. (D-1)    Isi branchId = currentBranchId otomatis.
     // ================================================================
     fun addProduct(
         name: String, price: Long, stock: Int, category: String, costPrice: Long, 
@@ -1027,22 +1291,33 @@ class PosViewModel(
             try {
                 var duplicateWarning: String? = null
                 if (barcode.isNotBlank()) {
+                    // Cek duplikat di cabang yang sama (barcode boleh sama
+                    // di cabang berbeda — biasanya produk beda per cabang).
                     val existing = productDao.getProductsByBarcodeList(barcode)
+                        .filter { it.branchId == _currentBranchId.value }
                     if (existing.isNotEmpty()) {
                         val otherNames = existing.joinToString(", ") { it.name }
-                        duplicateWarning = "Barcode '$barcode' juga dipakai oleh: $otherNames"
+                        duplicateWarning = "Barcode '$barcode' juga dipakai di cabang ini oleh: $otherNames"
                     }
                 }
+
+                val activeBranchId = _currentBranchId.value
 
                 productDao.insertProduct(ProductEntity(
                     name = name, price = price, stock = stock, category = category, costPrice = costPrice, 
                     barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
                     isService = isService, isCombo = isCombo, imagePath = imagePath, 
                     wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
+                    branchId = activeBranchId,
                     isSynced = false, updatedAt = System.currentTimeMillis()
                 ))
                 
-                userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name", actionType = "INVENTORY"))
+                userDao.insertAuditLog(AuditLogEntity(
+                    userId = userId, 
+                    userName = userName, 
+                    action = "TAMBAH PRODUK (Cabang #$activeBranchId): $name", 
+                    actionType = "INVENTORY"
+                ))
                 
                 if (duplicateWarning != null) {
                     userDao.insertAuditLog(AuditLogEntity(
@@ -1057,20 +1332,38 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 1 + SESI 3 — updateProduct (dipertahankan)
+    // FIX SESI 1 + SESI 3 + MODUL D-1 — updateProduct
+    // ================================================================
+    // Perubahan:
+    //   1. (Sesi 1) saveProduct (UPDATE in-place), audit log setelah sukses.
+    //   2. (Sesi 3) Deteksi barcode duplikat di cabang yang sama.
+    //   3. (D-1)    Proteksi cross-branch: tolak jika product.branchId
+    //               berbeda dari currentBranchId (mencegah user di cabang A
+    //               mengedit produk milik cabang B via manipulasi data).
     // ================================================================
     fun updateProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Proteksi: hanya bisa edit produk cabang sendiri.
+                if (product.branchId != _currentBranchId.value) {
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = userId,
+                        userName = userName,
+                        action = "TOLAK EDIT PRODUK LAIN CABANG: '${product.name}' (produk cabang #${product.branchId}, aktif #${_currentBranchId.value})",
+                        actionType = "INVENTORY"
+                    ))
+                    return@launch
+                }
+
                 val oldProduct = _products.value.find { it.id == product.id }
 
                 var duplicateWarning: String? = null
                 if (product.barcode.isNotBlank()) {
                     val sameBarcode = productDao.getProductsByBarcodeList(product.barcode)
-                        .filter { it.id != product.id }
+                        .filter { it.id != product.id && it.branchId == _currentBranchId.value }
                     if (sameBarcode.isNotEmpty()) {
                         val otherNames = sameBarcode.joinToString(", ") { it.name }
-                        duplicateWarning = "Barcode '${product.barcode}' juga dipakai oleh: $otherNames"
+                        duplicateWarning = "Barcode '${product.barcode}' juga dipakai di cabang ini oleh: $otherNames"
                     }
                 }
 
@@ -1107,6 +1400,16 @@ class PosViewModel(
     fun deleteProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Proteksi: hanya bisa hapus produk cabang sendiri.
+                if (product.branchId != _currentBranchId.value) {
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = userId,
+                        userName = userName,
+                        action = "TOLAK HAPUS PRODUK LAIN CABANG: '${product.name}'",
+                        actionType = "INVENTORY"
+                    ))
+                    return@launch
+                }
                 productDao.deleteProduct(product)
                 userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "HAPUS PRODUK: ${product.name}", actionType = "INVENTORY"))
             } catch (e: Exception) { e.printStackTrace() }
@@ -1170,6 +1473,12 @@ class PosViewModel(
         return (subtotal + tax + service - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
     }
 
+    // ================================================================
+    // MODUL D-1 — processPayment (isi branchId)
+    // ================================================================
+    // Perubahan: TransactionEntity.branchId = currentBranchId saat transaksi
+    // dibuat. Ini memastikan transaksi tercatat di cabang yang benar.
+    // ================================================================
     fun processPayment(
         cashReceived: Long,
         userId: Long,
@@ -1245,6 +1554,7 @@ class PosViewModel(
             status = status,
             cashierName = userName,
             totalCommission = totalCommission,
+            branchId = _currentBranchId.value,  // MODUL D-1
             isSynced = false,
             updatedAt = System.currentTimeMillis()
         )
@@ -1317,7 +1627,7 @@ class PosViewModel(
                     userDao.insertAuditLog(
                         AuditLogEntity(
                             userId = userId, userName = userName, 
-                            action = "TRANSAKSI ($method): ${formatRupiah(total)} ($customerName)",
+                            action = "TRANSAKSI ($method) Cabang #${_currentBranchId.value}: ${formatRupiah(total)} ($customerName)",
                             actionType = "TRANSACTION"
                         )
                     )
@@ -1466,54 +1776,17 @@ class PosViewModel(
     }
 
     // ================================================================
-    // ================================================================
-    // MODUL E — HUTANG SUPPLIER CICILAN
-    // ================================================================
+    // MODUL E — HUTANG SUPPLIER CICILAN (dipertahankan)
     // ================================================================
 
-    /**
-     * Riwayat cicilan untuk satu PO.
-     * Dipakai di SupplierDebtDialog saat user membuka detail PO.
-     */
     fun getPaymentsForPurchase(purchaseId: Long): Flow<List<PurchasePaymentEntity>> {
         return purchasePaymentDao.getPaymentsByPurchase(purchaseId)
     }
 
-    /**
-     * Semua riwayat cicilan (lintas PO, lintas supplier).
-     * Untuk laporan/audit hutang di masa depan.
-     */
     fun getAllPurchasePayments(): Flow<List<PurchasePaymentEntity>> {
         return purchasePaymentDao.getAllPayments()
     }
 
-    /**
-     * Catat pembayaran (cicilan atau pelunasan) ke supplier.
-     *
-     * Alur transaksional:
-     *   1. Validasi amount > 0 dan amount <= sisa hutang.
-     *   2. Insert baris ke purchase_payments (riwayat).
-     *   3. Update purchases.paidAmount + status + paidAt.
-     *   4. Audit log FINANCE.
-     *
-     * Status baru:
-     *   - UNPAID  jika paidAmount == 0
-     *   - PARTIAL jika 0 < paidAmount < totalAmount
-     *   - PAID    jika paidAmount >= totalAmount
-     *
-     * Catatan: pembayaran hutang TIDAK otomatis dicatat sebagai
-     * cash_flow shift, karena hutang supplier biasanya dibayar lewat
-     * transfer bank atau kas besar, bukan dari laci kasir. Jika nanti
-     * user ingin opsi "bayar dari kas kasir", tambahkan toggle di UI
-     * dan panggil cashFlowDao.insertCashFlow(OUT) di sini.
-     *
-     * @param purchase PO yang dibayar.
-     * @param amount Nominal yang dibayar (harus > 0 dan <= outstanding).
-     * @param paymentMethod CASH / Bank Transfer / QRIS.
-     * @param note Catatan opsional.
-     * @param user User yang mencatat pembayaran.
-     * @param onResult callback (success, message) untuk toast di UI.
-     */
     fun recordSupplierPayment(
         purchase: PurchaseEntity,
         amount: Long,
@@ -1538,7 +1811,6 @@ class PosViewModel(
                 var newStatus = "UNPAID"
 
                 database.withTransaction {
-                    // 1. Hitung paidAmount baru.
                     newPaidAmount = purchase.paidAmount + amount
                     newStatus = when {
                         newPaidAmount <= 0L -> "UNPAID"
@@ -1547,7 +1819,6 @@ class PosViewModel(
                     }
                     val paidAt = if (newStatus == "PAID") System.currentTimeMillis() else 0L
 
-                    // 2. Catat riwayat cicilan.
                     purchasePaymentDao.insertPayment(
                         PurchasePaymentEntity(
                             purchaseId = purchase.id,
@@ -1559,7 +1830,6 @@ class PosViewModel(
                         )
                     )
 
-                    // 3. Update header PO.
                     purchaseDao.updatePayment(
                         purchaseId = purchase.id,
                         paidAmount = newPaidAmount,
@@ -1567,7 +1837,6 @@ class PosViewModel(
                         paidAt = paidAt
                     )
 
-                    // 4. Audit log.
                     userDao.insertAuditLog(
                         AuditLogEntity(
                             userId = user.id,
@@ -1595,19 +1864,6 @@ class PosViewModel(
         }
     }
 
-    /**
-     * LEGACY — markAsPaid(purchaseId) lama.
-     *
-     * Dipertahankan agar kode lama (PayableDialog di SettingsDialogs.kt)
-     * tetap compile. Perilaku: langsung lunasi seluruh sisa hutang
-     * dengan metode CASH dan user sistem.
-     *
-     * Untuk UI baru, gunakan recordSupplierPayment() supaya
-     * riwayat cicilan tercatat rapi.
-     *
-     * TODO: setelah PayableDialog dihapus dari SettingsScreen,
-     *       fungsi ini bisa dihapus juga.
-     */
     @Deprecated("Gunakan recordSupplierPayment() agar riwayat cicilan tercatat.")
     fun payPurchase(purchaseId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1616,8 +1872,6 @@ class PosViewModel(
                 if (purchase != null) {
                     val outstanding = (purchase.totalAmount - purchase.paidAmount).coerceAtLeast(0L)
                     if (outstanding > 0L) {
-                        // Panggil versi baru dengan user sistem (karena
-                        // signature legacy tidak menerima currentUser).
                         val systemUser = UserEntity(
                             id = 0L,
                             name = "SYSTEM",

@@ -7,10 +7,15 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,11 +25,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
+import com.karyaku.kasir.data.local.BranchEntity
 import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,7 +60,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val lang = language
     
-    // State Profil Toko & Pengaturan (YANG TIDAK DI-HOIST)
+    // State Profil Toko & Pengaturan
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
@@ -108,6 +115,11 @@ fun SettingsScreen(
     var showReceivableDialog by remember { mutableStateOf(false) }
     var showPayableDialog by remember { mutableStateOf(false) }
     
+    // ================================================================
+    // MODUL D-1: State dialog kelola cabang
+    // ================================================================
+    var showBranchManagementDialog by remember { mutableStateOf(false) }
+    
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
@@ -118,6 +130,12 @@ fun SettingsScreen(
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val purchases by viewModel.purchases.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
+    
+    // ================================================================
+    // MODUL D-1: Data cabang untuk kartu "Kelola Cabang"
+    // ================================================================
+    val currentBranch by viewModel.currentBranch.collectAsStateWithLifecycle()
+    val allBranches by viewModel.allBranches.collectAsStateWithLifecycle()
     
     val printerManager = remember { BluetoothPrinterManager(context) }
     var savedPrinterMac by remember { mutableStateOf(settingsManager.printerMacAddress) }
@@ -187,6 +205,18 @@ fun SettingsScreen(
             onDeleteUser = { user -> viewModel.deleteUser(user, currentUser) }
         )
     }
+    
+    // ================================================================
+    // MODUL D-1: Dialog kelola cabang
+    // ================================================================
+    if (showBranchManagementDialog) {
+        BranchManagementDialog(
+            viewModel = viewModel,
+            currentUser = currentUser,
+            onDismiss = { showBranchManagementDialog = false }
+        )
+    }
+    
     if (showShiftHistory) {
         ShiftHistoryDialog(shifts = shifts, onDismiss = { showShiftHistory = false })
     }
@@ -260,12 +290,12 @@ fun SettingsScreen(
         )
     }
     if (showPayableDialog) {
-    SupplierDebtDialog(
-        viewModel = viewModel,
-        currentUser = currentUser,
-        onDismiss = { showPayableDialog = false }
-    )
-}
+        SupplierDebtDialog(
+            viewModel = viewModel,
+            currentUser = currentUser,
+            onDismiss = { showPayableDialog = false }
+        )
+    }
     if (showPaymentMethodsDialog) {
         PaymentMethodManagementDialog(
             currentMethods = settingsManager.paymentMethods,
@@ -354,6 +384,19 @@ fun SettingsScreen(
                 onShiftHistoryClick = { showShiftHistory = true },
                 language = language
             )
+        }
+
+        // ============================================================
+        // 2b. MODUL D-1: Card Multi-Cabang (hanya OWNER)
+        // ============================================================
+        if (currentUser.role == "OWNER") {
+            item {
+                SettingsBranchManagementCard(
+                    currentBranch = currentBranch,
+                    totalBranches = allBranches.size,
+                    onManageClick = { showBranchManagementDialog = true }
+                )
+            }
         }
 
         // 3. Card Modul Toko
@@ -498,6 +541,136 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White) }
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+// ====================================================================
+// MODUL D-1 — Card Multi-Cabang (khusus OWNER)
+// ====================================================================
+// Card ringkas di Pengaturan. Menampilkan cabang aktif + total cabang,
+// dengan tombol "Kelola Cabang" yang membuka BranchManagementDialog.
+// Akses utama tetap via menu titik tiga, ini alternatif di Pengaturan.
+// ====================================================================
+@Composable
+private fun SettingsBranchManagementCard(
+    currentBranch: BranchEntity?,
+    totalBranches: Int,
+    onManageClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(EmeraldGreen.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Storefront,
+                        contentDescription = null,
+                        tint = EmeraldGreen,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Multi-Cabang",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (totalBranches > 1)
+                            "$totalBranches cabang terdaftar"
+                        else
+                            "Kelola cabang toko Anda",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Info cabang aktif
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = EmeraldGreen,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "CABANG AKTIF",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = currentBranch?.name ?: "-",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (currentBranch?.isMainBranch == true) {
+                    Surface(
+                        color = AmberAccent.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "UTAMA",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AmberAccentDark,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = onManageClick,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "KELOLA CABANG",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
         }
     }
 }

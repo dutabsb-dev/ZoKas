@@ -73,23 +73,7 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // ================================================================
-        // PHASE 0 — SESI 3: Auto backup aman
-        // ================================================================
-        // Masalah lama:
-        //   1. File.copyTo(.db) saat DB aktif → WAL belum ter-checkpoint,
-        //      transaksi terbaru bisa hilang. File -wal & -shm tidak disalin
-        //      → backup tidak bisa dibuka / korup.
-        //   2. Tidak ada deteksi kegagalan.
-        //
-        // Perbaikan:
-        //   - Pakai VACUUM INTO → SQLite membuat snapshot konsisten tanpa
-        //     perlu tutup DB. Diperlukan SQLite 3.27+ (Android 10+).
-        //   - Android 8-9 (minSdk 26) → fallback silent-skip; user tetap
-        //     bisa pakai backup manual di Pengaturan yang sudah benar.
-        //   - Backup baru ditandai selesai (lastAutoBackup) HANYA jika
-        //     VACUUM INTO sukses.
-        // ================================================================
+        // PHASE 0 SESI 3: Auto backup aman pakai VACUUM INTO
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -98,17 +82,11 @@ class MainActivity : AppCompatActivity() {
                     if (!backupDir.exists()) backupDir.mkdirs()
                     val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
                     val backupFile = File(backupDir, "autobackup_${dateFormat.format(Date())}.db")
-
-                    // VACUUM INTO perlu escape single-quote pada path.
                     val escapedPath = backupFile.absolutePath.replace("'", "''")
                     val db = database.openHelper.writableDatabase
                     db.execSQL("VACUUM INTO '$escapedPath'")
-
-                    // Sukses → tandai agar tidak backup ulang 24 jam ke depan.
                     settingsManager.lastAutoBackup = currentTime
                 } catch (e: Exception) {
-                    // Gagal (mis. Android < 10 → SQLite < 3.27, atau DB sibuk).
-                    // Biarkan silent — user bisa backup manual di Pengaturan.
                     e.printStackTrace()
                 }
             }
@@ -221,13 +199,23 @@ fun MainContent(
             SetupWizardScreen(
                 settingsManager = settingsManager,
                 viewModel = posViewModel,
-                onSetupComplete = { newAdmin -> onUserChange(newAdmin) }
+                onSetupComplete = { newAdmin -> 
+                    // MODUL D-1: inisialisasi cabang untuk admin baru
+                    // (cabang default dari user.branchId yang dibuat setup).
+                    posViewModel.initCurrentBranchForUser(newAdmin)
+                    onUserChange(newAdmin) 
+                }
             )
         } else if (currentUser == null) {
             LoginScreen(
                 viewModel = posViewModel, 
                 settingsManager = settingsManager, 
-                onLoginSuccess = { onUserChange(it) }
+                onLoginSuccess = { user -> 
+                    // MODUL D-1: inisialisasi cabang sesuai user yang login.
+                    // OWNER: bisa switch. CASHIER: terkunci ke branchId user.
+                    posViewModel.initCurrentBranchForUser(user)
+                    onUserChange(user) 
+                }
             )
         } else {
             MainNavigation(
@@ -278,10 +266,13 @@ fun MainNavigation(
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
+    // MODUL D-1: dialog kelola cabang
+    var showBranchManagementDialog by remember { mutableStateOf(false) }
 
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     DisposableEffect(Unit) {
@@ -360,88 +351,152 @@ fun MainNavigation(
 
     Scaffold(
         topBar = {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .background(MaterialTheme.colorScheme.background),
-                verticalAlignment = Alignment.CenterVertically
+                    .background(MaterialTheme.colorScheme.background)
             ) {
-                if (logoFile != null && logoFile.exists()) {
-                    AsyncImage(
-                        model = logoFile,
-                        contentDescription = "Store Logo",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
-                    )
-                } else {
-                    Image(
-                        painter = painterResource(id = R.drawable.logo_zokas),
-                        contentDescription = "Logo",
-                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(8.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isOnline) "Online" else "Offline",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                // ============================================================
+                // BARIS 1: Logo, Nama Toko, Status Online, Ikon Aksi
+                // ============================================================
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (logoFile != null && logoFile.exists()) {
+                        AsyncImage(
+                            model = logoFile,
+                            contentDescription = "Store Logo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_zokas),
+                            contentDescription = "Logo",
+                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
                         )
                     }
-                }
-                
-                IconButton(onClick = { showSearchDialog = true }) { 
-                    Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) 
-                }
-                IconButton(onClick = { showCfd = true }) { 
-                    Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) 
-                }
-                
-                if (selectedTab == 0) {
-                    Box {
-                        IconButton(onClick = { showMenu = true }) { 
-                            Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(8.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isOnline) "Online" else "Offline",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text(LanguageManager.tr("gabung_meja", language)) }, 
-                                leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, 
-                                onClick = { posActionTrigger = "MERGE"; showMenu = false } 
-                            )
-                            DropdownMenuItem(
-                                text = { Text(LanguageManager.tr("buka_laci", language)) }, 
-                                leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, 
-                                onClick = { posActionTrigger = "DRAWER"; showMenu = false } 
-                            )
-                            DropdownMenuItem(
-                                text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, 
-                                leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, 
-                                onClick = { posActionTrigger = "HOLD"; showMenu = false } 
-                            )
-                            DropdownMenuItem(
-                                text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, 
-                                leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, 
-                                onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
-                            )
-                            HorizontalDivider()
-                            DropdownMenuItem(
-                                text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, 
-                                leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, 
-                                onClick = { onLogout(); showMenu = false }
-                            )
+                    }
+                    
+                    IconButton(onClick = { showSearchDialog = true }) { 
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) 
+                    }
+                    IconButton(onClick = { showCfd = true }) { 
+                        Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) 
+                    }
+                    
+                    if (selectedTab == 0) {
+                        Box {
+                            IconButton(onClick = { showMenu = true }) { 
+                                Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
+                            }
+                            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("gabung_meja", language)) }, 
+                                    leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, 
+                                    onClick = { posActionTrigger = "MERGE"; showMenu = false } 
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("buka_laci", language)) }, 
+                                    leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, 
+                                    onClick = { posActionTrigger = "DRAWER"; showMenu = false } 
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, 
+                                    leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, 
+                                    onClick = { posActionTrigger = "HOLD"; showMenu = false } 
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, 
+                                    leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, 
+                                    onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
+                                )
+                                HorizontalDivider()
+                                // MODUL D-1: Kelola Cabang (khusus OWNER)
+                                if (currentUser.role == "OWNER") {
+                                    DropdownMenuItem(
+                                        text = { Text("Kelola Cabang") }, 
+                                        leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = EmeraldGreen) }, 
+                                        onClick = { showBranchManagementDialog = true; showMenu = false } 
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, 
+                                    leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, 
+                                    onClick = { onLogout(); showMenu = false }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // ============================================================
+                // BARIS 2: Branch Selector + Badge Shift Aktif
+                // ============================================================
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 68.dp, end = 16.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BranchSelectorHeader(
+                        viewModel = viewModel,
+                        onManageBranchesClick = { 
+                            if (currentUser.role == "OWNER") {
+                                showBranchManagementDialog = true 
+                            } else {
+                                Toast.makeText(context, "Hanya OWNER yang bisa mengelola cabang.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                    
+                    Spacer(modifier = Modifier.weight(1f))
+                    
+                    // Badge shift aktif — hanya tampil kalau ada shift.
+                    val shift = activeShift
+                    if (shift != null) {
+                        Surface(
+                            color = EmeraldGreen.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.size(6.dp).background(EmeraldGreen, CircleShape))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Shift: ${shift.userName}",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EmeraldGreen,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -542,6 +597,20 @@ fun MainNavigation(
                         onLogoChange = onLogoChange
                     )
                 }
+            }
+
+            // ============================================================
+            // MODUL D-1: Dialog Kelola Cabang
+            // ============================================================
+            // BranchManagementDialog akan dibuat di Sesi D-1f.
+            // Build akan gagal sampai file itu ada — ini NORMAL.
+            // ============================================================
+            if (showBranchManagementDialog) {
+                BranchManagementDialog(
+                    viewModel = viewModel,
+                    currentUser = currentUser,
+                    onDismiss = { showBranchManagementDialog = false }
+                )
             }
         }
     }

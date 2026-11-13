@@ -13,29 +13,18 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
+    // ================================================================
+    // MODUL D-1: Filter transaksi per cabang.
+    // ================================================================
+    @Query("SELECT * FROM transactions WHERE branchId = :branchId ORDER BY timestamp DESC")
+    fun getTransactionsByBranch(branchId: Long): Flow<List<TransactionEntity>>
+
     @Query("UPDATE transactions SET status = 'VOIDED' WHERE id = :transactionId")
     suspend fun voidTransaction(transactionId: Long)
 
     @Query("UPDATE transactions SET status = 'REFUNDED' WHERE id = :transactionId")
     suspend fun refundTransaction(transactionId: Long)
 
-    // ================================================================
-    // PHASE 0 — SESI 2: Perbaikan pelunasan BON
-    // ================================================================
-    // Masalah lama:
-    //   - paymentMethod ditimpa jadi 'CASH' → history berubah mundur,
-    //     laporan shift lama jadi salah (seolah ada cash masuk kemarin).
-    //   - Tidak ada record kapan BON dilunasi.
-    //
-    // Perbaikan:
-    //   - status       → 'SUCCESS' (transaksi lunas)
-    //   - paymentMethod TIDAK diubah (tetap 'BON' sebagai penanda history)
-    //   - paidAt       diisi (kapan lunas)
-    //   - paidMethod   diisi (metode pelunasan)
-    //   - cashReceived & changeAmount diisi untuk struk pelunasan
-    //
-    // Caller (PosViewModel.payUnpaidTransaction) WAJIB pakai signature ini.
-    // ================================================================
     @Query("""
         UPDATE transactions 
         SET status = 'SUCCESS', 

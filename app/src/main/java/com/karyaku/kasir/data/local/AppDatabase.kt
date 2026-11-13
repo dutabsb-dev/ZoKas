@@ -27,13 +27,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SupplierEntity::class, 
         PurchaseEntity::class, 
         PurchaseItemEntity::class,
-        PurchasePaymentEntity::class, // MODUL E
+        PurchasePaymentEntity::class,
         ReservationEntity::class, 
         ExpenseEntity::class,
         StockOpnameEntity::class,
         StockOpnameItemEntity::class
     ], 
-    version = 29, 
+    version = 30, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -49,7 +49,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun membershipDao(): MembershipDao
     abstract fun supplierDao(): SupplierDao
     abstract fun purchaseDao(): PurchaseDao
-    abstract fun purchasePaymentDao(): PurchasePaymentDao // MODUL E
+    abstract fun purchasePaymentDao(): PurchasePaymentDao
     abstract fun reservationDao(): ReservationDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun stockOpnameDao(): StockOpnameDao
@@ -148,16 +148,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ================================================================
         // 10. MIGRASI MODUL E — Hutang Supplier Cicilan (28 -> 29)
-        // ================================================================
-        // 1. Tambah paidAmount & paidAt di purchases.
-        // 2. Backfill: PO lama yang sudah berstatus 'PAID' dianggap lunas
-        //    penuh, jadi paidAmount = totalAmount dan paidAt = timestamp
-        //    (tanggal PO dibuat — tanggal lunas asli tidak diketahui).
-        // 3. Buat tabel purchase_payments untuk riwayat cicilan.
-        // 4. Index purchaseId untuk query cepat per PO.
-        // ================================================================
         private val MIGRATION_28_29 = object : Migration(28, 29) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE purchases ADD COLUMN paidAmount INTEGER NOT NULL DEFAULT 0")
@@ -187,6 +178,33 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // ================================================================
+        // 11. MIGRASI MODUL D-1 — Multi-Cabang Shift (29 -> 30)
+        // ================================================================
+        // Shift per cabang agar buka/tutup kasir terisolasi per cabang.
+        // Backfill: shift lama dianggap milik cabang user-nya. Kalau user
+        // tidak ditemukan (data corrupt), default ke cabang 1.
+        // ================================================================
+        private val MIGRATION_29_30 = object : Migration(29, 30) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE shifts ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                
+                // Backfill dari user.branchId (kalau user masih ada).
+                database.execSQL(
+                    """
+                    UPDATE shifts 
+                    SET branchId = COALESCE(
+                        (SELECT branchId FROM users WHERE users.id = shifts.userId),
+                        1
+                    )
+                    """.trimIndent()
+                )
+                
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_branchId` ON `shifts` (`branchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_shifts_status` ON `shifts` (`status`)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -204,7 +222,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_25_26,
                     MIGRATION_26_27,
                     MIGRATION_27_28,
-                    MIGRATION_28_29
+                    MIGRATION_28_29,
+                    MIGRATION_29_30
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
