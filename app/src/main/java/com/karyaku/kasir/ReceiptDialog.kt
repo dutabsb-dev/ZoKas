@@ -4,8 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.TransactionItemEntity
 import kotlinx.coroutines.launch
@@ -56,6 +60,7 @@ fun ReceiptDialog(
     var showShareFallbackDialog by remember { mutableStateOf(false) }
     var textToShare by remember { mutableStateOf("") }
 
+    // Ambil logo dari SettingsManager
     val logoFile = remember(settingsManager.storeLogoPath) {
         settingsManager.storeLogoPath?.let { File(it) }
     }
@@ -121,7 +126,7 @@ fun ReceiptDialog(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("KIRIM STRUK (WHATSAPP)", fontWeight = FontWeight.Bold)
+                    Text("KIRIM STRUK (WHATSAPP)", fontWeight = FontWeight.Bold, color = Color.White)
                 }
                 
                 Button(
@@ -150,7 +155,7 @@ fun ReceiptDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("CETAK STRUK THERMAL", fontWeight = FontWeight.Bold)
+                    Text("CETAK STRUK THERMAL", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         },
@@ -158,11 +163,11 @@ fun ReceiptDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 
-                // UI LOGO
+                // TAMPILKAN LOGO TOKO DI PREVIEW
                 if (logoFile != null && logoFile.exists()) {
-                    coil.compose.AsyncImage(
+                    AsyncImage(
                         model = logoFile,
-                        contentDescription = "Logo Struk",
+                        contentDescription = "Store Logo",
                         modifier = Modifier.size(64.dp).padding(bottom = 8.dp)
                     )
                 }
@@ -214,8 +219,7 @@ fun ReceiptDialog(
                         Text(formatRupiah(transaction.taxAmount), fontFamily = FontFamily.Monospace)
                     }
                 }
-                
-                // FITUR BARU: Service Charge
+
                 if (transaction.serviceCharge > 0) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Service Charge", fontFamily = FontFamily.Monospace)
@@ -317,13 +321,22 @@ private fun generatePrintData(
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
     
-    // FITUR BARU: Cetak Logo (Jika ada) ke Thermal
+    // --- FITUR CETAK LOGO ---
     if (logoFile != null && logoFile.exists()) {
         try {
             val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
-            // Resize to fit thermal printer (max 384px width)
-            val resized = android.graphics.Bitmap.createScaledBitmap(bitmap, 200, 200, true)
-            output.write(EscPosCommands.printImage(resized))
+            if (bitmap != null) {
+                // Resize agar pas di kertas thermal (lebar max 384px)
+                val maxWidth = 384
+                val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                val newWidth = maxWidth
+                val newHeight = (newWidth / ratio).toInt()
+                val resizedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+                
+                output.write(EscPosCommands.ALIGN_CENTER)
+                output.write(EscPosCommands.printImage(resizedBitmap))
+                output.write(byteArrayOf(0x0A)) // Line feed setelah gambar
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

@@ -23,11 +23,19 @@ data class TransactionEntity(
     val paymentMethod: String = "CASH", 
     val cashierName: String = "Kasir",
     val totalCommission: Long = 0L,
-    // FITUR BARU
     val orderType: String = "Dine-In",
     val serviceCharge: Long = 0L,
     val pickupDate: Long = 0L,
     val branchId: Long = 1L,
     val updatedAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    // ================================================================
+    // PHASE 0 — SESI 2: Tracking pelunasan BON
+    // ================================================================
+    // paidAt     : timestamp saat BON dilunasi (0L = belum lunas / bukan BON)
+    // paidMethod : metode pelunasan (CASH / QRIS / Bank Transfer)
+    // paymentMethod asli ("BON") TIDAK diubah agar history tidak mundur.
+    // ================================================================
+    val paidAt: Long = 0L,
+    val paidMethod: String = ""
 )

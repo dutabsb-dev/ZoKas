@@ -29,10 +29,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PurchaseItemEntity::class,
         ReservationEntity::class, 
         ExpenseEntity::class,
-        StockOpnameEntity::class, // MODUL STOCK OPNAME
-        StockOpnameItemEntity::class // MODUL STOCK OPNAME
+        StockOpnameEntity::class,
+        StockOpnameItemEntity::class
     ], 
-    version = 27, 
+    version = 28, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -50,7 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun purchaseDao(): PurchaseDao
     abstract fun reservationDao(): ReservationDao
     abstract fun expenseDao(): ExpenseDao
-    abstract fun stockOpnameDao(): StockOpnameDao // DAO BARU
+    abstract fun stockOpnameDao(): StockOpnameDao
 
     companion object {
         @Volatile
@@ -129,15 +129,20 @@ abstract class AppDatabase : RoomDatabase() {
         // 8. MIGRASI MODUL STOCK OPNAME (26 -> 27)
         private val MIGRATION_26_27 = object : Migration(26, 27) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // Tabel Stock Opname
                 database.execSQL("CREATE TABLE IF NOT EXISTS `stock_opnames` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `userId` INTEGER NOT NULL, `userName` TEXT NOT NULL, `totalItemsChecked` INTEGER NOT NULL, `totalLossValue` INTEGER NOT NULL, `totalGainValue` INTEGER NOT NULL)")
                 
-                // Tabel Item Stock Opname
                 database.execSQL("CREATE TABLE IF NOT EXISTS `stock_opname_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `opnameId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `productName` TEXT NOT NULL, `systemStock` INTEGER NOT NULL, `physicalStock` INTEGER NOT NULL, `difference` INTEGER NOT NULL, FOREIGN KEY(`opnameId`) REFERENCES `stock_opnames`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
                 
-                // Index untuk performa query
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_opname_items_opnameId` ON `stock_opname_items` (`opnameId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_opname_items_productId` ON `stock_opname_items` (`productId`)")
+            }
+        }
+
+        // 9. MIGRASI PHASE 0 SESI 2: BON pelunasan tracking (27 -> 28)
+        private val MIGRATION_27_28 = object : Migration(27, 28) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE transactions ADD COLUMN paidAt INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE transactions ADD COLUMN paidMethod TEXT NOT NULL DEFAULT ''")
             }
         }
 
@@ -156,9 +161,30 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_23_24, 
                     MIGRATION_24_25,
                     MIGRATION_25_26,
-                    MIGRATION_26_27
+                    MIGRATION_26_27,
+                    MIGRATION_27_28
                 )
-                .fallbackToDestructiveMigration() 
+                // ============================================================
+                // PHASE 0 — SESI 3: Ganti fallbackToDestructiveMigration()
+                // ============================================================
+                // Masalah lama:
+                //   fallbackToDestructiveMigration() menghapus SELURUH data
+                //   user jika ada satu saja migrasi yang throw exception.
+                //
+                // Perbaikan:
+                //   fallbackToDestructiveMigrationFrom(1..18) → hanya izinkan
+                //   wipe data untuk user yang datang dari v1-v18 (kita tidak
+                //   punya migrasi untuk versi tersebut). Untuk v19+ jika
+                //   migrasi gagal → crash (data aman, tidak terhapus).
+                //
+                // Artinya: user lama yang masih di v1-18 akan kehilangan data
+                //   (sudah tidak bisa diselamatkan tanpa migrasi 1-19). User
+                //   v19+ yang migrasinya rusak akan crash dengan pesan jelas
+                //   daripada diam-diam kehilangan semua data.
+                // ============================================================
+                .fallbackToDestructiveMigrationFrom(
+                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+                )
                 .build()
                 INSTANCE = instance
                 instance

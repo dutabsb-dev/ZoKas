@@ -60,6 +60,7 @@ class BluetoothPrinterManager(private val context: Context) {
             socket.connect()
             
             val outputStream: OutputStream = socket.outputStream
+            // Perintah ESC/POS untuk membuka laci (ESC p 0 25 250)
             outputStream.write(byteArrayOf(0x1B, 0x70, 0x00, 0x19, 0xFA.toByte()))
             outputStream.flush()
             socket.close()
@@ -82,14 +83,14 @@ object EscPosCommands {
     val FEED_3 = byteArrayOf(0x1B, 0x64, 0x03)
     val CUT_PAPER = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
-    // FITUR BARU: Perintah Cetak Gambar (Logo) ke Thermal Printer
+    // Fungsi Cetak Gambar (Logo) ke Thermal Printer
     fun printImage(bitmap: Bitmap): ByteArray {
         val outputStream = ByteArrayOutputStream()
         val width = bitmap.width
         val height = bitmap.height
         
-        // ESC/POS Header for Image
-        outputStream.write(byteArrayOf(0x1D, 0x76, 0x30, 0x00)) // GS v 0
+        // ESC/POS Header for Image (GS v 0)
+        outputStream.write(byteArrayOf(0x1D, 0x76, 0x30, 0x00)) 
         outputStream.write(byteArrayOf((width / 8).toByte(), 0x00)) // xL, xH
         outputStream.write(byteArrayOf((height % 256).toByte(), (height / 256).toByte())) // yL, yH
         
@@ -102,7 +103,7 @@ object EscPosCommands {
                         val r = (pixel shr 16) and 0xff
                         val g = (pixel shr 8) and 0xff
                         val b = pixel and 0xff
-                        // Jika pixel gelap, set bit ke 1
+                        // Konversi ke Grayscale (Hitam/Putih)
                         if ((r + g + b) / 3 < 128) {
                             byte = byte or (0x80 shr bit)
                         }
@@ -111,7 +112,6 @@ object EscPosCommands {
                 outputStream.write(byte)
             }
         }
-        outputStream.write(byteArrayOf(0x0A)) // Line feed after image
         return outputStream.toByteArray()
     }
 }

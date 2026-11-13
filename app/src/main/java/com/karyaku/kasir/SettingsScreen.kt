@@ -44,19 +44,21 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     auditLogs: List<AuditLogEntity>,
     currentUser: UserEntity,
-    viewModel: PosViewModel
+    viewModel: PosViewModel,
+    storeName: String?,
+    onStoreNameChange: (String) -> Unit,
+    storeLogoPath: String?,
+    onLogoChange: (String) -> Unit
 ) {
     val context = LocalContext.current
     val lang = language
     
-    // State Profil Toko & Pengaturan
-    var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
+    // State Profil Toko & Pengaturan (YANG TIDAK DI-HOIST)
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
-    var storeLogoPath by remember { mutableStateOf(settingsManager.storeLogoPath) }
     
     // State QRIS
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
@@ -150,7 +152,6 @@ fun SettingsScreen(
         }
     }
     
-    // Launcher Excel (Pengganti CSV)
     val createExcelLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) { uri: Uri? ->
         if (uri != null) {
             viewModel.exportProductsToExcel(context, uri) { success ->
@@ -442,7 +443,8 @@ fun SettingsScreen(
         // 7. Card Profil Toko
         item {
             SettingsStoreProfileCard(
-                storeName = storeName, onStoreNameChange = { storeName = it; settingsManager.storeName = it },
+                storeName = storeName ?: "", 
+                onStoreNameChange = onStoreNameChange,
                 storeAddress = storeAddress, onStoreAddressChange = { storeAddress = it; settingsManager.storeAddress = it },
                 storePhone = storePhone, onStorePhoneChange = { storePhone = it; settingsManager.storePhone = it },
                 storeFooter = storeFooter, onStoreFooterChange = { storeFooter = it; settingsManager.storeFooter = it },
@@ -455,7 +457,7 @@ fun SettingsScreen(
                     viewModel.setServiceChargePercent(sc) 
                 },
                 logoPath = storeLogoPath,
-                onLogoChange = { path -> storeLogoPath = path; settingsManager.storeLogoPath = path },
+                onLogoChange = onLogoChange,
                 language = language
             )
         }

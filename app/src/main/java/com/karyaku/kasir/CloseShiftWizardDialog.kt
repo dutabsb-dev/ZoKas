@@ -44,8 +44,25 @@ fun CloseShiftWizardDialog(
 
     val physicalCash = physicalCashInput.toLongOrNull() ?: 0L
 
-    // Kalkulasi Sistem
-    val totalPenjualan = transactions.filter { it.timestamp >= shift.startTime && it.status == "SUCCESS" }.sumOf { it.totalPrice }
+    // ================================================================
+    // PHASE 0 — SESI 2: KALKULASI KAS SHIFT
+    // ================================================================
+    // Masalah lama: totalPenjualan menjumlahkan SEMUA transaksi SUCCESS
+    // (termasuk QRIS, transfer, BON) → expectedCash membengkak dan
+    // selisih kas tampak minus padahal laci cocok.
+    //
+    // Perbaikan:
+    //   - Hanya hitung transaksi dengan paymentMethod == "CASH".
+    //   - Pelunasan BON otomatis masuk lewat cash_flows (type=IN) yang
+    //     dicatat oleh PosViewModel.payUnpaidTransaction.
+    //   - QRIS/Transfer/BON-unpaid tidak masuk perhitungan laci.
+    // ================================================================
+    val totalPenjualan = transactions.filter { 
+        it.timestamp >= shift.startTime 
+        && it.status == "SUCCESS" 
+        && it.paymentMethod == "CASH"
+    }.sumOf { it.totalPrice }
+    
     val totalKasKeluar = cashFlows.filter { it.shiftId == shift.id && it.type == "OUT" }.sumOf { it.amount }
     val totalKasMasuk = cashFlows.filter { it.shiftId == shift.id && it.type == "IN" }.sumOf { it.amount }
     val expectedCash = shift.openingCash + totalPenjualan + totalKasMasuk - totalKasKeluar
@@ -78,7 +95,7 @@ fun CloseShiftWizardDialog(
                             Text("Modal Awal:"); Text(formatRupiah(shift.openingCash))
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
-                            Text("Penjualan:"); Text(formatRupiah(totalPenjualan))
+                            Text("Penjualan Tunai:"); Text(formatRupiah(totalPenjualan))
                         }
                         if (totalKasMasuk > 0) Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
                             Text("Kas Masuk:"); Text(formatRupiah(totalKasMasuk))

@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -62,33 +63,54 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // --- FITUR KUNCI ORIENTASI (HP vs TABLET) ---
         val isTablet = resources.configuration.smallestScreenWidthDp >= 600
         if (isTablet) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED // Bebas rotasi
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT // Kunci Portrait
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
 
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // AUTO-BACKUP HARIAN
+        // ================================================================
+        // PHASE 0 — SESI 3: Auto backup aman
+        // ================================================================
+        // Masalah lama:
+        //   1. File.copyTo(.db) saat DB aktif → WAL belum ter-checkpoint,
+        //      transaksi terbaru bisa hilang. File -wal & -shm tidak disalin
+        //      → backup tidak bisa dibuka / korup.
+        //   2. Tidak ada deteksi kegagalan.
+        //
+        // Perbaikan:
+        //   - Pakai VACUUM INTO → SQLite membuat snapshot konsisten tanpa
+        //     perlu tutup DB. Diperlukan SQLite 3.27+ (Android 10+).
+        //   - Android 8-9 (minSdk 26) → fallback silent-skip; user tetap
+        //     bisa pakai backup manual di Pengaturan yang sudah benar.
+        //   - Backup baru ditandai selesai (lastAutoBackup) HANYA jika
+        //     VACUUM INTO sukses.
+        // ================================================================
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val dbFile = getDatabasePath("pos_database")
                     val backupDir = File(getExternalFilesDir(null), "AutoBackups")
                     if (!backupDir.exists()) backupDir.mkdirs()
                     val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
                     val backupFile = File(backupDir, "autobackup_${dateFormat.format(Date())}.db")
-                    
-                    if (dbFile.exists()) {
-                        dbFile.copyTo(backupFile, overwrite = true)
-                        settingsManager.lastAutoBackup = currentTime
-                    }
-                } catch (e: Exception) { e.printStackTrace() }
+
+                    // VACUUM INTO perlu escape single-quote pada path.
+                    val escapedPath = backupFile.absolutePath.replace("'", "''")
+                    val db = database.openHelper.writableDatabase
+                    db.execSQL("VACUUM INTO '$escapedPath'")
+
+                    // Sukses → tandai agar tidak backup ulang 24 jam ke depan.
+                    settingsManager.lastAutoBackup = currentTime
+                } catch (e: Exception) {
+                    // Gagal (mis. Android < 10 → SQLite < 3.27, atau DB sibuk).
+                    // Biarkan silent — user bisa backup manual di Pengaturan.
+                    e.printStackTrace()
+                }
             }
         }
 
@@ -102,6 +124,9 @@ class MainActivity : AppCompatActivity() {
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
                 var language by rememberSaveable { mutableStateOf(settingsManager.language) }
                 
+                var storeNameState by remember { mutableStateOf(settingsManager.storeName) }
+                var storeLogoPathState by remember { mutableStateOf(settingsManager.storeLogoPath) }
+
                 val userSaver = listSaver<UserEntity?, Any>(
                     save = { user -> 
                         if (user == null) emptyList() 
@@ -138,6 +163,16 @@ class MainActivity : AppCompatActivity() {
                             isHighContrast = isHighContrast,
                             uiScale = uiScale,
                             language = language,
+                            storeName = storeNameState,
+                            storeLogoPath = storeLogoPathState,
+                            onStoreNameChange = { newName -> 
+                                storeNameState = newName
+                                settingsManager.storeName = newName 
+                            },
+                            onLogoChange = { newPath -> 
+                                storeLogoPathState = newPath
+                                settingsManager.storeLogoPath = newPath 
+                            },
                             onUserChange = { currentUser = it },
                             onToggleDarkMode = { isDarkMode = !isDarkMode; settingsManager.isDarkMode = isDarkMode },
                             onToggleHighContrast = { isHighContrast = !isHighContrast; settingsManager.isHighContrast = isHighContrast },
@@ -164,6 +199,10 @@ fun MainContent(
     isHighContrast: Boolean,
     uiScale: Float,
     language: String,
+    storeName: String?,
+    storeLogoPath: String?,
+    onStoreNameChange: (String) -> Unit,
+    onLogoChange: (String) -> Unit,
     onUserChange: (UserEntity?) -> Unit,
     onToggleDarkMode: () -> Unit,
     onToggleHighContrast: () -> Unit,
@@ -195,6 +234,10 @@ fun MainContent(
                 viewModel = posViewModel,
                 settingsManager = settingsManager,
                 currentUser = currentUser,
+                storeName = storeName,
+                storeLogoPath = storeLogoPath,
+                onStoreNameChange = onStoreNameChange,
+                onLogoChange = onLogoChange,
                 onLogout = { onUserChange(null) },
                 isDarkMode = isDarkMode,
                 isHighContrast = isHighContrast,
@@ -215,6 +258,10 @@ fun MainNavigation(
     viewModel: PosViewModel,
     settingsManager: SettingsManager,
     currentUser: UserEntity,
+    storeName: String?,
+    storeLogoPath: String?,
+    onStoreNameChange: (String) -> Unit,
+    onLogoChange: (String) -> Unit,
     onLogout: () -> Unit,
     isDarkMode: Boolean,
     isHighContrast: Boolean,
@@ -230,8 +277,6 @@ fun MainNavigation(
     var showCfd by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
-    
-    // STATE UNTUK MENGIRIM SINYAL DARI MENU KE POSSCREEN
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
 
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
@@ -284,7 +329,7 @@ fun MainNavigation(
                             options.setCameraId(0)
                             options.setBeepEnabled(false)
                             options.setBarcodeImageEnabled(true)
-                            options.setOrientationLocked(true)
+                            options.setOrientationLocked(true) 
                             barcodeLauncher.launch(options)
                         }) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = EmeraldGreen)
@@ -309,9 +354,8 @@ fun MainNavigation(
         )
     }
 
-    // FITUR BARU: Logo Usaha di Header
-    val logoFile = remember(settingsManager.storeLogoPath) { 
-        settingsManager.storeLogoPath?.let { File(it) } 
+    val logoFile = remember(storeLogoPath) { 
+        storeLogoPath?.let { File(it) } 
     }
 
     Scaffold(
@@ -341,7 +385,7 @@ fun MainNavigation(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = settingsManager.storeName ?: "ZoKas Store",
+                        text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.primary,
@@ -366,37 +410,39 @@ fun MainNavigation(
                     Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) 
                 }
                 
-                Box {
-                    IconButton(onClick = { showMenu = true }) { 
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(LanguageManager.tr("gabung_meja", language)) }, 
-                            leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, 
-                            onClick = { posActionTrigger = "MERGE"; showMenu = false } 
-                        )
-                        DropdownMenuItem(
-                            text = { Text(LanguageManager.tr("buka_laci", language)) }, 
-                            leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, 
-                            onClick = { posActionTrigger = "DRAWER"; showMenu = false } 
-                        )
-                        DropdownMenuItem(
-                            text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, 
-                            leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, 
-                            onClick = { posActionTrigger = "HOLD"; showMenu = false } 
-                        )
-                        DropdownMenuItem(
-                            text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, 
-                            leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, 
-                            onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
-                        )
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, 
-                            leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, 
-                            onClick = { onLogout(); showMenu = false }
-                        )
+                if (selectedTab == 0) {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) { 
+                            Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) 
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(LanguageManager.tr("gabung_meja", language)) }, 
+                                leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, 
+                                onClick = { posActionTrigger = "MERGE"; showMenu = false } 
+                            )
+                            DropdownMenuItem(
+                                text = { Text(LanguageManager.tr("buka_laci", language)) }, 
+                                leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, 
+                                onClick = { posActionTrigger = "DRAWER"; showMenu = false } 
+                            )
+                            DropdownMenuItem(
+                                text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, 
+                                leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, 
+                                onClick = { posActionTrigger = "HOLD"; showMenu = false } 
+                            )
+                            DropdownMenuItem(
+                                text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, 
+                                leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, 
+                                onClick = { posActionTrigger = "CASHFLOW"; showMenu = false } 
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, 
+                                leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, 
+                                onClick = { onLogout(); showMenu = false }
+                            )
+                        }
                     }
                 }
             }
@@ -408,7 +454,7 @@ fun MainNavigation(
             ) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Storefront, contentDescription = "Cashier") },
-                    label = { Text(LanguageManager.tr("kasir", language)) },
+                    label = { Text(LanguageManager.tr("kasir", language), textAlign = TextAlign.Center) },
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     colors = NavigationBarItemDefaults.colors(
@@ -421,7 +467,7 @@ fun MainNavigation(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
-                    label = { Text(LanguageManager.tr("produk", language)) },
+                    label = { Text(LanguageManager.tr("produk", language), textAlign = TextAlign.Center) },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     colors = NavigationBarItemDefaults.colors(
@@ -434,7 +480,7 @@ fun MainNavigation(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
-                    label = { Text(LanguageManager.tr("laporan", language)) },
+                    label = { Text(LanguageManager.tr("laporan", language), textAlign = TextAlign.Center) },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     colors = NavigationBarItemDefaults.colors(
@@ -447,7 +493,7 @@ fun MainNavigation(
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text(LanguageManager.tr("pengaturan", language)) },
+                    label = { Text(LanguageManager.tr("pengaturan", language), textAlign = TextAlign.Center) },
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
                     colors = NavigationBarItemDefaults.colors(
@@ -489,7 +535,11 @@ fun MainNavigation(
                         isHighContrast = isHighContrast, onToggleHighContrast = onToggleHighContrast,
                         uiScale = uiScale, onChangeUiScale = onChangeUiScale,
                         language = language, onToggleLanguage = onToggleLanguage,
-                        onLogout = onLogout, auditLogs = auditLogs, currentUser = currentUser, viewModel = viewModel
+                        onLogout = onLogout, auditLogs = auditLogs, currentUser = currentUser, viewModel = viewModel,
+                        storeName = storeName,
+                        onStoreNameChange = onStoreNameChange,
+                        storeLogoPath = storeLogoPath,
+                        onLogoChange = onLogoChange
                     )
                 }
             }
@@ -512,8 +562,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
-    
-    // STATE UNTUK STOCK OPNAME MASSAL
     var showBulkStockOpnameDialog by remember { mutableStateOf(false) }
 
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
@@ -539,7 +587,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             searchFocusRequester = searchFocusRequester
         )
 
-        // Tombol FAB untuk Tambah Produk & Audit Stok Massal
         Row(
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)

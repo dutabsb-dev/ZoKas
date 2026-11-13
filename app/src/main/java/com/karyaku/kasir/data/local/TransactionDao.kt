@@ -19,7 +19,37 @@ interface TransactionDao {
     @Query("UPDATE transactions SET status = 'REFUNDED' WHERE id = :transactionId")
     suspend fun refundTransaction(transactionId: Long)
 
-    // FUNGSI INI YANG TADI HILANG/MISMATCH
-    @Query("UPDATE transactions SET status = 'SUCCESS', paymentMethod = 'CASH', cashReceived = :cashReceived, changeAmount = :changeAmount WHERE id = :transactionId")
-    suspend fun updateTransactionStatus(transactionId: Long, cashReceived: Long, changeAmount: Long)
+    // ================================================================
+    // PHASE 0 — SESI 2: Perbaikan pelunasan BON
+    // ================================================================
+    // Masalah lama:
+    //   - paymentMethod ditimpa jadi 'CASH' → history berubah mundur,
+    //     laporan shift lama jadi salah (seolah ada cash masuk kemarin).
+    //   - Tidak ada record kapan BON dilunasi.
+    //
+    // Perbaikan:
+    //   - status       → 'SUCCESS' (transaksi lunas)
+    //   - paymentMethod TIDAK diubah (tetap 'BON' sebagai penanda history)
+    //   - paidAt       diisi (kapan lunas)
+    //   - paidMethod   diisi (metode pelunasan)
+    //   - cashReceived & changeAmount diisi untuk struk pelunasan
+    //
+    // Caller (PosViewModel.payUnpaidTransaction) WAJIB pakai signature ini.
+    // ================================================================
+    @Query("""
+        UPDATE transactions 
+        SET status = 'SUCCESS', 
+            paidAt = :paidAt, 
+            paidMethod = :paidMethod, 
+            cashReceived = :cashReceived, 
+            changeAmount = :changeAmount 
+        WHERE id = :transactionId
+    """)
+    suspend fun updateTransactionStatus(
+        transactionId: Long, 
+        cashReceived: Long, 
+        changeAmount: Long, 
+        paidMethod: String, 
+        paidAt: Long = System.currentTimeMillis()
+    )
 }

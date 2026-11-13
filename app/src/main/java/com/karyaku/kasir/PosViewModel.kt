@@ -131,13 +131,11 @@ class PosViewModel(
     private val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
-    // STATE QRIS
     private val _qrisDynamicString = MutableStateFlow("")
     val qrisDynamicString: StateFlow<String> = _qrisDynamicString.asStateFlow()
     private val _isQrisPaid = MutableStateFlow(false)
     val isQrisPaid: StateFlow<Boolean> = _isQrisPaid.asStateFlow()
 
-    // STATE TRANSFER MANUAL
     private val _uniqueTransferAmount = MutableStateFlow(0L)
     val uniqueTransferAmount: StateFlow<Long> = _uniqueTransferAmount.asStateFlow()
     private val _isTransferPaid = MutableStateFlow(false)
@@ -209,7 +207,6 @@ class PosViewModel(
         viewModelScope.launch { expenseDao.getAllExpenses().catch { _expenses.value = emptyList() }.collectLatest { _expenses.value = it } }
         viewModelScope.launch { stockOpnameDao.getAllOpnames().catch { _stockOpnames.value = emptyList() }.collectLatest { _stockOpnames.value = it } }
         
-        // LISTENER UNTUK NOTIFIKASI (QRIS & TRANSFER)
         viewModelScope.launch {
             PaymentNotificationListener.paymentEvents.collect { notificationText ->
                 if (_qrisDynamicString.value.isNotEmpty() && !_isQrisPaid.value) {
@@ -501,7 +498,7 @@ class PosViewModel(
                         if (product != null) {
                             val newStock = product.stock + item.quantity
                             val newCost = if (updateCostPrice) item.costPrice else product.costPrice
-                            productDao.insertProduct(product.copy(stock = newStock, costPrice = newCost, isSynced = false, updatedAt = System.currentTimeMillis()))
+                            productDao.saveProduct(product.copy(stock = newStock, costPrice = newCost, isSynced = false, updatedAt = System.currentTimeMillis()))
                         }
                     }
                 }
@@ -622,6 +619,11 @@ class PosViewModel(
         }
     }
 
+    // ================================================================
+    // [AWAL SESI 2c — lanjutan dari SESI 2b]
+    // Dimulai dari: fun exportProductsToExcel(...)
+    // ================================================================
+
     fun exportProductsToExcel(context: android.content.Context, uri: android.net.Uri, onResult: (Boolean) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val success = ExcelExporter.exportProductsToExcel(context, uri, _products.value)
@@ -629,6 +631,9 @@ class PosViewModel(
         }
     }
 
+    // ================================================================
+    // FIX SESI 1 — importProductsFromExcel (dipertahankan)
+    // ================================================================
     fun importProductsFromExcel(context: android.content.Context, uri: android.net.Uri, onResult: (Int, Int) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             var insertCount = 0
@@ -636,24 +641,38 @@ class PosViewModel(
             try {
                 val importedProducts = ExcelExporter.importProductsFromExcel(context, uri)
                 if (importedProducts != null) {
+                    val freshProducts = productDao.getAllProducts().first()
+
                     importedProducts.forEach { newProduct ->
-                        val existing = _products.value.find { 
-                            (newProduct.barcode.isNotEmpty() && it.barcode == newProduct.barcode) || 
-                            it.name.equals(newProduct.name, ignoreCase = true)
-                        }
-                        if (existing != null) {
-                            productDao.insertProduct(existing.copy(
-                                name = newProduct.name, price = newProduct.price, costPrice = newProduct.costPrice, 
-                                stock = newProduct.stock, category = newProduct.category, barcode = newProduct.barcode, 
-                                variations = newProduct.variations, commissionPerItem = newProduct.commissionPerItem, 
-                                expiryDate = newProduct.expiryDate, isService = newProduct.isService, 
-                                wholesalePrice = newProduct.wholesalePrice, wholesaleMinQty = newProduct.wholesaleMinQty,
-                                isSynced = false, updatedAt = System.currentTimeMillis()
-                            ))
-                            updateCount++
-                        } else {
-                            productDao.insertProduct(newProduct)
-                            insertCount++
+                        try {
+                            val existing = freshProducts.find {
+                                (newProduct.barcode.isNotEmpty() && it.barcode == newProduct.barcode) ||
+                                it.name.equals(newProduct.name, ignoreCase = true)
+                            }
+                            if (existing != null) {
+                                productDao.saveProduct(existing.copy(
+                                    name = newProduct.name,
+                                    price = newProduct.price,
+                                    costPrice = newProduct.costPrice,
+                                    stock = newProduct.stock,
+                                    category = newProduct.category,
+                                    barcode = newProduct.barcode,
+                                    variations = newProduct.variations,
+                                    commissionPerItem = newProduct.commissionPerItem,
+                                    expiryDate = newProduct.expiryDate,
+                                    isService = newProduct.isService,
+                                    wholesalePrice = newProduct.wholesalePrice,
+                                    wholesaleMinQty = newProduct.wholesaleMinQty,
+                                    isSynced = false,
+                                    updatedAt = System.currentTimeMillis()
+                                ))
+                                updateCount++
+                            } else {
+                                productDao.saveProduct(newProduct)
+                                insertCount++
+                            }
+                        } catch (itemEx: Exception) {
+                            itemEx.printStackTrace()
                         }
                     }
                 }
@@ -905,15 +924,35 @@ class PosViewModel(
         }
     }
 
+    // ================================================================
+    // FIX SESI 2 — closeShift
+    // Masalah lama:
+    //   totalPenjualan menjumlahkan SEMUA transaksi SUCCESS, termasuk
+    //   QRIS, transfer, dan BON. Akibatnya expectedCash membengkak,
+    //   selisih kas tampak minus padahal laci cocok.
+    //
+    // Perbaikan:
+    //   Filter hanya transaksi paymentMethod == "CASH" sebagai uang fisik.
+    //   - QRIS / Bank Transfer → tidak masuk laci, tidak dihitung.
+    //   - BON (paymentMethod == "BON") → tidak masuk laci sampai dilunasi.
+    //   - Pelunasan BON nanti otomatis masuk lewat cash_flows (type=IN)
+    //     karena payUnpaidTransaction mencatatnya sebagai kas masuk.
+    // ================================================================
     fun closeShift(user: UserEntity, uangFisik: Long, note: String, onSuccess: (ShiftEntity) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val shift = _activeShift.value
                 if (shift != null) {
-                    val totalPenjualan = _transactions.value.filter { it.timestamp >= shift.startTime && it.status == "SUCCESS" }.sumOf { it.totalPrice }
+                    val totalPenjualanTunai = _transactions.value.filter { 
+                        it.timestamp >= shift.startTime 
+                        && it.status == "SUCCESS" 
+                        && it.paymentMethod == "CASH"
+                    }.sumOf { it.totalPrice }
+                    
                     val totalKasKeluar = cashFlowDao.getTotalCashOut(shift.id) ?: 0L
                     val totalKasMasuk = cashFlowDao.getTotalCashIn(shift.id) ?: 0L
-                    val uangSistem = shift.openingCash + totalPenjualan + totalKasMasuk - totalKasKeluar
+                    
+                    val uangSistem = shift.openingCash + totalPenjualanTunai + totalKasMasuk - totalKasKeluar
                     val selisih = uangFisik - uangSistem
 
                     userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih)
@@ -924,7 +963,13 @@ class PosViewModel(
                     ))
                     checkActiveShift()
                     withContext(Dispatchers.Main) {
-                        onSuccess(shift.copy(endTime = System.currentTimeMillis(), expectedCash = uangSistem, closingCash = uangFisik, discrepancy = selisih, status = "CLOSED"))
+                        onSuccess(shift.copy(
+                            endTime = System.currentTimeMillis(), 
+                            expectedCash = uangSistem, 
+                            closingCash = uangFisik, 
+                            discrepancy = selisih, 
+                            status = "CLOSED"
+                        ))
                     }
                 }
             } catch (e: Exception) { e.printStackTrace() }
@@ -952,16 +997,31 @@ class PosViewModel(
         }
     }
 
+    // ================================================================
+    // FIX SESI 1 — updateProduct (dipertahankan)
+    // ================================================================
     fun updateProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val oldProduct = _products.value.find { it.id == product.id }
+
+                productDao.saveProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
+
                 if (oldProduct != null && oldProduct.price != product.price) {
-                    userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "UBAH HARGA: ${product.name} dari ${formatRupiah(oldProduct.price)} menjadi ${formatRupiah(product.price)}", actionType = "INVENTORY"))
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = userId,
+                        userName = userName,
+                        action = "UBAH HARGA: ${product.name} dari ${formatRupiah(oldProduct.price)} menjadi ${formatRupiah(product.price)}",
+                        actionType = "INVENTORY"
+                    ))
                 } else {
-                    userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "EDIT PRODUK: ${product.name}", actionType = "INVENTORY"))
+                    userDao.insertAuditLog(AuditLogEntity(
+                        userId = userId,
+                        userName = userName,
+                        action = "EDIT PRODUK: ${product.name}",
+                        actionType = "INVENTORY"
+                    ))
                 }
-                productDao.insertProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -1208,11 +1268,68 @@ class PosViewModel(
         }
     }
 
+    // ================================================================
+    // FIX SESI 2 — payUnpaidTransaction
+    // Masalah lama:
+    //   1. DAO lama menimpa paymentMethod jadi 'CASH' → history mundur,
+    //      laporan shift lama jadi salah (seolah ada cash masuk kemarin).
+    //   2. Tidak ada record kapan BON dilunasi.
+    //   3. Pelunasan tidak masuk hitungan kas shift aktif, karena
+    //      closeShift hanya menjumlah transaksi dengan timestamp di
+    //      dalam shift. BON yang dibuat kemarin tapi dilunasi hari ini
+    //      tidak akan masuk kas shift hari ini.
+    //
+    // Perbaikan:
+    //   1. DAO baru: status='SUCCESS', paymentMethod TETAP 'BON',
+    //      paidAt & paidMethod diisi, cashReceived & changeAmount diisi.
+    //   2. Catat pelunasan sebagai cash_flows (type=IN) di shift aktif
+    //      → otomatis terhitung di closeShift lewat getTotalCashIn.
+    //   3. Jika tidak ada shift aktif, tetap update transaksi tapi
+    //      pelunasan tidak masuk rekap kas shift (dengan log peringatan
+    //      di audit log).
+    // ================================================================
     fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val change = (cashReceived - transaction.totalPrice).coerceAtLeast(0L)
-                transactionDao.updateTransactionStatus(transaction.id, cashReceived, change)
+                val shift = _activeShift.value
+                
+                database.withTransaction {
+                    // 1. Update transaksi — paymentMethod TIDAK diubah.
+                    transactionDao.updateTransactionStatus(
+                        transactionId = transaction.id,
+                        cashReceived = cashReceived,
+                        changeAmount = change,
+                        paidMethod = "CASH"
+                    )
+
+                    // 2. Catat pelunasan sebagai kas masuk shift aktif
+                    //    (jika ada). Jika tidak ada shift, pelunasan tetap
+                    //    sukses tapi tidak masuk rekap kas.
+                    if (shift != null) {
+                        cashFlowDao.insertCashFlow(
+                            CashFlowEntity(
+                                shiftId = shift.id,
+                                type = "IN",
+                                amount = transaction.totalPrice,
+                                note = "Pelunasan BON #${transaction.id} (${transaction.customerName})",
+                                userId = shift.userId,
+                                userName = shift.userName
+                            )
+                        )
+                    }
+
+                    // 3. Audit log pelunasan
+                    userDao.insertAuditLog(
+                        AuditLogEntity(
+                            userId = shift?.userId ?: 0L,
+                            userName = shift?.userName ?: "SYSTEM",
+                            action = "PELUNASAN BON #${transaction.id} (${transaction.customerName}) sebesar ${formatRupiah(transaction.totalPrice)}",
+                            actionType = "FINANCE"
+                        )
+                    )
+                }
+
                 withContext(Dispatchers.Main) { onSuccess() }
             } catch (e: Exception) { e.printStackTrace() }
         }
