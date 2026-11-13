@@ -260,15 +260,12 @@ fun SettingsScreen(
         )
     }
     if (showPayableDialog) {
-        PayableDialog(
-            purchases = purchases,
-            onPay = { po ->
-                viewModel.payPurchase(po.id)
-                Toast.makeText(context, "Hutang ke ${po.supplierName} Lunas!", Toast.LENGTH_SHORT).show()
-            },
-            onDismiss = { showPayableDialog = false }
-        )
-    }
+    SupplierDebtDialog(
+        viewModel = viewModel,
+        currentUser = currentUser,
+        onDismiss = { showPayableDialog = false }
+    )
+}
     if (showPaymentMethodsDialog) {
         PaymentMethodManagementDialog(
             currentMethods = settingsManager.paymentMethods,

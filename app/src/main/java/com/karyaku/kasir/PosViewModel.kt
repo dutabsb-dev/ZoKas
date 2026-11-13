@@ -43,6 +43,7 @@ class PosViewModel(
     private val membershipDao = database.membershipDao()
     private val supplierDao = database.supplierDao()
     private val purchaseDao = database.purchaseDao()
+    private val purchasePaymentDao = database.purchasePaymentDao() // MODUL E
     private val reservationDao = database.reservationDao() 
     private val expenseDao = database.expenseDao()
     private val stockOpnameDao = database.stockOpnameDao()
@@ -92,6 +93,21 @@ class PosViewModel(
 
     private val _purchases = MutableStateFlow<List<PurchaseEntity>>(emptyList())
     val purchases: StateFlow<List<PurchaseEntity>> = _purchases.asStateFlow()
+
+    // ================================================================
+    // MODUL E — Hutang Supplier Cicilan
+    // ================================================================
+    // outstandingPurchases: PO yang belum lunas penuh (UNPAID + PARTIAL),
+    //   urut FIFO (paling lama dulu). Dipakai di SupplierDebtDialog.
+    // totalOutstandingDebt: total sisa hutang gabungan semua supplier,
+    //   untuk badge/ringkasan di UI.
+    // ================================================================
+    val outstandingPurchases: StateFlow<List<PurchaseEntity>> = purchaseDao.getOutstandingPurchases()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalOutstandingDebt: StateFlow<Long> = purchaseDao.getTotalOutstandingDebt()
+        .map { it ?: 0L }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     private val _reservations = MutableStateFlow<List<ReservationEntity>>(emptyList())
     val reservations: StateFlow<List<ReservationEntity>> = _reservations.asStateFlow()
@@ -318,23 +334,8 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 3 — processBarcodeScan
-    // ================================================================
-    // Masalah lama:
-    //   getProductByBarcode() pakai LIMIT 1 → jika ada 2+ produk dengan
-    //   barcode sama (bisa terjadi via import Excel), query mengembalikan
-    //   produk arbitrer → SALAH TAMBAH KE CART tanpa peringatan.
-    //
-    // Perbaikan:
-    //   - getProductsByBarcodeList() → kembalikan SEMUA match.
-    //   - Jika 0 match  → "Barcode tidak ditemukan"
-    //   - Jika 1 match  → proceed normal (tambah ke cart)
-    //   - Jika >1 match → REFUSE, tampilkan nama-nama produk yang
-    //                     bertabrakan, dan catat audit log WARNING
-    //                     agar admin bisa bersihkan data barcode.
-    //
-    // Catatan: barcode kosong ("") TIDAK dianggap match (difilter di DAO)
-    //   karena banyak produk default barcode="".
+    // FIX SESI 3 — processBarcodeScan (dipertahankan)
+    // Deteksi duplikat barcode → tolak scan + audit log WARNING.
     // ================================================================
     fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -361,7 +362,6 @@ class PosViewModel(
                     } catch (e: Exception) { }
                 }
 
-                // Ambil SEMUA produk dengan barcode ini (bukan LIMIT 1).
                 val matches = productDao.getProductsByBarcodeList(cleanBarcode)
 
                 when {
@@ -371,7 +371,6 @@ class PosViewModel(
                         }
                     }
                     matches.size == 1 -> {
-                        // 1 match — perilaku normal.
                         val product = matches.first()
                         if (product.isService || product.stock > 0) {
                             val finalProduct = if (parsedExpiry > 0) {
@@ -389,12 +388,9 @@ class PosViewModel(
                         }
                     }
                     else -> {
-                        // > 1 match — duplikat barcode, REFUSE add.
                         val names = matches.joinToString(", ") { it.name }
                         val count = matches.size
                         
-                        // Catat audit log WARNING agar admin tahu ada
-                        // data barcode ganda yang harus dibersihkan.
                         userDao.insertAuditLog(AuditLogEntity(
                             userId = 0,
                             userName = "SYSTEM",
@@ -541,7 +537,11 @@ class PosViewModel(
                         supplierName = supplier.name,
                         invoiceNumber = invoiceNumber,
                         totalAmount = total,
-                        status = if (isPaid) "PAID" else "UNPAID"
+                        status = if (isPaid) "PAID" else "UNPAID",
+                        // MODUL E: kalau lunas langsung saat create PO,
+                        // paidAmount = totalAmount dan paidAt = now.
+                        paidAmount = if (isPaid) total else 0L,
+                        paidAt = if (isPaid) System.currentTimeMillis() else 0L
                     )
                     val purchaseId = purchaseDao.insertPurchase(purchase)
                     
@@ -558,14 +558,6 @@ class PosViewModel(
                     }
                 }
                 withContext(Dispatchers.Main) { onSuccess() }
-            } catch (e: Exception) { e.printStackTrace() }
-        }
-    }
-
-    fun payPurchase(purchaseId: Long) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                purchaseDao.markAsPaid(purchaseId)
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -675,7 +667,7 @@ class PosViewModel(
     }
 
     //     // ================================================================
-    // [AWAL SESI 3c — lanjutan dari SESI 3b]
+    // [AWAL SESI E-1c — lanjutan dari SESI E-1b]
     // Dimulai dari: fun exportProductsToExcel(...)
     // ================================================================
 
@@ -1022,16 +1014,7 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 3 — addProduct (deteksi barcode duplikat)
-    // ================================================================
-    // Perbaikan:
-    //   Sebelum insert, cek apakah barcode (jika tidak kosong) sudah
-    //   dipakai produk lain. Jika ya, TETAP insert (tidak diblokir,
-    //   karena ada kemungkinan user sengaja punya produk dengan barcode
-    //   sama untuk varian berbeda), TAPI:
-    //     1. Catat audit log WARNING agar admin tahu.
-    //     2. Setelah insert, scan produk itu akan gagal (ditolak di
-    //        processBarcodeScan) sampai admin perbaiki barcode-nya.
+    // FIX SESI 3 — addProduct (deteksi barcode duplikat, dipertahankan)
     // ================================================================
     fun addProduct(
         name: String, price: Long, stock: Int, category: String, costPrice: Long, 
@@ -1042,7 +1025,6 @@ class PosViewModel(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Cek duplikat barcode (hanya jika barcode tidak kosong).
                 var duplicateWarning: String? = null
                 if (barcode.isNotBlank()) {
                     val existing = productDao.getProductsByBarcodeList(barcode)
@@ -1062,7 +1044,6 @@ class PosViewModel(
                 
                 userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name", actionType = "INVENTORY"))
                 
-                // Audit log WARNING tambahan jika barcode duplikat.
                 if (duplicateWarning != null) {
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = userId, 
@@ -1076,21 +1057,13 @@ class PosViewModel(
     }
 
     // ================================================================
-    // FIX SESI 1 + SESI 3 — updateProduct
-    // ================================================================
-    // Perbaikan:
-    //   1. (Sesi 1) Pakai saveProduct() (UPDATE in-place, tanpa DELETE).
-    //   2. (Sesi 1) Audit log HANYA setelah DB write sukses.
-    //   3. (Sesi 3) Deteksi barcode duplikat (exclude self) sebelum update.
-    //      Jika duplikat, TETAP update (tidak diblokir), TAPI catat
-    //      audit log WARNING agar admin tahu scan akan gagal.
+    // FIX SESI 1 + SESI 3 — updateProduct (dipertahankan)
     // ================================================================
     fun updateProduct(product: ProductEntity, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val oldProduct = _products.value.find { it.id == product.id }
 
-                // Cek duplikat barcode (exclude self).
                 var duplicateWarning: String? = null
                 if (product.barcode.isNotBlank()) {
                     val sameBarcode = productDao.getProductsByBarcodeList(product.barcode)
@@ -1101,11 +1074,8 @@ class PosViewModel(
                     }
                 }
 
-                // 1) Tulis ke DB dulu. Jika FK / constraint gagal, exception
-                //    akan ditangkap dan audit log TIDAK akan tercatat.
                 productDao.saveProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
 
-                // 2) Audit log baru setelah DB dipastikan sukses.
                 if (oldProduct != null && oldProduct.price != product.price) {
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = userId,
@@ -1122,7 +1092,6 @@ class PosViewModel(
                     ))
                 }
                 
-                // 3) Audit log WARNING jika barcode duplikat.
                 if (duplicateWarning != null) {
                     userDao.insertAuditLog(AuditLogEntity(
                         userId = userId,
@@ -1379,8 +1348,6 @@ class PosViewModel(
 
     // ================================================================
     // FIX SESI 2 — payUnpaidTransaction (dipertahankan)
-    // Status jadi SUCCESS, paymentMethod TETAP 'BON', paidAt/paidMethod
-    // diisi, dan pelunasan dicatat sebagai cash_flows IN di shift aktif.
     // ================================================================
     fun payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1495,6 +1462,179 @@ class PosViewModel(
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { onResult(false, "Gagal void: ${e.message}") }
             }
+        }
+    }
+
+    // ================================================================
+    // ================================================================
+    // MODUL E — HUTANG SUPPLIER CICILAN
+    // ================================================================
+    // ================================================================
+
+    /**
+     * Riwayat cicilan untuk satu PO.
+     * Dipakai di SupplierDebtDialog saat user membuka detail PO.
+     */
+    fun getPaymentsForPurchase(purchaseId: Long): Flow<List<PurchasePaymentEntity>> {
+        return purchasePaymentDao.getPaymentsByPurchase(purchaseId)
+    }
+
+    /**
+     * Semua riwayat cicilan (lintas PO, lintas supplier).
+     * Untuk laporan/audit hutang di masa depan.
+     */
+    fun getAllPurchasePayments(): Flow<List<PurchasePaymentEntity>> {
+        return purchasePaymentDao.getAllPayments()
+    }
+
+    /**
+     * Catat pembayaran (cicilan atau pelunasan) ke supplier.
+     *
+     * Alur transaksional:
+     *   1. Validasi amount > 0 dan amount <= sisa hutang.
+     *   2. Insert baris ke purchase_payments (riwayat).
+     *   3. Update purchases.paidAmount + status + paidAt.
+     *   4. Audit log FINANCE.
+     *
+     * Status baru:
+     *   - UNPAID  jika paidAmount == 0
+     *   - PARTIAL jika 0 < paidAmount < totalAmount
+     *   - PAID    jika paidAmount >= totalAmount
+     *
+     * Catatan: pembayaran hutang TIDAK otomatis dicatat sebagai
+     * cash_flow shift, karena hutang supplier biasanya dibayar lewat
+     * transfer bank atau kas besar, bukan dari laci kasir. Jika nanti
+     * user ingin opsi "bayar dari kas kasir", tambahkan toggle di UI
+     * dan panggil cashFlowDao.insertCashFlow(OUT) di sini.
+     *
+     * @param purchase PO yang dibayar.
+     * @param amount Nominal yang dibayar (harus > 0 dan <= outstanding).
+     * @param paymentMethod CASH / Bank Transfer / QRIS.
+     * @param note Catatan opsional.
+     * @param user User yang mencatat pembayaran.
+     * @param onResult callback (success, message) untuk toast di UI.
+     */
+    fun recordSupplierPayment(
+        purchase: PurchaseEntity,
+        amount: Long,
+        paymentMethod: String,
+        note: String,
+        user: UserEntity,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val outstanding = (purchase.totalAmount - purchase.paidAmount).coerceAtLeast(0L)
+        if (amount <= 0) {
+            onResult(false, "Nominal pembayaran harus lebih dari 0.")
+            return
+        }
+        if (amount > outstanding) {
+            onResult(false, "Nominal melebihi sisa hutang (${formatRupiah(outstanding)}).")
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                var newPaidAmount = 0L
+                var newStatus = "UNPAID"
+
+                database.withTransaction {
+                    // 1. Hitung paidAmount baru.
+                    newPaidAmount = purchase.paidAmount + amount
+                    newStatus = when {
+                        newPaidAmount <= 0L -> "UNPAID"
+                        newPaidAmount < purchase.totalAmount -> "PARTIAL"
+                        else -> "PAID"
+                    }
+                    val paidAt = if (newStatus == "PAID") System.currentTimeMillis() else 0L
+
+                    // 2. Catat riwayat cicilan.
+                    purchasePaymentDao.insertPayment(
+                        PurchasePaymentEntity(
+                            purchaseId = purchase.id,
+                            amount = amount,
+                            paymentMethod = paymentMethod,
+                            note = note,
+                            userId = user.id,
+                            userName = user.name
+                        )
+                    )
+
+                    // 3. Update header PO.
+                    purchaseDao.updatePayment(
+                        purchaseId = purchase.id,
+                        paidAmount = newPaidAmount,
+                        status = newStatus,
+                        paidAt = paidAt
+                    )
+
+                    // 4. Audit log.
+                    userDao.insertAuditLog(
+                        AuditLogEntity(
+                            userId = user.id,
+                            userName = user.name,
+                            action = "BAYAR HUTANG SUPPLIER: ${purchase.supplierName} (PO #${purchase.id} / ${purchase.invoiceNumber}) sebesar ${formatRupiah(amount)} via $paymentMethod. Status: $newStatus",
+                            actionType = "FINANCE"
+                        )
+                    )
+                }
+
+                withContext(Dispatchers.Main) {
+                    val msg = when (newStatus) {
+                        "PAID" -> "Hutang LUNAS! Total terbayar ${formatRupiah(newPaidAmount)}."
+                        "PARTIAL" -> "Cicilan tercatat. Sisa hutang ${formatRupiah(purchase.totalAmount - newPaidAmount)}."
+                        else -> "Pembayaran tercatat."
+                    }
+                    onResult(true, msg)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onResult(false, "Gagal mencatat pembayaran: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * LEGACY — markAsPaid(purchaseId) lama.
+     *
+     * Dipertahankan agar kode lama (PayableDialog di SettingsDialogs.kt)
+     * tetap compile. Perilaku: langsung lunasi seluruh sisa hutang
+     * dengan metode CASH dan user sistem.
+     *
+     * Untuk UI baru, gunakan recordSupplierPayment() supaya
+     * riwayat cicilan tercatat rapi.
+     *
+     * TODO: setelah PayableDialog dihapus dari SettingsScreen,
+     *       fungsi ini bisa dihapus juga.
+     */
+    @Deprecated("Gunakan recordSupplierPayment() agar riwayat cicilan tercatat.")
+    fun payPurchase(purchaseId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val purchase = _purchases.value.find { it.id == purchaseId }
+                if (purchase != null) {
+                    val outstanding = (purchase.totalAmount - purchase.paidAmount).coerceAtLeast(0L)
+                    if (outstanding > 0L) {
+                        // Panggil versi baru dengan user sistem (karena
+                        // signature legacy tidak menerima currentUser).
+                        val systemUser = UserEntity(
+                            id = 0L,
+                            name = "SYSTEM",
+                            pin = "",
+                            role = "SYSTEM"
+                        )
+                        recordSupplierPayment(
+                            purchase = purchase,
+                            amount = outstanding,
+                            paymentMethod = "CASH",
+                            note = "Pelunasan legacy via payPurchase()",
+                            user = systemUser,
+                            onResult = { _, _ -> }
+                        )
+                    }
+                }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 }

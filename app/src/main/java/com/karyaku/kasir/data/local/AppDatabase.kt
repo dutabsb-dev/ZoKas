@@ -27,12 +27,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SupplierEntity::class, 
         PurchaseEntity::class, 
         PurchaseItemEntity::class,
+        PurchasePaymentEntity::class, // MODUL E
         ReservationEntity::class, 
         ExpenseEntity::class,
         StockOpnameEntity::class,
         StockOpnameItemEntity::class
     ], 
-    version = 28, 
+    version = 29, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,6 +49,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun membershipDao(): MembershipDao
     abstract fun supplierDao(): SupplierDao
     abstract fun purchaseDao(): PurchaseDao
+    abstract fun purchasePaymentDao(): PurchasePaymentDao // MODUL E
     abstract fun reservationDao(): ReservationDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun stockOpnameDao(): StockOpnameDao
@@ -146,6 +148,45 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // ================================================================
+        // 10. MIGRASI MODUL E — Hutang Supplier Cicilan (28 -> 29)
+        // ================================================================
+        // 1. Tambah paidAmount & paidAt di purchases.
+        // 2. Backfill: PO lama yang sudah berstatus 'PAID' dianggap lunas
+        //    penuh, jadi paidAmount = totalAmount dan paidAt = timestamp
+        //    (tanggal PO dibuat — tanggal lunas asli tidak diketahui).
+        // 3. Buat tabel purchase_payments untuk riwayat cicilan.
+        // 4. Index purchaseId untuk query cepat per PO.
+        // ================================================================
+        private val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE purchases ADD COLUMN paidAmount INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE purchases ADD COLUMN paidAt INTEGER NOT NULL DEFAULT 0")
+                
+                database.execSQL(
+                    "UPDATE purchases SET paidAmount = totalAmount, paidAt = timestamp WHERE status = 'PAID'"
+                )
+                
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `purchase_payments` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `purchaseId` INTEGER NOT NULL,
+                        `amount` INTEGER NOT NULL,
+                        `paymentMethod` TEXT NOT NULL,
+                        `note` TEXT NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `userId` INTEGER NOT NULL,
+                        `userName` TEXT NOT NULL,
+                        FOREIGN KEY(`purchaseId`) REFERENCES `purchases`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_purchase_payments_purchaseId` ON `purchase_payments` (`purchaseId`)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -162,26 +203,9 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_24_25,
                     MIGRATION_25_26,
                     MIGRATION_26_27,
-                    MIGRATION_27_28
+                    MIGRATION_27_28,
+                    MIGRATION_28_29
                 )
-                // ============================================================
-                // PHASE 0 — SESI 3: Ganti fallbackToDestructiveMigration()
-                // ============================================================
-                // Masalah lama:
-                //   fallbackToDestructiveMigration() menghapus SELURUH data
-                //   user jika ada satu saja migrasi yang throw exception.
-                //
-                // Perbaikan:
-                //   fallbackToDestructiveMigrationFrom(1..18) → hanya izinkan
-                //   wipe data untuk user yang datang dari v1-v18 (kita tidak
-                //   punya migrasi untuk versi tersebut). Untuk v19+ jika
-                //   migrasi gagal → crash (data aman, tidak terhapus).
-                //
-                // Artinya: user lama yang masih di v1-18 akan kehilangan data
-                //   (sudah tidak bisa diselamatkan tanpa migrasi 1-19). User
-                //   v19+ yang migrasinya rusak akan crash dengan pesan jelas
-                //   daripada diam-diam kehilangan semua data.
-                // ============================================================
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
                 )
