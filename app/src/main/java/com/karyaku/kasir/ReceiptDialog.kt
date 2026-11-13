@@ -12,7 +12,6 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +23,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -138,7 +136,6 @@ fun ReceiptDialog(
                             isGeneratingImage = false
 
                             if (bitmap != null) {
-                                // Simpan bitmap ke cache
                                 val cachePath = File(context.cacheDir, "images")
                                 cachePath.mkdirs()
                                 val file = File(cachePath, "receipt_${transaction.id}.png")
@@ -147,10 +144,8 @@ fun ReceiptDialog(
                                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
                                     stream.close()
 
-                                    // Gunakan FileProvider untuk keamanan Android 7+
                                     val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                                     
-                                    // Intent kirim gambar + teks (caption)
                                     val shareIntent = Intent().apply {
                                         action = Intent.ACTION_SEND
                                         putExtra(Intent.EXTRA_TEXT, textToShare)
@@ -159,7 +154,6 @@ fun ReceiptDialog(
                                         type = "image/png"
                                     }
                                     
-                                    // Coba buka WhatsApp / WA Business / System Chooser
                                     try {
                                         val waIntent = Intent(shareIntent).apply { setPackage("com.whatsapp") }
                                         context.startActivity(waIntent)
@@ -168,7 +162,6 @@ fun ReceiptDialog(
                                             val waBizIntent = Intent(shareIntent).apply { setPackage("com.whatsapp.w4b") }
                                             context.startActivity(waBizIntent)
                                         } catch (e2: Exception) {
-                                            // Jika WA tidak ada, buka share sheet bawaan Android
                                             val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
                                             context.startActivity(chooser)
                                         }
@@ -234,7 +227,6 @@ fun ReceiptDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
 
-                // TAMPILKAN LOGO TOKO DI PREVIEW
                 if (logoFile != null && logoFile.exists()) {
                     AsyncImage(
                         model = logoFile,
@@ -351,9 +343,6 @@ fun ReceiptDialog(
     )
 }
 
-// ================================================================
-// HELPER: GENERATE TEXT (Untuk Caption WhatsApp)
-// ================================================================
 private fun generateTextReceipt(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -405,9 +394,6 @@ private fun generateTextReceipt(
     return sb.toString()
 }
 
-// ================================================================
-// HELPER: GENERATE BITMAP (Untuk Gambar WhatsApp)
-// ================================================================
 private fun generateReceiptBitmap(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -415,13 +401,11 @@ private fun generateReceiptBitmap(
 ): Bitmap? {
     return try {
         val width = 600
-        var height = 200 // Default height, akan ditambah sesuai isi
+        var height = 200
         
-        // Hitung tinggi total (estimasi kasar)
-        val lineHeight = 30f
         val textSize = 24f
         height += (items?.size ?: 0) * 60
-        height += 400 // Ruang untuk header & footer
+        height += 400
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -448,7 +432,7 @@ private fun generateReceiptBitmap(
         }
         val centerBoldPaint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSize + 10f // Lebih besar untuk judul
+            textSize = textSize + 10f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
@@ -459,16 +443,13 @@ private fun generateReceiptBitmap(
         val leftX = 40f
         val rightX = width - 40f
 
-        // Gambar Logo
         if (logoFile != null && logoFile.exists()) {
             val logoBitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
             if (logoBitmap != null) {
-                // Resize logo
                 val logoWidth = 120
                 val logoHeight = (logoBitmap.height.toFloat() / logoBitmap.width.toFloat() * logoWidth).toInt()
                 val scaledLogo = Bitmap.createScaledBitmap(logoBitmap, logoWidth, logoHeight, true)
                 
-                // Taruh di tengah
                 val left = (width - logoWidth) / 2f
                 canvas.drawBitmap(scaledLogo, left, y, null)
                 y += logoHeight + 20f
@@ -482,7 +463,6 @@ private fun generateReceiptBitmap(
         val line = "=============================================="
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
 
-        // Info Transaksi
         val dateStr = dateFormat.format(Date(transaction.timestamp))
         canvas.drawText("ID: #${transaction.id} | $dateStr", leftX, y, paint); y += 30f
         canvas.drawText("Tipe: ${transaction.orderType}", leftX, y, boldPaint); y += 30f
@@ -494,7 +474,6 @@ private fun generateReceiptBitmap(
 
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
 
-        // Items
         items?.forEach { item ->
             val itemName = "${item.quantity}x ${item.productName}"
             val itemPrice = formatRupiah(item.subtotal)
@@ -518,9 +497,10 @@ private fun generateReceiptBitmap(
         val dashLine = "----------------------------------------------"
         canvas.drawText(dashLine, centerX, y, centerPaint); y += 30f
 
-        // Ringkasan
         val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
         canvas.drawText("Subtotal:", leftX, y, paint)
+        
+        // PERBAIKAN: Gunakan 'var' bukan 'val' agar bisa di-reassign
         var valStr = formatRupiah(subtotalItems)
         var valWidth = paint.measureText(valStr)
         canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
@@ -570,7 +550,6 @@ private fun generateReceiptBitmap(
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
         canvas.drawText(storeFooter, centerX, y, centerPaint)
 
-        // Crop bitmap jika ada ruang kosong berlebih di bawah
         Bitmap.createBitmap(bitmap, 0, 0, width, (y + 50).toInt())
     } catch (e: Exception) {
         e.printStackTrace()
@@ -578,9 +557,6 @@ private fun generateReceiptBitmap(
     }
 }
 
-// ================================================================
-// HELPER: GENERATE PRINT DATA (Untuk Bluetooth Thermal)
-// ================================================================
 private fun generatePrintData(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -589,12 +565,10 @@ private fun generatePrintData(
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
 
-    // --- FITUR CETAK LOGO ---
     if (logoFile != null && logoFile.exists()) {
         try {
             val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
             if (bitmap != null) {
-                // Resize agar pas di kertas thermal (lebar max 384px)
                 val maxWidth = 384
                 val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
                 val newWidth = maxWidth
@@ -603,7 +577,7 @@ private fun generatePrintData(
 
                 output.write(EscPosCommands.ALIGN_CENTER)
                 output.write(EscPosCommands.printImage(resizedBitmap))
-                output.write(byteArrayOf(0x0A)) // Line feed setelah gambar
+                output.write(byteArrayOf(0x0A))
             }
         } catch (e: Exception) {
             e.printStackTrace()
