@@ -440,6 +440,12 @@ fun MainNavigation(
                                         onClick = { showStockTransferDialog = true; showMenu = false } 
                                     )
                                 }
+                                // MENU TUTUP KASIR
+                                DropdownMenuItem(
+                                    text = { Text("Tutup Kasir (Close Harian)") }, 
+                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) }, 
+                                    onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false } 
+                                )
                                 DropdownMenuItem(
                                     text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, 
                                     leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, 
@@ -545,7 +551,7 @@ fun MainNavigation(
                     )
                 )
 
-                // 4. Tab Dapur (KDS) — BARU
+                // 4. Tab Dapur (KDS)
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },
                     label = { Text("Dapur", textAlign = TextAlign.Center) },

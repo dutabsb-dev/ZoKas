@@ -137,6 +137,7 @@ fun PosScreen(
                 "DRAWER" -> showDrawerConfirm = true
                 "HOLD" -> showHoldDialog = true
                 "CASHFLOW" -> showCashFlowDialog = true
+                "CLOSE_SHIFT" -> showCloseShiftDialog = true // TAMBAHKAN BARIS INI
             }
             onActionHandled() // Reset trigger di MainActivity
         }
@@ -231,7 +232,7 @@ fun PosScreen(
                     viewModel.resetQrisPayment() 
                     viewModel.resetTransferPayment()
                 }, 
-                                onConfirmPayment = { cashReceived, method ->
+                onConfirmPayment = { cashReceived, method ->
                     viewModel.processPayment(
                         cashReceived = cashReceived,
                         userId = currentUser.id,
@@ -418,11 +419,10 @@ fun PosScreen(
             )
         }
 
-                if (showCustomerDialog) {
+        if (showCustomerDialog) {
             CustomerDialogV2(
                 viewModel = viewModel,
-                customers = customers,
-                selectedCustomer = selectedCustomer,
+                customers = customers, selectedCustomer = selectedCustomer,
                 onSelect = { viewModel.setCustomer(it); showCustomerDialog = false },
                 onAddCustomer = { name, phone, birthDate -> viewModel.addCustomer(name, phone, birthDate) },
                 onRedeemPoints = { points -> viewModel.redeemPoints(points) },
@@ -498,7 +498,7 @@ fun PosScreen(
                                     options.setCameraId(0)
                                     options.setBeepEnabled(false)
                                     options.setBarcodeImageEnabled(true)
-                                    options.setOrientationLocked(true) // <--- FIX: Mengunci orientasi
+                                    options.setOrientationLocked(true) 
                                     barcodeLauncher.launch(options)
                                 },
                                 searchFocusRequester = searchFocusRequester
@@ -582,7 +582,7 @@ fun PosScreen(
                                 options.setCameraId(0)
                                 options.setBeepEnabled(false)
                                 options.setBarcodeImageEnabled(true)
-                                options.setOrientationLocked(true) // <--- FIX: Mengunci orientasi
+                                options.setOrientationLocked(true) 
                                 barcodeLauncher.launch(options)
                             },
                             searchFocusRequester = searchFocusRequester

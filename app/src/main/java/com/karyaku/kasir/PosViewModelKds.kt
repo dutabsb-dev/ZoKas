@@ -18,18 +18,22 @@ import kotlinx.coroutines.launch
 // ================================================================
 // STATE: ACTIVE TICKETS
 // ================================================================
-val PosViewModel.activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> =
-    this.kitchenTicketDao.getActiveTickets()
+// Menggunakan 'by lazy' agar Flow hanya dibuat satu kali per instance
+// ViewModel, dan menghindari error 'this' pada top-level property.
+// ================================================================
+val PosViewModel.activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> by lazy {
+    kitchenTicketDao.getActiveTickets()
         .catch { emit(emptyList<KitchenTicketEntity>()) }
-        .stateIn(this.viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+}
 
 // ================================================================
 // UPDATE STATUS
 // ================================================================
 fun PosViewModel.updateKitchenTicketStatus(ticketId: Long, newStatus: String) {
-    this.viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
-            this@updateKitchenTicketStatus.kitchenTicketDao.updateStatus(ticketId, newStatus)
+            kitchenTicketDao.updateStatus(ticketId, newStatus)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -40,9 +44,9 @@ fun PosViewModel.updateKitchenTicketStatus(ticketId: Long, newStatus: String) {
 // CLEAR COMPLETED
 // ================================================================
 fun PosViewModel.clearCompletedKitchenTickets() {
-    this.viewModelScope.launch(Dispatchers.IO) {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
-            this@clearCompletedKitchenTickets.kitchenTicketDao.clearCompletedTickets()
+            kitchenTicketDao.clearCompletedTickets()
         } catch (e: Exception) {
             e.printStackTrace()
         }
