@@ -61,7 +61,6 @@ fun ReceiptDialog(
     val printerManager = remember { BluetoothPrinterManager(context) }
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-    // State eksplisit untuk loading items
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val itemsNullable by itemsFlow.collectAsStateWithLifecycle(
         initialValue = null as List<TransactionItemEntity>?
@@ -74,7 +73,6 @@ fun ReceiptDialog(
     var textToShare by remember { mutableStateOf("") }
     var isGeneratingImage by remember { mutableStateOf(false) }
 
-    // Ambil logo dari SettingsManager
     val logoFile = remember(settingsManager.storeLogoPath) {
         val path = settingsManager.storeLogoPath
         if (!path.isNullOrBlank()) File(path) else null
@@ -88,8 +86,8 @@ fun ReceiptDialog(
         AlertDialog(
             onDismissRequest = { showShareFallbackDialog = false },
             icon = { Icon(Icons.Default.Share, contentDescription = null, tint = AmberAccent) },
-            title = { Text("Aplikasi Tidak Ditemukan") },
-            text = { Text("WhatsApp tidak terpasang atau tidak dapat diakses. Anda dapat menyalin teks struk dan mengirimkannya secara manual.") },
+            title = { Text("Gagal Membagikan Struk") },
+            text = { Text("Sistem gagal membagikan gambar. Anda dapat menyalin teks struk di bawah ini dan mengirimkannya secara manual via WhatsApp.") },
             confirmButton = {
                 Button(onClick = {
                     try {
@@ -119,7 +117,6 @@ fun ReceiptDialog(
                             isGeneratingImage = true
                             textToShare = generateTextReceipt(transaction, storeName, storeAddress, storePhone, storeFooter, dateFormat, items)
                             
-                            // Generate gambar struk di background thread
                             val bitmap = withContext(Dispatchers.IO) {
                                 generateReceiptBitmap(
                                     transaction = transaction,
@@ -136,41 +133,41 @@ fun ReceiptDialog(
                             isGeneratingImage = false
 
                             if (bitmap != null) {
-                                val cachePath = File(context.cacheDir, "images")
-                                cachePath.mkdirs()
-                                val file = File(cachePath, "receipt_${transaction.id}.png")
+                                // GUNAKAN EXTERNAL FILES DIR AGAR LEBIH MUDAH DIAKSES APLIKASI LAIN
+                                val imagesDir = File(context.getExternalFilesDir(null), "receipts")
+                                imagesDir.mkdirs()
+                                val file = File(imagesDir, "receipt_${transaction.id}.png")
+                                
                                 try {
                                     val stream = FileOutputStream(file)
                                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
                                     stream.close()
 
-                                    val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                    val authority = "${context.packageName}.fileprovider"
+                                    val uri: Uri = FileProvider.getUriForFile(context, authority, file)
                                     
                                     val shareIntent = Intent().apply {
                                         action = Intent.ACTION_SEND
                                         putExtra(Intent.EXTRA_TEXT, textToShare)
                                         putExtra(Intent.EXTRA_STREAM, uri)
+                                        // Wajib untuk Android 10+ agar izin file terbaca
+                                        clipData = ClipData.newRawUri("Receipt", uri) 
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         type = "image/png"
                                     }
                                     
-                                    try {
-                                        val waIntent = Intent(shareIntent).apply { setPackage("com.whatsapp") }
-                                        context.startActivity(waIntent)
-                                    } catch (e: Exception) {
-                                        try {
-                                            val waBizIntent = Intent(shareIntent).apply { setPackage("com.whatsapp.w4b") }
-                                            context.startActivity(waBizIntent)
-                                        } catch (e2: Exception) {
-                                            val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
-                                            context.startActivity(chooser)
-                                        }
-                                    }
+                                    // MENGGUNAKAN CHOOSER (Share Sheet Android)
+                                    val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
+                                    context.startActivity(chooser)
+
                                 } catch (e: Exception) {
                                     e.printStackTrace()
+                                    // TAMPILKAN ERROR ASLI UNTUK DIAGNOSA
+                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                                     showShareFallbackDialog = true
                                 }
                             } else {
+                                Toast.makeText(context, "Gagal membuat gambar struk.", Toast.LENGTH_SHORT).show()
                                 showShareFallbackDialog = true
                             }
                         }
@@ -343,6 +340,7 @@ fun ReceiptDialog(
     )
 }
 
+// Fungsi generateTextReceipt, generateReceiptBitmap, dan generatePrintData TETAP SAMA SEPERTI SEBELUMNYA
 private fun generateTextReceipt(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -402,7 +400,7 @@ private fun generateReceiptBitmap(
     return try {
         val width = 600
         var height = 200
-        val textSizeBase = 24f // Renamed for safety
+        val textSizeBase = 24f
 
         height += (items?.size ?: 0) * 60
         height += 400
