@@ -271,7 +271,7 @@ fun CustomerDialogV2(
 // CARD PELANGGAN V2
 // ====================================================================
 @Composable
-private fun CustomerCardV2(
+fun CustomerCardV2(
     customer: CustomerEntity,
     isSelected: Boolean,
     dateFormat: SimpleDateFormat,
@@ -415,7 +415,7 @@ private fun CustomerCardV2(
 // FORM TAMBAH / EDIT PELANGGAN
 // ====================================================================
 @Composable
-private fun CustomerFormDialog(
+fun CustomerFormDialog(
     customerToEdit: CustomerEntity?,
     onDismiss: () -> Unit,
     onSave: (name: String, phone: String, birthDate: Long) -> Unit
@@ -556,7 +556,7 @@ private fun CustomerFormDialog(
 // DIALOG REDEEM POIN
 // ====================================================================
 @Composable
-private fun RedeemPointsDialog(
+fun RedeemPointsDialog(
     customer: CustomerEntity,
     onRedeem: (Int) -> Unit,
     onDismiss: () -> Unit
@@ -654,7 +654,7 @@ private fun RedeemPointsDialog(
 // HELPER: Warna Tier
 // ====================================================================
 @Composable
-private fun tierColor(tier: CustomerTier): Color = when (tier) {
+fun tierColor(tier: CustomerTier): Color = when (tier) {
     CustomerTier.REGULAR -> SlateGrey
     CustomerTier.SILVER -> Color(0xFF78909C)
     CustomerTier.GOLD -> AmberAccentDark

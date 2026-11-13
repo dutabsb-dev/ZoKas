@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed // <-- IMPORT YANG HILANG
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,18 +33,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// ====================================================================
-// MODUL G — DASHBOARD CRM (KELOLA PELANGGAN)
-// ====================================================================
-// Fitur:
-//   - Stats: total pelanggan, total spending, breakdown per tier
-//   - Top 5 spenders
-//   - Filter tier + search
-//   - List pelanggan (card reuse dari CustomerCardV2)
-//   - FAB tambah pelanggan
-//   - Edit pelanggan (form reuse)
-// ====================================================================
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerManagementDialog(
@@ -59,7 +48,6 @@ fun CustomerManagementDialog(
     var showAddForm by remember { mutableStateOf(false) }
     var customerToEdit by remember { mutableStateOf<CustomerEntity?>(null) }
 
-    // ---------- STATS ----------
     val totalCustomers = customers.size
     val totalSpending = remember(customers) { customers.sumOf { it.totalSpending } }
     val tierCounts = remember(customers) {
@@ -68,14 +56,12 @@ fun CustomerManagementDialog(
         }
     }
 
-    // ---------- TOP SPENDERS ----------
     val topSpenders = remember(customers) {
         customers.sortedByDescending { it.totalSpending }
             .take(5)
             .filter { it.totalSpending > 0 }
     }
 
-    // ---------- FILTERED ----------
     val filtered = remember(customers, searchQuery, selectedTierFilter) {
         customers.filter { c ->
             val matchSearch = searchQuery.isBlank() ||
@@ -87,7 +73,6 @@ fun CustomerManagementDialog(
         }
     }
 
-    // ---------- SUB-DIALOGS ----------
     if (showAddForm) {
         CustomerFormDialog(
             customerToEdit = null,
@@ -115,7 +100,6 @@ fun CustomerManagementDialog(
         )
     }
 
-    // ---------- MAIN DIALOG ----------
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -127,9 +111,6 @@ fun CustomerManagementDialog(
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
 
-                    // ============================================
-                    // TOP BAR
-                    // ============================================
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -163,9 +144,6 @@ fun CustomerManagementDialog(
                         ),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // ============================================
-                        // STATS CARD
-                        // ============================================
                         item {
                             StatsOverviewCard(
                                 totalCustomers = totalCustomers,
@@ -174,9 +152,6 @@ fun CustomerManagementDialog(
                             )
                         }
 
-                        // ============================================
-                        // TOP SPENDERS
-                        // ============================================
                         if (topSpenders.isNotEmpty()) {
                             item {
                                 Text(
@@ -195,9 +170,6 @@ fun CustomerManagementDialog(
                             }
                         }
 
-                        // ============================================
-                        // SEARCH + FILTER
-                        // ============================================
                         item {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
@@ -263,9 +235,6 @@ fun CustomerManagementDialog(
                             }
                         }
 
-                        // ============================================
-                        // LIST PELANGGAN
-                        // ============================================
                         if (filtered.isEmpty()) {
                             item {
                                 Card(
@@ -319,9 +288,6 @@ fun CustomerManagementDialog(
                     }
                 }
 
-                // ============================================
-                // FAB TAMBAH
-                // ============================================
                 ExtendedFloatingActionButton(
                     onClick = { showAddForm = true },
                     modifier = Modifier
@@ -338,9 +304,6 @@ fun CustomerManagementDialog(
     }
 }
 
-// ====================================================================
-// STATS OVERVIEW CARD
-// ====================================================================
 @Composable
 private fun StatsOverviewCard(
     totalCustomers: Int,
@@ -393,7 +356,6 @@ private fun StatsOverviewCard(
             HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Tier breakdown
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -429,16 +391,13 @@ private fun StatsOverviewCard(
     }
 }
 
-// ====================================================================
-// TOP SPENDER CARD
-// ====================================================================
 @Composable
 private fun TopSpenderCard(rank: Int, customer: CustomerEntity) {
     val tier = CustomerTier.fromPoints(customer.points)
     val rankColor = when (rank) {
-        1 -> Color(0xFFFFD700) // Gold
-        2 -> Color(0xFFC0C0C0) // Silver
-        3 -> Color(0xFFCD7F32) // Bronze
+        1 -> Color(0xFFFFD700)
+        2 -> Color(0xFFC0C0C0)
+        3 -> Color(0xFFCD7F32)
         else -> SlateGrey
     }
 
@@ -451,7 +410,6 @@ private fun TopSpenderCard(rank: Int, customer: CustomerEntity) {
             modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Rank
             Box(
                 modifier = Modifier
                     .size(32.dp)
