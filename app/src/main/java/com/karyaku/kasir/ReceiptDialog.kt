@@ -133,7 +133,7 @@ fun ReceiptDialog(
                             isGeneratingImage = false
 
                             if (bitmap != null) {
-                                // GUNAKAN EXTERNAL FILES DIR AGAR LEBIH MUDAH DIAKSES APLIKASI LAIN
+                                // Menggunakan ExternalFilesDir agar kompatibel dengan Android 10+
                                 val imagesDir = File(context.getExternalFilesDir(null), "receipts")
                                 imagesDir.mkdirs()
                                 val file = File(imagesDir, "receipt_${transaction.id}.png")
@@ -150,19 +150,16 @@ fun ReceiptDialog(
                                         action = Intent.ACTION_SEND
                                         putExtra(Intent.EXTRA_TEXT, textToShare)
                                         putExtra(Intent.EXTRA_STREAM, uri)
-                                        // Wajib untuk Android 10+ agar izin file terbaca
                                         clipData = ClipData.newRawUri("Receipt", uri) 
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         type = "image/png"
                                     }
                                     
-                                    // MENGGUNAKAN CHOOSER (Share Sheet Android)
                                     val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
                                     context.startActivity(chooser)
 
                                 } catch (e: Exception) {
                                     e.printStackTrace()
-                                    // TAMPILKAN ERROR ASLI UNTUK DIAGNOSA
                                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                                     showShareFallbackDialog = true
                                 }
@@ -340,7 +337,6 @@ fun ReceiptDialog(
     )
 }
 
-// Fungsi generateTextReceipt, generateReceiptBitmap, dan generatePrintData TETAP SAMA SEPERTI SEBELUMNYA
 private fun generateTextReceipt(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -392,6 +388,7 @@ private fun generateTextReceipt(
     return sb.toString()
 }
 
+// FIX: Kanvas dibuat sangat panjang dari awal, lalu dipotong di akhir agar tidak OutOfBounds
 private fun generateReceiptBitmap(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -399,38 +396,34 @@ private fun generateReceiptBitmap(
 ): Bitmap? {
     return try {
         val width = 600
-        var height = 200
-        val textSizeBase = 24f
+        val fixedHeight = 3000 // Tinggi maksimal yang aman
 
-        height += (items?.size ?: 0) * 60
-        height += 400
-
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(width, fixedHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(AndroidColor.WHITE)
 
         val paint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSizeBase
+            textSize = 24f
             typeface = Typeface.MONOSPACE
             isAntiAlias = true
         }
         val boldPaint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSizeBase
+            textSize = 24f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             isAntiAlias = true
         }
         val centerPaint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSizeBase
+            textSize = 24f
             typeface = Typeface.MONOSPACE
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
         }
         val centerBoldPaint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSizeBase + 10f
+            textSize = 34f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
             isAntiAlias = true
@@ -441,13 +434,13 @@ private fun generateReceiptBitmap(
         val leftX = 40f
         val rightX = width - 40f
 
+        // Logo
         if (logoFile != null && logoFile.exists()) {
             val logoBitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
             if (logoBitmap != null) {
                 val logoWidth = 120
                 val logoHeight = (logoBitmap.height.toFloat() / logoBitmap.width.toFloat() * logoWidth).toInt()
                 val scaledLogo = Bitmap.createScaledBitmap(logoBitmap, logoWidth, logoHeight, true)
-                
                 val left = (width - logoWidth) / 2f
                 canvas.drawBitmap(scaledLogo, left, y, null)
                 y += logoHeight + 20f
@@ -472,6 +465,7 @@ private fun generateReceiptBitmap(
 
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
 
+        // Items
         items?.forEach { item ->
             canvas.drawText("${item.quantity}x ${item.productName}", leftX, y, paint)
             val priceText = formatRupiah(item.subtotal)
@@ -492,9 +486,9 @@ private fun generateReceiptBitmap(
         val dashLine = "----------------------------------------------"
         canvas.drawText(dashLine, centerX, y, centerPaint); y += 30f
 
+        // Totals
         val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
         canvas.drawText("Subtotal:", leftX, y, paint)
-        
         val valStrSubtotal = formatRupiah(subtotalItems)
         val valWidthSubtotal = paint.measureText(valStrSubtotal)
         canvas.drawText(valStrSubtotal, rightX - valWidthSubtotal, y, paint); y += 30f
@@ -544,7 +538,9 @@ private fun generateReceiptBitmap(
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
         canvas.drawText(storeFooter, centerX, y, centerPaint)
 
-        Bitmap.createBitmap(bitmap, 0, 0, width, (y + 50).toInt())
+        // Potong gambar dengan aman sesuai panjang teks yang sudah dicetak
+        val finalHeight = (y + 50).toInt().coerceAtMost(fixedHeight)
+        Bitmap.createBitmap(bitmap, 0, 0, width, finalHeight)
     } catch (e: Exception) {
         e.printStackTrace()
         null
