@@ -475,12 +475,9 @@ private fun generateReceiptBitmap(
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
 
         items?.forEach { item ->
-            val itemName = "${item.quantity}x ${item.productName}"
-            val itemPrice = formatRupiah(item.subtotal)
-            
-            canvas.drawText(itemName, leftX, y, paint)
-            val priceWidth = paint.measureText(itemPrice)
-            canvas.drawText(itemPrice, rightX - priceWidth, y, paint)
+            canvas.drawText("${item.quantity}x ${item.productName}", leftX, y, paint)
+            val priceText = formatRupiah(item.subtotal)
+            canvas.drawText(priceText, rightX - paint.measureText(priceText), y, paint)
             y += 30f
 
             if (item.notes.isNotEmpty()) {
@@ -500,50 +497,49 @@ private fun generateReceiptBitmap(
         val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
         canvas.drawText("Subtotal:", leftX, y, paint)
         
-        // PERBAIKAN: Gunakan 'var' bukan 'val' agar bisa di-reassign
-        var valStr = formatRupiah(subtotalItems)
-        var valWidth = paint.measureText(valStr)
-        canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+        val valStrSubtotal = formatRupiah(subtotalItems)
+        val valWidthSubtotal = paint.measureText(valStrSubtotal)
+        canvas.drawText(valStrSubtotal, rightX - valWidthSubtotal, y, paint); y += 30f
 
         if (transaction.taxAmount > 0) {
             canvas.drawText("Pajak:", leftX, y, paint)
-            valStr = formatRupiah(transaction.taxAmount)
-            valWidth = paint.measureText(valStr)
-            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+            val valStrPajak = formatRupiah(transaction.taxAmount)
+            val valWidthPajak = paint.measureText(valStrPajak)
+            canvas.drawText(valStrPajak, rightX - valWidthPajak, y, paint); y += 30f
         }
         if (transaction.serviceCharge > 0) {
             canvas.drawText("Service Charge:", leftX, y, paint)
-            valStr = formatRupiah(transaction.serviceCharge)
-            valWidth = paint.measureText(valStr)
-            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+            val valStrService = formatRupiah(transaction.serviceCharge)
+            val valWidthService = paint.measureText(valStrService)
+            canvas.drawText(valStrService, rightX - valWidthService, y, paint); y += 30f
         }
 
         val diskon = subtotalItems + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
         if (diskon > 0) {
             canvas.drawText("Diskon/Poin:", leftX, y, paint)
-            valStr = "- ${formatRupiah(diskon)}"
-            valWidth = paint.measureText(valStr)
-            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+            val valStrDiskon = "- ${formatRupiah(diskon)}"
+            val valWidthDiskon = paint.measureText(valStrDiskon)
+            canvas.drawText(valStrDiskon, rightX - valWidthDiskon, y, paint); y += 30f
         }
 
         y += 10f
         canvas.drawText("Total Belanja:", leftX, y, boldPaint)
-        valStr = formatRupiah(transaction.totalPrice)
-        valWidth = boldPaint.measureText(valStr)
-        canvas.drawText(valStr, rightX - valWidth, y, boldPaint); y += 35f
+        val valStrTotal = formatRupiah(transaction.totalPrice)
+        val valWidthTotal = boldPaint.measureText(valStrTotal)
+        canvas.drawText(valStrTotal, rightX - valWidthTotal, y, boldPaint); y += 35f
 
         if (transaction.paymentMethod == "BON" && transaction.cashReceived == 0L) {
             canvas.drawText("METODE: BON (BELUM BAYAR)", leftX, y, boldPaint); y += 30f
         } else {
             canvas.drawText("Tunai:", leftX, y, paint)
-            valStr = formatRupiah(transaction.cashReceived)
-            valWidth = paint.measureText(valStr)
-            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+            val valStrTunai = formatRupiah(transaction.cashReceived)
+            val valWidthTunai = paint.measureText(valStrTunai)
+            canvas.drawText(valStrTunai, rightX - valWidthTunai, y, paint); y += 30f
 
             canvas.drawText("Kembalian:", leftX, y, paint)
-            valStr = formatRupiah(transaction.changeAmount)
-            valWidth = paint.measureText(valStr)
-            canvas.drawText(valStr, rightX - valWidth, y, paint); y += 30f
+            val valStrKembali = formatRupiah(transaction.changeAmount)
+            val valWidthKembali = paint.measureText(valStrKembali)
+            canvas.drawText(valStrKembali, rightX - valWidthKembali, y, paint); y += 30f
         }
 
         y += 20f
