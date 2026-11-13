@@ -133,7 +133,6 @@ fun ReceiptDialog(
                             isGeneratingImage = false
 
                             if (bitmap != null) {
-                                // Menggunakan ExternalFilesDir agar kompatibel dengan Android 10+
                                 val imagesDir = File(context.getExternalFilesDir(null), "receipts")
                                 imagesDir.mkdirs()
                                 val file = File(imagesDir, "receipt_${transaction.id}.png")
@@ -155,7 +154,9 @@ fun ReceiptDialog(
                                         type = "image/png"
                                     }
                                     
+                                    // PERBAIKAN: Tambahkan FLAG_ACTIVITY_NEW_TASK
                                     val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
+                                    chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     context.startActivity(chooser)
 
                                 } catch (e: Exception) {
@@ -388,7 +389,6 @@ private fun generateTextReceipt(
     return sb.toString()
 }
 
-// FIX: Kanvas dibuat sangat panjang dari awal, lalu dipotong di akhir agar tidak OutOfBounds
 private fun generateReceiptBitmap(
     transaction: TransactionEntity,
     storeName: String, storeAddress: String, storePhone: String, storeFooter: String,
@@ -396,7 +396,7 @@ private fun generateReceiptBitmap(
 ): Bitmap? {
     return try {
         val width = 600
-        val fixedHeight = 3000 // Tinggi maksimal yang aman
+        val fixedHeight = 3000
 
         val bitmap = Bitmap.createBitmap(width, fixedHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -434,7 +434,6 @@ private fun generateReceiptBitmap(
         val leftX = 40f
         val rightX = width - 40f
 
-        // Logo
         if (logoFile != null && logoFile.exists()) {
             val logoBitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
             if (logoBitmap != null) {
@@ -465,7 +464,6 @@ private fun generateReceiptBitmap(
 
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
 
-        // Items
         items?.forEach { item ->
             canvas.drawText("${item.quantity}x ${item.productName}", leftX, y, paint)
             val priceText = formatRupiah(item.subtotal)
@@ -486,7 +484,6 @@ private fun generateReceiptBitmap(
         val dashLine = "----------------------------------------------"
         canvas.drawText(dashLine, centerX, y, centerPaint); y += 30f
 
-        // Totals
         val subtotalItems = items?.sumOf { it.subtotal } ?: transaction.totalPrice
         canvas.drawText("Subtotal:", leftX, y, paint)
         val valStrSubtotal = formatRupiah(subtotalItems)
@@ -538,7 +535,6 @@ private fun generateReceiptBitmap(
         canvas.drawText(line, centerX, y, centerPaint); y += 30f
         canvas.drawText(storeFooter, centerX, y, centerPaint)
 
-        // Potong gambar dengan aman sesuai panjang teks yang sudah dicetak
         val finalHeight = (y + 50).toInt().coerceAtMost(fixedHeight)
         Bitmap.createBitmap(bitmap, 0, 0, width, finalHeight)
     } catch (e: Exception) {
