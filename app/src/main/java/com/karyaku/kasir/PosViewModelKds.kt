@@ -18,8 +18,6 @@ import kotlinx.coroutines.launch
 // ================================================================
 // STATE: ACTIVE TICKETS
 // ================================================================
-// Mengambil tiket yang statusnya belum READY (PENDING atau COOKING).
-// ================================================================
 val PosViewModel.activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> =
     kitchenTicketDao.getActiveTickets()
         .catch { emit(emptyList()) }
@@ -27,8 +25,6 @@ val PosViewModel.activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> =
 
 // ================================================================
 // UPDATE STATUS
-// ================================================================
-// Mengubah status tiket: PENDING -> COOKING -> READY
 // ================================================================
 fun PosViewModel.updateKitchenTicketStatus(ticketId: Long, newStatus: String) {
     viewModelScope.launch(Dispatchers.IO) {
@@ -42,8 +38,6 @@ fun PosViewModel.updateKitchenTicketStatus(ticketId: Long, newStatus: String) {
 
 // ================================================================
 // CLEAR COMPLETED
-// ================================================================
-// Menghapus tiket yang sudah READY (selesai dimasak) dari database.
 // ================================================================
 fun PosViewModel.clearCompletedKitchenTickets() {
     viewModelScope.launch(Dispatchers.IO) {
