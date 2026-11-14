@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
@@ -59,42 +58,55 @@ fun CfdContent(
     }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 16.dp), // Padding dikurangi
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             val logoFile = remember(settingsManager.storeLogoPath) {
                 val path = settingsManager.storeLogoPath
                 if (!path.isNullOrBlank()) File(path) else null
             }
 
             if (logoFile != null && logoFile.exists()) {
-                AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Fit, modifier = Modifier.size(90.dp).padding(bottom = 12.dp))
+                AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Fit, modifier = Modifier.size(72.dp).padding(bottom = 8.dp))
             }
 
-            Text(text = settingsManager.storeName ?: "ZoKas", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = settingsManager.storeName ?: "ZoKas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            
+            Spacer(modifier = Modifier.height(4.dp))
             if (selectedTable != "Take-Away") {
                 Surface(color = AmberAccent.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
-                    Text("Meja: $selectedTable", fontWeight = FontWeight.Bold, color = AmberAccentDark, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                    Text("Meja: $selectedTable", fontWeight = FontWeight.Bold, color = AmberAccentDark, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp), fontSize = 12.sp)
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
-            Text(text = "Total Belanja Anda", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = formatRupiah(totalPrice), style = MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp), fontWeight = FontWeight.Black, color = EmeraldGreen, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(thickness = 2.dp)
-            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "Total Belanja Anda", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = formatRupiah(totalPrice), 
+                style = MaterialTheme.typography.displayMedium.copy(fontSize = 48.sp), // Ukuran font total dikurangi
+                fontWeight = FontWeight.Black, 
+                color = EmeraldGreen, 
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(thickness = 1.dp)
+            Spacer(modifier = Modifier.height(8.dp))
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (cart.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), modifier = Modifier.size(80.dp))
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text("Belum ada item", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Belum ada item", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else {
-                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                         items(cart, key = { cartItem -> cartItem.product.id to cartItem.selectedVariation }) { cartItem ->
                             CfdItemRow(cartItem = cartItem)
                         }
@@ -102,17 +114,22 @@ fun CfdContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(thickness = 2.dp)
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(thickness = 1.dp)
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Text("Terima Kasih", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            Text("Silakan lakukan pembayaran di kasir", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Text("Terima Kasih", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text("Silakan lakukan pembayaran di kasir", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             
             if (onDismiss != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(0.5f).height(48.dp)) {
-                    Text("Tutup Layar Pelanggan", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onDismiss, 
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), 
+                    shape = RoundedCornerShape(12.dp), 
+                    modifier = Modifier.fillMaxWidth(0.6f).height(44.dp) // Tinggi tombol disesuaikan
+                ) {
+                    Text("Tutup Layar Pelanggan", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }
@@ -128,29 +145,32 @@ private fun CfdItemRow(cartItem: CartItem) {
     }
     val lineTotal = unitPrice * cartItem.quantity
 
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(12.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(10.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
+            // Gambar diperkecil sedikit
+            Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
                 if (cartItem.product.imagePath.isNotEmpty()) {
                     AsyncImage(model = File(cartItem.product.imagePath), contentDescription = cartItem.product.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 } else {
-                    Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
                 }
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
             Column(modifier = Modifier.weight(1f)) {
-                Text(cartItem.product.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // maxLines = 2 agar nama panjang tidak terpotong (Indomi...)
+                Text(cartItem.product.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (cartItem.selectedVariation.isNotEmpty()) {
-                    Text("Varian: ${cartItem.selectedVariation}", fontSize = 14.sp, color = EmeraldGreen, fontWeight = FontWeight.SemiBold)
+                    Text("Varian: ${cartItem.selectedVariation}", fontSize = 12.sp, color = EmeraldGreen, fontWeight = FontWeight.SemiBold)
                 }
-                Text("${cartItem.quantity} × ${formatRupiah(unitPrice)}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${cartItem.quantity} × ${formatRupiah(unitPrice)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Surface(color = EmeraldGreen.copy(alpha = 0.12f), shape = CircleShape) {
-                Text("${cartItem.quantity}x", fontSize = 14.sp, fontWeight = FontWeight.Black, color = EmeraldGreen, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(formatRupiah(lineTotal), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // Hanya menampilkan subtotal harga, badge "1x" dihapus agar hemat tempat
+            Text(formatRupiah(lineTotal), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }

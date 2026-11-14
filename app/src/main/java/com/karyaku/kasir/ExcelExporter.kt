@@ -10,6 +10,9 @@ import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.InputStream
 import java.io.OutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 object ExcelExporter {
 
@@ -22,6 +25,9 @@ object ExcelExporter {
             val headerFont = workbook.createFont().apply { bold = true }
             val headerCellStyle = workbook.createCellStyle().apply { setFont(headerFont) }
 
+            // Style untuk Wrap Text (Varian)
+            val wrapTextStyle = workbook.createCellStyle().apply { wrapText = true }
+
             val headerRow = sheet.createRow(0)
             val headers = listOf(
                 "Nama", "HargaJual", "HargaModal", "Stok", "Kategori", "Barcode", 
@@ -33,6 +39,8 @@ object ExcelExporter {
                 cell.cellStyle = headerCellStyle
             }
 
+            val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+
             // Data
             products.forEachIndexed { rowIndex, product ->
                 val row = sheet.createRow(rowIndex + 1)
@@ -42,13 +50,28 @@ object ExcelExporter {
                 row.createCell(3).setCellValue(product.stock.toDouble())
                 row.createCell(4).setCellValue(product.category)
                 row.createCell(5).setCellValue(product.barcode)
-                row.createCell(6).setCellValue(product.variations)
+                
+                // Format Varian & Wrap Text
+                val varianCell = row.createCell(6)
+                varianCell.setCellValue(product.variations)
+                varianCell.cellStyle = wrapTextStyle
+                
                 row.createCell(7).setCellValue(product.commissionPerItem.toDouble())
-                row.createCell(8).setCellValue(product.expiryDate.toDouble())
+                
+                // Format Expiry Date
+                val expiryStr = if (product.expiryDate > 0) dateFormat.format(Date(product.expiryDate)) else "-"
+                row.createCell(8).setCellValue(expiryStr)
+                
                 row.createCell(9).setCellValue(if (product.isService) "TRUE" else "FALSE")
                 row.createCell(10).setCellValue(product.wholesalePrice.toDouble())
                 row.createCell(11).setCellValue(product.wholesaleMinQty.toDouble())
             }
+
+            // Atur Lebar Kolom
+            sheet.setColumnWidth(0, 8000)  // Nama
+            sheet.setColumnWidth(4, 5000)  // Kategori
+            sheet.setColumnWidth(5, 5000)  // Barcode
+            sheet.setColumnWidth(6, 10000) // Varian (Lebih Lebar)
 
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {
@@ -73,11 +96,9 @@ object ExcelExporter {
             val products = mutableListOf<ProductEntity>()
             val dataFormatter = DataFormatter()
 
-            // Loop mulai dari baris 1 (skip header)
             for (i in 1..sheet.lastRowNum) {
                 val row = sheet.getRow(i) ?: continue
                 
-                // Helper untuk mengambil nilai string sel dengan aman
                 fun getCellValue(index: Int): String {
                     val cell = row.getCell(index, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL) ?: return ""
                     return dataFormatter.formatCellValue(cell)
@@ -93,14 +114,23 @@ object ExcelExporter {
                 val barcode = getCellValue(5)
                 val variations = getCellValue(6)
                 val commission = getCellValue(7).toDoubleOrNull()?.toLong() ?: 0L
-                val expiry = getCellValue(8).toDoubleOrNull()?.toLong() ?: 0L
+                
+                // Parsing Expiry Date
+                val expiryStr = getCellValue(8)
+                val expiryDate = try {
+                    if (expiryStr.isNotBlank() && expiryStr != "-") {
+                        val format = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+                        format.parse(expiryStr)?.time ?: 0L
+                    } else 0L
+                } catch (e: Exception) { 0L }
+
                 val isService = getCellValue(9).equals("TRUE", ignoreCase = true) || getCellValue(9) == "1"
                 val wholesalePrice = getCellValue(10).toDoubleOrNull()?.toLong() ?: 0L
                 val wholesaleMinQty = getCellValue(11).toDoubleOrNull()?.toInt() ?: 0
 
                 products.add(ProductEntity(
                     name = name, price = price, stock = stock, category = category, costPrice = costPrice,
-                    barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
+                    barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiryDate,
                     isService = isService, wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
                     isSynced = false, updatedAt = System.currentTimeMillis()
                 ))
@@ -131,12 +161,12 @@ object ExcelExporter {
                 cell.cellStyle = headerCellStyle
             }
 
-            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+            val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault())
 
             transactions.forEachIndexed { rowIndex, trx ->
                 val row = sheet.createRow(rowIndex + 1)
                 row.createCell(0).setCellValue(trx.id.toDouble())
-                row.createCell(1).setCellValue(dateFormat.format(java.util.Date(trx.timestamp)))
+                row.createCell(1).setCellValue(dateFormat.format(Date(trx.timestamp)))
                 row.createCell(2).setCellValue(trx.totalPrice.toDouble())
                 row.createCell(3).setCellValue(trx.cashReceived.toDouble())
                 row.createCell(4).setCellValue(trx.changeAmount.toDouble())
@@ -146,6 +176,10 @@ object ExcelExporter {
                 row.createCell(8).setCellValue(trx.cashierName)
             }
 
+            // Atur lebar kolom untuk report
+            sheet.setColumnWidth(1, 6000)  // Date
+            sheet.setColumnWidth(5, 6000)  // Customer
+            
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {
                 workbook.write(outputStream)

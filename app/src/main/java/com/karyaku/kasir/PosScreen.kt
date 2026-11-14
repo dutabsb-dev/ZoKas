@@ -172,14 +172,18 @@ fun PosScreen(
         }
     }
 
-    LaunchedEffect(activeShift) { if (activeShift == null) showOpenShiftDialog = true }
+    // FIX: Jangan munculkan dialog buka kasir jika baru saja tutup kasir (showShiftReport != null)
+    LaunchedEffect(activeShift, showShiftReport) { 
+        if (activeShift == null && showShiftReport == null) {
+            showOpenShiftDialog = true 
+        }
+    }
 
     if (showPrinterErrorDialog) {
         PrinterErrorDialog { showPrinterErrorDialog = false }
     }
 
     // --- FITUR CFD (CUSTOMER DISPLAY) ---
-    // Memanggil CfdContent dengan properti Dialog yang benar agar tampil penuh
     if (showCfd) {
         Dialog(
             onDismissRequest = onDismissCfd,
