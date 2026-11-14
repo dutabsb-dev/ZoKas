@@ -6,7 +6,7 @@ import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.view.Display
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -62,7 +62,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -76,7 +76,6 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // Auto backup VACUUM INTO
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -261,7 +260,7 @@ fun MainNavigation(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var isOnline by remember { mutableStateOf(false) }
-    var showCfdDialog by remember { mutableStateOf(false) } // Hanya untuk dialog fallback jika tidak ada TV
+    var showCfdDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
@@ -294,11 +293,10 @@ fun MainNavigation(
         val listener = object : DisplayManager.DisplayListener {
             override fun onDisplayAdded(displayId: Int) {
                 val display = displayManager.getDisplay(displayId)
-                // Jika yang dicolok BUKAN layar utama (DEFAULT_DISPLAY)
                 if (display != null && display.displayId != Display.DEFAULT_DISPLAY) {
                     try {
                         presentation?.dismiss()
-                        presentation = CustomerDisplayPresentation(context, display, viewModel, settingsManager)
+                        presentation = CustomerDisplayPresentation(context as ComponentActivity, display, viewModel, settingsManager)
                         presentation?.show()
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -315,12 +313,11 @@ fun MainNavigation(
         }
         displayManager.registerDisplayListener(listener, null)
         
-        // Cek jika TV sudah dicolok sebelum listener didaftarkan
         val displays = displayManager.displays
         val externalDisplay = displays.find { it.displayId != Display.DEFAULT_DISPLAY }
         if (externalDisplay != null) {
             try {
-                presentation = CustomerDisplayPresentation(context, externalDisplay, viewModel, settingsManager)
+                presentation = CustomerDisplayPresentation(context as ComponentActivity, externalDisplay, viewModel, settingsManager)
                 presentation?.show()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -460,8 +457,6 @@ fun MainNavigation(
                         IconButton(onClick = { showSearchDialog = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
                         }
-                        // Tombol CFD sekarang membuka Dialog biasa (jika tidak ada TV)
-                        // Atau jika ada TV, tetap berguna untuk mengetes di tablet
                         IconButton(onClick = { showCfdDialog = true }) {
                             Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary)
                         }

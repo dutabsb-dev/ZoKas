@@ -23,11 +23,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.karyaku.kasir.CartItem
 import java.io.File
 
-// ====================================================================
-// KONTEN UI CFD (Reusable untuk Dialog HP & Layar Eksternal TV)
-// ====================================================================
 @Composable
 fun CfdContent(
     viewModel: PosViewModel,
@@ -37,7 +35,6 @@ fun CfdContent(
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
     
-    // Hitung subtotal & total persis seperti di PosScreen
     val subtotal = cart.sumOf {
         if (it.usedMembershipId != null) {
             0L
@@ -54,7 +51,6 @@ fun CfdContent(
     val listState = rememberLazyListState()
     val totalQty = cart.sumOf { it.quantity }
 
-    // Auto-scroll ke bawah saat ada item baru
     LaunchedEffect(cart.size, totalQty) {
         if (cart.isNotEmpty()) {
             kotlinx.coroutines.delay(50)
@@ -72,7 +68,6 @@ fun CfdContent(
                 .padding(horizontal = 32.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ---------------- HEADER ----------------
             val logoFile = remember(settingsManager.storeLogoPath) {
                 val path = settingsManager.storeLogoPath
                 if (!path.isNullOrBlank()) File(path) else null
@@ -123,7 +118,6 @@ fun CfdContent(
             HorizontalDivider(thickness = 2.dp)
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ---------------- LIST ITEM ----------------
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (cart.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -151,7 +145,6 @@ fun CfdContent(
             HorizontalDivider(thickness = 2.dp)
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ---------------- FOOTER ----------------
             Text("Terima Kasih", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text("Silakan lakukan pembayaran di kasir", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             

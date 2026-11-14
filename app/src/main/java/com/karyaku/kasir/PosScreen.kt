@@ -67,7 +67,6 @@ fun PosScreen(
 
     val searchFocusRequester = remember { FocusRequester() }
 
-    // --- STATE DARI VIEWMODEL ---
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -94,7 +93,6 @@ fun PosScreen(
     val serviceChargePercent by viewModel.serviceChargePercent.collectAsStateWithLifecycle()
     val customerMemberships by viewModel.customerMemberships.collectAsStateWithLifecycle()
 
-    // STATE QRIS & TRANSFER
     val qrisDynamicString by viewModel.qrisDynamicString.collectAsStateWithLifecycle()
     val isQrisPaid by viewModel.isQrisPaid.collectAsStateWithLifecycle()
     val uniqueTransferAmount by viewModel.uniqueTransferAmount.collectAsStateWithLifecycle()
@@ -105,7 +103,6 @@ fun PosScreen(
         viewModel.setServiceChargePercent(settingsManager.serviceChargePercent)
     }
 
-    // --- STATE LOKAL ---
     var showCartOnPhone by rememberSaveable { mutableStateOf(false) }
     var showPaymentSheet by remember { mutableStateOf(false) }
     var showProductForm by remember { mutableStateOf(false) }
@@ -138,7 +135,6 @@ fun PosScreen(
     var showVoucherDialog by remember { mutableStateOf(false) }
     var isSplitBillMode by remember { mutableStateOf(false) }
 
-    // --- TRIGGER DARI MENU TITIK TIGA ---
     LaunchedEffect(actionTrigger) {
         if (actionTrigger != null) {
             when (actionTrigger) {
@@ -152,14 +148,12 @@ fun PosScreen(
         }
     }
 
-    // --- LOGIKA PERHITUNGAN ---
     val subtotal = cart.sumOf {
         if (it.usedMembershipId != null) {
             0L
         } else if (it.product.wholesaleMinQty > 0 && it.quantity >= it.product.wholesaleMinQty && it.product.wholesalePrice > 0) {
             it.product.wholesalePrice * it.quantity
         } else {
-            // GUNAKAN HARGA VARIAN
             getPriceForVariant(it.product, it.selectedVariation) * it.quantity
         }
     }
@@ -176,7 +170,6 @@ fun PosScreen(
     val serviceChargeAmount = ((subtotal - totalDiscount - voucherDiscount) * (serviceChargePercent / 100.0)).toLong()
     val totalPrice = (subtotal + taxAmount + serviceChargeAmount - totalDiscount - voucherDiscount).coerceAtLeast(0)
 
-    // --- BARCODE LAUNCHER ---
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             viewModel.processBarcodeScan(result.contents) { success, msg ->
@@ -192,18 +185,16 @@ fun PosScreen(
         PrinterErrorDialog { showPrinterErrorDialog = false }
     }
 
-    // --- FITUR CFD (CUSTOMER DISPLAY) ---
     if (showCfd) {
         CustomerDisplayDialog(
             storeName = settingsManager.storeName ?: "ZoKas",
-            storeLogoPath = settingsManager.storeLogoPath, // FIX: Tambahkan Logo
+            storeLogoPath = settingsManager.storeLogoPath,
             cart = cart,
             totalPrice = totalPrice,
             onDismiss = onDismissCfd
         )
     }
 
-    // --- ROOT UI ---
     Box(
         modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
             if (event.type == KeyEventType.KeyUp) {
@@ -216,7 +207,6 @@ fun PosScreen(
             } else false
         }
     ) {
-        // --- PEMANGGILAN DIALOG & BOTTOM SHEETS ---
         if (showPaymentSheet) {
             val totalToPay = if (isSplitBillMode) cart.filter { it.isSelectedForSplit }.sumOf { getPriceForVariant(it.product, it.selectedVariation) * it.quantity } else totalPrice
             PaymentBottomSheet(
@@ -483,14 +473,12 @@ fun PosScreen(
             )
         }
 
-        // --- MAIN UI LAYOUT ---
         Column(modifier = Modifier.fillMaxSize().imePadding()) {
             BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 val isWideScreen = maxWidth > 600.dp || isLandscape
 
                 if (isWideScreen) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        // KIRI: Katalog
                         Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) {
                             PosProductSection(
                                 products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
@@ -517,7 +505,6 @@ fun PosScreen(
                         }
                         VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
 
-                        // KANAN: Keranjang
                         Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
                             PosCartSection(
                                 cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
@@ -544,7 +531,6 @@ fun PosScreen(
                         }
                     }
                 } else {
-                    // LAYOUT HP (Portrait)
                     if (showCartOnPhone) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -603,7 +589,6 @@ fun PosScreen(
             }
         }
 
-        // FAB Keranjang (Hanya di HP Portrait)
         if (cart.isNotEmpty() && !showCartOnPhone && isPhone && !isLandscape) {
             ExtendedFloatingActionButton(
                 onClick = { showCartOnPhone = true },
@@ -620,9 +605,6 @@ fun PosScreen(
     }
 }
 
-// ====================================================================
-// CUSTOMER DISPLAY DIALOG (CFD)
-// ====================================================================
 @Composable
 fun CustomerDisplayDialog(
     storeName: String,
@@ -655,7 +637,6 @@ fun CustomerDisplayDialog(
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ---------------- HEADER ----------------
                 val logoFile = remember(storeLogoPath) {
                     if (!storeLogoPath.isNullOrBlank()) File(storeLogoPath) else null
                 }
@@ -696,7 +677,6 @@ fun CustomerDisplayDialog(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ---------------- LIST ITEM (scrollable) ----------------
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     if (cart.isEmpty()) {
                         Box(
@@ -741,7 +721,6 @@ fun CustomerDisplayDialog(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ---------------- FOOTER ----------------
                 Text(
                     text = "Terima Kasih",
                     style = MaterialTheme.typography.titleMedium,
@@ -780,7 +759,7 @@ private fun CfdItemRow(item: CartItem) {
         item.product.wholesaleMinQty > 0
             && item.quantity >= item.product.wholesaleMinQty
             && item.product.wholesalePrice > 0 -> item.product.wholesalePrice
-        else -> getPriceForVariant(item.product, item.selectedVariation) // FIX VARIAN HARGA
+        else -> getPriceForVariant(item.product, item.selectedVariation)
     }
     val lineTotal = unitPrice * item.quantity
 
