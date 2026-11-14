@@ -95,7 +95,7 @@ fun UserManagementDialog(
     users: List<UserEntity>,
     currentUser: UserEntity,
     onDismiss: () -> Unit,
-    onAddUser: (String, String, String) -> Unit,
+    onAddUser: (String, String, String, Long) -> Unit, // Tambahan Long untuk Gaji
     onUpdateUser: (UserEntity) -> Unit,
     onDeleteUser: (UserEntity) -> Unit
 ) {
@@ -108,9 +108,9 @@ fun UserManagementDialog(
             userToEdit = userToEdit,
             currentUser = currentUser,
             onDismiss = { showForm = false; userToEdit = null },
-            onSave = { name, pin, role ->
-                if (userToEdit == null) onAddUser(name, pin, role)
-                else onUpdateUser(userToEdit!!.copy(name = name, pin = pin, role = role))
+            onSave = { name, pin, role, salary ->
+                if (userToEdit == null) onAddUser(name, pin, role, salary)
+                else onUpdateUser(userToEdit!!.copy(name = name, pin = pin, role = role, baseSalary = salary))
                 showForm = false
                 userToEdit = null
             }
@@ -156,6 +156,7 @@ fun UserManagementDialog(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(user.name, fontWeight = FontWeight.Bold)
                                     Text(user.role, fontSize = 12.sp, color = if (user.role == "OWNER") AmberAccent else SlateGrey)
+                                    Text("Gaji Pokok: ${formatRupiah(user.baseSalary)}", fontSize = 11.sp, color = EmeraldGreen)
                                 }
                                 Row {
                                     IconButton(onClick = { userToEdit = user; showForm = true }) {
@@ -182,11 +183,12 @@ fun UserFormDialog(
     userToEdit: UserEntity?,
     currentUser: UserEntity,
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit
+    onSave: (String, String, String, Long) -> Unit // Tambahan Long untuk Gaji
 ) {
     var name by remember { mutableStateOf(userToEdit?.name ?: "") }
     var pin by remember { mutableStateOf(userToEdit?.pin ?: "") }
     var role by remember { mutableStateOf(userToEdit?.role ?: "CASHIER") }
+    var salary by remember { mutableStateOf(userToEdit?.baseSalary?.toString() ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -205,6 +207,14 @@ fun UserFormDialog(
                     label = { Text("PIN (6-digit)") }, 
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), 
                     visualTransformation = PasswordVisualTransformation(), 
+                    modifier = Modifier.fillMaxWidth(), singleLine = true, 
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = salary, onValueChange = { if (it.length <= 10) salary = it }, 
+                    label = { Text("Gaji Pokok (Rp)") }, 
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
                     modifier = Modifier.fillMaxWidth(), singleLine = true, 
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -229,7 +239,7 @@ fun UserFormDialog(
         },
         confirmButton = {
             Button(
-                onClick = { if (name.isNotBlank() && pin.length == 6) onSave(name, pin, role) },
+                onClick = { if (name.isNotBlank() && pin.length == 6) onSave(name, pin, role, salary.toLongOrNull() ?: 0L) },
                 enabled = name.isNotBlank() && pin.length == 6,
                 colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
                 shape = RoundedCornerShape(12.dp)
@@ -238,6 +248,9 @@ fun UserFormDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
 }
+
+// ... (Sisa fungsi seperti ShiftHistoryDialog, RawMaterialManagementDialog, MembershipManagementDialog, SupplierManagementDialog, PurchaseOrderDialog, ReservationManagementDialog, ExpenseManagementDialog, ReceivableDialog, PayableDialog TETAP SAMA)
+// Agar file ini selesai dengan valid, saya akan sertakan fungsi-fungsi tersebut secara utuh.
 
 @Composable
 fun ShiftHistoryDialog(
@@ -268,6 +281,9 @@ fun ShiftHistoryDialog(
                                     Text("Fisik: ${formatRupiah(shift.closingCash ?: 0)}", fontSize = 12.sp)
                                     val selisih = shift.discrepancy ?: 0
                                     Text("Selisih: ${formatRupiah(selisih)}", color = if (selisih < 0) ErrorRed else EmeraldGreen, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    if (shift.note.isNotBlank()) {
+                                        Text("Catatan: ${shift.note}", fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                                    }
                                 } else {
                                     Text("Status: MASIH BERJALAN", color = AmberAccent, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
@@ -546,7 +562,7 @@ fun PurchaseOrderDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class) // <-- FIX WARNING
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationManagementDialog(
     reservations: List<ReservationEntity>,

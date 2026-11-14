@@ -70,16 +70,8 @@ fun SettingsScreen(
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
-
-    // ================================================================
-    // FIX #3: State lokal untuk businessType.
-    // Mengikuti pola yang sama dengan isTableModeEnabled / isDarkMode
-    // di file ini: local remember state + tulis ke settingsManager saat
-    // berubah. Nanti MainNavigation akan membaca ulang
-    // settingsManager.businessType pada recompose berikutnya (saat user
-    // berpindah tab), sehingga Tab Dapur & menu Gabung Meja otomatis
-    // menyesuaikan.
-    // ================================================================
+    
+    // State Tipe Usaha
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
     // State QRIS
@@ -114,9 +106,7 @@ fun SettingsScreen(
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
 
-    // ================================================================
     // MODUL G — CRM SETTINGS
-    // ================================================================
     var enableBirthdayDiscount by remember { mutableStateOf(settingsManager.enableBirthdayDiscount) }
     var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.birthdayDiscountPercent.toFloat()) }
 
@@ -137,8 +127,11 @@ fun SettingsScreen(
     var showPayableDialog by remember { mutableStateOf(false) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
-    // MODUL G: dialog kelola pelanggan (CRM)
     var showCustomerManagementDialog by remember { mutableStateOf(false) }
+    
+    // STATE MODUL C (ABSENSI & PAYROLL)
+    var showAttendanceDialog by remember { mutableStateOf(false) }
+    var showPayrollDialog by remember { mutableStateOf(false) }
 
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
@@ -218,37 +211,20 @@ fun SettingsScreen(
     if (showUserManagementDialog) {
         UserManagementDialog(
             users = users, currentUser = currentUser, onDismiss = { showUserManagementDialog = false },
-            onAddUser = { name, pin, role -> viewModel.addUser(name, pin, role, currentUser) },
+            onAddUser = { name, pin, role, salary -> viewModel.addUser(name, pin, role, salary, currentUser) },
             onUpdateUser = { user -> viewModel.updateUser(user, currentUser) },
             onDeleteUser = { user -> viewModel.deleteUser(user, currentUser) }
         )
     }
-
     if (showBranchManagementDialog) {
-        BranchManagementDialog(
-            viewModel = viewModel,
-            currentUser = currentUser,
-            onDismiss = { showBranchManagementDialog = false }
-        )
+        BranchManagementDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showBranchManagementDialog = false })
     }
-
     if (showStockTransferDialog) {
-        StockTransferDialog(
-            viewModel = viewModel,
-            currentUser = currentUser,
-            onDismiss = { showStockTransferDialog = false }
-        )
+        StockTransferDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showStockTransferDialog = false })
     }
-
-    // MODUL G: dialog CRM
     if (showCustomerManagementDialog) {
-        CustomerManagementDialog(
-            viewModel = viewModel,
-            currentUser = currentUser,
-            onDismiss = { showCustomerManagementDialog = false }
-        )
+        CustomerManagementDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showCustomerManagementDialog = false })
     }
-
     if (showShiftHistory) {
         ShiftHistoryDialog(shifts = shifts, onDismiss = { showShiftHistory = false })
     }
@@ -258,18 +234,14 @@ fun SettingsScreen(
     if (showMembershipDialog) {
         MembershipManagementDialog(
             memberships = memberships,
-            onAddMembership = { name, price, quota, days ->
-                viewModel.addMembership(name, price, quota, days)
-            },
+            onAddMembership = { name, price, quota, days -> viewModel.addMembership(name, price, quota, days) },
             onDismiss = { showMembershipDialog = false }
         )
     }
     if (showSupplierDialog) {
         SupplierManagementDialog(
             suppliers = suppliers,
-            onAddSupplier = { name, contact, phone, address ->
-                viewModel.addSupplier(name, contact, phone, address)
-            },
+            onAddSupplier = { name, contact, phone, address -> viewModel.addSupplier(name, contact, phone, address) },
             onDismiss = { showSupplierDialog = false }
         )
     }
@@ -289,53 +261,33 @@ fun SettingsScreen(
     if (showReservationDialog) {
         ReservationManagementDialog(
             reservations = reservations,
-            onAddReservation = { name, phone, dateTime, resource, notes ->
-                viewModel.addReservation(name, phone, dateTime, resource, notes)
-            },
-            onUpdateStatus = { id, status ->
-                viewModel.updateReservationStatus(id, status)
-            },
-            onDeleteReservation = { id ->
-                viewModel.deleteReservation(id)
-            },
+            onAddReservation = { name, phone, dateTime, resource, notes -> viewModel.addReservation(name, phone, dateTime, resource, notes) },
+            onUpdateStatus = { id, status -> viewModel.updateReservationStatus(id, status) },
+            onDeleteReservation = { id -> viewModel.deleteReservation(id) },
             onDismiss = { showReservationDialog = false }
         )
     }
     if (showExpenseDialog) {
         ExpenseManagementDialog(
             expenses = expenses,
-            onAddExpense = { category, amount, note ->
-                viewModel.addExpense(category, amount, note, currentUser)
-            },
+            onAddExpense = { category, amount, note -> viewModel.addExpense(category, amount, note, currentUser) },
             onDismiss = { showExpenseDialog = false }
         )
     }
     if (showReceivableDialog) {
         ReceivableDialog(
             transactions = transactions,
-            onPay = { tx, cash ->
-                viewModel.payUnpaidTransaction(tx, cash) {
-                    Toast.makeText(context, "Bon Lunas!", Toast.LENGTH_SHORT).show()
-                }
-            },
+            onPay = { tx, cash -> viewModel.payUnpaidTransaction(tx, cash) { Toast.makeText(context, "Bon Lunas!", Toast.LENGTH_SHORT).show() } },
             onDismiss = { showReceivableDialog = false }
         )
     }
     if (showPayableDialog) {
-        SupplierDebtDialog(
-            viewModel = viewModel,
-            currentUser = currentUser,
-            onDismiss = { showPayableDialog = false }
-        )
+        SupplierDebtDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showPayableDialog = false })
     }
     if (showPaymentMethodsDialog) {
         PaymentMethodManagementDialog(
             currentMethods = settingsManager.paymentMethods,
-            onSave = { newMethods ->
-                settingsManager.paymentMethods = newMethods
-                showPaymentMethodsDialog = false
-                Toast.makeText(context, "Metode pembayaran diperbarui.", Toast.LENGTH_SHORT).show()
-            },
+            onSave = { newMethods -> settingsManager.paymentMethods = newMethods; showPaymentMethodsDialog = false },
             onDismiss = { showPaymentMethodsDialog = false }
         )
     }
@@ -380,6 +332,14 @@ fun SettingsScreen(
             confirmButton = { Button(onClick = { android.os.Process.killProcess(android.os.Process.myPid()) }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("TUTUP APLIKASI") } }
         )
     }
+    
+    // DIALOG MODUL C
+    if (showAttendanceDialog) {
+        AttendanceDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showAttendanceDialog = false })
+    }
+    if (showPayrollDialog) {
+        PayrollManagementDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showPayrollDialog = false })
+    }
 
     // --- MAIN UI ---
     LazyColumn(
@@ -393,7 +353,6 @@ fun SettingsScreen(
             }
         }
 
-        // 1. Card Tampilan & Bahasa
         item {
             SettingsAppearanceCard(
                 isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
@@ -402,13 +361,6 @@ fun SettingsScreen(
             )
         }
 
-        // ============================================================
-        // 1b. FIX #3: CARD TIPE USAHA (Owner only)
-        // Menentukan visibilitas Tab Dapur & menu Gabung Meja.
-        // Perubahan di card ini juga toggle isTableModeEnabled
-        // otomatis (Kuliner → aktif; lainnya → nonaktif) supaya
-        // user tidak perlu ke Modul Toko untuk menyesuaikan.
-        // ============================================================
         if (currentUser.role == "OWNER") {
             item {
                 SettingsBusinessTypeCard(
@@ -416,30 +368,21 @@ fun SettingsScreen(
                     onBusinessTypeChange = { newType ->
                         businessTypeState = newType
                         settingsManager.businessType = newType
-                        // Auto-toggle mode meja sesuai tipe usaha.
                         val autoTable = newType.equals("KULINER", ignoreCase = true)
                         isTableModeEnabled = autoTable
                         settingsManager.isTableModeEnabled = autoTable
-                        Toast.makeText(
-                            context,
-                            "Tipe usaha diperbarui. Tab & menu akan menyesuaikan saat Anda pindah tab.",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(context, "Tipe usaha diperbarui. Tab & menu akan menyesuaikan saat Anda pindah tab.", Toast.LENGTH_LONG).show()
                     },
                     language = lang
                 )
             }
         }
 
-        // 2. Card Manajemen Akun & Biometrik
         item {
             SettingsAccountCard(
                 currentUser = currentUser,
                 isBiometricEnabled = isBiometricEnabled,
-                onBiometricToggle = { isChecked ->
-                    isBiometricEnabled = isChecked
-                    settingsManager.isBiometricEnabled = isChecked
-                },
+                onBiometricToggle = { isChecked -> isBiometricEnabled = isChecked; settingsManager.isBiometricEnabled = isChecked },
                 onChangePinClick = { showChangePinDialog = true },
                 onManageStaffClick = { showUserManagementDialog = true },
                 onShiftHistoryClick = { showShiftHistory = true },
@@ -447,10 +390,6 @@ fun SettingsScreen(
             )
         }
 
-        // ============================================================
-        // 2b. FIX #6: Card Multi-Cabang (OWNER) — sekarang COLLAPSIBLE
-        // Default collapsed agar halaman Pengaturan ringkas.
-        // ============================================================
         if (currentUser.role == "OWNER") {
             item {
                 SettingsBranchManagementCard(
@@ -463,9 +402,6 @@ fun SettingsScreen(
             }
         }
 
-        // ============================================================
-        // 2c. FIX #6: Card CRM (OWNER) — sekarang COLLAPSIBLE
-        // ============================================================
         if (currentUser.role == "OWNER") {
             item {
                 SettingsCrmCard(
@@ -483,16 +419,52 @@ fun SettingsScreen(
                     onManageClick = { showCustomerManagementDialog = true }
                 )
             }
+            
+            // CARD MODUL C (ABSENSI & PAYROLL)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Kepegawaian (HR)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("Kelola absensi harian dan slip gaji karyawan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = { showAttendanceDialog = true },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Absensi", fontSize = 12.sp, color = Color.White)
+                            }
+                            Button(
+                                onClick = { showPayrollDialog = true },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.MonetizationOn, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Gaji (Payroll)", fontSize = 12.sp, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        // 3. Card Modul Toko
         item {
             SettingsModuleCard(
-                isTableModeEnabled = isTableModeEnabled,
+                isTableModeEnabled = isTableModeEnabled, 
                 onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
-                enableMultiCurrency = enableMultiCurrency,
+                enableMultiCurrency = enableMultiCurrency, 
                 onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
-                exchangeRateUsd = exchangeRateUsd,
+                exchangeRateUsd = exchangeRateUsd, 
                 onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
                 onRawMaterialClick = { showRawMaterialDialog = true },
                 enableOrderTypes = enableOrderTypes,
@@ -520,7 +492,6 @@ fun SettingsScreen(
             )
         }
 
-        // 4. Card QRIS
         item {
             SettingsQrisCard(
                 qrisPayload = qrisPayload,
@@ -532,7 +503,6 @@ fun SettingsScreen(
             )
         }
 
-        // 5. Card Bank Transfer
         item {
             SettingsBankTransferCard(
                 bankName = bankName,
@@ -547,7 +517,6 @@ fun SettingsScreen(
             )
         }
 
-        // 6. Card Printer
         item {
             SettingsPrinterCard(
                 savedPrinterMac = savedPrinterMac,
@@ -566,7 +535,6 @@ fun SettingsScreen(
             )
         }
 
-        // 7. Card Profil Toko
         item {
             SettingsStoreProfileCard(
                 storeName = storeName ?: "",
@@ -588,7 +556,6 @@ fun SettingsScreen(
             )
         }
 
-        // 8. Card Happy Hour & Diskon
         item {
             SettingsDiscountCard(
                 hhStart = hhStart, onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
@@ -599,7 +566,6 @@ fun SettingsScreen(
             )
         }
 
-        // 9. Card Backup & Excel
         item {
             SettingsBackupCard(
                 onBackupClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
@@ -610,12 +576,6 @@ fun SettingsScreen(
             )
         }
 
-        // ============================================================
-        // 10. FIX #6: Log Aktivitas — sekarang COLLAPSIBLE (single card).
-        // Sebelumnya: setiap log jadi Card terpisah di LazyColumn →
-        // halaman super panjang jika audit log banyak. Sekarang: 1 card
-        // collapsible dengan maksimal 30 entri terbaru untuk performa.
-        // ============================================================
         item {
             SettingsAuditLogCard(
                 auditLogs = auditLogs,
@@ -623,7 +583,6 @@ fun SettingsScreen(
             )
         }
 
-        // Logout
         item {
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) {
@@ -635,12 +594,9 @@ fun SettingsScreen(
 }
 
 // ====================================================================
-// FIX #6: CARD LOG AKTIVITAS (COLLAPSIBLE)
+// COMPOSABLE HELPER (DITARUH DI BAWAH AGAR FILE UTUH)
 // ====================================================================
-// Menampilkan maksimal 30 entri terbaru saat di-expand. Sebelumnya,
-// semua log dirender sebagai item Card terpisah → performa & scroll
-// buruk jika log sudah ribuan. Audit log tetap tersimpan lengkap di DB.
-// ====================================================================
+
 @Composable
 private fun SettingsAuditLogCard(
     auditLogs: List<AuditLogEntity>,
@@ -741,9 +697,6 @@ private fun SettingsAuditLogCard(
     }
 }
 
-// ====================================================================
-// FIX #6: CARD MULTI-CABANG (COLLAPSIBLE)
-// ====================================================================
 @Composable
 private fun SettingsBranchManagementCard(
     currentBranch: BranchEntity?,
@@ -927,9 +880,6 @@ private fun SettingsBranchManagementCard(
     }
 }
 
-// ====================================================================
-// FIX #6: CARD CRM (COLLAPSIBLE)
-// ====================================================================
 @Composable
 private fun SettingsCrmCard(
     enableBirthdayDiscount: Boolean,
@@ -993,7 +943,6 @@ private fun SettingsCrmCard(
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Toggle birthday discount
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -1028,7 +977,6 @@ private fun SettingsCrmCard(
                         )
                     }
 
-                    // Slider persen (hanya tampil jika aktif)
                     if (enableBirthdayDiscount) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
@@ -1078,7 +1026,6 @@ private fun SettingsCrmCard(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Tombol kelola
                     Button(
                         onClick = onManageClick,
                         modifier = Modifier.fillMaxWidth().height(46.dp),

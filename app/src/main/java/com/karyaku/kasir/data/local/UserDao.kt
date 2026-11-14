@@ -27,14 +27,18 @@ interface UserDao {
     @Query("SELECT * FROM users ORDER BY role DESC, name ASC")
     fun getAllUsers(): Flow<List<UserEntity>>
 
-    // ================================================================
-    // MODUL D-1: Filter user per cabang.
-    // ================================================================
     @Query("SELECT * FROM users WHERE branchId = :branchId ORDER BY role DESC, name ASC")
     fun getUsersByBranch(branchId: Long): Flow<List<UserEntity>>
 
+    @Query("SELECT * FROM users WHERE id = :userId LIMIT 1")
+    suspend fun getUserById(userId: Long): UserEntity?
+
     @Query("UPDATE users SET pin = :newPin WHERE id = :userId")
     suspend fun updatePin(userId: Long, newPin: String)
+
+    // TAMBAHAN BARU: Update gaji pokok
+    @Query("UPDATE users SET baseSalary = :salary WHERE id = :userId")
+    suspend fun updateBaseSalary(userId: Long, salary: Long)
 
     @Query("UPDATE users SET totalCommission = totalCommission + :commission WHERE id = :userId")
     suspend fun addCommission(userId: Long, commission: Long)
@@ -45,9 +49,6 @@ interface UserDao {
     @Query("SELECT * FROM audit_logs ORDER BY timestamp DESC")
     fun getAllAuditLogs(): Flow<List<AuditLogEntity>>
 
-    // ================================================================
-    // MODUL D-1: Shift per cabang.
-    // ================================================================
     @Insert
     suspend fun insertShift(shift: ShiftEntity): Long
 
@@ -58,16 +59,12 @@ interface UserDao {
     @Query("SELECT * FROM shifts WHERE status = 'OPEN' AND branchId = :branchId LIMIT 1")
     suspend fun getActiveShiftByBranch(branchId: Long): ShiftEntity?
 
-    // FIX: Menambahkan parameter note di akhir
     @Query("UPDATE shifts SET endTime = :endTime, expectedCash = :expectedCash, closingCash = :closingCash, discrepancy = :discrepancy, status = 'CLOSED', note = :note WHERE id = :shiftId")
     suspend fun closeShift(shiftId: Long, endTime: Long, expectedCash: Long, closingCash: Long, discrepancy: Long, note: String)
     
     @Query("SELECT * FROM shifts ORDER BY startTime DESC")
     fun getAllShifts(): Flow<List<ShiftEntity>>
 
-    // ================================================================
-    // MODUL D-1: Riwayat shift per cabang.
-    // ================================================================
     @Query("SELECT * FROM shifts WHERE branchId = :branchId ORDER BY startTime DESC")
     fun getShiftsByBranch(branchId: Long): Flow<List<ShiftEntity>>
 }

@@ -10,7 +10,9 @@ data class UserEntity(
     val pin: String,
     val role: String,
     val totalCommission: Long = 0L,
-    val branchId: Long = 1L, // Default ke cabang utama (ID 1)
+    val branchId: Long = 1L,
+    // TAMBAHAN BARU: Gaji Pokok
+    val baseSalary: Long = 0L,
     val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = false
 )

@@ -10,8 +10,6 @@ import kotlinx.coroutines.withContext
 // ====================================================================
 // FILE 5 — USER, AUTH, CUSTOMER, MEMBERSHIP, VOUCHER, FILTER
 // ====================================================================
-// Extension functions untuk PosViewModel.
-// ====================================================================
 
 // ================================================================
 // AUTH
@@ -40,7 +38,7 @@ fun PosViewModel.updatePin(user: UserEntity, newPin: String) {
 // ================================================================
 // USER CRUD
 // ================================================================
-fun PosViewModel.addUser(name: String, pin: String, role: String, adminUser: UserEntity) {
+fun PosViewModel.addUser(name: String, pin: String, role: String, baseSalary: Long = 0L, adminUser: UserEntity) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val hashedPin = hashPin(pin)
@@ -48,9 +46,10 @@ fun PosViewModel.addUser(name: String, pin: String, role: String, adminUser: Use
                 name = name, 
                 pin = hashedPin, 
                 role = role, 
+                baseSalary = baseSalary, // TAMBAHAN GAJI POKOK
                 branchId = _currentBranchId.value
             ))
-            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name (Cabang aktif)", actionType = "AUTH"))
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name (Gaji: ${formatRupiah(baseSalary)})", actionType = "AUTH"))
         } catch (e: Exception) { e.printStackTrace() }
     }
 }
@@ -101,7 +100,6 @@ fun PosViewModel.redeemPoints(pointsToRedeem: Int) {
     }
 }
 
-// MODUL G-2a: addCustomer sekarang menerima birthDate (default 0 = tidak diisi).
 fun PosViewModel.addCustomer(name: String, phone: String, birthDate: Long = 0L) {
     viewModelScope.launch(Dispatchers.IO) {
         try { 

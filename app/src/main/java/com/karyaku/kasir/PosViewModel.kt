@@ -43,7 +43,9 @@ class PosViewModel(
     internal val expenseDao = database.expenseDao()
     internal val stockOpnameDao = database.stockOpnameDao()
     internal val stockTransferDao = database.stockTransferDao()
-    internal val kitchenTicketDao = database.kitchenTicketDao() // MODUL B
+    internal val kitchenTicketDao = database.kitchenTicketDao()
+    internal val attendanceDao = database.attendanceDao() // MODUL C
+    internal val payrollDao = database.payrollDao() // MODUL C
 
     // STATE KDS (KITCHEN DISPLAY SYSTEM)
     val activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> = kitchenTicketDao.getActiveTickets()
@@ -112,6 +114,13 @@ class PosViewModel(
 
     internal val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
     val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
+
+    // STATE ABSENSI & PAYROLL (MODUL C)
+    internal val _attendanceList = MutableStateFlow<List<AttendanceEntity>>(emptyList())
+    val attendanceList: StateFlow<List<AttendanceEntity>> = _attendanceList.asStateFlow()
+
+    internal val _payrollList = MutableStateFlow<List<PayrollEntity>>(emptyList())
+    val payrollList: StateFlow<List<PayrollEntity>> = _payrollList.asStateFlow()
 
     // STATE HOLD ORDER (PARKIR MEJA)
     internal val _holdOrders = MutableStateFlow<List<HoldOrderEntity>>(emptyList())
@@ -292,6 +301,24 @@ class PosViewModel(
                 userDao.getShiftsByBranch(branchId)
                     .catch { _shifts.value = emptyList() }
                     .collectLatest { _shifts.value = it }
+            }
+        }
+
+        // Absensi per cabang (MODUL C)
+        viewModelScope.launch {
+            _currentBranchId.collectLatest { branchId ->
+                attendanceDao.getAllAttendanceByBranch(branchId)
+                    .catch { _attendanceList.value = emptyList() }
+                    .collectLatest { _attendanceList.value = it }
+            }
+        }
+
+        // Payroll per cabang (MODUL C)
+        viewModelScope.launch {
+            _currentBranchId.collectLatest { branchId ->
+                payrollDao.getAllPayrollsByBranch(branchId)
+                    .catch { _payrollList.value = emptyList() }
+                    .collectLatest { _payrollList.value = it }
             }
         }
 
