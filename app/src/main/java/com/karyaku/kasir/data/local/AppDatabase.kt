@@ -16,9 +16,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PurchaseEntity::class, PurchaseItemEntity::class, PurchasePaymentEntity::class, ReservationEntity::class, 
         ExpenseEntity::class, StockOpnameEntity::class, StockOpnameItemEntity::class, StockTransferEntity::class,
         StockTransferItemEntity::class, KitchenTicketEntity::class,
-        AttendanceEntity::class, PayrollEntity::class // MODUL C
+        AttendanceEntity::class, PayrollEntity::class
     ], 
-    version = 35, 
+    version = 36, 
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,13 +40,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun stockOpnameDao(): StockOpnameDao
     abstract fun stockTransferDao(): StockTransferDao
     abstract fun kitchenTicketDao(): KitchenTicketDao
-    abstract fun attendanceDao(): AttendanceDao // MODUL C
-    abstract fun payrollDao(): PayrollDao // MODUL C
+    abstract fun attendanceDao(): AttendanceDao
+    abstract fun payrollDao(): PayrollDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        // ... (MIGRASI 19 SAMPAI 34 TETAP SAMA SEPERTI SEBELUMNYA) ...
         private val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `branches` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `isMainBranch` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isSynced` INTEGER NOT NULL)")
@@ -232,13 +233,10 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // FIX: MIGRASI UNTUK MODUL C (ABSENSI & PAYROLL)
         private val MIGRATION_34_35 = object : Migration(34, 35) {
             override fun migrate(database: SupportSQLiteDatabase) {
-                // 1. Tambah Gaji Pokok di tabel Users
                 database.execSQL("ALTER TABLE users ADD COLUMN baseSalary INTEGER NOT NULL DEFAULT 0")
                 
-                // 2. Buat tabel Attendance
                 database.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `attendance` (
@@ -255,7 +253,6 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_attendance_userId` ON `attendance` (`userId`)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS `index_attendance_date` ON `attendance` (`date`)")
 
-                // 3. Buat tabel Payrolls
                 database.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `payrolls` (
@@ -275,6 +272,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // FIX: MIGRASI UNTUK BIOMETRIK (V35 -> V36)
+        private val MIGRATION_35_36 = object : Migration(35, 36) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE users ADD COLUMN biometricKey TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -286,7 +290,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, 
                     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
                     MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
-                    MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35
+                    MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
+                    MIGRATION_35_36
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18

@@ -11,16 +11,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import com.karyaku.kasir.data.local.ExpenseEntity
 import com.karyaku.kasir.data.local.MembershipEntity
 import com.karyaku.kasir.data.local.ProductEntity
@@ -95,7 +100,7 @@ fun UserManagementDialog(
     users: List<UserEntity>,
     currentUser: UserEntity,
     onDismiss: () -> Unit,
-    onAddUser: (String, String, String, Long) -> Unit, // Tambahan Long untuk Gaji
+    onAddUser: (String, String, String, Long) -> Unit,
     onUpdateUser: (UserEntity) -> Unit,
     onDeleteUser: (UserEntity) -> Unit
 ) {
@@ -157,6 +162,11 @@ fun UserManagementDialog(
                                     Text(user.name, fontWeight = FontWeight.Bold)
                                     Text(user.role, fontSize = 12.sp, color = if (user.role == "OWNER") AmberAccent else SlateGrey)
                                     Text("Gaji Pokok: ${formatRupiah(user.baseSalary)}", fontSize = 11.sp, color = EmeraldGreen)
+                                    if (user.biometricKey.isNotBlank()) {
+                                        Text("Biometrik: Terdaftar", fontSize = 10.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                                    } else {
+                                        Text("Biometrik: Belum", fontSize = 10.sp, color = SlateGrey)
+                                    }
                                 }
                                 Row {
                                     IconButton(onClick = { userToEdit = user; showForm = true }) {
@@ -183,7 +193,7 @@ fun UserFormDialog(
     userToEdit: UserEntity?,
     currentUser: UserEntity,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, Long) -> Unit // Tambahan Long untuk Gaji
+    onSave: (String, String, String, Long) -> Unit
 ) {
     var name by remember { mutableStateOf(userToEdit?.name ?: "") }
     var pin by remember { mutableStateOf(userToEdit?.pin ?: "") }
@@ -194,7 +204,7 @@ fun UserFormDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (userToEdit == null) "Tambah Karyawan" else "Edit Karyawan") },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it }, 
                     label = { Text("Nama Karyawan") }, 
@@ -222,17 +232,19 @@ fun UserFormDialog(
                 
                 if (currentUser.role == "OWNER") {
                     Text("Pilih Role:", fontSize = 12.sp)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        Button(
-                            onClick = { role = "CASHIER" },
-                            colors = ButtonDefaults.buttonColors(containerColor = if (role == "CASHIER") EmeraldGreen else SlateGrey),
-                            shape = RoundedCornerShape(12.dp)
-                        ) { Text("Kasir") }
-                        Button(
-                            onClick = { role = "OWNER" },
-                            colors = ButtonDefaults.buttonColors(containerColor = if (role == "OWNER") AmberAccent else SlateGrey),
-                            shape = RoundedCornerShape(12.dp)
-                        ) { Text("Owner") }
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { role = "CASHIER" }) {
+                            RadioButton(selected = role == "CASHIER", onClick = { role = "CASHIER" })
+                            Text("Kasir", fontSize = 14.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { role = "STAFF" }) {
+                            RadioButton(selected = role == "STAFF", onClick = { role = "STAFF" })
+                            Text("Staff (Non-Kasir/Dapur)", fontSize = 14.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { role = "OWNER" }) {
+                            RadioButton(selected = role == "OWNER", onClick = { role = "OWNER" })
+                            Text("Owner", fontSize = 14.sp)
+                        }
                     }
                 }
             }
@@ -248,9 +260,6 @@ fun UserFormDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
     )
 }
-
-// ... (Sisa fungsi seperti ShiftHistoryDialog, RawMaterialManagementDialog, MembershipManagementDialog, SupplierManagementDialog, PurchaseOrderDialog, ReservationManagementDialog, ExpenseManagementDialog, ReceivableDialog, PayableDialog TETAP SAMA)
-// Agar file ini selesai dengan valid, saya akan sertakan fungsi-fungsi tersebut secara utuh.
 
 @Composable
 fun ShiftHistoryDialog(
@@ -886,5 +895,113 @@ fun PayableDialog(
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
+    )
+}
+
+// ====================================================================
+// DIALOG BARU: PENDAFTARAN BIOMETRIK
+// ====================================================================
+@Composable
+fun BiometricRegistrationDialog(
+    viewModel: PosViewModel,
+    currentUser: UserEntity,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val activity = LocalActivity.current as? FragmentActivity
+    val sensorStatus = remember { BiometricHelper.checkSensorStatus(context) }
+    
+    var isRegistering by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    var successMessage by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Fingerprint, contentDescription = null, tint = EmeraldGreen) },
+        title = { Text("Pendaftaran Biometrik", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text("Akun: ${currentUser.name}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (currentUser.biometricKey.isNotBlank()) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(48.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Biometrik sudah terdaftar di perangkat ini.", textAlign = TextAlign.Center)
+                    Text("Anda bisa login menggunakan sidik jari/wajah.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                } else {
+                    when {
+                        sensorStatus != "SUPPORTED" -> {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = BiometricHelper.getSensorStatusMessage(sensorStatus),
+                                textAlign = TextAlign.Center,
+                                color = ErrorRed,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        errorMessage.isNotEmpty() -> {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(errorMessage, textAlign = TextAlign.Center, color = ErrorRed)
+                        }
+                        successMessage.isNotEmpty() -> {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(successMessage, textAlign = TextAlign.Center, color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                        }
+                        else -> {
+                            Icon(Icons.Default.Fingerprint, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Sensor terdeteksi! Tekan tombol di bawah untuk memindai sidik jari / wajah Anda.",
+                                textAlign = TextAlign.Center,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (currentUser.biometricKey.isBlank() && sensorStatus == "SUPPORTED" && successMessage.isEmpty()) {
+                Button(
+                    onClick = {
+                        if (activity != null) {
+                            isRegistering = true
+                            errorMessage = ""
+                            viewModel.registerBiometric(activity, currentUser) { success, msg ->
+                                isRegistering = false
+                                if (success) {
+                                    successMessage = msg
+                                } else {
+                                    errorMessage = msg
+                                }
+                            }
+                        } else {
+                            errorMessage = "Activity tidak ditemukan."
+                        }
+                    },
+                    enabled = !isRegistering,
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isRegistering) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("DAFTARKAN SEKARANG", color = Color.White)
+                    }
+                }
+            } else {
+                TextButton(onClick = onDismiss) { Text("Tutup") }
+            }
+        },
+        dismissButton = {
+            if (currentUser.biometricKey.isBlank() && sensorStatus == "SUPPORTED" && successMessage.isEmpty()) {
+                TextButton(onClick = onDismiss) { Text("Batal") }
+            }
+        }
     )
 }

@@ -36,9 +36,12 @@ interface UserDao {
     @Query("UPDATE users SET pin = :newPin WHERE id = :userId")
     suspend fun updatePin(userId: Long, newPin: String)
 
-    // TAMBAHAN BARU: Update gaji pokok
     @Query("UPDATE users SET baseSalary = :salary WHERE id = :userId")
     suspend fun updateBaseSalary(userId: Long, salary: Long)
+
+    // TAMBAHAN BARU: Fungsi untuk menyimpan Kunci Biometrik
+    @Query("UPDATE users SET biometricKey = :key WHERE id = :userId")
+    suspend fun updateBiometricKey(userId: Long, key: String)
 
     @Query("UPDATE users SET totalCommission = totalCommission + :commission WHERE id = :userId")
     suspend fun addCommission(userId: Long, commission: Long)

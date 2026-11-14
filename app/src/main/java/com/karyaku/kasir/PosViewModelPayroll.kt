@@ -14,7 +14,55 @@ import java.util.Locale
 // ====================================================================
 
 // ================================================================
-// ABSENSI (CHECK-IN & CHECK-OUT)
+// LOGIKA ABSENSI TERPADU (MODUL ABSENSI SAAT LOGIN)
+// ================================================================
+fun PosViewModel.processLoginAttendance(user: UserEntity, onResult: (Boolean, String) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+            val todayStr = dateFormat.format(Date())
+            
+            val existing = attendanceDao.getTodayAttendance(user.id, todayStr)
+
+            if (existing == null) {
+                // 1. Belum Absen Masuk -> Lakukan Check-In
+                val attendance = AttendanceEntity(
+                    userId = user.id,
+                    userName = user.name,
+                    date = todayStr,
+                    checkInTime = System.currentTimeMillis(),
+                    branchId = _currentBranchId.value
+                )
+                attendanceDao.insertCheckIn(attendance)
+                userDao.insertAuditLog(AuditLogEntity(
+                    userId = user.id, userName = user.name,
+                    action = "ABSEN MASUK (AUTO LOGIN)",
+                    actionType = "ATTENDANCE"
+                ))
+                withContext(Dispatchers.Main) { onResult(true, "Absen Masuk berhasil. Selamat bekerja, ${user.name}!") }
+                
+            } else if (existing.checkOutTime == null) {
+                // 2. Sudah Masuk, Belum Pulang -> Lakukan Check-Out
+                attendanceDao.updateCheckOut(user.id, todayStr, System.currentTimeMillis())
+                userDao.insertAuditLog(AuditLogEntity(
+                    userId = user.id, userName = user.name,
+                    action = "ABSEN PULANG (AUTO LOGIN)",
+                    actionType = "ATTENDANCE"
+                ))
+                withContext(Dispatchers.Main) { onResult(true, "Absen Pulang berhasil. Terima kasih, ${user.name}!") }
+                
+            } else {
+                // 3. Sudah Selesai Absen Hari Ini -> Hanya Login Biasa
+                withContext(Dispatchers.Main) { onResult(true, "Login berhasil. Anda sudah menyelesaikan absensi hari ini.") }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) { onResult(false, "Gagal memproses absensi: ${e.message}") }
+        }
+    }
+}
+
+// ================================================================
+// ABSENSI MANUAL (DARI MENU SETTING)
 // ================================================================
 fun PosViewModel.checkIn(user: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
@@ -39,7 +87,7 @@ fun PosViewModel.checkIn(user: UserEntity, onResult: (Boolean, String) -> Unit) 
             
             userDao.insertAuditLog(AuditLogEntity(
                 userId = user.id, userName = user.name,
-                action = "ABSEN MASUK (Check-In)",
+                action = "ABSEN MASUK (Manual)",
                 actionType = "ATTENDANCE"
             ))
             
@@ -70,7 +118,7 @@ fun PosViewModel.checkOut(user: UserEntity, onResult: (Boolean, String) -> Unit)
             
             userDao.insertAuditLog(AuditLogEntity(
                 userId = user.id, userName = user.name,
-                action = "ABSEN PULANG (Check-Out)",
+                action = "ABSEN PULANG (Manual)",
                 actionType = "ATTENDANCE"
             ))
             

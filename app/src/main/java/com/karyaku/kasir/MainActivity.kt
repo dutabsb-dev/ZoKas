@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -54,6 +53,7 @@ import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
+        // Auto backup VACUUM INTO
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -149,13 +150,62 @@ fun MainContent(
     onStoreNameChange: (String) -> Unit, onLogoChange: (String) -> Unit, onUserChange: (UserEntity?) -> Unit,
     onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit, onToggleLanguage: () -> Unit
 ) {
+    val context = LocalContext.current
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         val posViewModel: PosViewModel = viewModel(factory = PosViewModelFactory(database))
+        
+        // State untuk Karyawan Non-Kasir (STAFF)
+        var staffUserToLogout by remember { mutableStateOf<UserEntity?>(null) }
+        var staffMessage by remember { mutableStateOf("") }
 
         if (!settingsManager.isSetupCompleted) {
-            SetupWizardScreen(settingsManager = settingsManager, viewModel = posViewModel, onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) })
+            SetupWizardScreen(
+                settingsManager = settingsManager,
+                viewModel = posViewModel,
+                onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) }
+            )
+        } else if (staffUserToLogout != null) {
+            // Layar Auto-Logout untuk STAFF
+            LaunchedEffect(Unit) {
+                delay(3000) // Tampilkan pesan selama 3 detik
+                staffUserToLogout = null
+                staffMessage = ""
+            }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(100.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Terima Kasih, ${staffUserToLogout!!.name}!", fontWeight = FontWeight.Bold, fontSize = 24.sp, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(staffMessage, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(32.dp))
+                    CircularProgressIndicator(color = EmeraldGreen)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Mengembalikan ke layar Login...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         } else if (currentUser == null) {
-            LoginScreen(viewModel = posViewModel, settingsManager = settingsManager, onLoginSuccess = { user -> posViewModel.initCurrentBranchForUser(user); onUserChange(user) })
+            LoginScreen(
+                viewModel = posViewModel,
+                settingsManager = settingsManager,
+                onLoginSuccess = { user ->
+                    // Proses Absensi Otomatis Sebelum Masuk Aplikasi
+                    posViewModel.processLoginAttendance(user) { success, msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        if (success) {
+                            posViewModel.initCurrentBranchForUser(user)
+                            if (user.role == "STAFF") {
+                                // Jika STAFF, jangan masuk ke aplikasi, tampilkan layar auto-logout
+                                staffMessage = msg
+                                staffUserToLogout = user
+                            } else {
+                                // Jika OWNER / CASHIER, masuk ke aplikasi utama
+                                onUserChange(user)
+                            }
+                        }
+                    }
+                }
+            )
         } else {
             MainNavigation(
                 viewModel = posViewModel, settingsManager = settingsManager, currentUser = currentUser,
@@ -202,6 +252,7 @@ fun MainNavigation(
     var presentation by remember { mutableStateOf<CustomerDisplayPresentation?>(null) }
     val displayManager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager }
 
+    // Dual Screen (CFD)
     DisposableEffect(Unit) {
         val listener = object : DisplayManager.DisplayListener {
             override fun onDisplayAdded(displayId: Int) {
@@ -229,6 +280,7 @@ fun MainNavigation(
         onDispose { displayManager.unregisterDisplayListener(listener); presentation?.dismiss() }
     }
 
+    // Network Status
     DisposableEffect(Unit) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
         val callback = object : android.net.ConnectivityManager.NetworkCallback() {

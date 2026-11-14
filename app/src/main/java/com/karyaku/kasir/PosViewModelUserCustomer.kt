@@ -1,11 +1,17 @@
 package com.karyaku.kasir
 
+import android.content.Context
+import android.util.Base64
+import androidx.biometric.BiometricPrompt
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewModelScope
 import com.karyaku.kasir.data.local.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.nio.charset.StandardCharsets
+import javax.crypto.Cipher
 
 // ====================================================================
 // FILE 5 — USER, AUTH, CUSTOMER, MEMBERSHIP, VOUCHER, FILTER
@@ -19,7 +25,7 @@ suspend fun PosViewModel.login(pin: String): UserEntity? {
         val hashedPin = hashPin(pin)
         val user = userDao.loginByPin(hashedPin)
         if (user != null) {
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS", actionType = "AUTH"))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS (PIN)", actionType = "AUTH"))
         }
         user
     } catch (e: Exception) { null }
@@ -36,6 +42,113 @@ fun PosViewModel.updatePin(user: UserEntity, newPin: String) {
 }
 
 // ================================================================
+// BIOMETRIC LOGIN & REGISTRATION (MODUL ABSENSI)
+// ================================================================
+
+// Cek apakah user ini sudah punya biometrik terdaftar
+fun PosViewModel.isUserBiometricEnrolled(user: UserEntity): Boolean {
+    return user.biometricKey.isNotBlank()
+}
+
+// Fungsi untuk mendaftarkan biometrik baru
+fun PosViewModel.registerBiometric(activity: FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
+    val status = BiometricHelper.checkSensorStatus(activity)
+    if (status != "SUPPORTED") {
+        onResult(false, BiometricHelper.getSensorStatusMessage(status))
+        return
+    }
+
+    val alias = "ZOAKS_USER_${user.id}_${System.currentTimeMillis()}"
+    BiometricCryptoHelper.createKey(alias)
+    val cipher = BiometricCryptoHelper.getCipherForEncryption(alias)
+    
+    if (cipher == null) {
+        onResult(false, "Gagal menyiapkan enkripsi.")
+        return
+    }
+
+    BiometricCryptoHelper.showBiometricPrompt(
+        activity = activity,
+        title = "Daftarkan Biometrik",
+        subtitle = "Tempelkan sidik jari atau wajah untuk ${user.name}",
+        negativeButtonText = "Batal",
+        cipher = cipher,
+        onSuccess = { result ->
+            try {
+                val encrypted = result.cryptoObject?.cipher?.doFinal("ValidBiometric".toByteArray(StandardCharsets.UTF_8))
+                val iv = result.cryptoObject?.cipher?.iv
+                
+                if (encrypted != null && iv != null) {
+                    val ivString = Base64.encodeToString(iv, Base64.NO_WRAP)
+                    val encryptedString = Base64.encodeToString(encrypted, Base64.NO_WRAP)
+                    
+                    // Simpan alias & iv di database (format: "alias|ivBase64")
+                    val keyData = "$alias|$ivString"
+                    viewModelScope.launch(Dispatchers.IO) {
+                        userDao.updateBiometricKey(user.id, keyData)
+                        userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "DAFTAR BIOMETRIK", actionType = "AUTH"))
+                        withContext(Dispatchers.Main) { onResult(true, "Biometrik berhasil didaftarkan!") }
+                    }
+                } else {
+                    onResult(false, "Gagal mengenkripsi data.")
+                }
+            } catch (e: Exception) {
+                onResult(false, "Error enkripsi: ${e.message}")
+            }
+        },
+        onError = { error ->
+            onResult(false, "Gagal mendaftarkan: $error")
+        }
+    )
+}
+
+// Fungsi untuk login menggunakan biometrik
+fun PosViewModel.loginWithBiometric(activity: FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
+    val status = BiometricHelper.checkSensorStatus(activity)
+    if (status != "SUPPORTED") {
+        onResult(false, BiometricHelper.getSensorStatusMessage(status))
+        return
+    }
+
+    if (user.biometricKey.isBlank()) {
+        onResult(false, "Anda belum mendaftarkan sidik jari/wajah.")
+        return
+    }
+
+    val parts = user.biometricKey.split("|")
+    if (parts.size != 2) {
+        onResult(false, "Data biometrik rusak.")
+        return
+    }
+
+    val alias = parts[0]
+    val iv = Base64.decode(parts[1], Base64.NO_WRAP)
+    val cipher = BiometricCryptoHelper.getCipherForDecryption(alias, iv)
+
+    if (cipher == null) {
+        onResult(false, "Kunci biometrik kedaluwarsa. Silakan login dengan PIN dan daftarkan ulang.")
+        return
+    }
+
+    BiometricCryptoHelper.showBiometricPrompt(
+        activity = activity,
+        title = "Login Biometrik",
+        subtitle = "Halo ${user.name}, tempelkan sidik jari/wajah Anda",
+        negativeButtonText = "Gunakan PIN",
+        cipher = cipher,
+        onSuccess = { result ->
+            viewModelScope.launch(Dispatchers.IO) {
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS (BIOMETRIC)", actionType = "AUTH"))
+                withContext(Dispatchers.Main) { onResult(true, "Login Berhasil") }
+            }
+        },
+        onError = { error ->
+            onResult(false, "Gagal Login: $error")
+        }
+    )
+}
+
+// ================================================================
 // USER CRUD
 // ================================================================
 fun PosViewModel.addUser(name: String, pin: String, role: String, baseSalary: Long = 0L, adminUser: UserEntity) {
@@ -46,7 +159,7 @@ fun PosViewModel.addUser(name: String, pin: String, role: String, baseSalary: Lo
                 name = name, 
                 pin = hashedPin, 
                 role = role, 
-                baseSalary = baseSalary, // TAMBAHAN GAJI POKOK
+                baseSalary = baseSalary,
                 branchId = _currentBranchId.value
             ))
             userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name (Gaji: ${formatRupiah(baseSalary)})", actionType = "AUTH"))
@@ -67,6 +180,11 @@ fun PosViewModel.updateUser(user: UserEntity, adminUser: UserEntity) {
 fun PosViewModel.deleteUser(user: UserEntity, adminUser: UserEntity) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
+            // Hapus juga data biometrik di Keystore HP jika ada
+            if (user.biometricKey.isNotBlank()) {
+                val alias = user.biometricKey.split("|").firstOrNull()
+                if (alias != null) BiometricCryptoHelper.deleteKey(alias)
+            }
             userDao.deleteUser(user)
             userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "HAPUS KARYAWAN: ${user.name}", actionType = "AUTH"))
         } catch (e: Exception) { e.printStackTrace() }

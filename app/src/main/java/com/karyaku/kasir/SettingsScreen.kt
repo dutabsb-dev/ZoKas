@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
 import com.karyaku.kasir.data.local.BranchEntity
@@ -64,40 +65,33 @@ fun SettingsScreen(
     val context = LocalContext.current
     val lang = language
 
-    // State Profil Toko & Pengaturan
     var storeFooter by remember { mutableStateOf(settingsManager.storeFooter ?: "") }
     var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
     
-    // State Tipe Usaha
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
-    // State QRIS
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
     var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
     var showPaymentMethodsDialog by remember { mutableStateOf(false) }
 
-    // State Bank Transfer
     var bankName by remember { mutableStateOf(settingsManager.bankName ?: "") }
     var bankAccountNumber by remember { mutableStateOf(settingsManager.bankAccountNumber ?: "") }
     var bankAccountName by remember { mutableStateOf(settingsManager.bankAccountName ?: "") }
     var enableTransferAutoDetect by remember { mutableStateOf(settingsManager.enableTransferAutoDetect) }
 
-    // State Promo & Keamanan
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
     var hhDiscount by remember { mutableStateOf(settingsManager.happyHourDiscount.toString()) }
     var maxDiscountCap by remember { mutableStateOf(settingsManager.maxDiscountCap.toString()) }
 
-    // State Modular
     var enableMultiCurrency by remember { mutableStateOf(settingsManager.enableMultiCurrency) }
     var exchangeRateUsd by remember { mutableStateOf(settingsManager.exchangeRateUsd.toString()) }
     var isTableModeEnabled by remember { mutableStateOf(settingsManager.isTableModeEnabled) }
     var isBiometricEnabled by remember { mutableStateOf(settingsManager.isBiometricEnabled) }
 
-    // FITUR MODUL BARU
     var enableOrderTypes by remember { mutableStateOf(settingsManager.enableOrderTypes) }
     var enableWholesale by remember { mutableStateOf(settingsManager.enableWholesale) }
     var enablePreOrder by remember { mutableStateOf(settingsManager.enablePreOrder) }
@@ -106,13 +100,11 @@ fun SettingsScreen(
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
 
-    // MODUL G — CRM SETTINGS
     var enableBirthdayDiscount by remember { mutableStateOf(settingsManager.enableBirthdayDiscount) }
     var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.birthdayDiscountPercent.toFloat()) }
 
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
 
-    // State Dialog
     var showChangePinDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
     var showUserManagementDialog by remember { mutableStateOf(false) }
@@ -129,9 +121,10 @@ fun SettingsScreen(
     var showStockTransferDialog by remember { mutableStateOf(false) }
     var showCustomerManagementDialog by remember { mutableStateOf(false) }
     
-    // STATE MODUL C (ABSENSI & PAYROLL)
+    // STATE MODUL C
     var showAttendanceDialog by remember { mutableStateOf(false) }
     var showPayrollDialog by remember { mutableStateOf(false) }
+    var showBiometricDialog by remember { mutableStateOf(false) }
 
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
@@ -155,7 +148,6 @@ fun SettingsScreen(
     var showKitchenDialog by remember { mutableStateOf(false) }
     var pairedPrinters by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
 
-    // Launcher Izin & File
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
         if (perms[Manifest.permission.BLUETOOTH_CONNECT] == true) {
             pairedPrinters = printerManager.getPairedPrinters()
@@ -202,7 +194,6 @@ fun SettingsScreen(
         }
     }
 
-    // --- PEMANGGILAN DIALOG ---
     if (showChangePinDialog) {
         ChangePinDialog(user = currentUser, onDismiss = { showChangePinDialog = false }, onSave = { newPin ->
             viewModel.updatePin(currentUser, newPin); showChangePinDialog = false; Toast.makeText(context, "PIN berhasil diubah!", Toast.LENGTH_SHORT).show()
@@ -340,8 +331,10 @@ fun SettingsScreen(
     if (showPayrollDialog) {
         PayrollManagementDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showPayrollDialog = false })
     }
+    if (showBiometricDialog) {
+        BiometricRegistrationDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showBiometricDialog = false })
+    }
 
-    // --- MAIN UI ---
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp).imePadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -386,6 +379,7 @@ fun SettingsScreen(
                 onChangePinClick = { showChangePinDialog = true },
                 onManageStaffClick = { showUserManagementDialog = true },
                 onShiftHistoryClick = { showShiftHistory = true },
+                onRegisterBiometricClick = { showBiometricDialog = true },
                 language = language
             )
         }
@@ -420,7 +414,6 @@ fun SettingsScreen(
                 )
             }
             
-            // CARD MODUL C (ABSENSI & PAYROLL)
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -594,8 +587,131 @@ fun SettingsScreen(
 }
 
 // ====================================================================
-// COMPOSABLE HELPER (DITARUH DI BAWAH AGAR FILE UTUH)
+// CARD MANAJEMEN AKUN (DIPERBARUI DENGAN TOMBOL BIOMETRIK)
 // ====================================================================
+@Composable
+fun SettingsAccountCard(
+    currentUser: UserEntity,
+    isBiometricEnabled: Boolean,
+    onBiometricToggle: (Boolean) -> Unit,
+    onChangePinClick: () -> Unit,
+    onManageStaffClick: () -> Unit,
+    onShiftHistoryClick: () -> Unit,
+    onRegisterBiometricClick: () -> Unit,
+    language: String
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val lang = language
+    val context = LocalContext.current
+    val activity = LocalActivity.current as? FragmentActivity
+
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(LanguageManager.tr("manajemen_akun", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(currentUser.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    Text("${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp, color = Color.White) }
+                        if (currentUser.role == "OWNER") {
+                            Button(onClick = onManageStaffClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp, color = Color.White) }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Tombol Daftarkan Biometrik
+                    Button(
+                        onClick = onRegisterBiometricClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (currentUser.biometricKey.isNotBlank()) EmeraldGreen else SlateGrey),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (currentUser.biometricKey.isNotBlank()) "Biometrik Terdaftar (Ubah)" else "Daftarkan Sidik Jari/Wajah", fontSize = 12.sp, color = Color.White)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
+                        Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Login Sidik Jari (Login Screen)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Aktifkan fitur login cepat di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isBiometricEnabled,
+                            onCheckedChange = { isChecked ->
+                                if (isChecked) {
+                                    if (activity == null) {
+                                        Toast.makeText(context, "ERROR: Activity tidak ditemukan.", Toast.LENGTH_LONG).show()
+                                        return@Switch
+                                    }
+                                    val biometricManager = androidx.biometric.BiometricManager.from(context)
+                                    val authStatus = biometricManager.canAuthenticate(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                                    if (authStatus == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+                                        val executor = ContextCompat.getMainExecutor(context)
+                                        val biometricPrompt = androidx.biometric.BiometricPrompt(activity, executor,
+                                            object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                                                override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                                                    super.onAuthenticationSucceeded(result)
+                                                    onBiometricToggle(true)
+                                                    Toast.makeText(context, "Sidik jari berfungsi.", Toast.LENGTH_SHORT).show()
+                                                }
+                                                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                                    super.onAuthenticationError(errorCode, errString)
+                                                    onBiometricToggle(false)
+                                                    Toast.makeText(context, "Gagal: $errString", Toast.LENGTH_LONG).show()
+                                                }
+                                            })
+                                        val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                                            .setTitle("Aktivasi Sidik Jari")
+                                            .setSubtitle("Sentuh sensor untuk mengonfirmasi")
+                                            .setNegativeButtonText("Batal")
+                                            .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                                            .build()
+                                        biometricPrompt.authenticate(promptInfo)
+                                    } else {
+                                        Toast.makeText(context, "HP belum mendaftarkan sidik jari.", Toast.LENGTH_LONG).show()
+                                        onBiometricToggle(false)
+                                    }
+                                } else {
+                                    onBiometricToggle(false)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = EmeraldGreen,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ... (Fungsi SettingsAuditLogCard, SettingsBranchManagementCard, SettingsCrmCard TETAP SAMA seperti versi sebelumnya, tidak berubah)
+// Karena instruksi Anda meminta FULL FILE, saya sertakan kembali di bawah agar aman.
 
 @Composable
 private fun SettingsAuditLogCard(
