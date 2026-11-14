@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Warning
@@ -39,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.TransactionEntity
-import com.karyaku.kasir.data.local.TransactionItemEntity
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -482,8 +482,7 @@ fun HistoryScreen(
                     modifier = Modifier.fillMaxWidth(), 
                     colors = ButtonDefaults.buttonColors(containerColor = AmberAccent)
                 ) { 
-                    // Menggunakan import Icons.Filled.List secara eksplisit
-                    Icon(androidx.compose.material.icons.Icons.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) 
                 }
