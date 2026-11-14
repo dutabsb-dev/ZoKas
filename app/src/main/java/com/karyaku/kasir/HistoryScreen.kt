@@ -1,7 +1,6 @@
 package com.karyaku.kasir
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
@@ -19,9 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Money
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.TransactionEntity
+import com.karyaku.kasir.data.local.TransactionItemEntity
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -67,7 +67,6 @@ fun HistoryScreen(
     val users by viewModel.users.collectAsStateWithLifecycle()
     val cashFlows by viewModel.cashFlows.collectAsStateWithLifecycle()
     
-    // Mengambil data shift dari ViewModel untuk diekspor
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
 
     val lowStockProducts = remember(products) {
@@ -85,7 +84,6 @@ fun HistoryScreen(
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
-    // Launcher untuk ekspor transaksi (Excel)
     val createExcelLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri: Uri? ->
@@ -101,7 +99,6 @@ fun HistoryScreen(
         }
     }
 
-    // Launcher untuk ekspor shift (Excel)
     val createShiftExcelLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri: Uri? ->
@@ -381,7 +378,7 @@ fun HistoryScreen(
                             )
                             
                             val dateStr = dateFormatShort.format(Date(System.currentTimeMillis() - (days - 1 - index) * 86400000L))
-                            drawContext.canvas.nativeDrawText(
+                            drawContext.canvas.nativeCanvas.drawText(
                                 dateStr,
                                 x + (barWidth / 2),
                                 size.height - 10f,
@@ -453,9 +450,7 @@ fun HistoryScreen(
         }
 
         item {
-            // === TOMBOL EKSPOR ===
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Baris 1: Ekspor Transaksi (Excel & PDF)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = { 
@@ -476,7 +471,6 @@ fun HistoryScreen(
                     ) { Text("PDF TRANSAKSI", color = Color.White, fontSize = 12.sp) }
                 }
 
-                // Baris 2: Ekspor Laporan Shift (Excel)
                 Button(
                     onClick = {
                         if (shifts.isEmpty()) {
@@ -488,7 +482,8 @@ fun HistoryScreen(
                     modifier = Modifier.fillMaxWidth(), 
                     colors = ButtonDefaults.buttonColors(containerColor = AmberAccent)
                 ) { 
-                    Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    // Menggunakan import Icons.Filled.List secara eksplisit
+                    Icon(androidx.compose.material.icons.Icons.Filled.List, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) 
                 }
@@ -539,7 +534,7 @@ fun TransactionDetailDialog(
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
-    val items by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val txItems by itemsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     var showReceipt by remember { mutableStateOf(false) }
     var showVoidPinDialog by remember { mutableStateOf(false) }
@@ -675,11 +670,11 @@ fun TransactionDetailDialog(
                 Text("${LanguageManager.tr("kasir", lang)}: ${transaction.cashierName} | ${transaction.tableName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                if (items.isEmpty()) {
+                if (txItems.isEmpty()) {
                     Text(LanguageManager.tr("loading", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
-                        items(items) { item ->
+                        items(txItems) { item ->
                             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(item.productName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
