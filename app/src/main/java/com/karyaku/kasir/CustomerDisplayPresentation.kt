@@ -5,9 +5,9 @@ import android.os.Bundle
 import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.ComposeView
-import androidx.lifecycle.ViewTreeLifecycleOwner
-import androidx.lifecycle.ViewTreeViewModelStoreOwner
-import androidx.savedstate.ViewTreeSavedStateRegistryOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
 class CustomerDisplayPresentation(
     private val activity: ComponentActivity,
@@ -20,21 +20,15 @@ class CustomerDisplayPresentation(
         super.onCreate(savedInstanceState)
 
         val composeView = ComposeView(activity).apply {
-            ViewTreeLifecycleOwner.set(this, activity)
-            ViewTreeSavedStateRegistryOwner.set(this, activity)
-            ViewTreeViewModelStoreOwner.set(this, activity)
-
+            setViewTreeLifecycleOwner(activity)
+            setViewTreeSavedStateRegistryOwner(activity)
+            setViewTreeViewModelStoreOwner(activity)
             setContent {
-                PosTheme(
-                    isDarkMode = settingsManager.isDarkMode,
-                    isHighContrast = settingsManager.isHighContrast,
-                    language = settingsManager.language
-                ) {
+                PosTheme(isDarkMode = settingsManager.isDarkMode, isHighContrast = settingsManager.isHighContrast, language = settingsManager.language) {
                     CfdContent(viewModel = viewModel, settingsManager = settingsManager, onDismiss = null)
                 }
             }
         }
-        
         setContentView(composeView)
     }
 }

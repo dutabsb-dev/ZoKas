@@ -23,7 +23,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.karyaku.kasir.CartItem
 import java.io.File
 
 @Composable
@@ -36,13 +35,9 @@ fun CfdContent(
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
     
     val subtotal = cart.sumOf {
-        if (it.usedMembershipId != null) {
-            0L
-        } else if (it.product.wholesaleMinQty > 0 && it.quantity >= it.product.wholesaleMinQty && it.product.wholesalePrice > 0) {
-            it.product.wholesalePrice * it.quantity
-        } else {
-            getPriceForVariant(it.product, it.selectedVariation) * it.quantity
-        }
+        if (it.usedMembershipId != null) 0L
+        else if (it.product.wholesaleMinQty > 0 && it.quantity >= it.product.wholesaleMinQty && it.product.wholesalePrice > 0) it.product.wholesalePrice * it.quantity
+        else getPriceForVariant(it.product, it.selectedVariation) * it.quantity
     }
     val taxAmount = ((subtotal - viewModel.discount.value) * (settingsManager.taxPercent / 100.0)).toLong()
     val serviceChargeAmount = ((subtotal - viewModel.discount.value) * (settingsManager.serviceChargePercent / 100.0)).toLong()
@@ -58,42 +53,19 @@ fun CfdContent(
         }
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 32.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val logoFile = remember(settingsManager.storeLogoPath) {
                 val path = settingsManager.storeLogoPath
                 if (!path.isNullOrBlank()) File(path) else null
             }
 
             if (logoFile != null && logoFile.exists()) {
-                AsyncImage(
-                    model = logoFile,
-                    contentDescription = "Store Logo",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(90.dp).padding(bottom = 12.dp)
-                )
+                AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Fit, modifier = Modifier.size(90.dp).padding(bottom = 12.dp))
             }
 
-            Text(
-                text = settingsManager.storeName ?: "ZoKas",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            
+            Text(text = settingsManager.storeName ?: "ZoKas", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(modifier = Modifier.height(8.dp))
-            
             if (selectedTable != "Take-Away") {
                 Surface(color = AmberAccent.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
                     Text("Meja: $selectedTable", fontWeight = FontWeight.Bold, color = AmberAccentDark, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
@@ -101,19 +73,8 @@ fun CfdContent(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Text(
-                text = "Total Belanja Anda",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = formatRupiah(totalPrice),
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp),
-                fontWeight = FontWeight.Black,
-                color = EmeraldGreen,
-                textAlign = TextAlign.Center
-            )
-
+            Text(text = "Total Belanja Anda", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = formatRupiah(totalPrice), style = MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp), fontWeight = FontWeight.Black, color = EmeraldGreen, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(thickness = 2.dp)
             Spacer(modifier = Modifier.height(16.dp))
@@ -128,12 +89,7 @@ fun CfdContent(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                         items(cart, key = { it.product.id to it.selectedVariation }) { item ->
                             CfdItemRow(item = item)
                         }
@@ -147,15 +103,9 @@ fun CfdContent(
 
             Text("Terima Kasih", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Text("Silakan lakukan pembayaran di kasir", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            
             if (onDismiss != null) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth(0.5f).height(48.dp)
-                ) {
+                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(0.5f).height(48.dp)) {
                     Text("Tutup Layar Pelanggan", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                 }
             }
@@ -172,28 +122,16 @@ private fun CfdItemRow(item: CartItem) {
     }
     val lineTotal = unitPrice * item.quantity
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface),
-                contentAlignment = Alignment.Center
-            ) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), shape = RoundedCornerShape(12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
                 if (item.product.imagePath.isNotEmpty()) {
                     AsyncImage(model = File(item.product.imagePath), contentDescription = item.product.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 } else {
                     Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
                 }
             }
-
             Spacer(modifier = Modifier.width(16.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.product.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (item.selectedVariation.isNotEmpty()) {
@@ -201,9 +139,7 @@ private fun CfdItemRow(item: CartItem) {
                 }
                 Text("${item.quantity} × ${formatRupiah(unitPrice)}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Surface(color = EmeraldGreen.copy(alpha = 0.12f), shape = CircleShape) {
                 Text("${item.quantity}x", fontSize = 14.sp, fontWeight = FontWeight.Black, color = EmeraldGreen, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
             }
