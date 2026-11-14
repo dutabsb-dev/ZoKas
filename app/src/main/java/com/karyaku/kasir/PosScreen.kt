@@ -179,11 +179,11 @@ fun PosScreen(
     }
 
     // --- FITUR CFD (CUSTOMER DISPLAY) ---
-    // Memanggil CfdContent yang sudah dipisah ke file CfdContent.kt
+    // Memanggil CfdContent dengan properti Dialog yang benar agar tampil penuh
     if (showCfd) {
         Dialog(
             onDismissRequest = onDismissCfd,
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
             CfdContent(
                 viewModel = viewModel,

@@ -181,15 +181,16 @@ fun ProductFormBottomSheet(
                     OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // UPDATED: Label Varian untuk Harga Berbeda
+                    // UPDATED: Label Varian untuk Harga Berbeda (Lebih Jelas)
                     OutlinedTextField(
                         value = variations, 
                         onValueChange = { variations = it }, 
-                        label = { Text("Varian (cth: Normal:6000, Jumbo:10000)") }, 
-                        placeholder = { Text("Pisah koma. Gunakan | untuk Matrix") }, 
+                        label = { Text("Varian & Harga (Pisahkan dgn Koma)") }, 
+                        placeholder = { Text("Contoh: Normal:6000, Jumbo:10000") }, 
                         modifier = Modifier.fillMaxWidth(), 
                         singleLine = true, 
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        supportingText = { Text("Ketik NamaVarian:Harga. Jika tidak ada titik dua (:), akan memakai Harga Jual Utama.", fontSize = 10.sp) }
                     )
                     
                     Spacer(modifier = Modifier.height(8.dp))

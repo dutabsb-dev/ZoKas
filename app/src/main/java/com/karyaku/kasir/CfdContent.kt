@@ -35,7 +35,6 @@ fun CfdContent(
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val selectedTable by viewModel.selectedTable.collectAsStateWithLifecycle()
     
-    // PERBAIKAN: Menggunakan 'cartItem' alih-alih 'it' untuk menghindari ambiguitas
     val subtotal = cart.sumOf { cartItem ->
         if (cartItem.usedMembershipId != null) 0L
         else if (cartItem.product.wholesaleMinQty > 0 && cartItem.quantity >= cartItem.product.wholesaleMinQty && cartItem.product.wholesalePrice > 0) {
@@ -122,7 +121,6 @@ fun CfdContent(
 
 @Composable
 private fun CfdItemRow(cartItem: CartItem) {
-    // PERBAIKAN: Parameter diubah menjadi 'cartItem'
     val unitPrice = when {
         cartItem.usedMembershipId != null -> 0L
         cartItem.product.wholesaleMinQty > 0 && cartItem.quantity >= cartItem.product.wholesaleMinQty && cartItem.product.wholesalePrice > 0 -> cartItem.product.wholesalePrice
