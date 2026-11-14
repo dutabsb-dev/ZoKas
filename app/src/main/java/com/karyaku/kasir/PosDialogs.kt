@@ -119,7 +119,7 @@ fun ProductMatrixDialog(
 }
 
 // ====================================================================
-// DIALOG VARIAN TEKS BIASA
+// DIALOG VARIAN TEKS BIASA (UPDATED: HARGA VARIAN)
 // ====================================================================
 @Composable
 fun ProductVariantDialog(
@@ -128,6 +128,7 @@ fun ProductVariantDialog(
     onDismiss: () -> Unit
 ) {
     val variants = product.variations.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) },
@@ -136,13 +137,19 @@ fun ProductVariantDialog(
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Silakan pilih varian untuk ${product.name}:", fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(16.dp))
-                variants.forEach { variant ->
+                variants.forEach { variantRaw ->
+                    val vName = variantRaw.substringBefore(":").trim()
+                    val vPrice = getPriceForVariant(product, vName)
+                    
                     OutlinedButton(
-                        onClick = { onSelect(variant) },
+                        onClick = { onSelect(vName) },
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(variant, fontWeight = FontWeight.Bold)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(vName, fontWeight = FontWeight.Bold)
+                            Text(formatRupiah(vPrice), fontWeight = FontWeight.Bold, color = EmeraldGreen)
+                        }
                     }
                 }
             }

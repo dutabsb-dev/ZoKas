@@ -1,7 +1,10 @@
 package com.karyaku.kasir
 
+import android.content.Context
 import android.content.pm.ActivityInfo
+import android.hardware.display.DisplayManager
 import android.os.Bundle
+import android.view.Display
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.LocalActivityResultRegistryOwner
@@ -258,25 +261,16 @@ fun MainNavigation(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var isOnline by remember { mutableStateOf(false) }
-    var showCfd by remember { mutableStateOf(false) }
+    var showCfdDialog by remember { mutableStateOf(false) } // Hanya untuk dialog fallback jika tidak ada TV
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
 
-    // ================================================================
-    // FIX #3 (UI side): Baca businessType langsung dari SettingsManager.
-    // Nilai ini di-recompute setiap kali MainNavigation recompose
-    // (yaitu setiap kali selectedTab berubah, atau state observed berubah).
-    // Jika user mengubah tipe usaha dari menu Setting (Sesi 4),
-    // tab Dapur & menu Gabung Meja akan hilang saat user pindah tab.
-    // ================================================================
     val businessType = settingsManager.businessType
     val isKuliner = businessType.equals("KULINER", ignoreCase = true)
 
-    // Safety redirect: jika user somehow masih di tab Dapur (4) padahal
-    // tipe usaha bukan Kuliner, langsung alihkan ke tab Kasir.
     LaunchedEffect(isKuliner, selectedTab) {
         if (!isKuliner && selectedTab == 4) {
             selectedTab = 0
@@ -289,8 +283,58 @@ fun MainNavigation(
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+
+    // ================================================================
+    // FITUR DUAL SCREEN (HDMI/CAST)
+    // ================================================================
+    var presentation by remember { mutableStateOf<CustomerDisplayPresentation?>(null) }
+    val displayManager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager }
+
     DisposableEffect(Unit) {
-        val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val listener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) {
+                val display = displayManager.getDisplay(displayId)
+                // Jika yang dicolok BUKAN layar utama (DEFAULT_DISPLAY)
+                if (display != null && display.displayId != Display.DEFAULT_DISPLAY) {
+                    try {
+                        presentation?.dismiss()
+                        presentation = CustomerDisplayPresentation(context, display, viewModel, settingsManager)
+                        presentation?.show()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            override fun onDisplayRemoved(displayId: Int) {
+                presentation?.dismiss()
+                presentation = null
+            }
+
+            override fun onDisplayChanged(displayId: Int) {}
+        }
+        displayManager.registerDisplayListener(listener, null)
+        
+        // Cek jika TV sudah dicolok sebelum listener didaftarkan
+        val displays = displayManager.displays
+        val externalDisplay = displays.find { it.displayId != Display.DEFAULT_DISPLAY }
+        if (externalDisplay != null) {
+            try {
+                presentation = CustomerDisplayPresentation(context, externalDisplay, viewModel, settingsManager)
+                presentation?.show()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        onDispose {
+            displayManager.unregisterDisplayListener(listener)
+            presentation?.dismiss()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
         val callback = object : android.net.ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: android.net.Network) { isOnline = true }
             override fun onLost(network: android.net.Network) { isOnline = false }
@@ -412,16 +456,13 @@ fun MainNavigation(
                         }
                     }
 
-                    // ============================================================
-                    // FIX #5: Ikon Search & CFD hanya tampil di Tab Kasir (0).
-                    // Ikon MoreVert beserta seluruh menu-nya juga hanya tampil
-                    // di Tab Kasir (existing behavior, tetap dipertahankan).
-                    // ============================================================
                     if (selectedTab == 0) {
                         IconButton(onClick = { showSearchDialog = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
                         }
-                        IconButton(onClick = { showCfd = true }) {
+                        // Tombol CFD sekarang membuka Dialog biasa (jika tidak ada TV)
+                        // Atau jika ada TV, tetap berguna untuk mengetes di tablet
+                        IconButton(onClick = { showCfdDialog = true }) {
                             Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary)
                         }
 
@@ -430,7 +471,6 @@ fun MainNavigation(
                                 Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                // FIX #3: Gabung Meja hanya relevan untuk Kuliner.
                                 if (isKuliner) {
                                     DropdownMenuItem(
                                         text = { Text(LanguageManager.tr("gabung_meja", language)) },
@@ -466,7 +506,6 @@ fun MainNavigation(
                                         onClick = { showStockTransferDialog = true; showMenu = false }
                                     )
                                 }
-                                // MENU TUTUP KASIR
                                 DropdownMenuItem(
                                     text = { Text("Tutup Kasir (Close Harian)") },
                                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) },
@@ -532,7 +571,6 @@ fun MainNavigation(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
-                // 1. Tab Kasir
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Storefront, contentDescription = "Cashier") },
                     label = { Text(LanguageManager.tr("kasir", language), textAlign = TextAlign.Center) },
@@ -546,8 +584,6 @@ fun MainNavigation(
                         indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 )
-
-                // 2. Tab Produk
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
                     label = { Text(LanguageManager.tr("produk", language), textAlign = TextAlign.Center) },
@@ -561,8 +597,6 @@ fun MainNavigation(
                         indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 )
-
-                // 3. Tab Laporan
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
                     label = { Text(LanguageManager.tr("laporan", language), textAlign = TextAlign.Center) },
@@ -576,8 +610,6 @@ fun MainNavigation(
                         indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 )
-
-                // 4. Tab Dapur (KDS) — FIX #3: hanya tampil untuk Kuliner.
                 if (isKuliner) {
                     NavigationBarItem(
                         icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },
@@ -593,8 +625,6 @@ fun MainNavigation(
                         )
                     )
                 }
-
-                // 5. Tab Setting — FIX #4: label diganti "Setting" (teks pendek).
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                     label = { Text("Setting", textAlign = TextAlign.Center) },
@@ -626,8 +656,8 @@ fun MainNavigation(
                         settingsManager = settingsManager,
                         currentUser = currentUser,
                         onLogout = onLogout,
-                        showCfd = showCfd,
-                        onDismissCfd = { showCfd = false },
+                        showCfd = showCfdDialog,
+                        onDismissCfd = { showCfdDialog = false },
                         actionTrigger = posActionTrigger,
                         onActionHandled = { posActionTrigger = null }
                     )
@@ -645,8 +675,6 @@ fun MainNavigation(
                         storeLogoPath = storeLogoPath,
                         onLogoChange = onLogoChange
                     )
-                    // FIX #3: guard tambahan. Bila somehow selectedTab = 4
-                    // sementara bukan Kuliner, tidak render KitchenScreen.
                     4 -> if (isKuliner) {
                         KitchenScreen(viewModel = viewModel)
                     }

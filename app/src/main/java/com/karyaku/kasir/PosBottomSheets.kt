@@ -180,7 +180,18 @@ fun ProductFormBottomSheet(
                     
                     OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = variations, onValueChange = { variations = it }, label = { Text("Varian (Pisah koma / | untuk Matrix)") }, placeholder = { Text("Cth: S,M,L | Merah,Biru") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    
+                    // UPDATED: Label Varian untuk Harga Berbeda
+                    OutlinedTextField(
+                        value = variations, 
+                        onValueChange = { variations = it }, 
+                        label = { Text("Varian (cth: Normal:6000, Jumbo:10000)") }, 
+                        placeholder = { Text("Pisah koma. Gunakan | untuk Matrix") }, 
+                        modifier = Modifier.fillMaxWidth(), 
+                        singleLine = true, 
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
@@ -188,7 +199,7 @@ fun ProductFormBottomSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = costPrice, onValueChange = { if (it.length <= 10) costPrice = it }, label = { Text("Harga Beli / Modal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual Utama (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                     if (!isService) {
                         OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))

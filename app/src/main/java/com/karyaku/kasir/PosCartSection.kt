@@ -25,7 +25,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class) // <-- FIX WARNING
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosCartSection(
     cart: List<CartItem>, 
@@ -212,9 +212,9 @@ fun PosCartSection(
                             }
                             
                             val isWholesale = item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0
-                            val displayPrice = if (item.usedMembershipId != null) 0L else if (isWholesale) item.product.wholesalePrice else item.product.price
+                            val displayPrice = if (item.usedMembershipId != null) 0L else if (isWholesale) item.product.wholesalePrice else getPriceForVariant(item.product, item.selectedVariation) // FIX VARIAN HARGA
                             
-                            Text(formatRupiah(displayPrice), fontSize = 11.sp, color = if(item.usedMembershipId != null || isWholesale) EmeraldGreen else SlateGrey, fontWeight = if(item.usedMembershipId != null || isWholesale) FontWeight.Bold else FontWeight.Normal)
+                            Text(formatRupiah(displayPrice), fontSize = 11.sp, color = if(item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty()) EmeraldGreen else SlateGrey, fontWeight = if(item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty()) FontWeight.Bold else FontWeight.Normal)
                             
                             if (item.notes.isNotEmpty()) { 
                                 Text("Cat: ${item.notes}", fontSize = 10.sp, color = ErrorRed, maxLines = 1, overflow = TextOverflow.Ellipsis) 

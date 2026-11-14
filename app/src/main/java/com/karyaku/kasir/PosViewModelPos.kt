@@ -11,13 +11,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
 
-// ====================================================================
-// FILE 4 — CART, PAYMENT, QRIS/TRANSFER, REFUND/VOID, HOLD ORDER
-// ====================================================================
-
-// ================================================================
-// CART MANAGEMENT
-// ================================================================
 fun PosViewModel.addToCart(product: ProductEntity, variation: String = "") {
     val currentCart = _cart.value.toMutableList()
     val idx = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
@@ -78,9 +71,6 @@ fun PosViewModel.updateCartItemStaff(product: ProductEntity, variation: String, 
     if (idx != -1) { currentCart[idx] = currentCart[idx].copy(assignedStaff = staff); _cart.value = currentCart }
 }
 
-// ================================================================
-// HOLD ORDER (PARKIR MEJA)
-// ================================================================
 fun PosViewModel.saveHoldOrder(customerName: String) {
     if (_cart.value.isEmpty()) return
     viewModelScope.launch(Dispatchers.IO) {
@@ -153,9 +143,6 @@ fun PosViewModel.mergeOrder(tableA: String, tableB: String) {
     }
 }
 
-// ================================================================
-// QRIS & TRANSFER MANUAL
-// ================================================================
 fun PosViewModel.generateQrisPayment(amount: Long, staticPayload: String) {
     if (staticPayload.isBlank()) return
     val dynamicQris = QrisHelper.generateDynamicQris(staticPayload, amount)
@@ -179,9 +166,6 @@ fun PosViewModel.resetTransferPayment() {
     _isTransferPaid.value = false
 }
 
-// ================================================================
-// PRICING (preview, tidak berubah)
-// ================================================================
 fun PosViewModel.getTotalPrice(): Long {
     val subtotal = _cart.value.sumOf { item ->
         if (item.usedMembershipId != null) {
@@ -189,7 +173,7 @@ fun PosViewModel.getTotalPrice(): Long {
         } else if (item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0) {
             item.product.wholesalePrice * item.quantity
         } else {
-            item.product.price * item.quantity
+            getPriceForVariant(item.product, item.selectedVariation) * item.quantity
         }
     }
     val tax = (subtotal - _discount.value - _voucherDiscount.value) * (_taxPercent.value / 100.0)
@@ -197,9 +181,6 @@ fun PosViewModel.getTotalPrice(): Long {
     return (subtotal + tax + service - _discount.value - _voucherDiscount.value).coerceAtLeast(0.0).toLong()
 }
 
-// ================================================================
-// PROCESS PAYMENT
-// ================================================================
 fun PosViewModel.processPayment(
     cashReceived: Long,
     userId: Long,
@@ -223,7 +204,7 @@ fun PosViewModel.processPayment(
         } else if (item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0) {
             item.product.wholesalePrice
         } else {
-            item.product.price
+            getPriceForVariant(item.product, item.selectedVariation) // FIX VARIAN HARGA
         }
         val itemSubtotal = itemPrice * item.quantity
         subtotal += itemSubtotal
@@ -292,7 +273,6 @@ fun PosViewModel.processPayment(
 
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            // FIX: Simpan transaksi final dengan ID asli dari database
             var finalTransaction: TransactionEntity? = null
             
             database.withTransaction {
@@ -305,7 +285,7 @@ fun PosViewModel.processPayment(
                     } else if (cartItem.product.wholesaleMinQty > 0 && cartItem.quantity >= cartItem.product.wholesaleMinQty && cartItem.product.wholesalePrice > 0) {
                         cartItem.product.wholesalePrice
                     } else {
-                        cartItem.product.price
+                        getPriceForVariant(cartItem.product, cartItem.selectedVariation)
                     }
                     TransactionItemEntity(
                         transactionId = newId,
@@ -323,7 +303,6 @@ fun PosViewModel.processPayment(
                 }
                 transactionItemDao.insertTransactionItems(itemEntities)
 
-                // MODUL B-2: BUAT KITCHEN TICKET
                 val foodItems = itemsToProcess.filter { !it.product.isService }
                 if (foodItems.isNotEmpty()) {
                     val kdsJson = JSONArray()
@@ -421,7 +400,6 @@ fun PosViewModel.processPayment(
                 }
                 resetQrisPayment()
                 resetTransferPayment()
-                // FIX: Gunakan finalTransaction dengan ID asli
                 onSuccess(finalTransaction!!) 
             }
         } catch (e: Exception) {
@@ -430,9 +408,6 @@ fun PosViewModel.processPayment(
     }
 }
 
-// ================================================================
-// PAY UNPAID TRANSACTION (BON pelunasan)
-// ================================================================
 fun PosViewModel.payUnpaidTransaction(transaction: TransactionEntity, cashReceived: Long, onSuccess: () -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -475,9 +450,6 @@ fun PosViewModel.payUnpaidTransaction(transaction: TransactionEntity, cashReceiv
     }
 }
 
-// ================================================================
-// REFUND (MODUL G-2b PATCH)
-// ================================================================
 fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -523,9 +495,6 @@ fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, 
     }
 }
 
-// ================================================================
-// VOID TRANSACTION
-// ================================================================
 fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: String, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -572,9 +541,6 @@ fun PosViewModel.voidTransaction(transaction: TransactionEntity, pinSupervisor: 
     }
 }
 
-// ================================================================
-// MISC POS
-// ================================================================
 fun PosViewModel.logCashDrawerOpen(user: UserEntity) {
     viewModelScope.launch(Dispatchers.IO) { 
         try {

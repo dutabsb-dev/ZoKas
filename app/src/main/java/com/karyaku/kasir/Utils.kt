@@ -47,7 +47,7 @@ fun hashPin(pin: String): String {
         digest.fold("") { str, it -> str + "%02x".format(it) }
     } catch (e: Exception) {
         e.printStackTrace()
-        pin // Fallback (seharusnya tidak terjadi)
+        pin // Fallback
     }
 }
 
@@ -131,4 +131,22 @@ fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
     } catch (e: Exception) {
         Toast.makeText(context, "Gagal simpan barcode: ${e.message}", Toast.LENGTH_LONG).show()
     }
+}
+
+// FITUR VARIAN HARGA
+fun getPriceForVariant(product: ProductEntity, variation: String): Long {
+    if (variation.isBlank() || product.variations.isBlank()) return product.price
+    
+    // Format: "Normal:6000, Jumbo:10000"
+    val variants = product.variations.split(",")
+    for (v in variants) {
+        val parts = v.split(":")
+        if (parts.size >= 2) {
+            val name = parts[0].trim()
+            if (name.equals(variation.trim(), ignoreCase = true)) {
+                return parts[1].trim().toLongOrNull() ?: product.price
+            }
+        }
+    }
+    return product.price
 }
