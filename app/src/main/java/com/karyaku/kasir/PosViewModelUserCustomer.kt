@@ -80,7 +80,7 @@ fun PosViewModel.registerBiometric(activity: FragmentActivity, user: UserEntity,
     
     if (!keyCreated) {
         Log.e(TAG_VM, "Pendaftaran gagal, tidak bisa membuat kunci.")
-        onResult(false, "Gagal membuat kunci enkripsi.")
+        onResult(false, "Gagal membuat kunci enkripsi. HP Anda mungkin hanya mendukung Face Unlock Class 2.")
         return
     }
 

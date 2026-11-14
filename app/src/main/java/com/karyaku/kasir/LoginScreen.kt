@@ -17,9 +17,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,11 +34,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.UserEntity
@@ -59,6 +62,9 @@ fun LoginScreen(
     var pin by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    
+    // STATE BARU: Untuk mengintip PIN
+    var isPinVisible by remember { mutableStateOf(false) }
 
     if (isInitializing) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -106,6 +112,7 @@ fun LoginScreen(
                                 user = user,
                                 onClick = {
                                     errorMessage = ""
+                                    isPinVisible = false // Reset mata saat ganti user
                                     if (user.biometricKey.isNotBlank() && activity != null) {
                                         // Coba Login Biometrik
                                         viewModel.loginWithBiometric(activity, user) { success, msg ->
@@ -113,7 +120,7 @@ fun LoginScreen(
                                                 onLoginSuccess(user)
                                             } else {
                                                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                                // Fallback ke PIN
+                                                // Fallback ke PIN jika biometrik gagal
                                                 selectedUser = user
                                             }
                                         }
@@ -135,6 +142,7 @@ fun LoginScreen(
                         selectedUser = null
                         pin = ""
                         errorMessage = ""
+                        isPinVisible = false
                     },
                     modifier = Modifier.align(Alignment.Start)
                 ) {
@@ -161,6 +169,7 @@ fun LoginScreen(
                 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // KOLOM PIN DENGAN FITUR INTIP MATA
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { 
@@ -171,8 +180,18 @@ fun LoginScreen(
                     },
                     label = { Text("PIN 6-Digit") },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    trailingIcon = {
+                        IconButton(onClick = { isPinVisible = !isPinVisible }) {
+                            Icon(
+                                imageVector = if (isPinVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (isPinVisible) "Sembunyikan PIN" else "Tampilkan PIN",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    visualTransformation = PasswordVisualTransformation(),
+                    // Toggle antara titik-titik dan teks biasa
+                    visualTransformation = if (isPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     isError = errorMessage.isNotEmpty(),
@@ -287,6 +306,7 @@ fun UserProfileCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
+            // Menampilkan ikon jika biometrik sudah didaftarkan
             if (user.biometricKey.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Icon(Icons.Default.Fingerprint, contentDescription = "Biometrik Aktif", tint = AmberAccent, modifier = Modifier.size(14.dp))
