@@ -3,6 +3,7 @@ package com.karyaku.kasir
 import android.content.Context
 import android.net.Uri
 import com.karyaku.kasir.data.local.ProductEntity
+import com.karyaku.kasir.data.local.ShiftEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,11 +22,8 @@ object ExcelExporter {
             val workbook = XSSFWorkbook()
             val sheet = workbook.createSheet("Daftar Produk")
 
-            // Header Style
             val headerFont = workbook.createFont().apply { bold = true }
             val headerCellStyle = workbook.createCellStyle().apply { setFont(headerFont) }
-
-            // Style untuk Wrap Text (Varian)
             val wrapTextStyle = workbook.createCellStyle().apply { wrapText = true }
 
             val headerRow = sheet.createRow(0)
@@ -41,7 +39,6 @@ object ExcelExporter {
 
             val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
 
-            // Data
             products.forEachIndexed { rowIndex, product ->
                 val row = sheet.createRow(rowIndex + 1)
                 row.createCell(0).setCellValue(product.name)
@@ -51,14 +48,12 @@ object ExcelExporter {
                 row.createCell(4).setCellValue(product.category)
                 row.createCell(5).setCellValue(product.barcode)
                 
-                // Format Varian & Wrap Text
                 val varianCell = row.createCell(6)
                 varianCell.setCellValue(product.variations)
                 varianCell.cellStyle = wrapTextStyle
                 
                 row.createCell(7).setCellValue(product.commissionPerItem.toDouble())
                 
-                // Format Expiry Date
                 val expiryStr = if (product.expiryDate > 0) dateFormat.format(Date(product.expiryDate)) else "-"
                 row.createCell(8).setCellValue(expiryStr)
                 
@@ -67,11 +62,10 @@ object ExcelExporter {
                 row.createCell(11).setCellValue(product.wholesaleMinQty.toDouble())
             }
 
-            // Atur Lebar Kolom
-            sheet.setColumnWidth(0, 8000)  // Nama
-            sheet.setColumnWidth(4, 5000)  // Kategori
-            sheet.setColumnWidth(5, 5000)  // Barcode
-            sheet.setColumnWidth(6, 10000) // Varian (Lebih Lebar)
+            sheet.setColumnWidth(0, 8000)
+            sheet.setColumnWidth(4, 5000)
+            sheet.setColumnWidth(5, 5000)
+            sheet.setColumnWidth(6, 10000)
 
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {
@@ -115,7 +109,6 @@ object ExcelExporter {
                 val variations = getCellValue(6)
                 val commission = getCellValue(7).toDoubleOrNull()?.toLong() ?: 0L
                 
-                // Parsing Expiry Date
                 val expiryStr = getCellValue(8)
                 val expiryDate = try {
                     if (expiryStr.isNotBlank() && expiryStr != "-") {
@@ -176,10 +169,97 @@ object ExcelExporter {
                 row.createCell(8).setCellValue(trx.cashierName)
             }
 
-            // Atur lebar kolom untuk report
-            sheet.setColumnWidth(1, 6000)  // Date
-            sheet.setColumnWidth(5, 6000)  // Customer
+            sheet.setColumnWidth(1, 6000)
+            sheet.setColumnWidth(5, 6000)
             
+            val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
+            if (outputStream != null) {
+                workbook.write(outputStream)
+                outputStream.close()
+            }
+            workbook.close()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    // ================================================================
+    // FUNGSI BARU: EKSPOR LAPORAN SHIFT (TUTUP KASIR)
+    // ================================================================
+    suspend fun exportShiftsToExcel(context: Context, uri: Uri, shifts: List<ShiftEntity>): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val workbook = XSSFWorkbook()
+            val sheet = workbook.createSheet("Laporan Tutup Kasir")
+
+            // Style Header
+            val headerFont = workbook.createFont().apply { bold = true }
+            val headerCellStyle = workbook.createCellStyle().apply { setFont(headerFont) }
+
+            // Style Format Uang
+            val currencyFormat = workbook.createDataFormat().getFormat("#,##0")
+            val currencyStyle = workbook.createCellStyle().apply { dataFormat = currencyFormat }
+            
+            // Style Format Tanggal
+            val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
+
+            val headerRow = sheet.createRow(0)
+            val headers = listOf(
+                "Tanggal Buka", "Kasir", "Waktu Buka", "Waktu Tutup", 
+                "Modal Awal", "Kas Sistem", "Kas Fisik", "Selisih", "Status"
+            )
+            headers.forEachIndexed { index, title ->
+                val cell = headerRow.createCell(index)
+                cell.setCellValue(title)
+                cell.cellStyle = headerCellStyle
+            }
+
+            shifts.forEachIndexed { rowIndex, shift ->
+                val row = sheet.createRow(rowIndex + 1)
+                
+                // Format tanggal buka (DD-MM-YYYY)
+                val dateOpen = dateFormat.format(Date(shift.startTime)).split(" ").firstOrNull() ?: "-"
+                row.createCell(0).setCellValue(dateOpen)
+                
+                row.createCell(1).setCellValue(shift.userName)
+                row.createCell(2).setCellValue(dateFormat.format(Date(shift.startTime)))
+                
+                // Waktu tutup (jika masih buka, kasih strip)
+                val closeTimeStr = if (shift.endTime != null) dateFormat.format(Date(shift.endTime)) else "MASIH BUKA"
+                row.createCell(3).setCellValue(closeTimeStr)
+                
+                // Uang-uang
+                val modalCell = row.createCell(4)
+                modalCell.setCellValue(shift.openingCash.toDouble())
+                modalCell.cellStyle = currencyStyle
+
+                val systemCell = row.createCell(5)
+                systemCell.setCellValue(shift.expectedCash.toDouble())
+                systemCell.cellStyle = currencyStyle
+
+                val fisikCell = row.createCell(6)
+                fisikCell.setCellValue((shift.closingCash ?: 0L).toDouble())
+                fisikCell.cellStyle = currencyStyle
+
+                val selisihCell = row.createCell(7)
+                selisihCell.setCellValue((shift.discrepancy ?: 0L).toDouble())
+                selisihCell.cellStyle = currencyStyle
+
+                row.createCell(8).setCellValue(shift.status)
+            }
+
+            // Lebar Kolom
+            sheet.setColumnWidth(0, 4000)
+            sheet.setColumnWidth(1, 5000)
+            sheet.setColumnWidth(2, 6000)
+            sheet.setColumnWidth(3, 6000)
+            sheet.setColumnWidth(4, 5000)
+            sheet.setColumnWidth(5, 5000)
+            sheet.setColumnWidth(6, 5000)
+            sheet.setColumnWidth(7, 4000)
+            sheet.setColumnWidth(8, 4000)
+
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {
                 workbook.write(outputStream)

@@ -66,6 +66,9 @@ fun HistoryScreen(
     val products by viewModel.products.collectAsStateWithLifecycle()
     val users by viewModel.users.collectAsStateWithLifecycle()
     val cashFlows by viewModel.cashFlows.collectAsStateWithLifecycle()
+    
+    // Mengambil data shift dari ViewModel untuk diekspor
+    val shifts by viewModel.shifts.collectAsStateWithLifecycle()
 
     val lowStockProducts = remember(products) {
         products.filter { it.stock <= 5 && it.stock >= 0 }
@@ -82,6 +85,7 @@ fun HistoryScreen(
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
     
+    // Launcher untuk ekspor transaksi (Excel)
     val createExcelLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) { uri: Uri? ->
@@ -89,9 +93,25 @@ fun HistoryScreen(
             scope.launch {
                 val success = ExcelExporter.exportTransactionsToExcel(context, uri, transactionsToExport)
                 if (success) {
-                    Toast.makeText(context, "Excel berhasil diekspor!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Excel Transaksi berhasil diekspor!", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(context, "Gagal ekspor Excel.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Launcher untuk ekspor shift (Excel)
+    val createShiftExcelLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val success = ExcelExporter.exportShiftsToExcel(context, uri, shifts)
+                if (success) {
+                    Toast.makeText(context, "Laporan Shift berhasil diekspor!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Gagal ekspor Laporan Shift.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -245,13 +265,11 @@ fun HistoryScreen(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${LanguageManager.tr("gross_profit", lang)}:", color = Color.White, fontSize = 14.sp)
-                        // Warna Putih Kontras untuk Laba Kotor
                         Text(formatRupiah(labaKotor), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${LanguageManager.tr("net_profit", lang)}:", color = Color.White, fontSize = 14.sp)
-                        // Warna Kuning Kontras untuk Laba Bersih
                         Text(formatRupiah(labaBersih), color = Color(0xFFFFEB3B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
@@ -311,18 +329,15 @@ fun HistoryScreen(
                         val maxSale = dailySales.maxOrNull() ?: 0L
                         val yAxisMax = if (maxSale == 0L) 100000L else ((maxSale / 100000) + 1) * 100000L
 
-                        // Warna Garis di Mode Gelap / Terang
                         val axisColor = Color.LightGray.copy(alpha = 0.5f)
                         val strokeWidth = 2f
                         
-                        // Teks sumbu Y (Nominal)
                         val textPaint = android.graphics.Paint().apply { 
                             color = android.graphics.Color.GRAY
                             textSize = 24f 
                             textAlign = android.graphics.Paint.Align.RIGHT 
                         }
                         
-                        // Teks sumbu X (Tanggal)
                         val datePaint = android.graphics.Paint().apply {
                             color = android.graphics.Color.GRAY
                             textSize = 24f
@@ -366,7 +381,7 @@ fun HistoryScreen(
                             )
                             
                             val dateStr = dateFormatShort.format(Date(System.currentTimeMillis() - (days - 1 - index) * 86400000L))
-                            drawContext.canvas.nativeCanvas.drawText(
+                            drawContext.canvas.nativeDrawText(
                                 dateStr,
                                 x + (barWidth / 2),
                                 size.height - 10f,
@@ -437,26 +452,45 @@ fun HistoryScreen(
             }
         }
 
-        if (filteredTransactions.isNotEmpty()) {
-            item {
+        item {
+            // === TOMBOL EKSPOR ===
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Baris 1: Ekspor Transaksi (Excel & PDF)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = { 
                             transactionsToExport = filteredTransactions
-                            createExcelLauncher.launch("Zokas_Report_${System.currentTimeMillis()}.xlsx") 
+                            createExcelLauncher.launch("Zokas_Transaksi_${System.currentTimeMillis()}.xlsx") 
                         },
                         modifier = Modifier.weight(1f), 
                         colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)
-                    ) { Text("EXCEL", color = Color.White) }
+                    ) { Text("EXCEL TRANSAKSI", color = Color.White, fontSize = 12.sp) }
                     
                     Button(
                         onClick = { 
                             transactionsToExport = filteredTransactions
-                            createPdfLauncher.launch("Zokas_Laporan_${System.currentTimeMillis()}.pdf") 
+                            createPdfLauncher.launch("Zokas_Transaksi_${System.currentTimeMillis()}.pdf") 
                         },
                         modifier = Modifier.weight(1f), 
                         colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                    ) { Text("PDF", color = Color.White) }
+                    ) { Text("PDF TRANSAKSI", color = Color.White, fontSize = 12.sp) }
+                }
+
+                // Baris 2: Ekspor Laporan Shift (Excel)
+                Button(
+                    onClick = {
+                        if (shifts.isEmpty()) {
+                            Toast.makeText(context, "Belum ada riwayat shift.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            createShiftExcelLauncher.launch("Zokas_Laporan_Shift_${System.currentTimeMillis()}.xlsx")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(), 
+                    colors = ButtonDefaults.buttonColors(containerColor = AmberAccent)
+                ) { 
+                    Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) 
                 }
             }
         }
