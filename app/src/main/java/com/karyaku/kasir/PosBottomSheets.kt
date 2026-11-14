@@ -4,7 +4,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -48,12 +47,15 @@ fun ProductFormBottomSheet(
 ) {
     val context = LocalContext.current
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
-    var price by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
-    var costPrice by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") } 
+    
+    // State baru untuk input terpisah
+    var variations by remember { mutableStateOf(productToEdit?.variations ?: "") }
+    var priceInput by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
+    var costPriceInput by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") }
+    
     var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
     var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") } 
     var barcode by remember { mutableStateOf(productToEdit?.barcode ?: "") }
-    var variations by remember { mutableStateOf(productToEdit?.variations ?: "") }
     var commission by remember { mutableStateOf(productToEdit?.commissionPerItem?.toString() ?: "") }
     var expiryDate by remember { mutableStateOf(productToEdit?.expiryDate ?: 0L) }
     var isService by remember { mutableStateOf(productToEdit?.isService ?: false) }
@@ -64,6 +66,7 @@ fun ProductFormBottomSheet(
     
     var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     val expiryText = if (expiryDate > 0) dateFormat.format(Date(expiryDate)) else "Pilih Tanggal"
@@ -181,26 +184,50 @@ fun ProductFormBottomSheet(
                     OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // UPDATED: Label Varian untuk Harga Berbeda (Lebih Jelas)
                     OutlinedTextField(
                         value = variations, 
                         onValueChange = { variations = it }, 
-                        label = { Text("Varian & Harga (Pisahkan dgn Koma)") }, 
-                        placeholder = { Text("Contoh: Normal:6000, Jumbo:10000") }, 
+                        label = { Text("Varian (Pisahkan dgn Koma)") }, 
+                        placeholder = { Text("Cth: Normal, Jumbo, Extra") }, 
                         modifier = Modifier.fillMaxWidth(), 
                         singleLine = true, 
                         shape = RoundedCornerShape(12.dp),
-                        supportingText = { Text("Ketik NamaVarian:Harga. Jika tidak ada titik dua (:), akan memakai Harga Jual Utama.", fontSize = 10.sp) }
+                        supportingText = { Text("Kosongkan jika produk tidak memiliki varian.", fontSize = 10.sp) }
                     )
-                    
                     Spacer(modifier = Modifier.height(8.dp))
+                    
                     OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = costPrice, onValueChange = { if (it.length <= 10) costPrice = it }, label = { Text("Harga Beli / Modal (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    
+                    OutlinedTextField(
+                        value = costPriceInput, 
+                        onValueChange = { costPriceInput = it }, 
+                        label = { Text("Harga Beli / Modal (Pisahkan dgn Koma)") }, 
+                        placeholder = { Text("Cth: 4000, 5000, 5500") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                        modifier = Modifier.fillMaxWidth(), 
+                        singleLine = true, 
+                        shape = RoundedCornerShape(12.dp)
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = price, onValueChange = { if (it.length <= 10) price = it }, label = { Text("Harga Jual Utama (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+                    
+                    OutlinedTextField(
+                        value = priceInput, 
+                        onValueChange = { priceInput = it }, 
+                        label = { Text("Harga Jual (Pisahkan dgn Koma)") }, 
+                        placeholder = { Text("Cth: 6000, 7000, 7500") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
+                        modifier = Modifier.fillMaxWidth(), 
+                        singleLine = true, 
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
+                    if (errorMessage.isNotEmpty()) {
+                        Text(errorMessage, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp).fillMaxWidth())
+                    }
+                    
                     Spacer(modifier = Modifier.height(8.dp))
                     if (!isService) {
                         OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
@@ -244,14 +271,40 @@ fun ProductFormBottomSheet(
 
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(onClick = { 
-                        val p = price.toLongOrNull() ?: 0L
-                        val cp = costPrice.toLongOrNull() ?: 0L
-                        val s = if (isService) 0 else stock.toIntOrNull() ?: 0
-                        val c = commission.toLongOrNull() ?: 0L
-                        val wp = wholesalePrice.toLongOrNull() ?: 0L
-                        val wm = wholesaleMinQty.toIntOrNull() ?: 0
-                        if (name.isNotBlank() && p > 0) onSave(name, p, s, category.ifBlank { "Umum" }, cp, barcode, variations, c, expiryDate, isService, isCombo, imagePath, wp, wm) 
-                    }, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0L) > 0, colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
+                        // LOGIKA PENGGABUNGAN VARIAN, HARGA JUAL, & HARGA BELI
+                        val varList = variations.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                        val priceList = priceInput.split(",").map { it.trim().toLongOrNull() ?: 0L }
+                        val costList = costPriceInput.split(",").map { it.trim().toLongOrNull() ?: 0L }
+                        
+                        // Validasi: Jumlah Varian harus sama dengan Jumlah Harga Jual & Harga Beli
+                        if (varList.isNotEmpty()) {
+                            if (varList.size != priceList.size || varList.size != costList.size) {
+                                errorMessage = "Jumlah Varian, Harga Jual, dan Harga Beli harus sama banyak."
+                                return@Button
+                            }
+                        }
+
+                        // Menggabungkan menjadi format database: "Normal:6000:4000, Jumbo:7000:5000"
+                        val finalVariations = if (varList.isEmpty()) "" else varList.mapIndexed { index, vName ->
+                            val vPrice = priceList.getOrNull(index) ?: 0L
+                            val vCost = costList.getOrNull(index) ?: 0L
+                            "$vName:$vPrice:$vCost"
+                        }.joinToString(", ")
+                        
+                        val basePrice = priceList.firstOrNull() ?: 0L
+                        val baseCost = costList.firstOrNull() ?: 0L
+
+                        if (name.isNotBlank() && basePrice > 0) {
+                            onSave(
+                                name, basePrice, if (isService) 0 else stock.toIntOrNull() ?: 0, 
+                                category.ifBlank { "Umum" }, baseCost, barcode, finalVariations, 
+                                commission.toLongOrNull() ?: 0L, expiryDate, isService, isCombo, imagePath, 
+                                wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
+                            ) 
+                        } else {
+                            errorMessage = "Nama produk dan Harga Jual wajib diisi."
+                        }
+                    }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
                         Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
@@ -281,7 +334,6 @@ fun PaymentBottomSheet(
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
-    // Generate QRIS / Transfer saat metode dipilih
     LaunchedEffect(paymentMethod) {
         if (paymentMethod == "QRIS" && qrisString.isEmpty()) {
             onGenerateQris()
@@ -324,7 +376,6 @@ fun PaymentBottomSheet(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Tombol Metode Pembayaran
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), 
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -419,9 +470,7 @@ fun PaymentBottomSheet(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    // Tombol Konfirmasi Manual
                     TextButton(onClick = { 
-                        // Paksa pembayaran sukses secara manual
                         onConfirmPayment(totalPrice, "Bank Transfer") 
                     }) {
                         Text("Konfirmasi Manual (Sudah Transfer)", color = AmberAccent, fontWeight = FontWeight.Bold)

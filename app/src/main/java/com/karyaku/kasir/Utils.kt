@@ -70,7 +70,7 @@ fun generateQrCodeBitmap(content: String, size: Int = 512): Bitmap? {
     }
 }
 
-// Fungsi Simpan Barcode
+// Fungsi Simpan Barcode ke Galeri
 fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
     try {
         val width = 500
@@ -133,20 +133,45 @@ fun saveBarcodeToGallery(context: Context, product: ProductEntity) {
     }
 }
 
-// FITUR VARIAN HARGA
+// ================================================================
+// FITUR VARIAN HARGA & MODAL
+// ================================================================
+// Format yang disimpan di database: "Normal:6000:4000, Jumbo:8000:4500"
+// ================================================================
+
 fun getPriceForVariant(product: ProductEntity, variation: String): Long {
     if (variation.isBlank() || product.variations.isBlank()) return product.price
     
-    // Format: "Normal:6000, Jumbo:10000"
+    // Pecah berdasarkan koma untuk mendapatkan tiap varian
     val variants = product.variations.split(",")
     for (v in variants) {
+        // Pecah berdasarkan titik dua (:)
         val parts = v.split(":")
         if (parts.size >= 2) {
             val name = parts[0].trim()
+            // Jika nama varian cocok, ambil harga jual (index 1)
             if (name.equals(variation.trim(), ignoreCase = true)) {
                 return parts[1].trim().toLongOrNull() ?: product.price
             }
         }
     }
     return product.price
+}
+
+fun getCostForVariant(product: ProductEntity, variation: String): Long {
+    if (variation.isBlank() || product.variations.isBlank()) return product.costPrice
+    
+    val variants = product.variations.split(",")
+    for (v in variants) {
+        val parts = v.split(":")
+        // Jika formatnya lengkap (Nama:HargaJual:HargaModal)
+        if (parts.size >= 3) {
+            val name = parts[0].trim()
+            // Jika nama varian cocok, ambil harga modal (index 2)
+            if (name.equals(variation.trim(), ignoreCase = true)) {
+                return parts[2].trim().toLongOrNull() ?: product.costPrice
+            }
+        }
+    }
+    return product.costPrice
 }
