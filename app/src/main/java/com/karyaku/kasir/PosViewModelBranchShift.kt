@@ -10,9 +10,6 @@ import kotlinx.coroutines.withContext
 // ====================================================================
 // FILE 2 — BRANCH, SHIFT, CASH FLOW, SETUP
 // ====================================================================
-// Extension functions untuk PosViewModel.
-// Berisi: Modul D-1 (multi-cabang) + Manajemen Shift Kasir.
-// ====================================================================
 
 // ================================================================
 // MODUL D-1: INIT CABANG UNTUK USER YANG LOGIN
@@ -242,6 +239,7 @@ fun PosViewModel.openShift(user: UserEntity, modalAwal: Long) {
     }
 }
 
+// FIX: Meneruskan parameter 'note' ke database
 fun PosViewModel.closeShift(user: UserEntity, uangFisik: Long, note: String, onSuccess: (ShiftEntity) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -260,7 +258,9 @@ fun PosViewModel.closeShift(user: UserEntity, uangFisik: Long, note: String, onS
                 val uangSistem = shift.openingCash + totalPenjualanTunai + totalKasMasuk - totalKasKeluar
                 val selisih = uangFisik - uangSistem
 
-                userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih)
+                // Simpan 'note' ke database
+                userDao.closeShift(shift.id, System.currentTimeMillis(), uangSistem, uangFisik, selisih, note)
+                
                 userDao.insertAuditLog(AuditLogEntity(
                     userId = user.id, userName = user.name, 
                     action = "TUTUP KASIR (Cabang #${shift.branchId}): Fisik ${formatRupiah(uangFisik)}, Sistem ${formatRupiah(uangSistem)}, Selisih ${formatRupiah(selisih)} | Catatan: $note", 
@@ -273,7 +273,8 @@ fun PosViewModel.closeShift(user: UserEntity, uangFisik: Long, note: String, onS
                         expectedCash = uangSistem, 
                         closingCash = uangFisik, 
                         discrepancy = selisih, 
-                        status = "CLOSED"
+                        status = "CLOSED",
+                        note = note // Sertakan note di UI report
                     ))
                 }
             }

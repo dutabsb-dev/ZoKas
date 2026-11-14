@@ -186,28 +186,26 @@ object ExcelExporter {
     }
 
     // ================================================================
-    // FUNGSI BARU: EKSPOR LAPORAN SHIFT (TUTUP KASIR)
+    // FUNGSI EKSPOR LAPORAN SHIFT (TUTUP KASIR) - FIX CATATAN
     // ================================================================
     suspend fun exportShiftsToExcel(context: Context, uri: Uri, shifts: List<ShiftEntity>): Boolean = withContext(Dispatchers.IO) {
         try {
             val workbook = XSSFWorkbook()
             val sheet = workbook.createSheet("Laporan Tutup Kasir")
 
-            // Style Header
             val headerFont = workbook.createFont().apply { bold = true }
             val headerCellStyle = workbook.createCellStyle().apply { setFont(headerFont) }
 
-            // Style Format Uang
             val currencyFormat = workbook.createDataFormat().getFormat("#,##0")
             val currencyStyle = workbook.createCellStyle().apply { dataFormat = currencyFormat }
             
-            // Style Format Tanggal
             val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
 
             val headerRow = sheet.createRow(0)
+            // FIX: Tambahkan "Catatan"
             val headers = listOf(
                 "Tanggal Buka", "Kasir", "Waktu Buka", "Waktu Tutup", 
-                "Modal Awal", "Kas Sistem", "Kas Fisik", "Selisih", "Status"
+                "Modal Awal", "Kas Sistem", "Kas Fisik", "Selisih", "Status", "Catatan"
             )
             headers.forEachIndexed { index, title ->
                 val cell = headerRow.createCell(index)
@@ -218,18 +216,15 @@ object ExcelExporter {
             shifts.forEachIndexed { rowIndex, shift ->
                 val row = sheet.createRow(rowIndex + 1)
                 
-                // Format tanggal buka (DD-MM-YYYY)
                 val dateOpen = dateFormat.format(Date(shift.startTime)).split(" ").firstOrNull() ?: "-"
                 row.createCell(0).setCellValue(dateOpen)
                 
                 row.createCell(1).setCellValue(shift.userName)
                 row.createCell(2).setCellValue(dateFormat.format(Date(shift.startTime)))
                 
-                // Waktu tutup (jika masih buka, kasih strip)
                 val closeTimeStr = if (shift.endTime != null) dateFormat.format(Date(shift.endTime)) else "MASIH BUKA"
                 row.createCell(3).setCellValue(closeTimeStr)
                 
-                // Uang-uang
                 val modalCell = row.createCell(4)
                 modalCell.setCellValue(shift.openingCash.toDouble())
                 modalCell.cellStyle = currencyStyle
@@ -247,9 +242,10 @@ object ExcelExporter {
                 selisihCell.cellStyle = currencyStyle
 
                 row.createCell(8).setCellValue(shift.status)
+                // FIX: Tulis catatan ke Excel
+                row.createCell(9).setCellValue(shift.note)
             }
 
-            // Lebar Kolom
             sheet.setColumnWidth(0, 4000)
             sheet.setColumnWidth(1, 5000)
             sheet.setColumnWidth(2, 6000)
@@ -259,6 +255,7 @@ object ExcelExporter {
             sheet.setColumnWidth(6, 5000)
             sheet.setColumnWidth(7, 4000)
             sheet.setColumnWidth(8, 4000)
+            sheet.setColumnWidth(9, 10000) // Lebar kolom catatan
 
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {

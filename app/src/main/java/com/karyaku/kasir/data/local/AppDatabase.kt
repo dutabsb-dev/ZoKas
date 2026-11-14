@@ -36,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StockTransferItemEntity::class,
         KitchenTicketEntity::class // MODUL B
     ], 
-    version = 33, 
+    version = 34, // FIX: Naikkan versi database
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -80,7 +80,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         private val MIGRATION_20_21 = object : Migration(20, 21) {
-            override fun migrate(database: SupportSQLiteDatabase) { /* Placeholder */ }
+            override fun migrate(database: SupportSQLiteDatabase) { }
         }
 
         private val MIGRATION_21_22 = object : Migration(21, 22) {
@@ -220,9 +220,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ================================================================
-        // 14. MIGRASI MODUL B — KDS (32 -> 33)
-        // ================================================================
         private val MIGRATION_32_33 = object : Migration(32, 33) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
@@ -245,6 +242,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // FIX: MIGRATION UNTUK MENAMBAHKAN KOLOM CATATAN DI SHIFT
+        private val MIGRATION_33_34 = object : Migration(33, 34) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE shifts ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -256,7 +260,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, 
                     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
                     MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
-                    MIGRATION_31_32, MIGRATION_32_33
+                    MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34 // FIX: Daftarkan migrasi baru
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18

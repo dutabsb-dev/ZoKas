@@ -48,9 +48,6 @@ interface UserDao {
     // ================================================================
     // MODUL D-1: Shift per cabang.
     // ================================================================
-    // Method lama getActiveShift() dipertahankan sebagai @Deprecated
-    // untuk kompatibilitas. Caller baru WAJIB pakai getActiveShiftByBranch().
-    // ================================================================
     @Insert
     suspend fun insertShift(shift: ShiftEntity): Long
 
@@ -61,8 +58,9 @@ interface UserDao {
     @Query("SELECT * FROM shifts WHERE status = 'OPEN' AND branchId = :branchId LIMIT 1")
     suspend fun getActiveShiftByBranch(branchId: Long): ShiftEntity?
 
-    @Query("UPDATE shifts SET endTime = :endTime, expectedCash = :expectedCash, closingCash = :closingCash, discrepancy = :discrepancy, status = 'CLOSED' WHERE id = :shiftId")
-    suspend fun closeShift(shiftId: Long, endTime: Long, expectedCash: Long, closingCash: Long, discrepancy: Long)
+    // FIX: Menambahkan parameter note di akhir
+    @Query("UPDATE shifts SET endTime = :endTime, expectedCash = :expectedCash, closingCash = :closingCash, discrepancy = :discrepancy, status = 'CLOSED', note = :note WHERE id = :shiftId")
+    suspend fun closeShift(shiftId: Long, endTime: Long, expectedCash: Long, closingCash: Long, discrepancy: Long, note: String)
     
     @Query("SELECT * FROM shifts ORDER BY startTime DESC")
     fun getAllShifts(): Flow<List<ShiftEntity>>
