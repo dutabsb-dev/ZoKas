@@ -446,8 +446,6 @@ class PosViewModel(
                 val currentStock = if (pieces.size >= 4) {
                     pieces[3].trim().toIntOrNull() ?: 0
                 } else {
-                    // Jika format lama, stok awalnya dianggap besar (sama dengan stok utama sebelum dipotong).
-                    // Kita tidak tahu pasti, jadi kita asumsikan ada stok agar tidak jadi minus.
                     999999 
                 }
                 
@@ -566,7 +564,9 @@ class PosViewModel(
             val newStock = (currentStock + deltaStock).coerceAtLeast(0)
             
             val newFirstPart = "$name:$price:$cost:$newStock"
-            return listOf(newFirstPart) + parts.drop(1)
+            
+            // FIX: Menambahkan .joinToString(",") agar mengembalikan String, bukan List
+            return (listOf(newFirstPart) + parts.drop(1)).joinToString(",")
         }
         return variationsStr
     }
