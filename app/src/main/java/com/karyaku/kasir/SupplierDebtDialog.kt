@@ -39,10 +39,6 @@ import java.util.Locale
 // ====================================================================
 // MODUL E — HUTANG SUPPLIER CICILAN
 // ====================================================================
-// Container utama: daftar hutang per supplier, expandable.
-// Tap PO → form bayar cicilan.
-// Tombol "Riwayat" → riwayat pembayaran per PO.
-// ====================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,11 +54,8 @@ fun SupplierDebtDialog(
     var purchaseToPay by remember { mutableStateOf<PurchaseEntity?>(null) }
     var purchaseToViewHistory by remember { mutableStateOf<PurchaseEntity?>(null) }
 
-    // Supplier ID yang sedang di-expand. Default: semua expanded saat
-    // pertama buka (agar user langsung lihat detail).
     val expandedSuppliers = remember { mutableStateMapOf<Long, Boolean>() }
 
-    // Auto-expand semua supplier saat data pertama kali masuk.
     LaunchedEffect(outstandingPurchases.size) {
         if (expandedSuppliers.isEmpty() && outstandingPurchases.isNotEmpty()) {
             outstandingPurchases.map { it.supplierId }.distinct().forEach {
@@ -102,9 +95,7 @@ fun SupplierDebtDialog(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
 
-                // ----------------------------------------------------
                 // TOP BAR
-                // ----------------------------------------------------
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -132,9 +123,7 @@ fun SupplierDebtDialog(
                     }
                 }
 
-                // ----------------------------------------------------
                 // TOTAL OUTSTANDING CARD
-                // ----------------------------------------------------
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -176,9 +165,7 @@ fun SupplierDebtDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // ----------------------------------------------------
                 // LIST PO GROUPED BY SUPPLIER
-                // ----------------------------------------------------
                 if (outstandingPurchases.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -237,9 +224,10 @@ fun SupplierDebtDialog(
                             }
 
                             if (isExpanded) {
+                                // FIX: Menggunakan nama parameter eksplisit (po) agar compiler tidak bingung
                                 items(
                                     items = purchases,
-                                    key = { "po_${it.id}" }
+                                    key = { po -> "po_${po.id}" }
                                 ) { po ->
                                     PurchaseDebtCard(
                                         purchase = po,
@@ -530,7 +518,6 @@ private fun PurchasePaymentFormDialog(
     val outstanding = (purchase.totalAmount - purchase.paidAmount).coerceAtLeast(0L)
     val amount = amountInput.toLongOrNull() ?: 0L
 
-    // Validasi live.
     val isAmountValid = amount in 1..outstanding
 
     AlertDialog(
@@ -749,7 +736,10 @@ private fun PurchasePaymentHistoryDialog(
     onDismiss: () -> Unit
 ) {
     val paymentsFlow = remember(purchase.id) { viewModel.getPaymentsForPurchase(purchase.id) }
-    val payments by paymentsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    
+    // FIX: Menambahkan tipe data eksplisit <PurchasePaymentEntity> pada emptyList()
+    val payments by paymentsFlow.collectAsStateWithLifecycle(initialValue = emptyList<PurchasePaymentEntity>())
+    
     val dateFormat = remember { SimpleDateFormat("dd MMM yy HH:mm", Locale.getDefault()) }
 
     AlertDialog(
@@ -795,7 +785,11 @@ private fun PurchasePaymentHistoryDialog(
                         modifier = Modifier.heightIn(max = 320.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(payments, key = { it.id }) { payment ->
+                        // FIX: Menggunakan parameter eksplisit (payment) pada key
+                        items(
+                            items = payments,
+                            key = { payment -> payment.id }
+                        ) { payment ->
                             PaymentHistoryItem(payment = payment, dateFormat = dateFormat)
                         }
                     }
