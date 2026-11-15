@@ -324,7 +324,6 @@ fun MainNavigation(
         topBar = {
             Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // FIX DARK MODE LOGO: Membuat background logo transparan/putih pudar saat mode gelap
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -400,7 +399,6 @@ fun MainNavigation(
                 NavigationBarItem(icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") }, label = { Text(LanguageManager.tr("produk", language), textAlign = TextAlign.Center) }, selected = selectedTab == 1, onClick = { selectedTab = 1 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
                 NavigationBarItem(icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") }, label = { Text(LanguageManager.tr("laporan", language), textAlign = TextAlign.Center) }, selected = selectedTab == 2, onClick = { selectedTab = 2 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
                 if (isKuliner) NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text(LanguageManager.tr("dapur", language), textAlign = TextAlign.Center) }, selected = selectedTab == 4, onClick = { selectedTab = 4 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
-                // FIX: Label Pengaturan/Settings Dinamis
                 NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }, label = { Text(LanguageManager.tr("pengaturan", language), textAlign = TextAlign.Center) }, selected = selectedTab == 3, onClick = { selectedTab = 3 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
             }
         }
@@ -431,6 +429,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val allProducts by viewModel.products.collectAsStateWithLifecycle()
 
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
@@ -442,23 +441,92 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var showBulkStockOpnameDialog by remember { mutableStateOf(false) }
 
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
-    val allProducts by viewModel.products.collectAsStateWithLifecycle()
     val searchFocusRequester = remember { FocusRequester() }
     val context = LocalContext.current
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        PosProductSection(
-            products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
-            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
-            onProductClick = { productToEdit = it; showProductForm = true }, onProductLongClick = { showActionDialogFor = it },
-            onBarcodeScan = { }, onCameraScanClick = { }, searchFocusRequester = searchFocusRequester
-        )
+    // Launcher untuk scan barcode di tab produk
+    val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            val barcode = result.contents
+            viewModel.setSearchQuery(barcode)
+            
+            // Jika barcode persis sama dengan 1 produk, langsung buka form edit
+            val matchedProduct = allProducts.find { it.barcode == barcode }
+            if (matchedProduct != null) {
+                productToEdit = matchedProduct
+                showProductForm = true
+                viewModel.setSearchQuery("") // Bersihkan search setelah buka form
+            }
+        }
+    }
 
-        Row(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ExtendedFloatingActionButton(onClick = { showBulkStockOpnameDialog = true }, containerColor = AmberAccent, contentColor = Color.White, shape = RoundedCornerShape(12.dp), icon = { Icon(Icons.Default.FactCheck, contentDescription = "Audit") }, text = { Text("Audit Stok", fontWeight = FontWeight.Bold) })
-            FloatingActionButton(onClick = { productToEdit = null; showProductForm = true }, containerColor = EmeraldGreen) { Icon(Icons.Default.Add, contentDescription = "Add Product", tint = Color.White) }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // --- FITUR PENCARIAN & SCAN BARCODE ---
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { viewModel.setSearchQuery(it) },
+                placeholder = { Text("Cari nama atau scan barcode...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SlateGrey) },
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                Icon(Icons.Default.Close, contentDescription = "Hapus", tint = SlateGrey)
+                            }
+                        }
+                        IconButton(onClick = {
+                            val options = ScanOptions().apply {
+                                setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                setPrompt("Scan Barcode Produk")
+                                setCameraId(0)
+                                setBeepEnabled(false)
+                                setBarcodeImageEnabled(true)
+                                setOrientationLocked(true)
+                            }
+                            barcodeLauncher.launch(options)
+                        }) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = EmeraldGreen)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            // --- DAFTAR PRODUK (GRID) ---
+            Box(modifier = Modifier.weight(1f)) {
+                PosProductSection(
+                    products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
+                    onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
+                    onProductClick = { productToEdit = it; showProductForm = true }, onProductLongClick = { showActionDialogFor = it },
+                    onBarcodeScan = { }, onCameraScanClick = { }, searchFocusRequester = searchFocusRequester
+                )
+            }
         }
 
+        // --- FLOATING ACTION BUTTONS ---
+        Row(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ExtendedFloatingActionButton(
+                onClick = { showBulkStockOpnameDialog = true }, 
+                containerColor = AmberAccent, 
+                contentColor = Color.White, 
+                shape = RoundedCornerShape(12.dp), 
+                icon = { Icon(Icons.Default.FactCheck, contentDescription = "Audit") }, 
+                text = { Text("Audit Stok", fontWeight = FontWeight.Bold) }
+            )
+            FloatingActionButton(
+                onClick = { productToEdit = null; showProductForm = true }, 
+                containerColor = EmeraldGreen
+            ) { 
+                Icon(Icons.Default.Add, contentDescription = "Add Product", tint = Color.White) 
+            }
+        }
+
+        // --- DIALOGS ---
         if (showProductForm) {
             ProductFormBottomSheet(
                 productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null },
