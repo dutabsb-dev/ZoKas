@@ -146,7 +146,7 @@ fun PosScreen(
         } else if (it.product.wholesaleMinQty > 0 && it.quantity >= it.product.wholesaleMinQty && it.product.wholesalePrice > 0) {
             it.product.wholesalePrice * it.quantity
         } else {
-            getPriceForVariant(it.product, it.selectedVariation) * it.quantity
+            viewModel.getPriceForVariant(it.product, it.selectedVariation) * it.quantity
         }
     }
     val happyHourDiscountAmount = 0L
@@ -212,7 +212,7 @@ fun PosScreen(
     ) {
         // --- PEMANGGILAN DIALOG & BOTTOM SHEETS ---
         if (showPaymentSheet) {
-            val totalToPay = if (isSplitBillMode) cart.filter { it.isSelectedForSplit }.sumOf { getPriceForVariant(it.product, it.selectedVariation) * it.quantity } else totalPrice
+            val totalToPay = if (isSplitBillMode) cart.filter { it.isSelectedForSplit }.sumOf { viewModel.getPriceForVariant(it.product, it.selectedVariation) * it.quantity } else totalPrice
             PaymentBottomSheet(
                 totalPrice = totalToPay, 
                 totalCommission = cart.sumOf { it.product.commissionPerItem * it.quantity },

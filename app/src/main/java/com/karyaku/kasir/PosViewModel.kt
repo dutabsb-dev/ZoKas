@@ -280,7 +280,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // LOGIKA KERANJANG & VARIAN
+    // LOGIKA KERANJANG & VARIAN (FIX: Fallback ke stok utama jika data lama)
     // ========================================================================
     fun getPriceForVariant(product: ProductEntity, variation: String): Long {
         if (variation.isBlank() || product.variations.isBlank()) return product.price
@@ -299,11 +299,17 @@ class PosViewModel(
         val parts = product.variations.split(",")
         for (part in parts) {
             val pieces = part.split(":")
-            if (pieces.size >= 4 && pieces[0].trim().equals(variation, ignoreCase = true)) {
-                return pieces[3].trim().toIntOrNull() ?: 0
+            if (pieces.size >= 2 && pieces[0].trim().equals(variation, ignoreCase = true)) {
+                if (pieces.size >= 4) {
+                    // Format baru: Nama:HargaJual:HargaBeli:Stok
+                    return pieces[3].trim().toIntOrNull() ?: 0
+                } else {
+                    // Format lama (tidak ada stok per varian), gunakan stok utama produk
+                    return product.stock
+                }
             }
         }
-        return 0
+        return product.stock
     }
 
     fun addToCart(product: ProductEntity, variation: String = "") {
@@ -416,7 +422,6 @@ class PosViewModel(
                     }
                 }
                 
-                // Menggunakan fungsi DAO yang benar (jamak, menerima list)
                 transactionItemDao.insertTransactionItems(itemsToInsert)
 
                 withContext(Dispatchers.Main) {
@@ -433,10 +438,15 @@ class PosViewModel(
         val parts = variationsStr.split(",")
         val newParts = parts.map { part ->
             val pieces = part.split(":")
-            if (pieces.size >= 4 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
-                val currentStock = pieces[3].trim().toIntOrNull() ?: 0
-                val newStock = (currentStock - deductQty).coerceAtLeast(0)
-                "${pieces[0]}:${pieces[1]}:${pieces[2]}:$newStock"
+            if (pieces.size >= 2 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
+                if (pieces.size >= 4) {
+                    val currentStock = pieces[3].trim().toIntOrNull() ?: 0
+                    val newStock = (currentStock - deductQty).coerceAtLeast(0)
+                    "${pieces[0]}:${pieces[1]}:${pieces[2]}:$newStock"
+                } else {
+                    // Jika format lama, potong stok utama produk
+                    part 
+                }
             } else { part }
         }
         return newParts.joinToString(",")
@@ -514,7 +524,6 @@ class PosViewModel(
                 val opnameId = stockOpnameDao.insertOpname(opname)
                 val itemsToInsert = items.map { it.copy(opnameId = opnameId) }
                 
-                // Menggunakan fungsi DAO yang benar (jamak, menerima list)
                 stockOpnameDao.insertOpnameItems(itemsToInsert)
                 
                 for (item in items) {
