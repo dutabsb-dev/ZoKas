@@ -7,25 +7,36 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke // <-- FIX: Diperbaiki dari androidx.foundation
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
+import com.karyaku.kasir.data.local.BranchEntity
 import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -90,7 +101,8 @@ fun SettingsScreen(
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
 
     var enableBirthdayDiscount by remember { mutableStateOf(settingsManager.enableBirthdayDiscount) }
-    var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.enableBirthdayDiscountPercent.toFloat()) }
+    // FIX: Mengembalikan nama variabel yang benar (birthdayDiscountPercent)
+    var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.birthdayDiscountPercent.toFloat()) }
 
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
 
@@ -400,7 +412,7 @@ fun SettingsScreen(
                     birthdayDiscountPercent = birthdayDiscountPercent,
                     onChangeBirthdayPercent = { newVal ->
                         birthdayDiscountPercent = newVal
-                        settingsManager.enableBirthdayDiscountPercent = newVal.toDouble()
+                        settingsManager.birthdayDiscountPercent = newVal.toDouble()
                     },
                     totalCustomers = customers.size,
                     onManageClick = { showCustomerManagementDialog = true }
@@ -576,6 +588,587 @@ fun SettingsScreen(
                 Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White)
             }
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+// ====================================================================
+// SESI 2: KOMPONEN KARTU PENDUKUNG (Dikembalikan penuh)
+// ====================================================================
+
+@Composable
+fun SettingsAccountCard(
+    currentUser: UserEntity,
+    isBiometricEnabled: Boolean,
+    onBiometricToggle: (Boolean) -> Unit,
+    onChangePinClick: () -> Unit,
+    onManageStaffClick: () -> Unit,
+    onShiftHistoryClick: () -> Unit,
+    onRegisterBiometricClick: () -> Unit,
+    language: String
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val lang = language
+    val context = LocalContext.current
+    val activity = LocalActivity.current as? FragmentActivity
+
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(LanguageManager.tr("manajemen_akun", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(currentUser.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    Text("${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp, color = Color.White) }
+                        if (currentUser.role == "OWNER") {
+                            Button(onClick = onManageStaffClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp, color = Color.White) }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (currentUser.role == "OWNER") {
+                        Button(
+                            onClick = onRegisterBiometricClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = if (currentUser.biometricKey.isNotBlank()) EmeraldGreen else SlateGrey),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (currentUser.biometricKey.isNotBlank()) "Biometrik Terdaftar (Ubah)" else "Daftarkan Sidik Jari/Wajah", fontSize = 12.sp, color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
+                        Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Login Sidik Jari (Login Screen)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Aktifkan fitur login cepat di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isBiometricEnabled,
+                            onCheckedChange = { isChecked ->
+                                if (isChecked) {
+                                    if (activity == null) {
+                                        Toast.makeText(context, "ERROR: Activity tidak ditemukan.", Toast.LENGTH_LONG).show()
+                                        return@Switch
+                                    }
+                                    val biometricManager = androidx.biometric.BiometricManager.from(context)
+                                    val authStatus = biometricManager.canAuthenticate(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                                    if (authStatus == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+                                        val executor = ContextCompat.getMainExecutor(context)
+                                        val biometricPrompt = androidx.biometric.BiometricPrompt(activity, executor,
+                                            object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
+                                                override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
+                                                    super.onAuthenticationSucceeded(result)
+                                                    onBiometricToggle(true)
+                                                    Toast.makeText(context, "Sidik jari berfungsi.", Toast.LENGTH_SHORT).show()
+                                                }
+                                                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                                    super.onAuthenticationError(errorCode, errString)
+                                                    onBiometricToggle(false)
+                                                    Toast.makeText(context, "Gagal: $errString", Toast.LENGTH_LONG).show()
+                                                }
+                                            })
+                                        val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
+                                            .setTitle("Aktivasi Sidik Jari")
+                                            .setSubtitle("Sentuh sensor untuk mengonfirmasi")
+                                            .setNegativeButtonText("Batal")
+                                            .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                                            .build()
+                                        biometricPrompt.authenticate(promptInfo)
+                                    } else {
+                                        Toast.makeText(context, "HP belum mendaftarkan sidik jari.", Toast.LENGTH_LONG).show()
+                                        onBiometricToggle(false)
+                                    }
+                                } else {
+                                    onBiometricToggle(false)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = EmeraldGreen,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsAuditLogCard(
+    auditLogs: List<AuditLogEntity>,
+    dateFormat: SimpleDateFormat
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val displayedLogs = remember(auditLogs, isExpanded) {
+        if (isExpanded) auditLogs.take(30) else emptyList()
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Log Aktivitas (Audit)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        if (auditLogs.isEmpty()) "Belum ada aktivitas."
+                        else "${auditLogs.size} aktivitas tercatat",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    if (displayedLogs.isEmpty()) {
+                        Text(
+                            "Belum ada aktivitas.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    } else {
+                        displayedLogs.forEach { log ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        log.action,
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                        if (auditLogs.size > 30) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Menampilkan 30 dari ${auditLogs.size} aktivitas terbaru.",
+                                fontSize = 9.sp,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsBranchManagementCard(
+    currentBranch: BranchEntity?,
+    totalBranches: Int,
+    onManageClick: () -> Unit,
+    onTransferClick: () -> Unit,
+    canTransfer: Boolean
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(EmeraldGreen.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Storefront,
+                            contentDescription = null,
+                            tint = EmeraldGreen,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Multi-Cabang",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (totalBranches > 1)
+                                "$totalBranches cabang terdaftar"
+                            else
+                                "Kelola cabang toko Anda",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = EmeraldGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "CABANG AKTIF",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = currentBranch?.name ?: "-",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (currentBranch?.isMainBranch == true) {
+                            Surface(
+                                color = AmberAccent.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "UTAMA",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AmberAccentDark,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onManageClick,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, EmeraldGreen),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldGreen),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = EmeraldGreen,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "KELOLA",
+                                color = EmeraldGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = onTransferClick,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            enabled = canTransfer,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = EmeraldGreen,
+                                disabledContainerColor = EmeraldGreen.copy(alpha = 0.3f)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                "TRANSFER",
+                                color = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    if (!canTransfer) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Butuh minimal 2 cabang untuk transfer stok.",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCrmCard(
+    enableBirthdayDiscount: Boolean,
+    onToggleBirthdayDiscount: (Boolean) -> Unit,
+    birthdayDiscountPercent: Float,
+    onChangeBirthdayPercent: (Float) -> Unit,
+    totalCustomers: Int,
+    onManageClick: () -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(AmberAccent.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.People,
+                            contentDescription = null,
+                            tint = AmberAccentDark,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "CRM & Pelanggan",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "$totalCustomers pelanggan terdaftar",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Cake,
+                            contentDescription = null,
+                            tint = if (enableBirthdayDiscount) EmeraldGreen else SlateGrey,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Diskon Ulang Tahun",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Otomatis untuk pelanggan di hari ulang tahunnya",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = enableBirthdayDiscount,
+                            onCheckedChange = onToggleBirthdayDiscount,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = EmeraldGreen,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+
+                    if (enableBirthdayDiscount) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Besar Diskon",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Surface(
+                                color = AmberAccent.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    "${birthdayDiscountPercent.toInt()}%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AmberAccentDark,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Slider(
+                            value = birthdayDiscountPercent,
+                            onValueChange = onChangeBirthdayPercent,
+                            valueRange = 5f..50f,
+                            steps = 8,
+                            colors = SliderDefaults.colors(
+                                thumbColor = AmberAccent,
+                                activeTrackColor = AmberAccent
+                            )
+                        )
+                        Text(
+                            "Berlaku untuk transaksi non-tunai juga. Tetap dibatasi oleh Max Diskon global.",
+                            fontSize = 9.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = onManageClick,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Group,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "KELOLA PELANGGAN",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }
