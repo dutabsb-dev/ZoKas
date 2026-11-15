@@ -280,7 +280,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // LOGIKA KERANJANG & VARIAN (FIX: Fallback ke stok utama jika data lama)
+    // LOGIKA KERANJANG & VARIAN
     // ========================================================================
     fun getPriceForVariant(product: ProductEntity, variation: String): Long {
         if (variation.isBlank() || product.variations.isBlank()) return product.price
@@ -301,10 +301,9 @@ class PosViewModel(
             val pieces = part.split(":")
             if (pieces.size >= 2 && pieces[0].trim().equals(variation, ignoreCase = true)) {
                 if (pieces.size >= 4) {
-                    // Format baru: Nama:HargaJual:HargaBeli:Stok
                     return pieces[3].trim().toIntOrNull() ?: 0
                 } else {
-                    // Format lama (tidak ada stok per varian), gunakan stok utama produk
+                    // Fallback untuk data lama yang belum punya stok per varian
                     return product.stock
                 }
             }
@@ -356,7 +355,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // PROSES PEMBAYARAN
+    // PROSES PEMBAYARAN (FIX TOTAL STOK & VARIAN)
     // ========================================================================
     fun processPayment(
         cashReceived: Long,
@@ -412,11 +411,14 @@ class PosViewModel(
 
                     val freshProduct = productDao.getProductById(cartItem.product.id)
                     if (freshProduct != null) {
+                        // Kurangi stok utama
+                        val newStock = (freshProduct.stock - cartItem.quantity).coerceAtLeast(0)
+                        
                         if (cartItem.selectedVariation.isNotBlank()) {
+                            // Kurangi stok di dalam string varian
                             val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, cartItem.quantity)
-                            productDao.updateProduct(freshProduct.copy(variations = newVariationStr))
+                            productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newStock))
                         } else {
-                            val newStock = (freshProduct.stock - cartItem.quantity).coerceAtLeast(0)
                             productDao.updateProduct(freshProduct.copy(stock = newStock))
                         }
                     }
@@ -439,14 +441,12 @@ class PosViewModel(
         val newParts = parts.map { part ->
             val pieces = part.split(":")
             if (pieces.size >= 2 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
-                if (pieces.size >= 4) {
-                    val currentStock = pieces[3].trim().toIntOrNull() ?: 0
-                    val newStock = (currentStock - deductQty).coerceAtLeast(0)
-                    "${pieces[0]}:${pieces[1]}:${pieces[2]}:$newStock"
-                } else {
-                    // Jika format lama, potong stok utama produk
-                    part 
-                }
+                val price = pieces[1].trim()
+                val cost = pieces.getOrNull(2)?.trim() ?: "0"
+                val currentStock = pieces.getOrNull(3)?.trim()?.toIntOrNull() ?: 0
+                val newStock = (currentStock - deductQty).coerceAtLeast(0)
+                // Selalu simpan dengan format 4 bagian (Nama:HargaJual:HargaBeli:Stok)
+                "${pieces[0]}:$price:$cost:$newStock"
             } else { part }
         }
         return newParts.joinToString(",")
@@ -504,7 +504,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI STOCK OPNAME (DIPERBAIKI NAMA DAO-NYA)
+    // FUNGSI STOCK OPNAME & TRANSFER
     // ========================================================================
     fun processStockOpname(items: List<StockOpnameItemEntity>, currentUser: UserEntity, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {

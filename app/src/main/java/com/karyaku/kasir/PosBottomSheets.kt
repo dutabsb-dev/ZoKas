@@ -53,7 +53,7 @@ data class VariantInput(
 )
 
 // =====================================================================
-// 1. PRODUCT FORM BOTTOM SHEET (VERSI BARU - TANPA KOMA)
+// 1. PRODUCT FORM BOTTOM SHEET
 // =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -418,23 +418,24 @@ fun ProductFormBottomSheet(
 }
 
 // Parser untuk membaca database format "Nama:HargaJual:HargaBeli:Stok"
+// FIX: Mengubah syarat dari >= 3 menjadi >= 2 agar produk lama (yang belum punya harga beli/stok) tidak hilang
 private fun parseVariationString(variations: String): List<VariantInput> {
     if (variations.isBlank()) return emptyList()
     return variations.split(",").mapNotNull { part ->
         val pieces = part.split(":")
-        if (pieces.size >= 3) {
+        if (pieces.size >= 2) {
             VariantInput(
                 name = pieces[0].trim(),
                 price = pieces[1].trim(),
-                costPrice = pieces[2].trim(),
-                stock = if (pieces.size >= 4) pieces[3].trim() else "0"
+                costPrice = pieces.getOrNull(2)?.trim() ?: "0",
+                stock = pieces.getOrNull(3)?.trim() ?: "0"
             )
         } else null
     }
 }
 
 // =====================================================================
-// 2. PAYMENT BOTTOM SHEET (TETAP UTUH SEPERTI ASLINYA)
+// 2. PAYMENT BOTTOM SHEET
 // =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
