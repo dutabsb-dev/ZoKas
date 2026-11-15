@@ -10,7 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke // <-- FIX: Diperbaiki dari androidx.foundation
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,7 +32,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.AuditLogEntity
 import com.karyaku.kasir.data.local.BranchEntity
@@ -101,7 +99,6 @@ fun SettingsScreen(
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
 
     var enableBirthdayDiscount by remember { mutableStateOf(settingsManager.enableBirthdayDiscount) }
-    // FIX: Mengembalikan nama variabel yang benar (birthdayDiscountPercent)
     var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.birthdayDiscountPercent.toFloat()) }
 
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
@@ -371,6 +368,7 @@ fun SettingsScreen(
         }
 
         item {
+            // FUNGSI INI BERADA DI SettingsCards.kt
             SettingsAccountCard(
                 currentUser = currentUser,
                 isBiometricEnabled = isBiometricEnabled,
@@ -593,130 +591,9 @@ fun SettingsScreen(
 }
 
 // ====================================================================
-// SESI 2: KOMPONEN KARTU PENDUKUNG (Dikembalikan penuh)
+// FUNGSI DI BAWAH INI HANYA YANG MEMANG HILANG DARI SettingsCards.kt
+// (SettingsAccountCard TIDAK dimasukkan ke sini karena sudah ada di SettingsCards.kt)
 // ====================================================================
-
-@Composable
-fun SettingsAccountCard(
-    currentUser: UserEntity,
-    isBiometricEnabled: Boolean,
-    onBiometricToggle: (Boolean) -> Unit,
-    onChangePinClick: () -> Unit,
-    onManageStaffClick: () -> Unit,
-    onShiftHistoryClick: () -> Unit,
-    onRegisterBiometricClick: () -> Unit,
-    language: String
-) {
-    var isExpanded by remember { mutableStateOf(false) }
-    val lang = language
-    val context = LocalContext.current
-    val activity = LocalActivity.current as? FragmentActivity
-
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(LanguageManager.tr("manajemen_akun", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(currentUser.name, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                    Text("${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onChangePinClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp, color = Color.White) }
-                        if (currentUser.role == "OWNER") {
-                            Button(onClick = onManageStaffClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp, color = Color.White) }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (currentUser.role == "OWNER") {
-                        Button(
-                            onClick = onRegisterBiometricClick,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = if (currentUser.biometricKey.isNotBlank()) EmeraldGreen else SlateGrey),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(if (currentUser.biometricKey.isNotBlank()) "Biometrik Terdaftar (Ubah)" else "Daftarkan Sidik Jari/Wajah", fontSize = 12.sp, color = Color.White)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
-                        Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
-                    }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Login Sidik Jari (Login Screen)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Aktifkan fitur login cepat di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(
-                            checked = isBiometricEnabled,
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    if (activity == null) {
-                                        Toast.makeText(context, "ERROR: Activity tidak ditemukan.", Toast.LENGTH_LONG).show()
-                                        return@Switch
-                                    }
-                                    val biometricManager = androidx.biometric.BiometricManager.from(context)
-                                    val authStatus = biometricManager.canAuthenticate(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK)
-                                    if (authStatus == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
-                                        val executor = ContextCompat.getMainExecutor(context)
-                                        val biometricPrompt = androidx.biometric.BiometricPrompt(activity, executor,
-                                            object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
-                                                override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
-                                                    super.onAuthenticationSucceeded(result)
-                                                    onBiometricToggle(true)
-                                                    Toast.makeText(context, "Sidik jari berfungsi.", Toast.LENGTH_SHORT).show()
-                                                }
-                                                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                                                    super.onAuthenticationError(errorCode, errString)
-                                                    onBiometricToggle(false)
-                                                    Toast.makeText(context, "Gagal: $errString", Toast.LENGTH_LONG).show()
-                                                }
-                                            })
-                                        val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
-                                            .setTitle("Aktivasi Sidik Jari")
-                                            .setSubtitle("Sentuh sensor untuk mengonfirmasi")
-                                            .setNegativeButtonText("Batal")
-                                            .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK)
-                                            .build()
-                                        biometricPrompt.authenticate(promptInfo)
-                                    } else {
-                                        Toast.makeText(context, "HP belum mendaftarkan sidik jari.", Toast.LENGTH_LONG).show()
-                                        onBiometricToggle(false)
-                                    }
-                                } else {
-                                    onBiometricToggle(false)
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = EmeraldGreen,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun SettingsAuditLogCard(
