@@ -4,12 +4,12 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -71,7 +71,7 @@ fun ReceiptDialog(
     var showPrinterError by remember { mutableStateOf(false) }
     var showShareFallbackDialog by remember { mutableStateOf(false) }
     var textToShare by remember { mutableStateOf("") }
-    var isGeneratingImage by remember { mutableStateOf(false) }
+    var isGeneratingFile by remember { mutableStateOf(false) }
 
     val logoFile = remember(settingsManager.storeLogoPath) {
         val path = settingsManager.storeLogoPath
@@ -95,8 +95,7 @@ fun ReceiptDialog(
     }
 
     val subtotalItems = items.sumOf { it.subtotal }
-    val diskon = subtotalItems + transaction.taxAmount + transaction.serviceCharge - transaction.totalPrice
-
+    
     // Rakit text menggunakan Formatter (Wajib rapi)
     val strukText = ReceiptFormatter.buildReceipt(
         storeName = storeName,
@@ -123,8 +122,8 @@ fun ReceiptDialog(
         AlertDialog(
             onDismissRequest = { showShareFallbackDialog = false },
             icon = { Icon(Icons.Default.Share, contentDescription = null, tint = AmberAccent) },
-            title = { Text("Gagal Membagikan Struk") },
-            text = { Text("Sistem gagal membagikan gambar. Anda dapat menyalin teks struk di bawah ini dan mengirimkannya secara manual via WhatsApp.") },
+            title = { Text("Gagal Membagikan File") },
+            text = { Text("Sistem gagal membagikan PDF. Anda dapat menyalin teks struk di bawah ini dan mengirimkannya secara manual.") },
             confirmButton = {
                 Button(onClick = {
                     try {
@@ -146,40 +145,32 @@ fun ReceiptDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Column {
-                // TOMBOL WHATSAPP (Kirim Gambar + Teks)
+                // TOMBOL WHATSAPP (Kirim File PDF)
                 Button(
                     onClick = {
                         if (!isItemsLoaded) return@Button
                         scope.launch {
-                            isGeneratingImage = true
+                            isGeneratingFile = true
                             textToShare = strukText
                             
-                            val bitmap = withContext(Dispatchers.IO) {
-                                generateReceiptBitmap(strukText)
+                            val pdfFile = withContext(Dispatchers.IO) {
+                                generateReceiptPdf(context, strukText, transaction.id, logoFile)
                             }
                             
-                            isGeneratingImage = false
+                            isGeneratingFile = false
 
-                            if (bitmap != null) {
-                                val imagesDir = File(context.getExternalFilesDir(null), "receipts")
-                                imagesDir.mkdirs()
-                                val file = File(imagesDir, "receipt_${transaction.id}.png")
-                                
+                            if (pdfFile != null) {
                                 try {
-                                    val stream = FileOutputStream(file)
-                                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                                    stream.close()
-
                                     val authority = "${context.packageName}.fileprovider"
-                                    val uri: Uri = FileProvider.getUriForFile(context, authority, file)
+                                    val uri: Uri = FileProvider.getUriForFile(context, authority, pdfFile)
                                     
                                     val shareIntent = Intent().apply {
                                         action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, textToShare)
+                                        putExtra(Intent.EXTRA_TEXT, "Struk Pembayaran #${transaction.id}")
                                         putExtra(Intent.EXTRA_STREAM, uri)
                                         clipData = ClipData.newRawUri("Receipt", uri) 
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        type = "image/png"
+                                        type = "application/pdf"
                                     }
                                     
                                     val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
@@ -192,24 +183,24 @@ fun ReceiptDialog(
                                     showShareFallbackDialog = true
                                 }
                             } else {
-                                Toast.makeText(context, "Gagal membuat gambar struk.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Gagal membuat file PDF.", Toast.LENGTH_SHORT).show()
                                 showShareFallbackDialog = true
                             }
                         }
                     },
-                    enabled = isItemsLoaded && !isGeneratingImage,
+                    enabled = isItemsLoaded && !isGeneratingFile,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    if (isGeneratingImage) {
+                    if (isGeneratingFile) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("MEMPROSES GAMBAR...", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("MEMPROSES PDF...", fontWeight = FontWeight.Bold, color = Color.White)
                     } else {
                         Icon(Icons.Default.Share, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("KIRIM STRUK (WHATSAPP)", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("KIRIM STRUK (PDF)", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
 
@@ -275,7 +266,7 @@ fun ReceiptDialog(
                         Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = SlateGrey)
                     }
                 } else {
-                    // TAMPILAN STRUK (Menggunakan hasil dari ReceiptFormatter yang sudah di-wrap)
+                    // TAMPILAN STRUK (Menggunakan hasil dari ReceiptFormatter)
                     Text(
                         text = strukText,
                         fontFamily = FontFamily.Monospace,
@@ -290,49 +281,83 @@ fun ReceiptDialog(
 }
 
 // =========================================================================
-// FUNGSI PENDUKUNG UNTUK CETAK DAN SHARE
+// FUNGSI PENDUKUNG UNTUK MEMBUAT FILE PDF
 // =========================================================================
+private fun generateReceiptPdf(context: Context, strukText: String, transactionId: Long, logoFile: File?): File? {
+    val document = PdfDocument()
+    val lines = strukText.lines()
+    
+    // Ukuran kertas disesuaikan agar ramping seperti struk (contoh: 300x...)
+    val pageWidth = 350
+    val fontSize = 12f
+    val lineHeight = 16f
+    val padding = 20f
+    val logoHeight = if (logoFile != null && logoFile.exists()) 100f else 0f
+    
+    // Hitung tinggi halaman secara dinamis (tidak akan crash meskipun sangat panjang)
+    val pageHeight = ((lines.size * lineHeight) + (padding * 2) + logoHeight + 50).toInt()
 
-private fun generateReceiptBitmap(strukText: String): Bitmap? {
+    val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+    val page = document.startPage(pageInfo)
+
+    val canvas = page.canvas
+    val paint = Paint().apply {
+        color = AndroidColor.BLACK
+        textSize = fontSize
+        typeface = Typeface.MONOSPACE
+        isAntiAlias = true
+    }
+
+    var currentY = padding
+
+    // Gambar Logo jika ada
+    if (logoFile != null && logoFile.exists()) {
+        try {
+            val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
+            if (bitmap != null) {
+                val scaledLogo = android.graphics.Bitmap.createScaledBitmap(
+                    bitmap, 
+                    (bitmap.width * (80f / bitmap.height)).toInt(), 
+                    80, 
+                    true
+                )
+                val left = (pageWidth - scaledLogo.width) / 2f
+                canvas.drawBitmap(scaledLogo, left, currentY, null)
+                currentY += 90f
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // Tulis teks struk
+    for (line in lines) {
+        canvas.drawText(line, padding, currentY, paint)
+        currentY += lineHeight
+    }
+
+    document.finishPage(page)
+
+    val pdfDir = File(context.getExternalFilesDir(null), "receipts")
+    pdfDir.mkdirs()
+    val pdfFile = File(pdfDir, "Struk_${transactionId}.pdf")
+
     return try {
-        val width = 600
-        val lines = strukText.lines()
-        
-        // Hitung tinggi bitmap secara dinamis berdasarkan jumlah baris
-        // FIX: Mengubah nama variabel dari textSize menjadi fontSize agar tidak bentrok dengan Paint.textSize
-        val fontSize = 24f 
-        val lineHeight = 30f
-        val padding = 50f
-        val estimatedHeight = (lines.size * lineHeight) + (padding * 2) + 200f // 200 untuk logo/jaga-jaga
-        val height = estimatedHeight.toInt().coerceAtLeast(600)
-
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        canvas.drawColor(AndroidColor.WHITE)
-
-        val paint = Paint().apply {
-            color = AndroidColor.BLACK
-            textSize = fontSize // FIX: Menggunakan fontSize yang baru
-            typeface = Typeface.MONOSPACE
-            isAntiAlias = true
-        }
-
-        var y = padding
-        val leftX = padding
-
-        for (line in lines) {
-            canvas.drawText(line, leftX, y, paint)
-            y += lineHeight
-        }
-
-        // Potong sisa ruang kosong di bawah
-        Bitmap.createBitmap(bitmap, 0, 0, width, y.toInt() + 50)
+        val stream = FileOutputStream(pdfFile)
+        document.writeTo(stream)
+        stream.close()
+        document.close()
+        pdfFile
     } catch (e: Exception) {
         e.printStackTrace()
+        document.close()
         null
     }
 }
 
+// =========================================================================
+// FUNGSI PENDUKUNG UNTUK CETAK BLUETOOTH
+// =========================================================================
 private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
@@ -346,7 +371,7 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
                 val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
                 val newWidth = maxWidth
                 val newHeight = (newWidth / ratio).toInt()
-                val resizedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+                val resizedBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
 
                 output.write(EscPosCommands.ALIGN_CENTER)
                 output.write(EscPosCommands.printImage(resizedBitmap))
@@ -358,7 +383,6 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     }
 
     // Cetak Teks Struk (Teks ini sudah di-wrap oleh ReceiptFormatter)
-    // Gunakan ALIGN_LEFT karena format jarak (padding) sudah diatur di dalam teks.
     output.write(EscPosCommands.ALIGN_LEFT)
     output.write(strukText.toByteArray(charset("GBK"))) 
     
