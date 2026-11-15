@@ -280,7 +280,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // CRUD PRODUK (FIX: FUNGSI INI SEBELUMNYA KOSONG)
+    // CRUD PRODUK
     // ========================================================================
     fun addProduct(
         name: String, price: Long, stock: Int, category: String, costPrice: Long,
@@ -567,7 +567,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI STOCK OPNAME (FIX BUG 2: SINKRONISASI STOK VARIAN)
+    // FUNGSI STOCK OPNAME
     // ========================================================================
     fun processStockOpname(items: List<StockOpnameItemEntity>, currentUser: UserEntity, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -763,7 +763,7 @@ class PosViewModel(
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
-            @UNCHECKED_CAST
+            @Suppress("UNCHECKED_CAST")
             return PosViewModel(database) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
