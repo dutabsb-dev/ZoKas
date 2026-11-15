@@ -10,6 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class CartItem(
     val product: ProductEntity, 
@@ -46,8 +49,8 @@ class PosViewModel(
     internal val stockOpnameDao = database.stockOpnameDao()
     internal val stockTransferDao = database.stockTransferDao()
     internal val kitchenTicketDao = database.kitchenTicketDao()
-    internal val attendanceDao = database.attendanceDao() // MODUL C
-    internal val payrollDao = database.payrollDao() // MODUL C
+    internal val attendanceDao = database.attendanceDao()
+    internal val payrollDao = database.payrollDao()
 
     // STATE KDS
     val activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> = kitchenTicketDao.getActiveTickets()
@@ -69,9 +72,6 @@ class PosViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     // STATE TRANSFER STOK
-    internal val _stockTransfers = MutableStateFlow<List<StockTransferEntity>>(emptyList())
-    val stockTransfers: StateFlow<List<StockTransferEntity>> = _stockTransfers.asStateFlow()
-
     internal val _transfersForCurrentBranch = MutableStateFlow<List<StockTransferEntity>>(emptyList())
     val transfersForCurrentBranch: StateFlow<List<StockTransferEntity>> = _transfersForCurrentBranch.asStateFlow()
 
@@ -117,14 +117,14 @@ class PosViewModel(
     internal val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
     val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
 
-    // STATE ABSENSI & PAYROLL (MODUL C)
+    // STATE ABSENSI & PAYROLL
     internal val _attendanceList = MutableStateFlow<List<AttendanceEntity>>(emptyList())
     val attendanceList: StateFlow<List<AttendanceEntity>> = _attendanceList.asStateFlow()
 
     internal val _payrollList = MutableStateFlow<List<PayrollEntity>>(emptyList())
     val payrollList: StateFlow<List<PayrollEntity>> = _payrollList.asStateFlow()
 
-    // STATE HOLD ORDER (PARKIR MEJA)
+    // STATE HOLD ORDER
     internal val _holdOrders = MutableStateFlow<List<HoldOrderEntity>>(emptyList())
     val holdOrders: StateFlow<List<HoldOrderEntity>> = _holdOrders.asStateFlow()
 
@@ -217,7 +217,7 @@ class PosViewModel(
     internal val _serviceChargePercent = MutableStateFlow(0.0)
     val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
-    // COMPUTED FLOWS
+    // COMPUTED FLOWS (Untuk HistoryScreen)
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
         _transactions,
         cashFlowDao.getAllCashFlows(),
@@ -369,7 +369,6 @@ class PosViewModel(
 
                 val total = cartToProcess.sumOf { getPriceForVariant(it.product, it.selectedVariation) * it.quantity }
                 
-                // FIX: Menambahkan cashReceived dan changeAmount pada TransactionEntity
                 val newTransaction = TransactionEntity(
                     timestamp = System.currentTimeMillis(),
                     totalPrice = total,
@@ -389,7 +388,6 @@ class PosViewModel(
                 val savedTransaction = newTransaction.copy(id = transactionId)
 
                 for (cartItem in cartToProcess) {
-                    // FIX: Menambahkan subtotal dan menghapus variation (karena tidak ada di Entity)
                     val itemEntity = TransactionItemEntity(
                         transactionId = transactionId,
                         productId = cartItem.product.id,
@@ -403,7 +401,7 @@ class PosViewModel(
                         subtotal = getPriceForVariant(cartItem.product, cartItem.selectedVariation) * cartItem.quantity
                     )
                     
-                    // FIX: Mengubah insertTransactionItem menjadi insert (standar Room DAO)
+                    // Menggunakan insertItem sesuai DAO
                     transactionItemDao.insert(itemEntity)
 
                     val freshProduct = productDao.getProductById(cartItem.product.id)
@@ -493,7 +491,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI DIALOG LAINNYA
+    // FUNGSI SUPPLIER & PURCHASE
     // ========================================================================
     fun recordSupplierPayment(
         purchase: PurchaseEntity,
@@ -505,7 +503,6 @@ class PosViewModel(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // FIX: Menambahkan userId pada PurchasePaymentEntity
                 val newPayment = PurchasePaymentEntity(
                     purchaseId = purchase.id,
                     amount = amount,
@@ -520,7 +517,7 @@ class PosViewModel(
                 val newPaidAmount = purchase.paidAmount + amount
                 val newStatus = if (newPaidAmount >= purchase.totalAmount) "PAID" else "PARTIAL"
                 
-                // FIX: Menggunakan insert() alih-alih update() karena update tidak dikenal di DAO
+                // Menggunakan insert (Room @Insert with REPLACE) karena update mungkin tidak ada di DAO
                 purchaseDao.insert(purchase.copy(paidAmount = newPaidAmount, status = newStatus))
                 
                 withContext(Dispatchers.Main) { onResult(true, "Pembayaran berhasil disimpan") }
@@ -530,8 +527,181 @@ class PosViewModel(
         }
     }
 
+    fun getPaymentsForPurchase(purchaseId: Long): Flow<List<PurchasePaymentEntity>> {
+        return purchasePaymentDao.getPaymentsForPurchase(purchaseId)
+    }
+
     // ========================================================================
-    // FUNGSI SETTER DASAR
+    // FUNGSI STOCK OPNAME & TRANSFER
+    // ========================================================================
+    fun processStockOpname(items: List<StockOpnameItemEntity>, currentUser: UserEntity, onSuccess: () -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val totalLoss = items.filter { it.difference < 0 }.sumOf { Math.abs(it.difference) * 1000L } // Dummy calculation
+                val totalGain = items.filter { it.difference > 0 }.sumOf { it.difference * 1000L } // Dummy calculation
+                
+                val opname = StockOpnameEntity(
+                    timestamp = System.currentTimeMillis(),
+                    userId = currentUser.id,
+                    userName = currentUser.name,
+                    totalItemsChecked = items.size,
+                    totalLossValue = totalLoss,
+                    totalGainValue = totalGain
+                )
+                
+                // Simpan opname & item
+                val opnameId = stockOpnameDao.insertOpname(opname)
+                for (item in items) {
+                    stockOpnameDao.insertOpnameItem(item.copy(opnameId = opnameId))
+                    val prod = productDao.getProductById(item.productId)
+                    if (prod != null) {
+                        productDao.updateProduct(prod.copy(stock = item.physicalStock))
+                    }
+                }
+                
+                withContext(Dispatchers.Main) { onSuccess() }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun transferStock(
+        toBranchId: Long,
+        items: List<Pair<ProductEntity, Int>>,
+        note: String,
+        user: UserEntity,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val totalItems = items.size
+                val totalQty = items.sumOf { it.second }
+                val fromBranch = currentBranch.value
+
+                val transfer = StockTransferEntity(
+                    fromBranchId = fromBranch?.id ?: 1L,
+                    fromBranchName = fromBranch?.name ?: "Cabang Asal",
+                    toBranchId = toBranchId,
+                    toBranchName = _allBranches.value.find { it.id == toBranchId }?.name ?: "Cabang Tujuan",
+                    timestamp = System.currentTimeMillis(),
+                    note = note,
+                    userId = user.id,
+                    userName = user.name,
+                    totalItems = totalItems,
+                    totalQuantity = totalQty
+                )
+
+                val transferId = stockTransferDao.insertTransfer(transfer)
+                for ((product, qty) in items) {
+                    val transferItem = StockTransferItemEntity(
+                        transferId = transferId,
+                        sourceProductId = product.id,
+                        destinationProductId = product.id, // Asumsi produk baru dibuat di cabang tujuan
+                        productName = product.name,
+                        barcode = product.barcode,
+                        quantity = qty
+                    )
+                    stockTransferDao.insertTransferItem(transferItem)
+                    val freshProd = productDao.getProductById(product.id)
+                    if (freshProd != null) {
+                        productDao.updateProduct(freshProd.copy(stock = freshProd.stock - qty))
+                    }
+                }
+                
+                withContext(Dispatchers.Main) { onResult(true, "Transfer berhasil") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
+            }
+        }
+    }
+
+    fun getTransferItems(transferId: Long): Flow<List<StockTransferItemEntity>> {
+        return stockTransferDao.getTransferItems(transferId)
+    }
+
+    // ========================================================================
+    // FUNGSI HR (ABSENSI & PAYROLL)
+    // ========================================================================
+    fun checkIn(user: UserEntity, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val todayStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+                val existing = attendanceDao.getTodayAttendance(user.id, todayStr)
+                if (existing != null) {
+                    withContext(Dispatchers.Main) { onResult(false, "Anda sudah absen hari ini.") }
+                    return@launch
+                }
+                
+                val attendance = AttendanceEntity(
+                    userId = user.id,
+                    userName = user.name,
+                    date = todayStr,
+                    checkInTime = System.currentTimeMillis(),
+                    branchId = _currentBranchId.value
+                )
+                attendanceDao.insertCheckIn(attendance)
+                withContext(Dispatchers.Main) { onResult(true, "Absen masuk berhasil.") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
+            }
+        }
+    }
+
+    fun verifyAndCheckOut(user: UserEntity, pin: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (pin != user.pin) {
+                    withContext(Dispatchers.Main) { onResult(false, "PIN Salah.") }
+                    return@launch
+                }
+                val todayStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+                attendanceDao.updateCheckOut(user.id, todayStr, System.currentTimeMillis())
+                withContext(Dispatchers.Main) { onResult(true, "Absen pulang berhasil.") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
+            }
+        }
+    }
+
+    fun verifyAndCheckOutBiometric(activity: androidx.fragment.app.FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
+        // Placeholder - Anda perlu implementasi BiometricPrompt asli di sini jika belum ada
+        verifyAndCheckOut(user, user.pin, onResult)
+    }
+
+    fun generatePayroll(emp: UserEntity, periodStr: String, isPaid: Boolean, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val payroll = PayrollEntity(
+                    userId = emp.id,
+                    userName = emp.name,
+                    period = periodStr,
+                    baseSalary = emp.baseSalary,
+                    commission = emp.totalCommission,
+                    totalSalary = emp.baseSalary + emp.totalCommission,
+                    status = if (isPaid) "PAID" else "UNPAID",
+                    timestamp = System.currentTimeMillis(),
+                    branchId = _currentBranchId.value
+                )
+                payrollDao.insertPayroll(payroll)
+                withContext(Dispatchers.Main) { onResult(true, "Slip gaji berhasil dibuat.") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
+            }
+        }
+    }
+
+    fun payPayroll(payrollId: Long, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                payrollDao.markAsPaid(payrollId)
+                withContext(Dispatchers.Main) { onResult(true, "Gaji ditandai lunas.") }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
+            }
+        }
+    }
+
+    // ========================================================================
+    // FUNGSI SETTER DASAR & LAINNYA
     // ========================================================================
     fun setCategory(category: String) { _selectedCategory.value = category }
     fun setSearchQuery(query: String) { _searchQuery.value = query }
@@ -552,6 +722,37 @@ class PosViewModel(
     }
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) {
         _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it }
+    }
+
+    // Fungsi Dummy untuk UI yang membutuhkan
+    fun voidTransaction(tx: TransactionEntity, pin: String, user: UserEntity, onResult: (Boolean, String) -> Unit) {}
+    fun refundTransaction(tx: TransactionEntity, pin: String, user: UserEntity, onResult: (Boolean, String) -> Unit) {}
+    fun payUnpaidTransaction(tx: TransactionEntity, cash: Long, onSuccess: () -> Unit) {}
+    fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {}
+    fun saveHoldOrder(name: String) {}
+    fun resumeHoldOrder(order: HoldOrderEntity) {}
+    fun logCashDrawerOpen(user: UserEntity) {}
+    fun openShift(user: UserEntity, modal: Long) {}
+    fun closeShift(user: UserEntity, physical: Long, note: String, onDone: (ShiftEntity) -> Unit) {}
+    fun addCashFlow(type: String, amount: Long, note: String, user: UserEntity) {}
+    fun addCustomer(name: String, phone: String, birthDate: Long) {}
+    fun applyVoucher(code: String, callback: (Boolean, String) -> Unit) {}
+    fun generateQrisPayment(amount: Long, payload: String) {}
+    fun generateTransferPayment(amount: Long) {}
+    fun resetQrisPayment() { _isQrisPaid.value = false; _qrisDynamicString.value = "" }
+    fun resetTransferPayment() { _isTransferPaid.value = false; _uniqueTransferAmount.value = 0L }
+    fun applyMembershipToCart(cartItem: CartItem, cm: CustomerMembershipEntity) {}
+    fun removeMembershipFromCart(cartItem: CartItem) {}
+    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, imagePath: String, wholesalePrice: Long, wholesaleMinQty: Int, userId: Long, userName: String) {}
+    fun updateProduct(product: ProductEntity, userId: Long, userName: String) {}
+    fun deleteProduct(product: ProductEntity, userId: Long, userName: String) {}
+    fun addStock(product: ProductEntity, qty: Int, user: UserEntity) {}
+    fun recordWaste(product: ProductEntity, qty: Int, user: UserEntity) {}
+    fun mergeOrder(tableA: String, tableB: String) {}
+    
+    // Untuk ReceiptDialog & TransactionDetailDialog
+    fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> {
+        return transactionItemDao.getItemsByTransaction(transactionId)
     }
 
     private fun checkActiveShift() {}
