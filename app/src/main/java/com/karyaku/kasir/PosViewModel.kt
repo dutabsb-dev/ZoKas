@@ -380,7 +380,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI CETAK STRUK (DIPERBAIKI DARI ERROR COMPILE)
+    // FUNGSI CETAK STRUK
     // ========================================================================
     fun printReceipt(context: Context, transaction: TransactionEntity, settingsManager: SettingsManager) {
         val macAddress = settingsManager.printerMacAddress
@@ -389,7 +389,6 @@ class PosViewModel(
             return
         }
 
-        // 1. Format data keranjang ke dalam ReceiptItem
         val receiptItems = _cart.value.map { cartItem ->
             ReceiptItem(
                 name = cartItem.product.name,
@@ -399,8 +398,6 @@ class PosViewModel(
             )
         }
 
-        // 2. Buat teks struk menggunakan ReceiptFormatter
-        // FIX: transaction.subtotal & cashPaid tidak ada, diganti totalPrice. Lalu di-cast ke Double.
         val strukText = ReceiptFormatter.buildReceipt(
             storeName = settingsManager.storeName ?: "ZoKas",
             storeAddress = settingsManager.storeAddress ?: "",
@@ -418,11 +415,9 @@ class PosViewModel(
             change = 0.0
         )
 
-        // 3. Kirim ke Bluetooth Printer
         viewModelScope.launch(Dispatchers.IO) {
             val printerManager = BluetoothPrinterManager(context)
             
-            // Gabungkan perintah ESC/POS (Init + Teks + Cut)
             val outputStream = java.io.ByteArrayOutputStream()
             outputStream.write(EscPosCommands.INIT)
             outputStream.write(strukText.toByteArray(charset("GBK")))
