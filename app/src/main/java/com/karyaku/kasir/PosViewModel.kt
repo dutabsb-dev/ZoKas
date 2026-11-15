@@ -1,5 +1,7 @@
 package com.karyaku.kasir
 
+import android.content.Context
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -375,6 +377,72 @@ class PosViewModel(
                 }
             }
         }
+    }
+
+    // ========================================================================
+    // FUNGSI BARU UNTUK MENCEGAH STRUK BERTUMPUK
+    // Tambahkan fungsi ini di dalam class PosViewModel
+    // ========================================================================
+    fun printReceipt(context: Context, transaction: TransactionEntity, settingsManager: SettingsManager) {
+        val macAddress = settingsManager.printerMacAddress
+        if (macAddress.isNullOrBlank()) {
+            Toast.makeText(context, "Printer belum diatur di Pengaturan", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 1. Format data keranjang ke dalam ReceiptItem
+        val receiptItems = _cart.value.map { cartItem ->
+            ReceiptItem(
+                name = cartItem.product.name,
+                qty = cartItem.quantity,
+                price = cartItem.product.price,
+                variation = cartItem.selectedVariation + (if (cartItem.notes.isNotBlank()) " | ${cartItem.notes}" else "")
+            )
+        }
+
+        // 2. Buat teks struk menggunakan ReceiptFormatter
+        val strukText = ReceiptFormatter.buildReceipt(
+            storeName = settingsManager.storeName ?: "ZoKas",
+            storeAddress = settingsManager.storeAddress ?: "",
+            storePhone = settingsManager.storePhone ?: "",
+            storeFooter = settingsManager.storeFooter ?: "Terima kasih!",
+            transactionId = transaction.id,
+            dateStr = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date(transaction.timestamp)),
+            orderType = transaction.orderType ?: "Dine-In",
+            cashierName = transaction.cashierName ?: "Kasir",
+            customerName = transaction.customerName ?: "Pelanggan Umum",
+            items = receiptItems,
+            subtotal = transaction.subtotal,
+            total = transaction.totalPrice,
+            payment = transaction.cashPaid,
+            change = transaction.changeAmount
+        )
+
+        // 3. Kirim ke Bluetooth Printer
+        viewModelScope.launch(Dispatchers.IO) {
+            val printerManager = BluetoothPrinterManager(context)
+            
+            // Gabungkan perintah ESC/POS (Init + Teks + Cut)
+            val outputStream = java.io.ByteArrayOutputStream()
+            outputStream.write(EscPosCommands.INIT)
+            outputStream.write(strukText.toByteArray(charset("GBK")))
+            outputStream.write(EscPosCommands.FEED_3)
+            outputStream.write(EscPosCommands.CUT_PAPER)
+
+            val success = printerManager.printData(macAddress, outputStream.toByteArray())
+            
+            withContext(Dispatchers.Main) {
+                if (success) {
+                    Toast.makeText(context, "Struk berhasil dicetak!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Gagal mencetak struk.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun checkActiveShift() {
+        // Kode asli Anda jika ada
     }
 }
 
