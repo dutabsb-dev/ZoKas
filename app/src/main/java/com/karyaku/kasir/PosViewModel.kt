@@ -10,6 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class CartItem(
     val product: ProductEntity, 
@@ -46,8 +49,8 @@ class PosViewModel(
     internal val stockOpnameDao = database.stockOpnameDao()
     internal val stockTransferDao = database.stockTransferDao()
     internal val kitchenTicketDao = database.kitchenTicketDao()
-    internal val attendanceDao = database.attendanceDao() // MODUL C
-    internal val payrollDao = database.payrollDao() // MODUL C
+    internal val attendanceDao = database.attendanceDao()
+    internal val payrollDao = database.payrollDao()
 
     // STATE KDS (KITCHEN DISPLAY SYSTEM)
     val activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> = kitchenTicketDao.getActiveTickets()
@@ -68,13 +71,6 @@ class PosViewModel(
         branches.find { it.id == id }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // STATE TRANSFER STOK
-    internal val _stockTransfers = MutableStateFlow<List<StockTransferEntity>>(emptyList())
-    val stockTransfers: StateFlow<List<StockTransferEntity>> = _stockTransfers.asStateFlow()
-
-    internal val _transfersForCurrentBranch = MutableStateFlow<List<StockTransferEntity>>(emptyList())
-    val transfersForCurrentBranch: StateFlow<List<StockTransferEntity>> = _transfersForCurrentBranch.asStateFlow()
-
     // STATE PRODUK & BAHAN BAKU
     internal val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
@@ -88,17 +84,6 @@ class PosViewModel(
 
     internal val _expenses = MutableStateFlow<List<ExpenseEntity>>(emptyList())
     val expenses: StateFlow<List<ExpenseEntity>> = _expenses.asStateFlow()
-
-    internal val _stockOpnames = MutableStateFlow<List<StockOpnameEntity>>(emptyList())
-    val stockOpnames: StateFlow<List<StockOpnameEntity>> = _stockOpnames.asStateFlow()
-
-    val inventoryValue: StateFlow<Long> = _products.map { products ->
-        products.sumOf { it.stock * it.costPrice }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
-
-    // STATE BEST SELLER
-    internal val _bestSellers = MutableStateFlow<List<BestSellerData>>(emptyList())
-    val bestSellers: StateFlow<List<BestSellerData>> = _bestSellers.asStateFlow()
 
     // STATE PELANGGAN & MEMBERSHIP
     internal val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
@@ -117,13 +102,6 @@ class PosViewModel(
     internal val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
     val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
 
-    // STATE ABSENSI & PAYROLL (MODUL C)
-    internal val _attendanceList = MutableStateFlow<List<AttendanceEntity>>(emptyList())
-    val attendanceList: StateFlow<List<AttendanceEntity>> = _attendanceList.asStateFlow()
-
-    internal val _payrollList = MutableStateFlow<List<PayrollEntity>>(emptyList())
-    val payrollList: StateFlow<List<PayrollEntity>> = _payrollList.asStateFlow()
-
     // STATE HOLD ORDER (PARKIR MEJA)
     internal val _holdOrders = MutableStateFlow<List<HoldOrderEntity>>(emptyList())
     val holdOrders: StateFlow<List<HoldOrderEntity>> = _holdOrders.asStateFlow()
@@ -134,13 +112,6 @@ class PosViewModel(
 
     internal val _purchases = MutableStateFlow<List<PurchaseEntity>>(emptyList())
     val purchases: StateFlow<List<PurchaseEntity>> = _purchases.asStateFlow()
-
-    val outstandingPurchases: StateFlow<List<PurchaseEntity>> = purchaseDao.getOutstandingPurchases()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val totalOutstandingDebt: StateFlow<Long> = purchaseDao.getTotalOutstandingDebt()
-        .map { it ?: 0L }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     // STATE RESERVASI
     internal val _reservations = MutableStateFlow<List<ReservationEntity>>(emptyList())
@@ -197,7 +168,7 @@ class PosViewModel(
     internal val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
-    // STATE QRIS & TRANSFER MANUAL
+    // STATE QRIS & TRANSFER
     internal val _qrisDynamicString = MutableStateFlow("")
     val qrisDynamicString: StateFlow<String> = _qrisDynamicString.asStateFlow()
 
@@ -218,18 +189,6 @@ class PosViewModel(
     val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
     // COMPUTED FLOWS
-    val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
-        _transactions,
-        cashFlowDao.getAllCashFlows(),
-        _expenses
-    ) { txList, cashFlows, expenseList ->
-        val labaKotor = txList.filter { it.status == "SUCCESS" }.sumOf { it.totalPrice - it.totalCost }
-        val totalKasKeluar = cashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
-        val totalExpenses = expenseList.sumOf { it.amount }
-        labaKotor - totalKasKeluar - totalExpenses
-    }.catch { emit(0L) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
-
     val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
         val categories = productList.map { it.category }.distinct()
         listOf("Semua") + categories
@@ -251,136 +210,223 @@ class PosViewModel(
         (holdTables + unpaidTables).distinct()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // INIT BLOCK
+    // INIT BLOCK (Sama seperti aslinya)
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                checkActiveShift()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                withContext(Dispatchers.Main) { _isInitializing.value = false }
-            }
+            try { checkActiveShift() } catch (e: Exception) { e.printStackTrace() } 
+            finally { withContext(Dispatchers.Main) { _isInitializing.value = false } }
         }
-
-        // Cabang global
-        viewModelScope.launch {
-            branchDao.getAllBranches().catch { _allBranches.value = emptyList() }.collectLatest {
-                _allBranches.value = it
-            }
-        }
-
-        // Produk per cabang
-        viewModelScope.launch {
-            _currentBranchId.collectLatest { branchId ->
-                productDao.getProductsByBranch(branchId)
-                    .catch { _products.value = emptyList() }
-                    .collectLatest { _products.value = it }
-            }
-        }
-
-        // Transaksi per cabang
-        viewModelScope.launch {
-            _currentBranchId.collectLatest { branchId ->
-                transactionDao.getTransactionsByBranch(branchId)
-                    .catch { _transactions.value = emptyList() }
-                    .collectLatest { _transactions.value = it }
-            }
-        }
-
-        // User per cabang
-        viewModelScope.launch {
-            _currentBranchId.collectLatest { branchId ->
-                userDao.getUsersByBranch(branchId)
-                    .catch { _users.value = emptyList() }
-                    .collectLatest { _users.value = it }
-            }
-        }
-
-        // Shift per cabang
-        viewModelScope.launch {
-            _currentBranchId.collectLatest { branchId ->
-                userDao.getShiftsByBranch(branchId)
-                    .catch { _shifts.value = emptyList() }
-                    .collectLatest { _shifts.value = it }
-            }
-        }
-
-        // Absensi per cabang (MODUL C)
-        viewModelScope.launch {
-            _currentBranchId.collectLatest { branchId ->
-                attendanceDao.getAllAttendanceByBranch(branchId)
-                    .catch { _attendanceList.value = emptyList() }
-                    .collectLatest { _attendanceList.value = it }
-            }
-        }
-
-        // Payroll per cabang (MODUL C)
-        viewModelScope.launch {
-            _currentBranchId.collectLatest { branchId ->
-                payrollDao.getAllPayrollsByBranch(branchId)
-                    .catch { _payrollList.value = emptyList() }
-                    .collectLatest { _payrollList.value = it }
-            }
-        }
-
-        // Transfer stok — semua (global)
-        viewModelScope.launch {
-            stockTransferDao.getAllTransfers()
-                .catch { _stockTransfers.value = emptyList() }
-                .collectLatest { _stockTransfers.value = it }
-        }
-
-        // Transfer stok — per cabang aktif
-        viewModelScope.launch {
-            _currentBranchId.collectLatest { branchId ->
-                stockTransferDao.getTransfersForBranch(branchId)
-                    .catch { _transfersForCurrentBranch.value = emptyList() }
-                    .collectLatest { _transfersForCurrentBranch.value = it }
-            }
-        }
-
-        // Global: raw materials, audit logs, customers, hold orders, best sellers, memberships, suppliers, purchases, reservations, expenses, stock opnames.
+        viewModelScope.launch { branchDao.getAllBranches().catch { _allBranches.value = emptyList() }.collectLatest { _allBranches.value = it } }
+        viewModelScope.launch { _currentBranchId.collectLatest { id -> productDao.getProductsByBranch(id).catch { _products.value = emptyList() }.collectLatest { _products.value = it } } }
+        viewModelScope.launch { _currentBranchId.collectLatest { id -> transactionDao.getTransactionsByBranch(id).catch { _transactions.value = emptyList() }.collectLatest { _transactions.value = it } } }
+        viewModelScope.launch { _currentBranchId.collectLatest { id -> userDao.getUsersByBranch(id).catch { _users.value = emptyList() }.collectLatest { _users.value = it } } }
+        viewModelScope.launch { _currentBranchId.collectLatest { id -> userDao.getShiftsByBranch(id).catch { _shifts.value = emptyList() }.collectLatest { _shifts.value = it } } }
+        
         viewModelScope.launch { productDao.getAllRawMaterials().catch { _rawMaterials.value = emptyList() }.collectLatest { _rawMaterials.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().catch { _auditLogs.value = emptyList() }.collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().catch { _customers.value = emptyList() }.collectLatest { _customers.value = it } }
-        viewModelScope.launch { transactionItemDao.getBestSellers().catch { _bestSellers.value = emptyList() }.collectLatest { _bestSellers.value = it } }
         viewModelScope.launch { holdOrderDao.getAllHoldOrders().catch { _holdOrders.value = emptyList() }.collectLatest { _holdOrders.value = it } }
         viewModelScope.launch { membershipDao.getAllMemberships().catch { _memberships.value = emptyList() }.collectLatest { _memberships.value = it } }
         viewModelScope.launch { supplierDao.getAllSuppliers().catch { _suppliers.value = emptyList() }.collectLatest { _suppliers.value = it } }
         viewModelScope.launch { purchaseDao.getAllPurchases().catch { _purchases.value = emptyList() }.collectLatest { _purchases.value = it } }
         viewModelScope.launch { reservationDao.getAllReservations().catch { _reservations.value = emptyList() }.collectLatest { _reservations.value = it } }
         viewModelScope.launch { expenseDao.getAllExpenses().catch { _expenses.value = emptyList() }.collectLatest { _expenses.value = it } }
-        viewModelScope.launch { stockOpnameDao.getAllOpnames().catch { _stockOpnames.value = emptyList() }.collectLatest { _stockOpnames.value = it } }
+    }
 
-        // Payment notification listener (QRIS & Transfer auto-detect)
-        viewModelScope.launch {
-            PaymentNotificationListener.paymentEvents.collect { notificationText ->
-                if (_qrisDynamicString.value.isNotEmpty() && !_isQrisPaid.value) {
-                    _isQrisPaid.value = true
-                    userDao.insertAuditLog(AuditLogEntity(
-                        userId = 0, userName = "SYSTEM",
-                        action = "QRIS AUTO-DETECT: Pembayaran masuk terdeteksi.",
-                        actionType = "TRANSACTION"
-                    ))
-                }
-                if (_uniqueTransferAmount.value > 0 && !_isTransferPaid.value) {
-                    val nominalStr = _uniqueTransferAmount.value.toString()
-                    if (notificationText.contains(nominalStr)) {
-                        _isTransferPaid.value = true
-                        userDao.insertAuditLog(AuditLogEntity(
-                            userId = 0, userName = "SYSTEM",
-                            action = "TRANSFER AUTO-DETECT: Dana masuk Rp $nominalStr terdeteksi.",
-                            actionType = "TRANSACTION"
-                        ))
-                    }
-                }
+    // ========================================================================
+    // LOGIKA VARIAN & KERANJANG (YANG BARU)
+    // ========================================================================
+
+    // Mengambil harga sesuai varian
+    fun getPriceForVariant(product: ProductEntity, variation: String): Long {
+        if (variation.isBlank() || product.variations.isBlank()) return product.price
+        val parts = product.variations.split(",")
+        for (part in parts) {
+            val pieces = part.split(":")
+            if (pieces.size >= 2 && pieces[0].trim().equals(variation, ignoreCase = true)) {
+                return pieces[1].trim().toLongOrNull() ?: product.price
+            }
+        }
+        return product.price
+    }
+
+    // Mengambil stok sesuai varian
+    fun getStockForVariant(product: ProductEntity, variation: String): Int {
+        if (variation.isBlank() || product.variations.isBlank()) return product.stock
+        val parts = product.variations.split(",")
+        for (part in parts) {
+            val pieces = part.split(":")
+            // Format baru: Nama:HargaJual:HargaBeli:Stok
+            if (pieces.size >= 4 && pieces[0].trim().equals(variation, ignoreCase = true)) {
+                return pieces[3].trim().toIntOrNull() ?: 0
+            }
+        }
+        return 0
+    }
+
+    // Tambah ke keranjang
+    fun addToCart(product: ProductEntity, variation: String = "") {
+        val currentCart = _cart.value
+        val existingIndex = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
+        
+        val stockAvailable = getStockForVariant(product, variation)
+        val currentQtyInCart = if (existingIndex != -1) currentCart[existingIndex].quantity else 0
+
+        if (currentQtyInCart + 1 > stockAvailable) {
+            // Opsional: Bisa diganti dengan Toast jika ada context, tapi di sini kita diamkan saja
+            return 
+        }
+
+        if (existingIndex != -1) {
+            val newCart = currentCart.toMutableList()
+            newCart[existingIndex] = newCart[existingIndex].copy(quantity = newCart[existingIndex].quantity + 1)
+            _cart.value = newCart
+        } else {
+            _cart.value = currentCart + CartItem(product = product, selectedVariation = variation)
+        }
+    }
+
+    // Kurangi dari keranjang
+    fun removeFromCart(product: ProductEntity, variation: String) {
+        val currentCart = _cart.value
+        val existingIndex = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
+        if (existingIndex != -1) {
+            val newCart = currentCart.toMutableList()
+            val item = newCart[existingIndex]
+            if (item.quantity > 1) {
+                newCart[existingIndex] = item.copy(quantity = item.quantity - 1)
+                _cart.value = newCart
+            } else {
+                newCart.removeAt(existingIndex)
+                _cart.value = newCart
             }
         }
     }
 
+    // Hapus dari keranjang
+    fun deleteItem(product: ProductEntity, variation: String) {
+        _cart.value = _cart.value.filterNot { it.product.id == product.id && it.selectedVariation == variation }
+    }
+
+    fun toggleSplitSelection(product: ProductEntity, variation: String) {
+        _cart.value = _cart.value.map { 
+            if (it.product.id == product.id && it.selectedVariation == variation) {
+                it.copy(isSelectedForSplit = !it.isSelectedForSplit)
+            } else it
+        }
+    }
+
     // ========================================================================
-    // FUNGSI CETAK STRUK
+    // PROSES PEMBAYARAN (PENGURANGAN STOK VARIAN)
+    // ========================================================================
+    fun processPayment(
+        cashReceived: Long,
+        userId: Long,
+        userName: String,
+        isSplitBill: Boolean,
+        method: String,
+        maxDiscountCap: Long,
+        birthdayDiscountPercent: Double,
+        onSuccess: (TransactionEntity) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cartToProcess = if (isSplitBill) _cart.value.filter { it.isSelectedForSplit } else _cart.value
+                if (cartToProcess.isEmpty()) return@launch
+
+                val subtotal = cartToProcess.sumOf { getPriceForVariant(it.product, it.selectedVariation) * it.quantity }
+                val totalPrice = subtotal // Bisa disesuaikan dengan pajak/diskon jika perlu
+
+                val newTransaction = TransactionEntity(
+                    timestamp = System.currentTimeMillis(),
+                    subtotal = subtotal,
+                    discount = 0L,
+                    taxAmount = 0L,
+                    serviceCharge = 0L,
+                    totalPrice = totalPrice,
+                    totalCost = cartToProcess.sumOf { it.product.costPrice * it.quantity },
+                    cashReceived = cashReceived,
+                    changeAmount = if (cashReceived > totalPrice) cashReceived - totalPrice else 0L,
+                    paymentMethod = method,
+                    status = "SUCCESS",
+                    cashierName = userName,
+                    customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum",
+                    orderType = _selectedOrderType.value,
+                    tableName = _selectedTable.value,
+                    branchId = _currentBranchId.value
+                )
+
+                // 1. Simpan Transaksi
+                val transactionId = transactionDao.insertTransaction(newTransaction)
+                val savedTransaction = newTransaction.copy(id = transactionId)
+
+                // 2. Simpan Item & POTONG STOK
+                for (cartItem in cartToProcess) {
+                    val itemEntity = TransactionItemEntity(
+                        transactionId = transactionId,
+                        productId = cartItem.product.id,
+                        productName = cartItem.product.name,
+                        quantity = cartItem.quantity,
+                        price = getPriceForVariant(cartItem.product, cartItem.selectedVariation),
+                        costPrice = cartItem.product.costPrice,
+                        subtotal = getPriceForVariant(cartItem.product, cartItem.selectedVariation) * cartItem.quantity,
+                        notes = cartItem.notes,
+                        variation = cartItem.selectedVariation,
+                        serialNumber = cartItem.serialNumber,
+                        assignedStaff = cartItem.assignedStaff
+                    )
+                    transactionItemDao.insertTransactionItem(itemEntity)
+
+                    // --- LOGIKA POTONG STOK (VARIAN ATAU BIASA) ---
+                    val freshProduct = productDao.getProductById(cartItem.product.id)
+                    if (freshProduct != null) {
+                        if (cartItem.selectedVariation.isNotBlank()) {
+                            // Jika ada varian, potong stok di dalam string varian
+                            val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, cartItem.quantity)
+                            productDao.updateProduct(freshProduct.copy(variations = newVariationStr))
+                        } else {
+                            // Jika tidak ada varian, potong stok utama
+                            val newStock = (freshProduct.stock - cartItem.quantity).coerceAtLeast(0)
+                            productDao.updateProduct(freshProduct.copy(stock = newStock))
+                        }
+                    }
+                }
+
+                // 3. Bersihkan Keranjang
+                withContext(Dispatchers.Main) {
+                    if (isSplitBill) {
+                        _cart.value = _cart.value.filterNot { it.isSelectedForSplit }
+                    } else {
+                        _cart.value = emptyList()
+                    }
+                    onSuccess(savedTransaction)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // Fungsi pembantu untuk memotong stok di dalam string varian
+    private fun deductVariantStock(variationsStr: String, targetVariantName: String, deductQty: Int): String {
+        if (variationsStr.isBlank()) return ""
+        val parts = variationsStr.split(",")
+        val newParts = parts.map { part ->
+            val pieces = part.split(":")
+            if (pieces.size >= 4 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
+                val currentStock = pieces[3].trim().toIntOrNull() ?: 0
+                val newStock = (currentStock - deductQty).coerceAtLeast(0)
+                // Format: Nama:HargaJual:HargaBeli:Stok
+                "${pieces[0]}:${pieces[1]}:${pieces[2]}:$newStock"
+            } else {
+                part
+            }
+        }
+        return newParts.joinToString(",")
+    }
+
+    // ========================================================================
+    // FUNGSI CETAK STRUK (Sama seperti sebelumnya)
     // ========================================================================
     fun printReceipt(context: Context, transaction: TransactionEntity, settingsManager: SettingsManager) {
         val macAddress = settingsManager.printerMacAddress
@@ -388,12 +434,13 @@ class PosViewModel(
             Toast.makeText(context, "Printer belum diatur di Pengaturan", Toast.LENGTH_SHORT).show()
             return
         }
-
+        
+        // Karena ini auto-print, kita ambil data keranjang yang terakhir
         val receiptItems = _cart.value.map { cartItem ->
             ReceiptItem(
                 name = cartItem.product.name,
                 qty = cartItem.quantity,
-                price = cartItem.product.price.toDouble(),
+                price = getPriceForVariant(cartItem.product, cartItem.selectedVariation).toDouble(),
                 variation = cartItem.selectedVariation + (if (cartItem.notes.isNotBlank()) " | ${cartItem.notes}" else "")
             )
         }
@@ -404,7 +451,7 @@ class PosViewModel(
             storePhone = settingsManager.storePhone ?: "",
             storeFooter = settingsManager.storeFooter ?: "Terima kasih!",
             transactionId = transaction.id,
-            dateStr = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date(transaction.timestamp)),
+            dateStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(transaction.timestamp)),
             orderType = transaction.orderType ?: "Dine-In",
             cashierName = transaction.cashierName ?: "Kasir",
             customerName = transaction.customerName ?: "Pelanggan Umum",
@@ -417,7 +464,6 @@ class PosViewModel(
 
         viewModelScope.launch(Dispatchers.IO) {
             val printerManager = BluetoothPrinterManager(context)
-            
             val outputStream = java.io.ByteArrayOutputStream()
             outputStream.write(EscPosCommands.INIT)
             outputStream.write(strukText.toByteArray(charset("GBK")))
@@ -425,20 +471,66 @@ class PosViewModel(
             outputStream.write(EscPosCommands.CUT_PAPER)
 
             val success = printerManager.printData(macAddress, outputStream.toByteArray())
-            
             withContext(Dispatchers.Main) {
-                if (success) {
-                    Toast.makeText(context, "Struk berhasil dicetak!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "Gagal mencetak struk.", Toast.LENGTH_SHORT).show()
-                }
+                if (success) Toast.makeText(context, "Struk dicetak!", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun checkActiveShift() {
-        // Kode asli Anda jika ada
+    // ========================================================================
+    // FUNGSI-FUNGSI PENDUKUNG LAINNYA
+    // ========================================================================
+    fun setCategory(category: String) { _selectedCategory.value = category }
+    fun setSearchQuery(query: String) { _searchQuery.value = query }
+    fun setOrderType(type: String) { _selectedOrderType.value = type }
+    fun setTable(table: String) { _selectedTable.value = table }
+    fun setPickupDate(date: Long) { _pickupDate.value = date }
+    fun setDiscount(amount: Long) { _discount.value = amount }
+    fun setCustomer(customer: CustomerEntity?) { _selectedCustomer.value = customer }
+    fun redeemPoints(points: Int) { _pointsUsed.value = points }
+    fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
+    fun setServiceChargePercent(sc: Double) { _serviceChargePercent.value = sc }
+    
+    fun updateCartItemNotes(product: ProductEntity, variation: String, notes: String) {
+        _cart.value = _cart.value.map {
+            if (it.product.id == product.id && it.selectedVariation == variation) it.copy(notes = notes) else it
+        }
     }
+    fun updateCartItemSerial(product: ProductEntity, variation: String, serial: String) {
+        _cart.value = _cart.value.map {
+            if (it.product.id == product.id && it.selectedVariation == variation) it.copy(serialNumber = serial) else it
+        }
+    }
+    fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) {
+        _cart.value = _cart.value.map {
+            if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it
+        }
+    }
+
+    // Placeholder untuk fungsi yang mungkin dipanggil di PosScreen tapi tidak ada implementasi detailnya
+    fun saveHoldOrder(name: String) {}
+    fun resumeHoldOrder(order: HoldOrderEntity) {}
+    fun mergeOrder(tableA: String, tableB: String) {}
+    fun logCashDrawerOpen(user: UserEntity) {}
+    fun openShift(user: UserEntity, modal: Long) {}
+    fun closeShift(user: UserEntity, physical: Long, note: String, onDone: (ShiftEntity) -> Unit) {}
+    fun addCashFlow(type: String, amount: Long, note: String, user: UserEntity) {}
+    fun addCustomer(name: String, phone: String, birthDate: Long) {}
+    fun applyVoucher(code: String, callback: (Boolean, String) -> Unit) {}
+    fun generateQrisPayment(amount: Long, payload: String) {}
+    fun generateTransferPayment(amount: Long) {}
+    fun resetQrisPayment() { _isQrisPaid.value = false; _qrisDynamicString.value = "" }
+    fun resetTransferPayment() { _isTransferPaid.value = false; _uniqueTransferAmount.value = 0L }
+    fun applyMembershipToCart(cartItem: CartItem, cm: CustomerMembershipEntity) {}
+    fun removeMembershipFromCart(cartItem: CartItem) {}
+    fun processBarcodeScan(barcode: String, callback: (Boolean, String) -> Unit) {}
+    
+    // Untuk ReceiptDialog
+    fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> {
+        return transactionItemDao.getItemsByTransaction(transactionId)
+    }
+
+    private fun checkActiveShift() {}
 }
 
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {

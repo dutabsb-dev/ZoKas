@@ -1,5 +1,6 @@
 package com.karyaku.kasir
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,281 +39,403 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
+// =====================================================================
+// DATA CLASS UNTUK VARIAN DINAMIS
+// =====================================================================
+data class VariantInput(
+    val id: String = UUID.randomUUID().toString(),
+    var name: String = "",
+    var costPrice: String = "",
+    var price: String = "",
+    var stock: String = ""
+)
+
+// =====================================================================
+// 1. PRODUCT FORM BOTTOM SHEET (VERSI BARU - TANPA KOMA)
+// =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductFormBottomSheet(
-    productToEdit: ProductEntity? = null, 
-    onDismiss: () -> Unit, 
-    onSave: (String, Long, Int, String, Long, String, String, Long, Long, Boolean, Boolean, String, Long, Int) -> Unit
+    productToEdit: ProductEntity? = null,
+    onDismiss: () -> Unit,
+    onSave: (
+        name: String, price: Long, stock: Int, category: String, costPrice: Long,
+        barcode: String, variations: String, commission: Long, expiry: Long,
+        isService: Boolean, isCombo: Boolean, imagePath: String,
+        wholesalePrice: Long, wholesaleMinQty: Int
+    ) -> Unit
 ) {
     val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // STATE FORM
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
-    
-    var variations by remember { mutableStateOf(productToEdit?.variations ?: "") }
-    var priceInput by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
-    var costPriceInput by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") }
-    
-    var stock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
-    var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") } 
     var barcode by remember { mutableStateOf(productToEdit?.barcode ?: "") }
-    var commission by remember { mutableStateOf(productToEdit?.commissionPerItem?.toString() ?: "") }
-    var expiryDate by remember { mutableStateOf(productToEdit?.expiryDate ?: 0L) }
+    var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") }
+    var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
+    
+    // State Varian
+    var hasVariants by remember { mutableStateOf(false) }
+    var variantList by remember { mutableStateOf<List<VariantInput>>(emptyList()) }
+
+    // State Tanpa Varian
+    var singleCost by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") }
+    var singlePrice by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
+    var singleStock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
+
+    // State Tambahan
+    var commission by remember { mutableStateOf(productToEdit?.commissionPerItem?.toString() ?: "0") }
+    var wholesalePrice by remember { mutableStateOf(productToEdit?.wholesalePrice?.toString() ?: "0") }
+    var wholesaleMinQty by remember { mutableStateOf(productToEdit?.wholesaleMinQty?.toString() ?: "0") }
+    var expiry by remember { mutableStateOf(productToEdit?.expiryDate ?: 0L) }
     var isService by remember { mutableStateOf(productToEdit?.isService ?: false) }
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
-    
-    var wholesalePrice by remember { mutableStateOf(productToEdit?.wholesalePrice?.toString() ?: "") }
-    var wholesaleMinQty by remember { mutableStateOf(productToEdit?.wholesaleMinQty?.toString() ?: "") }
-    
-    var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
     var showDatePicker by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
 
-    val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-    val expiryText = if (expiryDate > 0) dateFormat.format(Date(expiryDate)) else "Pilih Tanggal"
+    // Parse data varian saat pertama kali dibuka
+    LaunchedEffect(productToEdit) {
+        if (productToEdit != null && productToEdit.variations.isNotBlank()) {
+            hasVariants = true
+            val parsed = parseVariationString(productToEdit.variations)
+            variantList = if (parsed.isNotEmpty()) parsed else listOf(VariantInput())
+        }
+    }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: android.net.Uri? ->
+    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
-                val file = File(context.filesDir, "img_${System.currentTimeMillis()}.jpg")
+                val file = File(context.filesDir, "product_img_${System.currentTimeMillis()}.jpg")
                 val outputStream = FileOutputStream(file)
                 inputStream?.copyTo(outputStream)
                 inputStream?.close()
                 outputStream.close()
                 imagePath = file.absolutePath
             } catch (e: Exception) {
-                Toast.makeText(context, "Gagal simpan gambar: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Gagal memuat gambar", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = if (expiryDate > 0) expiryDate else System.currentTimeMillis())
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = if (expiry > 0) expiry else System.currentTimeMillis())
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                TextButton(onClick = {
-                    expiryDate = datePickerState.selectedDateMillis ?: 0L
-                    showDatePicker = false
-                }) { Text("OK") }
+                TextButton(onClick = { expiry = datePickerState.selectedDateMillis ?: 0L; showDatePicker = false }) { Text("OK") }
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Batal") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Batal") } }
+        ) { DatePicker(state = datePickerState) }
     }
 
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 32.dp)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
         ) {
-            Column(
+            Text(
+                text = if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // --- FOTO PRODUK ---
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding() 
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                    .clickable { imagePickerLauncher.launch("image/*") },
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                if (imagePath.isNotEmpty() && File(imagePath).exists()) {
+                    AsyncImage(
+                        model = File(imagePath),
+                        contentDescription = "Foto Produk",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
                     )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup")
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = SlateGrey)
+                        Text("Pilih Foto", color = SlateGrey, fontSize = 12.sp)
                     }
                 }
+            }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 32.dp), 
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { imagePickerLauncher.launch("image/*") },
-                        contentAlignment = Alignment.Center
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- CHECKBOX JASA / COMBO ---
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
+                Checkbox(checked = isService, onCheckedChange = { isService = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
+                Text("Produk Jasa (Tanpa Stok)", fontSize = 14.sp)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
+                Checkbox(checked = isCombo, onCheckedChange = { isCombo = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
+                Text("Produk Combo/Paket", fontSize = 14.sp)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // --- FIELD UTAMA ---
+            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk *") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- TOGGLE VARIAN ---
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { 
+                hasVariants = !hasVariants 
+                if (hasVariants && variantList.isEmpty()) variantList = listOf(VariantInput())
+            }) {
+                Checkbox(checked = hasVariants, onCheckedChange = { 
+                    hasVariants = it 
+                    if (it && variantList.isEmpty()) variantList = listOf(VariantInput())
+                }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
+                Text("Produk ini memiliki Varian (Ukuran/Rasa, dll)", fontWeight = FontWeight.Medium)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- JIKA TANPA VARIAN ---
+            if (!hasVariants) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = singleCost, onValueChange = { singleCost = it },
+                        label = { Text("Harga Beli") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
+                    )
+                    OutlinedTextField(
+                        value = singlePrice, onValueChange = { singlePrice = it },
+                        label = { Text("Harga Jual") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                if (!isService) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = singleStock, onValueChange = { singleStock = it },
+                        label = { Text("Stok Awal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            } else {
+                // --- JIKA DENGAN VARIAN (BARIS DINAMIS) ---
+                Text("Daftar Varian", fontWeight = FontWeight.Bold, color = EmeraldGreen, modifier = Modifier.padding(bottom = 8.dp))
+                
+                variantList.forEachIndexed { index, variant ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        if (imagePath.isNotEmpty()) {
-                            AsyncImage(
-                                model = File(imagePath),
-                                contentDescription = "Product Image",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.AddAPhoto, contentDescription = "Upload", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Upload Gambar", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                OutlinedTextField(
+                                    value = variant.name,
+                                    onValueChange = { newName ->
+                                        val newList = variantList.toMutableList()
+                                        newList[index] = variant.copy(name = newName)
+                                        variantList = newList
+                                    },
+                                    label = { Text("Nama Varian (cth: Jumbo)") },
+                                    modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(8.dp)
+                                )
+                                IconButton(onClick = {
+                                    val newList = variantList.toMutableList()
+                                    newList.removeAt(index)
+                                    variantList = newList
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = ErrorRed)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = variant.costPrice, onValueChange = { 
+                                        val newList = variantList.toMutableList()
+                                        newList[index] = variant.copy(costPrice = it)
+                                        variantList = newList
+                                    },
+                                    label = { Text("Harga Beli") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(8.dp)
+                                )
+                                OutlinedTextField(
+                                    value = variant.price, onValueChange = { 
+                                        val newList = variantList.toMutableList()
+                                        newList[index] = variant.copy(price = it)
+                                        variantList = newList
+                                    },
+                                    label = { Text("Harga Jual") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(8.dp)
+                                )
+                            }
+                            if (!isService) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = variant.stock, onValueChange = { 
+                                        val newList = variantList.toMutableList()
+                                        newList[index] = variant.copy(stock = it)
+                                        variantList = newList
+                                    },
+                                    label = { Text("Stok Varian Ini") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(8.dp)
+                                )
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
-                            Checkbox(checked = isService, onCheckedChange = { isService = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
-                            Text("Produk Jasa (Tanpa Stok)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
-                            Checkbox(checked = isCombo, onCheckedChange = { isCombo = it }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
-                            Text("Produk Combo/Paket", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
-                    
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Produk") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedTextField(
-                        value = variations, 
-                        onValueChange = { variations = it }, 
-                        label = { Text("Varian (Pisahkan dgn Koma)") }, 
-                        placeholder = { Text("Cth: Normal, Jumbo, Extra") }, 
-                        modifier = Modifier.fillMaxWidth(), 
-                        singleLine = true, 
-                        shape = RoundedCornerShape(12.dp),
-                        supportingText = { Text("Kosongkan jika produk tidak memiliki varian.", fontSize = 10.sp) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedTextField(value = barcode, onValueChange = { barcode = it }, label = { Text("Barcode (Opsional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Kategori") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedTextField(
-                        value = costPriceInput, 
-                        onValueChange = { costPriceInput = it }, 
-                        label = { Text("Harga Beli / Modal (Pisahkan dgn Koma)") }, 
-                        placeholder = { Text("Cth: 4000, 5000, 5500") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
-                        modifier = Modifier.fillMaxWidth(), 
-                        singleLine = true, 
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedTextField(
-                        value = priceInput, 
-                        onValueChange = { priceInput = it }, 
-                        label = { Text("Harga Jual (Pisahkan dgn Koma)") }, 
-                        placeholder = { Text("Cth: 6000, 7000, 7500") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
-                        modifier = Modifier.fillMaxWidth(), 
-                        singleLine = true, 
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    
-                    if (errorMessage.isNotEmpty()) {
-                        Text(errorMessage, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp).fillMaxWidth())
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (!isService) {
-                        OutlinedTextField(value = stock, onValueChange = { if (it.length <= 5) stock = it }, label = { Text("Stok") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = wholesalePrice, 
-                                onValueChange = { if (it.length <= 10) wholesalePrice = it }, 
-                                label = { Text("Harga Grosir") }, 
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
-                                modifier = Modifier.weight(1f), 
-                                singleLine = true, 
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            OutlinedTextField(
-                                value = wholesaleMinQty, 
-                                onValueChange = { if (it.length <= 5) wholesaleMinQty = it }, 
-                                label = { Text("Min Qty") }, 
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), 
-                                modifier = Modifier.weight(1f), 
-                                singleLine = true, 
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    OutlinedTextField(value = commission, onValueChange = { if (it.length <= 10) commission = it }, label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedButton(
-                        onClick = { showDatePicker = true },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Icon(Icons.Default.DateRange, contentDescription = null, tint = AmberAccent)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface)
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { 
-                        // LOGIKA PENGGABUNGAN VARIAN, HARGA JUAL, & HARGA BELI
-                        val varList = variations.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                        val priceList = priceInput.split(",").map { it.trim().toLongOrNull() ?: 0L }
-                        val costList = costPriceInput.split(",").map { it.trim().toLongOrNull() ?: 0L }
-                        
-                        // Validasi: Jumlah Varian harus sama dengan Jumlah Harga Jual & Harga Beli
-                        if (varList.isNotEmpty()) {
-                            if (varList.size != priceList.size || varList.size != costList.size) {
-                                errorMessage = "Jumlah Varian, Harga Jual, dan Harga Beli harus sama banyak."
-                                return@Button
-                            }
-                        }
-
-                        // Menggabungkan menjadi format database: "Normal:6000:4000, Jumbo:7000:5000"
-                        val finalVariations = if (varList.isEmpty()) "" else varList.mapIndexed { index, vName ->
-                            val vPrice = priceList.getOrNull(index) ?: 0L
-                            val vCost = costList.getOrNull(index) ?: 0L
-                            "$vName:$vPrice:$vCost"
-                        }.joinToString(", ")
-                        
-                        val basePrice = priceList.firstOrNull() ?: 0L
-                        val baseCost = costList.firstOrNull() ?: 0L
-
-                        if (name.isNotBlank() && basePrice > 0) {
-                            onSave(
-                                name, basePrice, if (isService) 0 else stock.toIntOrNull() ?: 0, 
-                                category.ifBlank { "Umum" }, baseCost, barcode, finalVariations, 
-                                commission.toLongOrNull() ?: 0L, expiryDate, isService, isCombo, imagePath, 
-                                wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
-                            ) 
-                        } else {
-                            errorMessage = "Nama produk dan Harga Jual wajib diisi."
-                        }
-                    }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = AmberAccent), shape = RoundedCornerShape(12.dp)) {
-                        Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
                 }
+
+                OutlinedButton(
+                    onClick = { variantList = variantList + VariantInput() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, EmeraldGreen)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = EmeraldGreen)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Tambah Baris Varian", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- FIELD TAMBAHAN (GROSIR & KOMISI) ---
+            if (!isService) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = wholesalePrice, onValueChange = { wholesalePrice = it },
+                        label = { Text("Harga Grosir") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
+                    )
+                    OutlinedTextField(
+                        value = wholesaleMinQty, onValueChange = { wholesaleMinQty = it },
+                        label = { Text("Min Qty Grosir") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            OutlinedTextField(
+                value = commission, onValueChange = { commission = it },
+                label = { Text("Komisi Kasir / Item (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // --- EXPIRY ---
+            val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+            val expiryText = if (expiry > 0) dateFormat.format(Date(expiry)) else "Pilih Tanggal"
+            OutlinedButton(
+                onClick = { showDatePicker = true },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Icon(Icons.Default.DateRange, contentDescription = null, tint = AmberAccent)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- TOMBOL SIMPAN ---
+            Button(
+                onClick = {
+                    if (name.isBlank()) {
+                        Toast.makeText(context, "Nama produk wajib diisi!", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    var finalPrice = 0L
+                    var finalCost = 0L
+                    var finalStock = 0
+                    var finalVariations = ""
+
+                    if (hasVariants) {
+                        if (variantList.isEmpty() || variantList.any { it.name.isBlank() }) {
+                            Toast.makeText(context, "Nama varian tidak boleh kosong!", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        
+                        // Rakit string: Nama:HargaJual:HargaBeli:Stok
+                        val variationParts = variantList.map { 
+                            val p = it.price.toLongOrNull() ?: 0L
+                            val c = it.costPrice.toLongOrNull() ?: 0L
+                            val s = if(isService) 0 else (it.stock.toIntOrNull() ?: 0)
+                            "${it.name.trim()}:$p:$c:$s"
+                        }
+                        finalVariations = variationParts.joinToString(",")
+                        
+                        finalStock = if(isService) 0 else variantList.sumOf { it.stock.toIntOrNull() ?: 0 }
+                        finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
+                        finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
+
+                    } else {
+                        finalPrice = singlePrice.toLongOrNull() ?: 0L
+                        finalCost = singleCost.toLongOrNull() ?: 0L
+                        finalStock = if(isService) 0 else (singleStock.toIntOrNull() ?: 0)
+                        finalVariations = ""
+                    }
+
+                    if (finalPrice <= 0) {
+                        Toast.makeText(context, "Harga jual harus lebih dari 0!", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    onSave(
+                        name, finalPrice, finalStock, category, finalCost, barcode, 
+                        finalVariations, commission.toLongOrNull() ?: 0L, expiry, 
+                        isService, isCombo, imagePath, 
+                        wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
+                    )
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
             }
         }
     }
 }
 
+// Parser untuk membaca database format "Nama:HargaJual:HargaBeli:Stok"
+private fun parseVariationString(variations: String): List<VariantInput> {
+    if (variations.isBlank()) return emptyList()
+    return variations.split(",").mapNotNull { part ->
+        val pieces = part.split(":")
+        if (pieces.size >= 3) {
+            VariantInput(
+                name = pieces[0].trim(),
+                price = pieces[1].trim(),
+                costPrice = pieces[2].trim(),
+                stock = if (pieces.size >= 4) pieces[3].trim() else "0"
+            )
+        } else null
+    }
+}
+
+// =====================================================================
+// 2. PAYMENT BOTTOM SHEET (TETAP UTUH SEPERTI ASLINYA)
+// =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(
