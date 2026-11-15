@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,19 +16,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// ====================================================================
-// 1. DIALOG ABSENSI (CHECK-IN & CHECK-OUT)
-// ====================================================================
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttendanceDialog(
     viewModel: PosViewModel,
@@ -35,6 +35,7 @@ fun AttendanceDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = LocalActivity.current as? FragmentActivity
     val attendanceList by viewModel.attendanceList.collectAsStateWithLifecycle()
     
     val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
@@ -43,7 +44,22 @@ fun AttendanceDialog(
     
     val todayAttendance = attendanceList.find { it.userId == currentUser.id && it.date == todayStr }
     
-    var selectedTab by remember { mutableStateOf(0) } // 0: Absen Saya, 1: Rekap Hari Ini (Owner)
+    var selectedTab by remember { mutableStateOf(0) }
+    var showCheckOutDialog by remember { mutableStateOf(false) }
+
+    // Dialog Verifikasi Absen Pulang
+    if (showCheckOutDialog) {
+        CheckOutVerificationDialog(
+            user = currentUser,
+            viewModel = viewModel,
+            activity = activity,
+            onDismiss = { showCheckOutDialog = false },
+            onSuccess = {
+                showCheckOutDialog = false
+                Toast.makeText(context, "Absen Pulang Berhasil!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -60,7 +76,6 @@ fun AttendanceDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (selectedTab == 0) {
-                    // TAMPILAN ABSEN PRIBADI
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         Text("Halo, ${currentUser.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text("Tanggal: $todayStr", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
@@ -87,16 +102,15 @@ fun AttendanceDialog(
                             Text("Masuk pada: ${timeFormat.format(Date(todayAttendance!!.checkInTime))}", fontWeight = FontWeight.Bold)
                             Text("Anda sedang bekerja.", fontSize = 12.sp, color = EmeraldGreen)
                             Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // TOMBOL ABSEN PULANG DENGAN VERIFIKASI
                             Button(
-                                onClick = {
-                                    viewModel.checkOut(currentUser) { success, msg ->
-                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                    }
-                                },
+                                onClick = { showCheckOutDialog = true },
                                 modifier = Modifier.fillMaxWidth().height(50.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
                                 shape = RoundedCornerShape(12.dp)
                             ) { Text("ABSEN PULANG", fontWeight = FontWeight.Bold, color = Color.White) }
+                            
                         } else {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(64.dp))
                             Spacer(modifier = Modifier.height(8.dp))
@@ -111,7 +125,6 @@ fun AttendanceDialog(
                         }
                     }
                 } else {
-                    // TAMPILAN REKAP HARI INI (OWNER)
                     val todaysRecords = attendanceList.filter { it.date == todayStr }
                     if (todaysRecords.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -142,16 +155,110 @@ fun AttendanceDialog(
                 }
             }
         },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
+    )
+}
+
+@Composable
+fun CheckOutVerificationDialog(
+    user: UserEntity,
+    viewModel: PosViewModel,
+    activity: FragmentActivity?,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit
+) {
+    var pin by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    var isProcessing by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = ErrorRed) },
+        title = { Text("Verifikasi Absen Pulang", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Untuk mencegah titip absen, silakan verifikasi identitas Anda.", fontSize = 12.sp, textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { 
+                        if (it.length <= 6 && it.all { c -> c.isDigit() }) {
+                            pin = it
+                            errorMessage = ""
+                        }
+                    },
+                    label = { Text("Masukkan PIN Anda") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = errorMessage.isNotEmpty(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                
+                if (errorMessage.isNotEmpty()) {
+                    Text(errorMessage, color = ErrorRed, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Jika user punya biometrik, tampilkan tombol
+                if (user.biometricKey.isNotBlank() && activity != null) {
+                    Text("Atau gunakan Sidik Jari:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            isProcessing = true
+                            viewModel.verifyAndCheckOutBiometric(activity, user) { success, msg ->
+                                isProcessing = false
+                                if (success) {
+                                    onSuccess()
+                                } else {
+                                    errorMessage = msg
+                                }
+                            }
+                        },
+                        enabled = !isProcessing,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldGreen)
+                    ) {
+                        Icon(Icons.Default.Fingerprint, contentDescription = null, tint = EmeraldGreen)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("SCAN SIDIK JARI", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Tutup") }
+            Button(
+                onClick = {
+                    if (pin.length == 6) {
+                        isProcessing = true
+                        viewModel.verifyAndCheckOut(user, pin) { success, msg ->
+                            isProcessing = false
+                            if (success) {
+                                onSuccess()
+                            } else {
+                                errorMessage = msg
+                            }
+                        }
+                    } else {
+                        errorMessage = "PIN harus 6 digit."
+                    }
+                },
+                enabled = !isProcessing && pin.length == 6,
+                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("KONFIRMASI PULANG", color = Color.White) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Batal") }
         }
     )
 }
 
-// ====================================================================
-// 2. DIALOG MANAJEMEN PAYROLL (GAJI)
-// ====================================================================
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PayrollManagementDialog(
     viewModel: PosViewModel,

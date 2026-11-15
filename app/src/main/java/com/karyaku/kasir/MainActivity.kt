@@ -167,7 +167,7 @@ fun MainContent(
         } else if (staffUserToLogout != null) {
             // Layar Auto-Logout untuk STAFF
             LaunchedEffect(Unit) {
-                delay(3000) // Tampilkan pesan selama 3 detik
+                delay(3000)
                 staffUserToLogout = null
                 staffMessage = ""
             }
@@ -189,17 +189,15 @@ fun MainContent(
                 viewModel = posViewModel,
                 settingsManager = settingsManager,
                 onLoginSuccess = { user ->
-                    // Proses Absensi Otomatis Sebelum Masuk Aplikasi
+                    // Proses Absensi Otomatis Sebelum Masuk Aplikasi (Hanya Check-In)
                     posViewModel.processLoginAttendance(user) { success, msg ->
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                         if (success) {
                             posViewModel.initCurrentBranchForUser(user)
                             if (user.role == "STAFF") {
-                                // Jika STAFF, jangan masuk ke aplikasi, tampilkan layar auto-logout
                                 staffMessage = msg
                                 staffUserToLogout = user
                             } else {
-                                // Jika OWNER / CASHIER, masuk ke aplikasi utama
                                 onUserChange(user)
                             }
                         }
