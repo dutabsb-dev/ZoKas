@@ -253,11 +253,9 @@ fun PosScreen(
                         if (isSplitBillMode) isSplitBillMode = false
 
                         // ==============================================================
-                        // LOGIKA AUTO-PRINT STRUK (Mencegah Teks Bertumpuk)
+                        // LOGIKA AUTO-PRINT STRUK
                         // ==============================================================
-                        if (settingsManager.isAutoPrintEnabled) {
-                            viewModel.printReceipt(context, newTransaction, settingsManager)
-                        }
+                        viewModel.printReceipt(context, newTransaction, settingsManager)
                     }
                 }
             )

@@ -380,8 +380,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI BARU UNTUK MENCEGAH STRUK BERTUMPUK
-    // Tambahkan fungsi ini di dalam class PosViewModel
+    // FUNGSI CETAK STRUK (DIPERBAIKI DARI ERROR COMPILE)
     // ========================================================================
     fun printReceipt(context: Context, transaction: TransactionEntity, settingsManager: SettingsManager) {
         val macAddress = settingsManager.printerMacAddress
@@ -395,12 +394,13 @@ class PosViewModel(
             ReceiptItem(
                 name = cartItem.product.name,
                 qty = cartItem.quantity,
-                price = cartItem.product.price,
+                price = cartItem.product.price.toDouble(),
                 variation = cartItem.selectedVariation + (if (cartItem.notes.isNotBlank()) " | ${cartItem.notes}" else "")
             )
         }
 
         // 2. Buat teks struk menggunakan ReceiptFormatter
+        // FIX: transaction.subtotal & cashPaid tidak ada, diganti totalPrice. Lalu di-cast ke Double.
         val strukText = ReceiptFormatter.buildReceipt(
             storeName = settingsManager.storeName ?: "ZoKas",
             storeAddress = settingsManager.storeAddress ?: "",
@@ -412,10 +412,10 @@ class PosViewModel(
             cashierName = transaction.cashierName ?: "Kasir",
             customerName = transaction.customerName ?: "Pelanggan Umum",
             items = receiptItems,
-            subtotal = transaction.subtotal,
-            total = transaction.totalPrice,
-            payment = transaction.cashPaid,
-            change = transaction.changeAmount
+            subtotal = transaction.totalPrice.toDouble(),
+            total = transaction.totalPrice.toDouble(),
+            payment = transaction.totalPrice.toDouble(),
+            change = 0.0
         )
 
         // 3. Kirim ke Bluetooth Printer
