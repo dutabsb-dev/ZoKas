@@ -95,10 +95,11 @@ fun ProductFormBottomSheet(
     var showDatePicker by remember { mutableStateOf(false) }
 
     // Parse data varian saat pertama kali dibuka
+    // FIX: Mengirim productToEdit.stock sebagai fallback (jika format lama)
     LaunchedEffect(productToEdit) {
         if (productToEdit != null && productToEdit.variations.isNotBlank()) {
             hasVariants = true
-            val parsed = parseVariationString(productToEdit.variations)
+            val parsed = parseVariationString(productToEdit.variations, productToEdit.stock)
             variantList = if (parsed.isNotEmpty()) parsed else listOf(VariantInput())
         }
     }
@@ -417,21 +418,32 @@ fun ProductFormBottomSheet(
     }
 }
 
-// Parser untuk membaca database format "Nama:HargaJual:HargaBeli:Stok"
-// FIX: Mengubah syarat dari >= 3 menjadi >= 2 agar produk lama (yang belum punya harga beli/stok) tidak hilang
-private fun parseVariationString(variations: String): List<VariantInput> {
+// FIX: Menambahkan parameter mainStock
+private fun parseVariationString(variations: String, mainStock: Int): List<VariantInput> {
     if (variations.isBlank()) return emptyList()
-    return variations.split(",").mapNotNull { part ->
+    val list = mutableListOf<VariantInput>()
+    val parts = variations.split(",")
+    
+    for ((index, part) in parts.withIndex()) {
         val pieces = part.split(":")
         if (pieces.size >= 2) {
-            VariantInput(
+            val stockStr = pieces.getOrNull(3)?.trim()
+            // FIX: Jika format lama (tidak ada stok), wariskan stok utama ke varian pertama
+            val finalStock = if (stockStr != null && stockStr.isNotEmpty()) {
+                stockStr.toIntOrNull() ?: 0
+            } else {
+                if (index == 0) mainStock else 0
+            }
+            
+            list.add(VariantInput(
                 name = pieces[0].trim(),
                 price = pieces[1].trim(),
                 costPrice = pieces.getOrNull(2)?.trim() ?: "0",
-                stock = pieces.getOrNull(3)?.trim() ?: "0"
-            )
-        } else null
+                stock = finalStock.toString()
+            ))
+        }
     }
+    return list
 }
 
 // =====================================================================

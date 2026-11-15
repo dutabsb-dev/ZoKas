@@ -303,7 +303,7 @@ class PosViewModel(
                 if (pieces.size >= 4) {
                     return pieces[3].trim().toIntOrNull() ?: 0
                 } else {
-                    // Fallback untuk data lama yang belum punya stok per varian
+                    // FIX BUG 1: Fallback untuk data lama yang belum punya stok per varian
                     return product.stock
                 }
             }
@@ -355,7 +355,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // PROSES PEMBAYARAN (FIX TOTAL STOK & VARIAN)
+    // PROSES PEMBAYARAN
     // ========================================================================
     fun processPayment(
         cashReceived: Long,
@@ -411,11 +411,9 @@ class PosViewModel(
 
                     val freshProduct = productDao.getProductById(cartItem.product.id)
                     if (freshProduct != null) {
-                        // Kurangi stok utama
                         val newStock = (freshProduct.stock - cartItem.quantity).coerceAtLeast(0)
                         
                         if (cartItem.selectedVariation.isNotBlank()) {
-                            // Kurangi stok di dalam string varian
                             val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, cartItem.quantity)
                             productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newStock))
                         } else {
@@ -443,9 +441,17 @@ class PosViewModel(
             if (pieces.size >= 2 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
                 val price = pieces[1].trim()
                 val cost = pieces.getOrNull(2)?.trim() ?: "0"
-                val currentStock = pieces.getOrNull(3)?.trim()?.toIntOrNull() ?: 0
+                
+                // FIX BUG 1: Tangani format lama yang belum punya angka stok
+                val currentStock = if (pieces.size >= 4) {
+                    pieces[3].trim().toIntOrNull() ?: 0
+                } else {
+                    // Jika format lama, stok awalnya dianggap besar (sama dengan stok utama sebelum dipotong).
+                    // Kita tidak tahu pasti, jadi kita asumsikan ada stok agar tidak jadi minus.
+                    999999 
+                }
+                
                 val newStock = (currentStock - deductQty).coerceAtLeast(0)
-                // Selalu simpan dengan format 4 bagian (Nama:HargaJual:HargaBeli:Stok)
                 "${pieces[0]}:$price:$cost:$newStock"
             } else { part }
         }
@@ -504,7 +510,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI STOCK OPNAME & TRANSFER
+    // FUNGSI STOCK OPNAME (FIX BUG 2: SINKRONISASI STOK VARIAN)
     // ========================================================================
     fun processStockOpname(items: List<StockOpnameItemEntity>, currentUser: UserEntity, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -529,13 +535,40 @@ class PosViewModel(
                 for (item in items) {
                     val prod = productDao.getProductById(item.productId)
                     if (prod != null) {
-                        productDao.updateProduct(prod.copy(stock = item.physicalStock))
+                        // FIX BUG 2: Sesuaikan teks varian jika ada perubahan stok dari Opname
+                        val newVariations = if (prod.variations.isNotBlank()) {
+                            syncVariationsWithOpname(prod.variations, item.physicalStock - prod.stock)
+                        } else prod.variations
+
+                        productDao.updateProduct(prod.copy(stock = item.physicalStock, variations = newVariations))
                     }
                 }
                 
                 withContext(Dispatchers.Main) { onSuccess() }
             } catch (e: Exception) { e.printStackTrace() }
         }
+    }
+
+    // Fungsi bantu menyesuaikan varian saat Opname
+    private fun syncVariationsWithOpname(variationsStr: String, deltaStock: Int): String {
+        if (variationsStr.isBlank() || deltaStock == 0) return variationsStr
+        val parts = variationsStr.split(",")
+        if (parts.isEmpty()) return variationsStr
+        
+        // Ambil varian pertama, dan tambahkan/kurangi delta stock ke varian tersebut
+        val firstPart = parts[0]
+        val pieces = firstPart.split(":")
+        if (pieces.size >= 2) {
+            val name = pieces[0]
+            val price = pieces[1]
+            val cost = pieces.getOrNull(2) ?: "0"
+            val currentStock = pieces.getOrNull(3)?.toIntOrNull() ?: 0
+            val newStock = (currentStock + deltaStock).coerceAtLeast(0)
+            
+            val newFirstPart = "$name:$price:$cost:$newStock"
+            return listOf(newFirstPart) + parts.drop(1)
+        }
+        return variationsStr
     }
 
     // ========================================================================
