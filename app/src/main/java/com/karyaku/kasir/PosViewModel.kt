@@ -280,6 +280,67 @@ class PosViewModel(
     }
 
     // ========================================================================
+    // CRUD PRODUK (FIX: FUNGSI INI SEBELUMNYA KOSONG)
+    // ========================================================================
+    fun addProduct(
+        name: String, price: Long, stock: Int, category: String, costPrice: Long,
+        barcode: String, variations: String, commission: Long, expiry: Long,
+        isService: Boolean, isCombo: Boolean, imagePath: String,
+        wholesalePrice: Long, wholesaleMinQty: Int, userId: Long, userName: String
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val newProduct = ProductEntity(
+                    name = name, price = price, stock = stock, category = category,
+                    costPrice = costPrice, barcode = barcode, variations = variations,
+                    commissionPerItem = commission, expiryDate = expiry, isService = isService,
+                    isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice,
+                    wholesaleMinQty = wholesaleMinQty, branchId = _currentBranchId.value,
+                    updatedAt = System.currentTimeMillis(), isSynced = false
+                )
+                productDao.insertProduct(newProduct)
+                userDao.insertAuditLog(
+                    AuditLogEntity(
+                        userId = userId, userName = userName,
+                        action = "TAMBAH PRODUK BARU: $name",
+                        actionType = "INVENTORY"
+                    )
+                )
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun updateProduct(product: ProductEntity, userId: Long, userName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                productDao.updateProduct(product.copy(updatedAt = System.currentTimeMillis(), isSynced = false))
+                userDao.insertAuditLog(
+                    AuditLogEntity(
+                        userId = userId, userName = userName,
+                        action = "EDIT PRODUK: ${product.name} (Stok jadi: ${product.stock})",
+                        actionType = "INVENTORY"
+                    )
+                )
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun deleteProduct(product: ProductEntity, userId: Long, userName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                productDao.deleteProduct(product)
+                userDao.insertAuditLog(
+                    AuditLogEntity(
+                        userId = userId, userName = userName,
+                        action = "HAPUS PRODUK: ${product.name}",
+                        actionType = "INVENTORY"
+                    )
+                )
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    // ========================================================================
     // LOGIKA KERANJANG & VARIAN
     // ========================================================================
     fun getPriceForVariant(product: ProductEntity, variation: String): Long {
@@ -303,7 +364,6 @@ class PosViewModel(
                 if (pieces.size >= 4) {
                     return pieces[3].trim().toIntOrNull() ?: 0
                 } else {
-                    // FIX BUG 1: Fallback untuk data lama yang belum punya stok per varian
                     return product.stock
                 }
             }
@@ -442,7 +502,6 @@ class PosViewModel(
                 val price = pieces[1].trim()
                 val cost = pieces.getOrNull(2)?.trim() ?: "0"
                 
-                // FIX BUG 1: Tangani format lama yang belum punya angka stok
                 val currentStock = if (pieces.size >= 4) {
                     pieces[3].trim().toIntOrNull() ?: 0
                 } else {
@@ -533,7 +592,6 @@ class PosViewModel(
                 for (item in items) {
                     val prod = productDao.getProductById(item.productId)
                     if (prod != null) {
-                        // FIX BUG 2: Sesuaikan teks varian jika ada perubahan stok dari Opname
                         val newVariations = if (prod.variations.isNotBlank()) {
                             syncVariationsWithOpname(prod.variations, item.physicalStock - prod.stock)
                         } else prod.variations
@@ -547,13 +605,11 @@ class PosViewModel(
         }
     }
 
-    // Fungsi bantu menyesuaikan varian saat Opname
     private fun syncVariationsWithOpname(variationsStr: String, deltaStock: Int): String {
         if (variationsStr.isBlank() || deltaStock == 0) return variationsStr
         val parts = variationsStr.split(",")
         if (parts.isEmpty()) return variationsStr
         
-        // Ambil varian pertama, dan tambahkan/kurangi delta stock ke varian tersebut
         val firstPart = parts[0]
         val pieces = firstPart.split(":")
         if (pieces.size >= 2) {
@@ -564,8 +620,6 @@ class PosViewModel(
             val newStock = (currentStock + deltaStock).coerceAtLeast(0)
             
             val newFirstPart = "$name:$price:$cost:$newStock"
-            
-            // FIX: Menambahkan .joinToString(",") agar mengembalikan String, bukan List
             return (listOf(newFirstPart) + parts.drop(1)).joinToString(",")
         }
         return variationsStr
@@ -695,9 +749,6 @@ class PosViewModel(
     fun resetTransferPayment() { _isTransferPaid.value = false; _uniqueTransferAmount.value = 0L }
     fun applyMembershipToCart(cartItem: CartItem, cm: CustomerMembershipEntity) {}
     fun removeMembershipFromCart(cartItem: CartItem) {}
-    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, imagePath: String, wholesalePrice: Long, wholesaleMinQty: Int, userId: Long, userName: String) {}
-    fun updateProduct(product: ProductEntity, userId: Long, userName: String) {}
-    fun deleteProduct(product: ProductEntity, userId: Long, userName: String) {}
     fun addStock(product: ProductEntity, qty: Int, user: UserEntity) {}
     fun recordWaste(product: ProductEntity, qty: Int, user: UserEntity) {}
     fun mergeOrder(tableA: String, tableB: String) {}
@@ -712,7 +763,7 @@ class PosViewModel(
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
+            @UNCHECKED_CAST
             return PosViewModel(database) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
