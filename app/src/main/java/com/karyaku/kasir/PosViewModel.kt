@@ -58,7 +58,6 @@ class PosViewModel(
     internal val _currentBranchId = MutableStateFlow(1L)
     val currentBranchId: StateFlow<Long> = _currentBranchId.asStateFlow()
 
-    // FIX: Menambahkan kembali _isBranchSwitchLocked yang hilang
     internal val _isBranchSwitchLocked = MutableStateFlow(false)
     val isBranchSwitchLocked: StateFlow<Boolean> = _isBranchSwitchLocked.asStateFlow()
 
@@ -370,6 +369,7 @@ class PosViewModel(
 
                 val total = cartToProcess.sumOf { getPriceForVariant(it.product, it.selectedVariation) * it.quantity }
                 
+                // FIX: Menambahkan cashReceived dan changeAmount pada TransactionEntity
                 val newTransaction = TransactionEntity(
                     timestamp = System.currentTimeMillis(),
                     totalPrice = total,
@@ -380,13 +380,16 @@ class PosViewModel(
                     customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum",
                     orderType = _selectedOrderType.value,
                     tableName = _selectedTable.value,
-                    branchId = _currentBranchId.value
+                    branchId = _currentBranchId.value,
+                    cashReceived = cashReceived,
+                    changeAmount = if (cashReceived > total) cashReceived - total else 0L
                 )
 
                 val transactionId = transactionDao.insertTransaction(newTransaction)
                 val savedTransaction = newTransaction.copy(id = transactionId)
 
                 for (cartItem in cartToProcess) {
+                    // FIX: Menambahkan subtotal dan menghapus variation (karena tidak ada di Entity)
                     val itemEntity = TransactionItemEntity(
                         transactionId = transactionId,
                         productId = cartItem.product.id,
@@ -396,9 +399,12 @@ class PosViewModel(
                         costPrice = cartItem.product.costPrice,
                         notes = cartItem.notes,
                         serialNumber = cartItem.serialNumber,
-                        assignedStaff = cartItem.assignedStaff
+                        assignedStaff = cartItem.assignedStaff,
+                        subtotal = getPriceForVariant(cartItem.product, cartItem.selectedVariation) * cartItem.quantity
                     )
-                    transactionItemDao.insertTransactionItem(itemEntity)
+                    
+                    // FIX: Mengubah insertTransactionItem menjadi insert (standar Room DAO)
+                    transactionItemDao.insert(itemEntity)
 
                     val freshProduct = productDao.getProductById(cartItem.product.id)
                     if (freshProduct != null) {
@@ -499,21 +505,23 @@ class PosViewModel(
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // FIX: Menambahkan userId pada PurchasePaymentEntity
                 val newPayment = PurchasePaymentEntity(
                     purchaseId = purchase.id,
                     amount = amount,
                     paymentMethod = paymentMethod,
                     note = note,
                     userName = user.name,
-                    timestamp = System.currentTimeMillis()
+                    timestamp = System.currentTimeMillis(),
+                    userId = user.id
                 )
                 purchasePaymentDao.insertPayment(newPayment)
                 
                 val newPaidAmount = purchase.paidAmount + amount
                 val newStatus = if (newPaidAmount >= purchase.totalAmount) "PAID" else "PARTIAL"
                 
-                // FIX: Menggunakan purchaseDao.update() karena updatePurchase tidak ditemukan
-                purchaseDao.update(purchase.copy(paidAmount = newPaidAmount, status = newStatus))
+                // FIX: Menggunakan insert() alih-alih update() karena update tidak dikenal di DAO
+                purchaseDao.insert(purchase.copy(paidAmount = newPaidAmount, status = newStatus))
                 
                 withContext(Dispatchers.Main) { onResult(true, "Pembayaran berhasil disimpan") }
             } catch (e: Exception) {
@@ -521,8 +529,6 @@ class PosViewModel(
             }
         }
     }
-
-    // FIX: getPaymentsForPurchase DIHAPUS dari sini karena sudah ada di PosViewModelSupplierTransfer.kt
 
     // ========================================================================
     // FUNGSI SETTER DASAR
