@@ -217,7 +217,7 @@ class PosViewModel(
     internal val _serviceChargePercent = MutableStateFlow(0.0)
     val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
-    // COMPUTED FLOWS (Untuk HistoryScreen)
+    // COMPUTED FLOWS
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
         _transactions,
         cashFlowDao.getAllCashFlows(),
@@ -387,6 +387,8 @@ class PosViewModel(
                 val transactionId = transactionDao.insertTransaction(newTransaction)
                 val savedTransaction = newTransaction.copy(id = transactionId)
 
+                val itemsToInsert = mutableListOf<TransactionItemEntity>()
+
                 for (cartItem in cartToProcess) {
                     val itemEntity = TransactionItemEntity(
                         transactionId = transactionId,
@@ -400,9 +402,7 @@ class PosViewModel(
                         assignedStaff = cartItem.assignedStaff,
                         subtotal = getPriceForVariant(cartItem.product, cartItem.selectedVariation) * cartItem.quantity
                     )
-                    
-                    // Menggunakan insertItem sesuai DAO
-                    transactionItemDao.insert(itemEntity)
+                    itemsToInsert.add(itemEntity)
 
                     val freshProduct = productDao.getProductById(cartItem.product.id)
                     if (freshProduct != null) {
@@ -415,6 +415,9 @@ class PosViewModel(
                         }
                     }
                 }
+                
+                // Menggunakan fungsi DAO yang benar (jamak, menerima list)
+                transactionItemDao.insertTransactionItems(itemsToInsert)
 
                 withContext(Dispatchers.Main) {
                     if (isSplitBill) _cart.value = _cart.value.filterNot { it.isSelectedForSplit }
@@ -491,54 +494,13 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI SUPPLIER & PURCHASE
-    // ========================================================================
-    fun recordSupplierPayment(
-        purchase: PurchaseEntity,
-        amount: Long,
-        paymentMethod: String,
-        note: String,
-        user: UserEntity,
-        onResult: (Boolean, String) -> Unit
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val newPayment = PurchasePaymentEntity(
-                    purchaseId = purchase.id,
-                    amount = amount,
-                    paymentMethod = paymentMethod,
-                    note = note,
-                    userName = user.name,
-                    timestamp = System.currentTimeMillis(),
-                    userId = user.id
-                )
-                purchasePaymentDao.insertPayment(newPayment)
-                
-                val newPaidAmount = purchase.paidAmount + amount
-                val newStatus = if (newPaidAmount >= purchase.totalAmount) "PAID" else "PARTIAL"
-                
-                // Menggunakan insert (Room @Insert with REPLACE) karena update mungkin tidak ada di DAO
-                purchaseDao.insert(purchase.copy(paidAmount = newPaidAmount, status = newStatus))
-                
-                withContext(Dispatchers.Main) { onResult(true, "Pembayaran berhasil disimpan") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
-            }
-        }
-    }
-
-    fun getPaymentsForPurchase(purchaseId: Long): Flow<List<PurchasePaymentEntity>> {
-        return purchasePaymentDao.getPaymentsForPurchase(purchaseId)
-    }
-
-    // ========================================================================
-    // FUNGSI STOCK OPNAME & TRANSFER
+    // FUNGSI STOCK OPNAME (DIPERBAIKI NAMA DAO-NYA)
     // ========================================================================
     fun processStockOpname(items: List<StockOpnameItemEntity>, currentUser: UserEntity, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val totalLoss = items.filter { it.difference < 0 }.sumOf { Math.abs(it.difference) * 1000L } // Dummy calculation
-                val totalGain = items.filter { it.difference > 0 }.sumOf { it.difference * 1000L } // Dummy calculation
+                val totalLoss = items.filter { it.difference < 0 }.sumOf { Math.abs(it.difference) * 1000L } 
+                val totalGain = items.filter { it.difference > 0 }.sumOf { it.difference * 1000L } 
                 
                 val opname = StockOpnameEntity(
                     timestamp = System.currentTimeMillis(),
@@ -549,10 +511,13 @@ class PosViewModel(
                     totalGainValue = totalGain
                 )
                 
-                // Simpan opname & item
                 val opnameId = stockOpnameDao.insertOpname(opname)
+                val itemsToInsert = items.map { it.copy(opnameId = opnameId) }
+                
+                // Menggunakan fungsi DAO yang benar (jamak, menerima list)
+                stockOpnameDao.insertOpnameItems(itemsToInsert)
+                
                 for (item in items) {
-                    stockOpnameDao.insertOpnameItem(item.copy(opnameId = opnameId))
                     val prod = productDao.getProductById(item.productId)
                     if (prod != null) {
                         productDao.updateProduct(prod.copy(stock = item.physicalStock))
@@ -562,60 +527,6 @@ class PosViewModel(
                 withContext(Dispatchers.Main) { onSuccess() }
             } catch (e: Exception) { e.printStackTrace() }
         }
-    }
-
-    fun transferStock(
-        toBranchId: Long,
-        items: List<Pair<ProductEntity, Int>>,
-        note: String,
-        user: UserEntity,
-        onResult: (Boolean, String) -> Unit
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val totalItems = items.size
-                val totalQty = items.sumOf { it.second }
-                val fromBranch = currentBranch.value
-
-                val transfer = StockTransferEntity(
-                    fromBranchId = fromBranch?.id ?: 1L,
-                    fromBranchName = fromBranch?.name ?: "Cabang Asal",
-                    toBranchId = toBranchId,
-                    toBranchName = _allBranches.value.find { it.id == toBranchId }?.name ?: "Cabang Tujuan",
-                    timestamp = System.currentTimeMillis(),
-                    note = note,
-                    userId = user.id,
-                    userName = user.name,
-                    totalItems = totalItems,
-                    totalQuantity = totalQty
-                )
-
-                val transferId = stockTransferDao.insertTransfer(transfer)
-                for ((product, qty) in items) {
-                    val transferItem = StockTransferItemEntity(
-                        transferId = transferId,
-                        sourceProductId = product.id,
-                        destinationProductId = product.id, // Asumsi produk baru dibuat di cabang tujuan
-                        productName = product.name,
-                        barcode = product.barcode,
-                        quantity = qty
-                    )
-                    stockTransferDao.insertTransferItem(transferItem)
-                    val freshProd = productDao.getProductById(product.id)
-                    if (freshProd != null) {
-                        productDao.updateProduct(freshProd.copy(stock = freshProd.stock - qty))
-                    }
-                }
-                
-                withContext(Dispatchers.Main) { onResult(true, "Transfer berhasil") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
-            }
-        }
-    }
-
-    fun getTransferItems(transferId: Long): Flow<List<StockTransferItemEntity>> {
-        return stockTransferDao.getTransferItems(transferId)
     }
 
     // ========================================================================
@@ -663,7 +574,6 @@ class PosViewModel(
     }
 
     fun verifyAndCheckOutBiometric(activity: androidx.fragment.app.FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
-        // Placeholder - Anda perlu implementasi BiometricPrompt asli di sini jika belum ada
         verifyAndCheckOut(user, user.pin, onResult)
     }
 
@@ -750,7 +660,6 @@ class PosViewModel(
     fun recordWaste(product: ProductEntity, qty: Int, user: UserEntity) {}
     fun mergeOrder(tableA: String, tableB: String) {}
     
-    // Untuk ReceiptDialog & TransactionDetailDialog
     fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> {
         return transactionItemDao.getItemsByTransaction(transactionId)
     }
