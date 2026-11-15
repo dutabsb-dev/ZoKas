@@ -299,7 +299,8 @@ private fun generateReceiptBitmap(strukText: String): Bitmap? {
         val lines = strukText.lines()
         
         // Hitung tinggi bitmap secara dinamis berdasarkan jumlah baris
-        val textSize = 24f
+        // FIX: Mengubah nama variabel dari textSize menjadi fontSize agar tidak bentrok dengan Paint.textSize
+        val fontSize = 24f 
         val lineHeight = 30f
         val padding = 50f
         val estimatedHeight = (lines.size * lineHeight) + (padding * 2) + 200f // 200 untuk logo/jaga-jaga
@@ -311,7 +312,7 @@ private fun generateReceiptBitmap(strukText: String): Bitmap? {
 
         val paint = Paint().apply {
             color = AndroidColor.BLACK
-            textSize = textSize
+            textSize = fontSize // FIX: Menggunakan fontSize yang baru
             typeface = Typeface.MONOSPACE
             isAntiAlias = true
         }
