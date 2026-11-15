@@ -58,6 +58,10 @@ class PosViewModel(
     internal val _currentBranchId = MutableStateFlow(1L)
     val currentBranchId: StateFlow<Long> = _currentBranchId.asStateFlow()
 
+    // FIX: Menambahkan kembali _isBranchSwitchLocked yang hilang
+    internal val _isBranchSwitchLocked = MutableStateFlow(false)
+    val isBranchSwitchLocked: StateFlow<Boolean> = _isBranchSwitchLocked.asStateFlow()
+
     internal val _allBranches = MutableStateFlow<List<BranchEntity>>(emptyList())
     val allBranches: StateFlow<List<BranchEntity>> = _allBranches.asStateFlow()
 
@@ -214,7 +218,7 @@ class PosViewModel(
     internal val _serviceChargePercent = MutableStateFlow(0.0)
     val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
-    // COMPUTED FLOWS (Untuk HistoryScreen / Laporan)
+    // COMPUTED FLOWS
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
         _transactions,
         cashFlowDao.getAllCashFlows(),
@@ -383,7 +387,6 @@ class PosViewModel(
                 val savedTransaction = newTransaction.copy(id = transactionId)
 
                 for (cartItem in cartToProcess) {
-                    // PERBAIKAN: Menggunakan nama parameter yang sesuai dengan entity Anda
                     val itemEntity = TransactionItemEntity(
                         transactionId = transactionId,
                         productId = cartItem.product.id,
@@ -394,11 +397,9 @@ class PosViewModel(
                         notes = cartItem.notes,
                         serialNumber = cartItem.serialNumber,
                         assignedStaff = cartItem.assignedStaff
-                        // Hapus 'subtotal' dan 'variation' jika tidak ada di Entity Anda, atau ganti dengan nama yang benar
                     )
                     transactionItemDao.insertTransactionItem(itemEntity)
 
-                    // POTONG STOK VARIAN
                     val freshProduct = productDao.getProductById(cartItem.product.id)
                     if (freshProduct != null) {
                         if (cartItem.selectedVariation.isNotBlank()) {
@@ -486,7 +487,7 @@ class PosViewModel(
     }
 
     // ========================================================================
-    // FUNGSI DIALOG LAINNYA (Supplier Debt)
+    // FUNGSI DIALOG LAINNYA
     // ========================================================================
     fun recordSupplierPayment(
         purchase: PurchaseEntity,
@@ -510,7 +511,9 @@ class PosViewModel(
                 
                 val newPaidAmount = purchase.paidAmount + amount
                 val newStatus = if (newPaidAmount >= purchase.totalAmount) "PAID" else "PARTIAL"
-                purchaseDao.updatePurchase(purchase.copy(paidAmount = newPaidAmount, status = newStatus))
+                
+                // FIX: Menggunakan purchaseDao.update() karena updatePurchase tidak ditemukan
+                purchaseDao.update(purchase.copy(paidAmount = newPaidAmount, status = newStatus))
                 
                 withContext(Dispatchers.Main) { onResult(true, "Pembayaran berhasil disimpan") }
             } catch (e: Exception) {
@@ -519,9 +522,7 @@ class PosViewModel(
         }
     }
 
-    fun getPaymentsForPurchase(purchaseId: Long): Flow<List<PurchasePaymentEntity>> {
-        return purchasePaymentDao.getPaymentsForPurchase(purchaseId)
-    }
+    // FIX: getPaymentsForPurchase DIHAPUS dari sini karena sudah ada di PosViewModelSupplierTransfer.kt
 
     // ========================================================================
     // FUNGSI SETTER DASAR
