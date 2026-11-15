@@ -17,10 +17,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -63,7 +61,7 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     
-    // STATE BARU: Untuk mengintip PIN
+    // State untuk mengintip PIN
     var isPinVisible by remember { mutableStateOf(false) }
 
     if (isInitializing) {
@@ -112,9 +110,10 @@ fun LoginScreen(
                                 user = user,
                                 onClick = {
                                     errorMessage = ""
-                                    isPinVisible = false // Reset mata saat ganti user
-                                    if (user.biometricKey.isNotBlank() && activity != null) {
-                                        // Coba Login Biometrik
+                                    isPinVisible = false 
+                                    
+                                    // FIX: Hanya OWNER yang bisa memicu login biometrik dari kartu
+                                    if (user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
                                         viewModel.loginWithBiometric(activity, user) { success, msg ->
                                             if (success) {
                                                 onLoginSuccess(user)
@@ -125,7 +124,7 @@ fun LoginScreen(
                                             }
                                         }
                                     } else {
-                                        // Belum daftar biometrik, langsung ke PIN
+                                        // Karyawan biasa (atau Owner yang belum daftar) langsung ke PIN
                                         selectedUser = user
                                     }
                                 }
@@ -169,7 +168,6 @@ fun LoginScreen(
                 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // KOLOM PIN DENGAN FITUR INTIP MATA
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { 
@@ -190,7 +188,6 @@ fun LoginScreen(
                         }
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    // Toggle antara titik-titik dan teks biasa
                     visualTransformation = if (isPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -235,8 +232,8 @@ fun LoginScreen(
                     }
                 }
 
-                // Tombol Biometrik (Jika sudah didaftarkan)
-                if (user.biometricKey.isNotBlank() && activity != null) {
+                // Tombol Biometrik (HANYA UNTUK OWNER)
+                if (user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(
                         onClick = {
@@ -306,8 +303,8 @@ fun UserProfileCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
-            // Menampilkan ikon jika biometrik sudah didaftarkan
-            if (user.biometricKey.isNotBlank()) {
+            // FIX: Ikon Sidik Jari HANYA untuk OWNER
+            if (user.role == "OWNER" && user.biometricKey.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Icon(Icons.Default.Fingerprint, contentDescription = "Biometrik Aktif", tint = AmberAccent, modifier = Modifier.size(14.dp))
             }

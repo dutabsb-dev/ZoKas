@@ -79,7 +79,7 @@ fun SettingsAppearanceCard(
     }
 }
 
-// --- 2. CARD MANAJEMEN AKUN (MINIMIZE) ---
+// --- 2. CARD MANAJEMEN AKUN ---
 @Composable
 fun SettingsAccountCard(
     currentUser: UserEntity,
@@ -88,6 +88,7 @@ fun SettingsAccountCard(
     onChangePinClick: () -> Unit,
     onManageStaffClick: () -> Unit,
     onShiftHistoryClick: () -> Unit,
+    onRegisterBiometricClick: () -> Unit,
     language: String
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -123,6 +124,20 @@ fun SettingsAccountCard(
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Tombol Daftarkan Biometrik (Hanya Owner di Sesi 4 nanti, saat ini tetap tampil untuk semua agar tidak error dulu)
+                    Button(
+                        onClick = onRegisterBiometricClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (currentUser.biometricKey.isNotBlank()) EmeraldGreen else SlateGrey),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (currentUser.biometricKey.isNotBlank()) "Biometrik Terdaftar (Ubah)" else "Daftarkan Sidik Jari/Wajah", fontSize = 12.sp, color = Color.White)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
                         Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
                     }
@@ -131,8 +146,8 @@ fun SettingsAccountCard(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Login Sidik Jari", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Aktifkan login biometrik di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Login Sidik Jari (Login Screen)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Aktifkan fitur login cepat di halaman awal.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(
                             checked = isBiometricEnabled,
@@ -186,10 +201,7 @@ fun SettingsAccountCard(
     }
 }
 
-// --- 2b. CARD TIPE USAHA (NEW - Fix #3 sisi Setting) ---
-// Mengizinkan OWNER mengganti tipe usaha (KULINER/RETAIL/JASA/MUSIMAN).
-// Perubahan akan mempengaruhi visibilitas Tab Dapur & menu Gabung Meja
-// (lihat MainActivity.kt Fix #3 UI). Data transaksi/produk TIDAK tersentuh.
+// --- 3. CARD TIPE USAHA ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsBusinessTypeCard(
@@ -200,6 +212,7 @@ fun SettingsBusinessTypeCard(
     var isExpanded by remember { mutableStateOf(false) }
     var showConfirmDialog by remember { mutableStateOf<String?>(null) }
     var dropdownExpanded by remember { mutableStateOf(false) }
+    val lang = language
 
     val businessTypes = listOf(
         "KULINER" to "Kuliner (Restoran, Cafe, Warung)",
@@ -215,26 +228,26 @@ fun SettingsBusinessTypeCard(
         AlertDialog(
             onDismissRequest = { showConfirmDialog = null },
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AmberAccent) },
-            title = { Text("Ganti Tipe Usaha?", fontWeight = FontWeight.Bold) },
+            title = { Text(if (lang == "in") "Ganti Tipe Usaha?" else "Change Business Type?", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Tipe usaha akan diubah menjadi:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (lang == "in") "Tipe usaha akan diubah menjadi:" else "Business type will be changed to:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(newLabel, fontWeight = FontWeight.Bold, color = EmeraldGreen)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Perubahan yang akan terjadi:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (lang == "in") "Perubahan yang akan terjadi:" else "Changes that will occur:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
                     if (newType == "KULINER") {
-                        Text("• Tab \"Dapur\" (KDS) akan MUNCUL di bottom nav", fontSize = 11.sp)
-                        Text("• Menu \"Gabung Meja\" akan muncul di dropdown kasir", fontSize = 11.sp)
-                        Text("• Mode Meja otomatis DIAKTIFKAN", fontSize = 11.sp)
+                        Text(if (lang == "in") "• Tab \"Dapur\" (KDS) akan MUNCUL di bottom nav" else "• \"Kitchen\" (KDS) tab will APPEAR in bottom nav", fontSize = 11.sp)
+                        Text(if (lang == "in") "• Menu \"Gabung Meja\" akan muncul di dropdown kasir" else "• \"Merge Table\" menu will appear in cashier dropdown", fontSize = 11.sp)
+                        Text(if (lang == "in") "• Mode Meja otomatis DIAKTIFKAN" else "• Table Mode automatically ENABLED", fontSize = 11.sp)
                     } else {
-                        Text("• Tab \"Dapur\" (KDS) akan DISEMBUNYIKAN", fontSize = 11.sp)
-                        Text("• Menu \"Gabung Meja\" akan hilang dari dropdown", fontSize = 11.sp)
-                        Text("• Mode Meja otomatis DINONAKTIFKAN", fontSize = 11.sp)
+                        Text(if (lang == "in") "• Tab \"Dapur\" (KDS) akan DISEMBUNYIKAN" else "• \"Kitchen\" (KDS) tab will be HIDDEN", fontSize = 11.sp)
+                        Text(if (lang == "in") "• Menu \"Gabung Meja\" akan hilang dari dropdown" else "• \"Merge Table\" menu will disappear from dropdown", fontSize = 11.sp)
+                        Text(if (lang == "in") "• Mode Meja otomatis DINONAKTIFKAN" else "• Table Mode automatically DISABLED", fontSize = 11.sp)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh.",
+                        if (lang == "in") "Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh." else "Note: Transaction data, products, customers, and receipts are NOT affected.",
                         fontSize = 10.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -249,10 +262,10 @@ fun SettingsBusinessTypeCard(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
                     shape = RoundedCornerShape(12.dp)
-                ) { Text("GANTI", color = Color.White, fontWeight = FontWeight.Bold) }
+                ) { Text(if (lang == "in") "GANTI" else "CHANGE", color = Color.White, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmDialog = null }) { Text("Batal") }
+                TextButton(onClick = { showConfirmDialog = null }) { Text(if (lang == "in") "Batal" else "Cancel") }
             }
         )
     }
@@ -270,7 +283,7 @@ fun SettingsBusinessTypeCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Tipe Usaha",
+                        LanguageManager.tr("tipe_usaha", lang),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -294,7 +307,7 @@ fun SettingsBusinessTypeCard(
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                     Text(
-                        "Pilih tipe usaha yang paling sesuai. Menu aplikasi akan menyesuaikan otomatis (Tab Dapur & Gabung Meja hanya muncul untuk Kuliner).",
+                        LanguageManager.tr("tipe_usaha_desc", lang),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -354,7 +367,7 @@ fun SettingsBusinessTypeCard(
     }
 }
 
-// --- 3. CARD MODUL TOKO (MINIMIZE) ---
+// --- 4. CARD MODUL TOKO ---
 @Composable
 fun SettingsModuleCard(
     isTableModeEnabled: Boolean, onTableModeToggle: (Boolean) -> Unit,
@@ -397,8 +410,8 @@ fun SettingsModuleCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Modul Toko", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Sesuaikan fitur dengan kebutuhan bisnis.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(LanguageManager.tr("modul_toko", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(LanguageManager.tr("modul_toko_desc", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -407,6 +420,7 @@ fun SettingsModuleCard(
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
+                    // Mode Meja
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onTableModeToggle(!isTableModeEnabled) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -422,6 +436,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Multi Currency
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onMultiCurrencyToggle(!enableMultiCurrency) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -449,6 +464,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Tipe Pesanan
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onOrderTypesToggle(!enableOrderTypes) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -464,6 +480,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Harga Grosir
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onWholesaleToggle(!enableWholesale) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -479,6 +496,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Pre-Order
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onPreOrderToggle(!enablePreOrder) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -494,6 +512,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Reservasi (Booking)
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onReservationToggle(!enableReservation) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -524,6 +543,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Membership
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onMembershipToggle(!enableMembership) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -554,6 +574,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Supplier & PO
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onSupplierToggle(!enableSupplier) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -596,6 +617,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Modul Keuangan
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onFinanceToggle(!enableFinance) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -650,6 +672,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
+                    // Bahan Baku
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onRawMaterialClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -668,7 +691,7 @@ fun SettingsModuleCard(
     }
 }
 
-// --- 4. CARD KONEKSI PRINTER (MINIMIZE) ---
+// --- 5. CARD KONEKSI PRINTER ---
 @Composable
 fun SettingsPrinterCard(
     savedPrinterMac: String?,
@@ -693,7 +716,11 @@ fun SettingsPrinterCard(
             ) {
                 Column {
                     Text(LanguageManager.tr("printer_kasir", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(if (savedPrinterMac != null) "Terhubung" else "Belum diatur", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        if (savedPrinterMac != null) LanguageManager.tr("terhubung", lang) else LanguageManager.tr("belum_printer", lang),
+                        fontSize = 11.sp, 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -703,21 +730,39 @@ fun SettingsPrinterCard(
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                     Text(LanguageManager.tr("printer_kasir", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Text(if (savedPrinterMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedPrinterMac" else LanguageManager.tr("belum_printer", lang), fontSize = 12.sp, color = if(savedPrinterMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = onPrinterClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer", lang), color = Color.White) }
+                    Text(
+                        if (savedPrinterMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedPrinterMac" else LanguageManager.tr("belum_printer", lang), 
+                        fontSize = 12.sp, 
+                        color = if(savedPrinterMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = onPrinterClick, 
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp), 
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), 
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text(LanguageManager.tr("pilih_printer", lang), color = Color.White) }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(LanguageManager.tr("printer_dapur", lang), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Text(if (savedKitchenMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedKitchenMac" else LanguageManager.tr("belum_printer_dapur", lang), fontSize = 12.sp, color = if(savedKitchenMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = onKitchenClick, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("pilih_printer_dapur", lang), color = Color.White) }
+                    Text(
+                        if (savedKitchenMac != null) "${LanguageManager.tr("terhubung", lang)}: $savedKitchenMac" else LanguageManager.tr("belum_printer_dapur", lang), 
+                        fontSize = 12.sp, 
+                        color = if(savedKitchenMac != null) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = onKitchenClick, 
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp), 
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), // FIX: Ubah ke EmeraldGreen agar konsisten
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text(LanguageManager.tr("pilih_printer_dapur", lang), color = Color.White) }
                 }
             }
         }
     }
 }
 
-// --- 5. CARD PROFIL TOKO (MINIMIZE + LOGO + SERVICE CHARGE) ---
+// --- 6. CARD PROFIL TOKO (FIX PADDING & LOGO) ---
 @Composable
 fun SettingsStoreProfileCard(
     storeName: String, onStoreNameChange: (String) -> Unit,
@@ -762,7 +807,7 @@ fun SettingsStoreProfileCard(
             ) {
                 Column {
                     Text(LanguageManager.tr("profil_toko", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(storeName.ifBlank { "Belum diatur" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(storeName.ifBlank { LanguageManager.tr("belum_diatur", lang) }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -771,15 +816,20 @@ fun SettingsStoreProfileCard(
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                    // Logo Section
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                         Box(
-                            modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface).clickable { logoPickerLauncher.launch("image/*") },
+                            modifier = Modifier
+                                .size(72.dp) // FIX: Ukuran proporsional
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { logoPickerLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
                             if (!logoPath.isNullOrEmpty() && File(logoPath).exists()) {
                                 AsyncImage(model = File(logoPath), contentDescription = "Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                             } else {
-                                Icon(Icons.Default.Store, contentDescription = "Upload Logo", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Default.Store, contentDescription = "Upload Logo", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
                             }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
@@ -789,16 +839,17 @@ fun SettingsStoreProfileCard(
                         }
                     }
 
+                    // Form Inputs dengan jarak yang lebih lega (12.dp)
                     OutlinedTextField(value = storeName, onValueChange = onStoreNameChange, label = { Text(LanguageManager.tr("nama_toko", lang)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp)) // FIX: Spasi 12.dp
                     OutlinedTextField(value = storeAddress, onValueChange = onStoreAddressChange, label = { Text(LanguageManager.tr("alamat_toko", lang)) }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = storePhone, onValueChange = onStorePhoneChange, label = { Text(LanguageManager.tr("no_telp", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = storeFooter, onValueChange = onStoreFooterChange, label = { Text(LanguageManager.tr("pesan_struk", lang)) }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = taxPercent, onValueChange = onTaxPercentChange, label = { Text(LanguageManager.tr("pajak", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = serviceChargePercent, onValueChange = onServiceChargeChange, label = { Text("Service Charge (%) cth: 5") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                 }
             }
@@ -806,7 +857,7 @@ fun SettingsStoreProfileCard(
     }
 }
 
-// --- 6. CARD HAPPY HOUR & DISKON (MINIMIZE) ---
+// --- 7. CARD HAPPY HOUR & DISKON ---
 @Composable
 fun SettingsDiscountCard(
     hhStart: String, onHhStartChange: (String) -> Unit,
@@ -841,14 +892,14 @@ fun SettingsDiscountCard(
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                     Text(LanguageManager.tr("happy_hour_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(value = hhStart, onValueChange = onHhStartChange, label = { Text(LanguageManager.tr("mulai", lang)) }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
                         OutlinedTextField(value = hhEnd, onValueChange = onHhEndChange, label = { Text(LanguageManager.tr("selesai", lang)) }, modifier = Modifier.weight(1f), singleLine = true, shape = RoundedCornerShape(12.dp))
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = hhDiscount, onValueChange = onHhDiscountChange, label = { Text(LanguageManager.tr("diskon_persen", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = maxDiscountCap, onValueChange = onMaxDiscountCapChange, label = { Text(LanguageManager.tr("max_diskon", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
                 }
             }
@@ -856,7 +907,7 @@ fun SettingsDiscountCard(
     }
 }
 
-// --- 7. CARD BACKUP & EXCEL (MINIMIZE) ---
+// --- 8. CARD BACKUP & EXCEL ---
 @Composable
 fun SettingsBackupCard(
     onBackupClick: () -> Unit,
@@ -881,7 +932,7 @@ fun SettingsBackupCard(
             ) {
                 Column {
                     Text(LanguageManager.tr("data_backup", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Cadangkan seluruh data ke file.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(LanguageManager.tr("cadangkan_data", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -899,12 +950,12 @@ fun SettingsBackupCard(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                     // FITUR EXCEL
-                    Text("Manajemen Produk Massal (Excel)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Ekspor atau impor daftar produk sekaligus menggunakan file Excel (XLSX).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(LanguageManager.tr("manajemen_produk_massal", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(LanguageManager.tr("manajemen_produk_massal_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onExportExcelClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("EKSPOR EXCEL", color = Color.White) }
-                        Button(onClick = onImportExcelClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text("IMPOR EXCEL", color = Color.White) }
+                        Button(onClick = onExportExcelClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("ekspor_excel", lang), color = Color.White) }
+                        Button(onClick = onImportExcelClick, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) { Text(LanguageManager.tr("impor_excel", lang), color = Color.White) }
                     }
                 }
             }
@@ -912,7 +963,7 @@ fun SettingsBackupCard(
     }
 }
 
-// --- 8. CARD PENGATURAN QRIS ---
+// --- 9. CARD PENGATURAN QRIS ---
 @Composable
 fun SettingsQrisCard(
     qrisPayload: String,
@@ -937,8 +988,8 @@ fun SettingsQrisCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Pembayaran QRIS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(if (qrisPayload.isNotBlank()) "QRIS Statis Terpasang" else "Belum diatur", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(LanguageManager.tr("pembayaran_qris", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(if (qrisPayload.isNotBlank()) "QRIS Statis Terpasang" else LanguageManager.tr("belum_diatur", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -956,7 +1007,7 @@ fun SettingsQrisCard(
                         Text("Kelola Metode Pembayaran", color = Color.White)
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text("QRIS Statis (Payload)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Tempelkan kode teks QRIS dari bank Anda. Aplikasi akan mengubah nominal otomatis.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -993,7 +1044,7 @@ fun SettingsQrisCard(
     }
 }
 
-// --- 9. CARD PENGATURAN TRANSFER BANK ---
+// --- 10. CARD PENGATURAN TRANSFER BANK ---
 @Composable
 fun SettingsBankTransferCard(
     bankName: String, onBankNameChange: (String) -> Unit,
@@ -1017,8 +1068,8 @@ fun SettingsBankTransferCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Transfer Bank Manual", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text(if (accountNumber.isNotBlank()) "$bankName - $accountNumber" else "Belum diatur", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(LanguageManager.tr("transfer_bank_manual", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(if (accountNumber.isNotBlank()) "$bankName - $accountNumber" else LanguageManager.tr("belum_diatur", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Icon(imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1028,9 +1079,9 @@ fun SettingsBankTransferCard(
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                     OutlinedTextField(value = bankName, onValueChange = onBankNameChange, label = { Text("Nama Bank (cth: BCA)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = accountNumber, onValueChange = onAccountNumberChange, label = { Text("Nomor Rekening") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = accountName, onValueChange = onAccountNameChange, label = { Text("Atas Nama") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -1056,7 +1107,7 @@ fun SettingsBankTransferCard(
     }
 }
 
-// --- 10. DIALOG KELOLA METODE PEMBAYARAN ---
+// --- 11. DIALOG KELOLA METODE PEMBAYARAN ---
 @Composable
 fun PaymentMethodManagementDialog(
     currentMethods: Set<String>,

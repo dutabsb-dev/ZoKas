@@ -10,7 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
+import androidx.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -70,7 +70,7 @@ fun SettingsScreen(
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
-    
+
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
@@ -120,8 +120,7 @@ fun SettingsScreen(
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
     var showCustomerManagementDialog by remember { mutableStateOf(false) }
-    
-    // STATE MODUL C
+
     var showAttendanceDialog by remember { mutableStateOf(false) }
     var showPayrollDialog by remember { mutableStateOf(false) }
     var showBiometricDialog by remember { mutableStateOf(false) }
@@ -323,8 +322,7 @@ fun SettingsScreen(
             confirmButton = { Button(onClick = { android.os.Process.killProcess(android.os.Process.myPid()) }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("TUTUP APLIKASI") } }
         )
     }
-    
-    // DIALOG MODUL C
+
     if (showAttendanceDialog) {
         AttendanceDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showAttendanceDialog = false })
     }
@@ -379,7 +377,16 @@ fun SettingsScreen(
                 onChangePinClick = { showChangePinDialog = true },
                 onManageStaffClick = { showUserManagementDialog = true },
                 onShiftHistoryClick = { showShiftHistory = true },
-                onRegisterBiometricClick = { showBiometricDialog = true },
+                // ============================================================
+                // FIX #1: HANYA OWNER yang bisa buka dialog pendaftaran biometrik
+                // ============================================================
+                onRegisterBiometricClick = {
+                    if (currentUser.role == "OWNER") {
+                        showBiometricDialog = true
+                    } else {
+                        Toast.makeText(context, "Hanya OWNER yang bisa mendaftarkan biometrik.", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 language = language
             )
         }
@@ -413,7 +420,10 @@ fun SettingsScreen(
                     onManageClick = { showCustomerManagementDialog = true }
                 )
             }
-            
+
+            // ============================================================
+            // FIX #2: SPASI HR CARD DIPERLEBAR (4.dp teks, 16.dp sebelum tombol)
+            // ============================================================
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -422,8 +432,9 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("Kepegawaian (HR)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text("Kelola absensi harian dan slip gaji karyawan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { showAttendanceDialog = true },
@@ -453,11 +464,11 @@ fun SettingsScreen(
 
         item {
             SettingsModuleCard(
-                isTableModeEnabled = isTableModeEnabled, 
+                isTableModeEnabled = isTableModeEnabled,
                 onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
-                enableMultiCurrency = enableMultiCurrency, 
+                enableMultiCurrency = enableMultiCurrency,
                 onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
-                exchangeRateUsd = exchangeRateUsd, 
+                exchangeRateUsd = exchangeRateUsd,
                 onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
                 onRawMaterialClick = { showRawMaterialDialog = true },
                 enableOrderTypes = enableOrderTypes,
@@ -587,7 +598,7 @@ fun SettingsScreen(
 }
 
 // ====================================================================
-// CARD MANAJEMEN AKUN (DIPERBARUI DENGAN TOMBOL BIOMETRIK)
+// CARD MANAJEMEN AKUN
 // ====================================================================
 @Composable
 fun SettingsAccountCard(
@@ -633,20 +644,22 @@ fun SettingsAccountCard(
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Tombol Daftarkan Biometrik
-                    Button(
-                        onClick = onRegisterBiometricClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = if (currentUser.biometricKey.isNotBlank()) EmeraldGreen else SlateGrey),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (currentUser.biometricKey.isNotBlank()) "Biometrik Terdaftar (Ubah)" else "Daftarkan Sidik Jari/Wajah", fontSize = 12.sp, color = Color.White)
+
+                    // Tombol Daftarkan Biometrik - hanya untuk OWNER
+                    if (currentUser.role == "OWNER") {
+                        Button(
+                            onClick = onRegisterBiometricClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = if (currentUser.biometricKey.isNotBlank()) EmeraldGreen else SlateGrey),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (currentUser.biometricKey.isNotBlank()) "Biometrik Terdaftar (Ubah)" else "Daftarkan Sidik Jari/Wajah", fontSize = 12.sp, color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
+
                     Button(onClick = onShiftHistoryClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = SlateGrey), shape = RoundedCornerShape(12.dp)) {
                         Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp, color = Color.White)
                     }
@@ -710,9 +723,9 @@ fun SettingsAccountCard(
     }
 }
 
-// ... (Fungsi SettingsAuditLogCard, SettingsBranchManagementCard, SettingsCrmCard TETAP SAMA seperti versi sebelumnya, tidak berubah)
-// Karena instruksi Anda meminta FULL FILE, saya sertakan kembali di bawah agar aman.
-
+// ====================================================================
+// CARD LOG AKTIVITAS - FIX #3: LEBIH RAPAT (SINGLE-LINE)
+// ====================================================================
 @Composable
 private fun SettingsAuditLogCard(
     auditLogs: List<AuditLogEntity>,
@@ -768,38 +781,39 @@ private fun SettingsAuditLogCard(
                         )
                     } else {
                         displayedLogs.forEach { log ->
+                            // Layout SINGLE-LINE agar lebih padat
                             Card(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(6.dp)
                             ) {
-                                Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.Top) {
-                                    Box(
-                                        modifier = Modifier.size(6.dp).padding(top = 6.dp)
-                                            .background(EmeraldGreen, CircleShape)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}: ",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            "[${dateFormat.format(Date(log.timestamp))}] ${log.userName}",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Text(
-                                            log.action,
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
+                                    Text(
+                                        log.action,
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
                         }
                         if (auditLogs.size > 30) {
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 "Menampilkan 30 dari ${auditLogs.size} aktivitas terbaru.",
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.fillMaxWidth(),
@@ -813,6 +827,9 @@ private fun SettingsAuditLogCard(
     }
 }
 
+// ====================================================================
+// CARD MULTI-CABANG
+// ====================================================================
 @Composable
 private fun SettingsBranchManagementCard(
     currentBranch: BranchEntity?,
@@ -996,6 +1013,9 @@ private fun SettingsBranchManagementCard(
     }
 }
 
+// ====================================================================
+// CARD CRM
+// ====================================================================
 @Composable
 private fun SettingsCrmCard(
     enableBirthdayDiscount: Boolean,

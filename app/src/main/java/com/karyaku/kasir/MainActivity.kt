@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -74,7 +75,6 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        // Auto backup VACUUM INTO
         val currentTime = System.currentTimeMillis()
         if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -154,7 +154,6 @@ fun MainContent(
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         val posViewModel: PosViewModel = viewModel(factory = PosViewModelFactory(database))
         
-        // State untuk Karyawan Non-Kasir (STAFF)
         var staffUserToLogout by remember { mutableStateOf<UserEntity?>(null) }
         var staffMessage by remember { mutableStateOf("") }
 
@@ -165,7 +164,6 @@ fun MainContent(
                 onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) }
             )
         } else if (staffUserToLogout != null) {
-            // Layar Auto-Logout untuk STAFF
             LaunchedEffect(Unit) {
                 delay(3000)
                 staffUserToLogout = null
@@ -189,7 +187,6 @@ fun MainContent(
                 viewModel = posViewModel,
                 settingsManager = settingsManager,
                 onLoginSuccess = { user ->
-                    // Proses Absensi Otomatis Sebelum Masuk Aplikasi (Hanya Check-In)
                     posViewModel.processLoginAttendance(user) { success, msg ->
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                         if (success) {
@@ -250,7 +247,6 @@ fun MainNavigation(
     var presentation by remember { mutableStateOf<CustomerDisplayPresentation?>(null) }
     val displayManager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager }
 
-    // Dual Screen (CFD)
     DisposableEffect(Unit) {
         val listener = object : DisplayManager.DisplayListener {
             override fun onDisplayAdded(displayId: Int) {
@@ -278,7 +274,6 @@ fun MainNavigation(
         onDispose { displayManager.unregisterDisplayListener(listener); presentation?.dismiss() }
     }
 
-    // Network Status
     DisposableEffect(Unit) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
         val callback = object : android.net.ConnectivityManager.NetworkCallback() {
@@ -329,10 +324,24 @@ fun MainNavigation(
         topBar = {
             Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (logoFile != null && logoFile.exists()) {
-                        AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)))
-                    } else {
-                        Image(painter = painterResource(id = R.drawable.logo_zokas), contentDescription = "Logo", modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)))
+                    // FIX DARK MODE LOGO: Membuat background logo transparan/putih pudar saat mode gelap
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDarkMode) MaterialTheme.colorScheme.surfaceVariant else Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (logoFile != null && logoFile.exists()) {
+                            AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        } else {
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_zokas),
+                                contentDescription = "Logo",
+                                modifier = Modifier.fillMaxSize(),
+                                colorFilter = if (isDarkMode) ColorFilter.tint(Color.White) else null
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
@@ -390,8 +399,9 @@ fun MainNavigation(
                 NavigationBarItem(icon = { Icon(Icons.Default.Storefront, contentDescription = "Cashier") }, label = { Text(LanguageManager.tr("kasir", language), textAlign = TextAlign.Center) }, selected = selectedTab == 0, onClick = { selectedTab = 0 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
                 NavigationBarItem(icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") }, label = { Text(LanguageManager.tr("produk", language), textAlign = TextAlign.Center) }, selected = selectedTab == 1, onClick = { selectedTab = 1 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
                 NavigationBarItem(icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") }, label = { Text(LanguageManager.tr("laporan", language), textAlign = TextAlign.Center) }, selected = selectedTab == 2, onClick = { selectedTab = 2 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
-                if (isKuliner) NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text("Dapur", textAlign = TextAlign.Center) }, selected = selectedTab == 4, onClick = { selectedTab = 4 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
-                NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }, label = { Text("Setting", textAlign = TextAlign.Center) }, selected = selectedTab == 3, onClick = { selectedTab = 3 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
+                if (isKuliner) NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text(LanguageManager.tr("dapur", language), textAlign = TextAlign.Center) }, selected = selectedTab == 4, onClick = { selectedTab = 4 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
+                // FIX: Label Pengaturan/Settings Dinamis
+                NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }, label = { Text(LanguageManager.tr("pengaturan", language), textAlign = TextAlign.Center) }, selected = selectedTab == 3, onClick = { selectedTab = 3 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
             }
         }
     ) { paddingValues ->

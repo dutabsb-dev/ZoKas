@@ -63,6 +63,12 @@ fun PosViewModel.isUserBiometricEnrolled(user: UserEntity): Boolean {
 }
 
 fun PosViewModel.registerBiometric(activity: FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
+    // FIX: Hanya OWNER yang boleh mendaftar
+    if (user.role != "OWNER") {
+        onResult(false, "Hanya OWNER yang diizinkan mendaftarkan biometrik.")
+        return
+    }
+
     Log.d(TAG_VM, "Memulai proses pendaftaran biometrik untuk: ${user.name}")
     
     val status = BiometricHelper.checkSensorStatus(activity)
@@ -132,6 +138,12 @@ fun PosViewModel.registerBiometric(activity: FragmentActivity, user: UserEntity,
 }
 
 fun PosViewModel.loginWithBiometric(activity: FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
+    // FIX: Hanya OWNER yang boleh login biometrik
+    if (user.role != "OWNER") {
+        onResult(false, "Login biometrik hanya tersedia untuk OWNER.")
+        return
+    }
+
     Log.d(TAG_VM, "Memulai login biometrik untuk: ${user.name}")
     
     val status = BiometricHelper.checkSensorStatus(activity)

@@ -17,6 +17,7 @@ object LanguageManager {
         "produk" to "Products",
         "laporan" to "Reports",
         "pengaturan" to "Settings",
+        "dapur" to "Kitchen",
         "gabung_meja" to "Merge Tables",
         "buka_laci" to "Open Drawer",
         "pesanan_parkir" to "Hold Orders",
@@ -145,7 +146,33 @@ object LanguageManager {
         "voided_msg" to "THIS TRANSACTION HAS BEEN VOIDED",
         "unpaid_msg" to "THIS TRANSACTION IS UNPAID (BON)",
         "void" to "VOID",
-        "bon" to "BON"
+        "bon" to "BON",
+
+        // TAMBAHAN UNTUK SETTING
+        "tipe_usaha" to "Business Type",
+        "tipe_usaha_desc" to "Select the most suitable business type. App menus will adapt automatically (Kitchen & Merge Table only for Culinary).",
+        "kepegawaian_hr" to "Human Resources (HR)",
+        "kepegawaian_hr_desc" to "Manage daily attendance and employee payroll.",
+        "absensi" to "Attendance",
+        "gaji_payroll" to "Payroll",
+        "multi_cabang" to "Multi-Branch",
+        "multi_cabang_desc" to "Manage your store branches",
+        "modul_toko" to "Store Modules",
+        "modul_toko_desc" to "Adjust features to your business needs.",
+        "pembayaran_qris" to "QRIS Payment",
+        "transfer_bank_manual" to "Manual Bank Transfer",
+        "belum_diatur" to "Not configured",
+        "data_dan_backup" to "Data & Backup",
+        "cadangkan_data" to "Backup all data to a file.",
+        "manajemen_produk_massal" to "Bulk Product Management (Excel)",
+        "manajemen_produk_massal_desc" to "Export or import product lists at once using an Excel file (XLSX).",
+        "ekspor_excel" to "EXPORT EXCEL",
+        "impor_excel" to "IMPORT EXCEL",
+        "log_aktivitas_audit" to "Activity Log (Audit)",
+        "aktivitas_tercatat" to "activities recorded",
+        "menampilkan_30_aktivitas" to "Showing latest 30 activities.",
+        "toko_pret" to "Store Profile",
+        "pilih_printer" to "SELECT PRINTER"
     )
 
     private val id = mapOf(
@@ -163,7 +190,8 @@ object LanguageManager {
         "kasir" to "Kasir",
         "produk" to "Produk",
         "laporan" to "Laporan",
-        "pengaturan" to "Pengaturan", // <-- FIX: Teks Lebih Pendek
+        "pengaturan" to "Setting",
+        "dapur" to "Dapur",
         "gabung_meja" to "Gabung Meja",
         "buka_laci" to "Buka Laci",
         "pesanan_parkir" to "Pesanan Parkir",
@@ -292,7 +320,33 @@ object LanguageManager {
         "voided_msg" to "TRANSAKSI INI TELAH DIBATALKAN (VOID)",
         "unpaid_msg" to "TRANSAKSI INI BELUM DIBAYAR (BON)",
         "void" to "VOID",
-        "bon" to "BON"
+        "bon" to "BON",
+
+        // TAMBAHAN UNTUK SETTING
+        "tipe_usaha" to "Tipe Usaha",
+        "tipe_usaha_desc" to "Pilih tipe usaha yang paling sesuai. Menu aplikasi akan menyesuaikan otomatis (Tab Dapur & Gabung Meja hanya muncul untuk Kuliner).",
+        "kepegawaian_hr" to "Kepegawaian (HR)",
+        "kepegawaian_hr_desc" to "Kelola absensi harian dan slip gaji karyawan.",
+        "absensi" to "Absensi",
+        "gaji_payroll" to "Gaji (Payroll)",
+        "multi_cabang" to "Multi-Cabang",
+        "multi_cabang_desc" to "Kelola cabang toko Anda",
+        "modul_toko" to "Modul Toko",
+        "modul_toko_desc" to "Sesuaikan fitur dengan kebutuhan bisnis.",
+        "pembayaran_qris" to "Pembayaran QRIS",
+        "transfer_bank_manual" to "Transfer Bank Manual",
+        "belum_diatur" to "Belum diatur",
+        "data_dan_backup" to "Data & Backup",
+        "cadangkan_data" to "Cadangkan seluruh data ke file.",
+        "manajemen_produk_massal" to "Manajemen Produk Massal (Excel)",
+        "manajemen_produk_massal_desc" to "Ekspor atau impor daftar produk sekaligus menggunakan file Excel (XLSX).",
+        "ekspor_excel" to "EKSPOR EXCEL",
+        "impor_excel" to "IMPOR EXCEL",
+        "log_aktivitas_audit" to "Log Aktivitas (Audit)",
+        "aktivitas_tercatat" to "aktivitas tercatat",
+        "menampilkan_30_aktivitas" to "Menampilkan 30 dari %d aktivitas terbaru.",
+        "toko_pret" to "Profil Toko",
+        "pilih_printer" to "PILIH PRINTER"
     )
 
     fun tr(key: String, lang: String): String {
