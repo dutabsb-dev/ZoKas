@@ -571,7 +571,7 @@ class PosViewModel(
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
 
     // ========================================================================
-    // FUNGSI KAS (FIX: TIDAK LAGI KOSONG)
+    // FUNGSI KAS (FIX: startCash -> openingCash, hapus branchId di DAO)
     // ========================================================================
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -580,12 +580,12 @@ class PosViewModel(
                     userId = user.id,
                     userName = user.name,
                     startTime = System.currentTimeMillis(),
-                    startCash = modalAwal,
+                    openingCash = modalAwal,
                     status = "OPEN",
                     branchId = _currentBranchId.value
                 )
                 userDao.insertShift(newShift)
-                checkActiveShift() // Refresh active shift
+                checkActiveShift()
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -596,12 +596,10 @@ class PosViewModel(
             try {
                 val endTime = System.currentTimeMillis()
                 
-                // Hitung penjualan tunai selama shift ini berlangsung
                 val cashSales = _transactions.value
                     .filter { it.timestamp >= currentShift.startTime && it.status == "SUCCESS" && it.paymentMethod == "CASH" }
                     .sumOf { it.totalPrice }
                 
-                // Hitung kas masuk & kas keluar
                 val cashIn = cashFlows.value
                     .filter { it.timestamp >= currentShift.startTime && it.type == "IN" }
                     .sumOf { it.amount }
@@ -609,8 +607,7 @@ class PosViewModel(
                     .filter { it.timestamp >= currentShift.startTime && it.type == "OUT" }
                     .sumOf { it.amount }
                 
-                // Ekspektasi uang di laci
-                val expectedCash = currentShift.startCash + cashSales + cashIn - cashOut
+                val expectedCash = currentShift.openingCash + cashSales + cashIn - cashOut
                 val discrepancy = physicalCash - expectedCash
 
                 userDao.closeShift(
@@ -649,7 +646,6 @@ class PosViewModel(
                     userName = user.name,
                     branchId = _currentBranchId.value
                 )
-                // Pastikan DAO Anda memiliki fungsi insertCashFlow
                 cashFlowDao.insertCashFlow(cashFlow)
                 userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "KAS ${if (type == "IN") "MASUK" else "KELUAR"}: Rp $amount ($note)", actionType = "CASHFLOW"))
             } catch (e: Exception) { e.printStackTrace() }
