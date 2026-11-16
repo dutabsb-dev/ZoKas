@@ -571,7 +571,7 @@ class PosViewModel(
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
 
     // ========================================================================
-    // FUNGSI KAS (FIX: POSITIONAL ARGUMENTS)
+    // FUNGSI KAS (FIX: NAMED PARAMETERS SESUAI USERDAO)
     // ========================================================================
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -610,14 +610,13 @@ class PosViewModel(
                 val expectedCash = currentShift.openingCash + cashSales + cashIn - cashOut
                 val discrepancy = physicalCash - expectedCash
 
-                // FIX TOTAL: Menggunakan Positional Argument agar tidak peduli nama parameternya
                 userDao.closeShift(
-                    currentShift.id,
-                    endTime,
-                    expectedCash,
-                    physicalCash,
-                    discrepancy,
-                    note
+                    shiftId = currentShift.id,
+                    endTime = endTime,
+                    expectedCash = expectedCash,
+                    closingCash = physicalCash,
+                    discrepancy = discrepancy,
+                    note = note
                 )
                 
                 val closedShift = currentShift.copy(
@@ -690,7 +689,7 @@ class PosViewModel(
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
-            @UNCHECKED_CAST
+            @Suppress("UNCHECKED_CAST")
             return PosViewModel(database) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
