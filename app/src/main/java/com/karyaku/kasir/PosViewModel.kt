@@ -570,9 +570,6 @@ class PosViewModel(
     fun updateCartItemSerial(product: ProductEntity, variation: String, serial: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(serialNumber = serial) else it } }
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
 
-    // ========================================================================
-    // FUNGSI KAS (FIX: NAMED PARAMETERS SESUAI USERDAO)
-    // ========================================================================
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
