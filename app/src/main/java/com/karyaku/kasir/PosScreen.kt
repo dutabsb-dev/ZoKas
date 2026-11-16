@@ -326,7 +326,7 @@ fun PosScreen(
                                     else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                     else viewModel.addToCart(prod) 
                                 }, 
-                                onProductLongClick = { prod -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
+                                onProductLongClick = { product -> if (currentUser.role == "OWNER") showActionDialogFor = product }, 
                                 onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                                 onCameraScanClick = {
                                     val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
@@ -399,7 +399,7 @@ fun PosScreen(
                                 else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                 else viewModel.addToCart(prod) 
                             }, 
-                            onProductLongClick = { prod -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
+                            onProductLongClick = { product -> if (currentUser.role == "OWNER") showActionDialogFor = product }, 
                             onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                             onCameraScanClick = {
                                 val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
