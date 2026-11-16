@@ -28,7 +28,9 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.karyaku.kasir.data.local.CustomerEntity
 import com.karyaku.kasir.data.local.CustomerMembershipEntity
+import com.karyaku.kasir.data.local.HoldOrderEntity
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -232,47 +234,89 @@ fun PosScreen(
             )
         }
 
-        if (productToSelectMatrix != null) ProductMatrixDialog(productToSelectMatrix!!, { variantName: String -> viewModel.addToCart(productToSelectMatrix!!, variantName); productToSelectMatrix = null }, { productToSelectMatrix = null })
-        if (productToSelectVariant != null) ProductVariantDialog(productToSelectVariant!!, { variant: String -> viewModel.addToCart(productToSelectVariant!!, variant); productToSelectVariant = null }, { productToSelectVariant = null })
-        if (showMergeOrderDialog) MergeTableDialog({ tableA: String, tableB: String -> viewModel.mergeOrder(tableA, tableB); showMergeOrderDialog = false }, { showMergeOrderDialog = false })
+        if (productToSelectMatrix != null) {
+            ProductMatrixDialog(
+                product = productToSelectMatrix!!,
+                onSelect = { variantName: String -> viewModel.addToCart(productToSelectMatrix!!, variantName); productToSelectMatrix = null },
+                onDismiss = { productToSelectMatrix = null }
+            )
+        }
+        
+        if (productToSelectVariant != null) {
+            ProductVariantDialog(
+                product = productToSelectVariant!!,
+                onSelect = { variant: String -> viewModel.addToCart(productToSelectVariant!!, variant); productToSelectVariant = null },
+                onDismiss = { productToSelectVariant = null }
+            )
+        }
+        
+        if (showMergeOrderDialog) {
+            MergeTableDialog(
+                onMerge = { tableA: String, tableB: String -> viewModel.mergeOrder(tableA, tableB); showMergeOrderDialog = false },
+                onDismiss = { showMergeOrderDialog = false }
+            )
+        }
         
         if (productToEditSerial != null) {
             val currentSerial = cart.find { item -> item.product.id == productToEditSerial!!.id }?.serialNumber ?: ""
-            SerialNumberDialog(productToEditSerial!!, currentSerial, { serial: String -> viewModel.updateCartItemSerial(productToEditSerial!!, cart.find { item -> item.product.id == productToEditSerial!!.id }?.selectedVariation ?: "", serial); productToEditSerial = null }, { productToEditSerial = null })
+            SerialNumberDialog(
+                product = productToEditSerial!!, 
+                currentSerial = currentSerial,
+                onSave = { serial: String -> viewModel.updateCartItemSerial(productToEditSerial!!, cart.find { item -> item.product.id == productToEditSerial!!.id }?.selectedVariation ?: "", serial); productToEditSerial = null },
+                onDismiss = { productToEditSerial = null }
+            )
         }
 
         if (productToAssignStaff != null) {
-            AssignStaffDialog(productToAssignStaff!!, users, { staff: String -> viewModel.updateCartItemStaff(productToAssignStaff!!, cart.find { item -> item.product.id == productToAssignStaff!!.id }?.selectedVariation ?: "", staff); productToAssignStaff = null }, { productToAssignStaff = null })
+            AssignStaffDialog(
+                product = productToAssignStaff!!, users = users,
+                onAssign = { staff: String -> viewModel.updateCartItemStaff(productToAssignStaff!!, cart.find { item -> item.product.id == productToAssignStaff!!.id }?.selectedVariation ?: "", staff); productToAssignStaff = null },
+                onDismiss = { productToAssignStaff = null }
+            )
         }
 
-        if (productToManageBom != null) BomManagementDialog(productToManageBom!!, rawMaterials, viewModel, { productToManageBom = null })
-        if (showShiftReport != null) ShiftReportDialog(showShiftReport!!, { showShiftReport = null; onLogout() })
+        if (productToManageBom != null) {
+            BomManagementDialog(
+                product = productToManageBom!!, rawMaterials = rawMaterials, viewModel = viewModel,
+                onDismiss = { productToManageBom = null }
+            )
+        }
+        
+        if (showShiftReport != null) {
+            ShiftReportDialog(shift = showShiftReport!!, onLogout = { showShiftReport = null; onLogout() })
+        }
         
         if (showPinForDiscount) {
-            PinDiscountDialog({ pin: String ->
-                val supervisor = users.find { user -> user.pin == hashPin(pin) && (user.role == "OWNER" || user.role == "SUPERVISOR" || user.id == currentUser.id) }
-                if (supervisor != null) { showPinForDiscount = false; showDiscountDialog = true } else Toast.makeText(context, "PIN Salah atau Akses Ditolak!", Toast.LENGTH_SHORT).show()
-            }, { showPinForDiscount = false })
+            PinDiscountDialog(
+                onVerify = { pin: String ->
+                    val supervisor = users.find { user -> user.pin == hashPin(pin) && (user.role == "OWNER" || user.role == "SUPERVISOR" || user.id == currentUser.id) }
+                    if (supervisor != null) { showPinForDiscount = false; showDiscountDialog = true } else Toast.makeText(context, "PIN Salah atau Akses Ditolak!", Toast.LENGTH_SHORT).show()
+                }, 
+                onDismiss = { showPinForDiscount = false }
+            )
         }
 
         if (showDrawerConfirm) {
-            CashDrawerConfirmDialog({
-                val mac = settingsManager.printerMacAddress
-                if (mac != null) {
-                    scope.launch {
-                        val printerManager = BluetoothPrinterManager(context)
-                        val success = printerManager.openCashDrawer(mac)
-                        if (success) Toast.makeText(context, "Laci berhasil dibuka!", Toast.LENGTH_SHORT).show()
-                        else Toast.makeText(context, "Gagal buka laci. Periksa printer.", Toast.LENGTH_LONG).show()
+            CashDrawerConfirmDialog(
+                onConfirm = {
+                    val mac = settingsManager.printerMacAddress
+                    if (mac != null) {
+                        scope.launch {
+                            val printerManager = BluetoothPrinterManager(context)
+                            val success = printerManager.openCashDrawer(mac)
+                            if (success) Toast.makeText(context, "Laci berhasil dibuka!", Toast.LENGTH_SHORT).show()
+                            else Toast.makeText(context, "Gagal buka laci. Periksa printer.", Toast.LENGTH_LONG).show()
+                            viewModel.logCashDrawerOpen(currentUser)
+                            showDrawerConfirm = false 
+                        }
+                    } else {
+                        Toast.makeText(context, "Printer belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
                         viewModel.logCashDrawerOpen(currentUser)
-                        showDrawerConfirm = false 
+                        showDrawerConfirm = false
                     }
-                } else {
-                    Toast.makeText(context, "Printer belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
-                    viewModel.logCashDrawerOpen(currentUser)
-                    showDrawerConfirm = false
-                }
-            }, { showDrawerConfirm = false })
+                }, 
+                onDismiss = { showDrawerConfirm = false }
+            )
         }
 
         if (productToWaste != null) {
@@ -285,32 +329,103 @@ fun PosScreen(
 
         if (productToEditNotes != null) {
             val currentNotes = cart.find { item -> item.product.id == productToEditNotes!!.id }?.notes ?: ""
-            OrderNotesDialog(productToEditNotes!!, currentNotes, { notes: String -> viewModel.updateCartItemNotes(productToEditNotes!!, cart.find { item -> item.product.id == productToEditNotes!!.id }?.selectedVariation ?: "", notes); productToEditNotes = null }, { productToEditNotes = null })
+            OrderNotesDialog(
+                product = productToEditNotes!!, currentNotes = currentNotes,
+                onSave = { notes: String -> viewModel.updateCartItemNotes(productToEditNotes!!, cart.find { item -> item.product.id == productToEditNotes!!.id }?.selectedVariation ?: "", notes); productToEditNotes = null },
+                onDismiss = { productToEditNotes = null }
+            )
         }
 
-        if (showOpenShiftDialog) OpenShiftDialog(modalAwal, { input: String -> if (input.length <= 10) modalAwal = input }, { viewModel.openShift(currentUser, modalAwal.toLongOrNull() ?: 0L); showOpenShiftDialog = false })
+        if (showOpenShiftDialog) {
+            OpenShiftDialog(
+                modalAwal = modalAwal, 
+                onModalChange = { input: String -> if (input.length <= 10) modalAwal = input },
+                onConfirm = { viewModel.openShift(currentUser, modalAwal.toLongOrNull() ?: 0L); showOpenShiftDialog = false }
+            )
+        }
 
         if (showCloseShiftDialog && activeShift != null) { 
-            CloseShiftWizardDialog(activeShift!!, transactions, cashFlows, { showCloseShiftDialog = false }, { uangFisik: Long, note: String -> viewModel.closeShift(currentUser, uangFisik, note) { closedShift -> showCloseShiftDialog = false; showShiftReport = closedShift } })
+            CloseShiftWizardDialog(
+                shift = activeShift!!, transactions = transactions, cashFlows = cashFlows,
+                onDismiss = { showCloseShiftDialog = false },
+                onConfirm = { uangFisik: Long, note: String -> 
+                    viewModel.closeShift(currentUser, uangFisik, note) { closedShift -> 
+                        showCloseShiftDialog = false
+                        showShiftReport = closedShift 
+                    } 
+                }
+            ) 
         }
         
-        if (showCashFlowDialog) CashFlowDialog({ type: String, amount: Long, note: String -> viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false }, { showCashFlowDialog = false })
-        if (showDiscountDialog) ManualDiscountDialog(discount, { amount: Long -> viewModel.setDiscount(amount); showDiscountDialog = false }, { showDiscountDialog = false })
-
-        if (showCustomerDialog) {
-            CustomerDialogV2(viewModel, customers, selectedCustomer, { customer: com.karyaku.kasir.data.local.CustomerEntity -> viewModel.setCustomer(customer); showCustomerDialog = false }, { name: String, phone: String, birthDate: Long -> viewModel.addCustomer(name, phone, birthDate) }, { points: Int -> viewModel.redeemPoints(points) }, { showCustomerDialog = false })
+        if (showCashFlowDialog) {
+            CashFlowDialog(
+                onSave = { type: String, amount: Long, note: String -> viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false },
+                onDismiss = { showCashFlowDialog = false }
+            )
+        }
+        
+        if (showDiscountDialog) {
+            ManualDiscountDialog(
+                currentDiscount = discount,
+                onSave = { amount: Long -> viewModel.setDiscount(amount); showDiscountDialog = false },
+                onDismiss = { showDiscountDialog = false }
+            )
         }
 
-        if (showTableSelector) TableSelectorDialog(selectedTable, occupiedTables, { table: String -> viewModel.setTable(table) }, { showTableSelector = false })
-        if (showVoucherDialog) VoucherDialog(appliedVoucher, { code: String -> viewModel.applyVoucher(code) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) showVoucherDialog = false } }, { viewModel.applyVoucher("") { _, _ -> }; showVoucherDialog = false }, { showVoucherDialog = false })
-        if (showHoldDialog) HoldOrderDialog(holdOrders, { order: com.karyaku.kasir.data.local.HoldOrderEntity -> viewModel.resumeHoldOrder(order); showHoldDialog = false }, { showHoldDialog = false })
+        if (showCustomerDialog) {
+            CustomerDialogV2(
+                viewModel = viewModel,
+                customers = customers, selectedCustomer = selectedCustomer,
+                onSelect = { customer: CustomerEntity? -> 
+                    viewModel.setCustomer(customer)
+                    showCustomerDialog = false 
+                },
+                onAddCustomer = { name: String, phone: String, birthDate: Long -> viewModel.addCustomer(name, phone, birthDate) },
+                onRedeemPoints = { points: Int -> viewModel.redeemPoints(points) },
+                onDismiss = { showCustomerDialog = false }
+            )
+        }
+
+        if (showTableSelector) {
+            TableSelectorDialog(
+                currentTable = selectedTable, occupiedTables = occupiedTables,
+                onSelect = { table: String -> viewModel.setTable(table) },
+                onDismiss = { showTableSelector = false }
+            )
+        }
+        
+        if (showVoucherDialog) {
+            VoucherDialog(
+                currentCode = appliedVoucher,
+                onApply = { code: String -> viewModel.applyVoucher(code) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) showVoucherDialog = false } },
+                onRemove = { viewModel.applyVoucher("") { _, _ -> }; showVoucherDialog = false },
+                onDismiss = { showVoucherDialog = false }
+            )
+        }
+        
+        if (showHoldDialog) {
+            HoldOrderDialog(
+                holdOrders = holdOrders,
+                onResume = { order: HoldOrderEntity -> viewModel.resumeHoldOrder(order); showHoldDialog = false },
+                onDismiss = { showHoldDialog = false }
+            )
+        }
 
         if (completedTransaction != null) {
-            ReceiptDialog(completedTransaction!!, viewModel, settingsManager.storeName ?: "ZoKas", settingsManager.storeAddress ?: "", settingsManager.storePhone ?: "", settingsManager.storeFooter ?: "", settingsManager, { completedTransaction = null })
+            ReceiptDialog(
+                transaction = completedTransaction!!, viewModel = viewModel, 
+                storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "", 
+                storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "", 
+                settingsManager = settingsManager, onDismiss = { completedTransaction = null }
+            )
         }
 
         if (productToDelete != null) {
-            DeleteProductConfirmDialog(productToDelete!!, { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }, { productToDelete = null })
+            DeleteProductConfirmDialog(
+                product = productToDelete!!,
+                onDelete = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null },
+                onDismiss = { productToDelete = null }
+            )
         }
 
         Column(modifier = Modifier.fillMaxSize().imePadding()) {
@@ -327,7 +442,7 @@ fun PosScreen(
                                     else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                     else viewModel.addToCart(prod) 
                                 }, 
-                                onProductLongClick = { product: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = product }, 
+                                onProductLongClick = { prod: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
                                 onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                                 onCameraScanClick = {
                                     val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
@@ -400,7 +515,7 @@ fun PosScreen(
                                 else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                 else viewModel.addToCart(prod) 
                             }, 
-                            onProductLongClick = { product: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = product }, 
+                            onProductLongClick = { prod: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
                             onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                             onCameraScanClick = {
                                 val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
