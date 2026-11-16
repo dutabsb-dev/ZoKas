@@ -1,7 +1,6 @@
 package com.karyaku.kasir
 
 import android.util.Base64
-import android.util.Log
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewModelScope
 import com.karyaku.kasir.data.local.*
@@ -11,146 +10,77 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.nio.charset.StandardCharsets
 
-private const val TAG_VM = "ZOAKS_BIOMETRIC_VM"
-
 // ================================================================
 // AUTH
 // ================================================================
 suspend fun PosViewModel.login(pin: String): UserEntity? {
     return try {
-        val hashedPin = hashPin(pin)
-        val user = userDao.loginByPin(hashedPin)
-        if (user != null) {
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS (PIN)", actionType = "AUTH"))
-        }
+        val user = userDao.loginByPin(hashPin(pin))
+        if (user != null) userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS (PIN)", actionType = "AUTH"))
         user
-    } catch (e: Exception) { 
-        null 
-    }
+    } catch (e: Exception) { null }
 }
 
 fun PosViewModel.updatePin(user: UserEntity, newPin: String) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            val hashedPin = hashPin(newPin)
-            userDao.updatePin(user.id, hashedPin)
+            userDao.updatePin(user.id, hashPin(newPin))
             userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "UBAH PIN", actionType = "SYSTEM"))
         } catch (e: Exception) {}
     }
 }
 
 // ================================================================
-// BIOMETRIC LOGIN & REGISTRATION
+// BIOMETRIC
 // ================================================================
-fun PosViewModel.isUserBiometricEnrolled(user: UserEntity): Boolean {
-    return user.biometricKey.isNotBlank()
-}
+fun PosViewModel.isUserBiometricEnrolled(user: UserEntity): Boolean = user.biometricKey.isNotBlank()
 
 fun PosViewModel.registerBiometric(activity: FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
-    if (user.role != "OWNER") {
-        onResult(false, "Hanya OWNER yang diizinkan mendaftarkan biometrik.")
-        return
-    }
-
-    if (!BiometricCryptoHelper.isBiometricSupported(activity)) {
-        onResult(false, "Perangkat Anda tidak mendukung Biometrik Kelas Kuat (Strong).")
-        return
-    }
+    if (user.role != "OWNER") { onResult(false, "Hanya OWNER yang diizinkan."); return }
+    if (!BiometricCryptoHelper.isBiometricSupported(activity)) { onResult(false, "Perangkat tidak mendukung Biometrik Strong."); return }
 
     val alias = "ZOAKS_USER_${user.id}_${System.currentTimeMillis()}"
-    val keyCreated = BiometricCryptoHelper.createKey(alias)
-    
-    if (!keyCreated) {
-        onResult(false, "Gagal membuat kunci enkripsi.")
-        return
-    }
+    if (!BiometricCryptoHelper.createKey(alias)) { onResult(false, "Gagal membuat kunci enkripsi."); return }
 
-    val cipher = BiometricCryptoHelper.getCipherForEncryption(alias)
-    
-    if (cipher == null) {
-        onResult(false, "Gagal menyiapkan enkripsi.")
-        return
-    }
+    val cipher = BiometricCryptoHelper.getCipherForEncryption(alias) ?: return onResult(false, "Gagal menyiapkan enkripsi.")
 
     BiometricCryptoHelper.showBiometricPrompt(
-        activity = activity,
-        title = "Daftarkan Biometrik",
-        subtitle = "Tempelkan sidik jari atau wajah untuk ${user.name}",
-        negativeButtonText = "Batal",
-        cipher = cipher,
+        activity, "Daftarkan Biometrik", "Tempelkan sidik jari/wajah untuk ${user.name}", "Batal", cipher,
         onSuccess = { result ->
             try {
                 val encrypted = result.cryptoObject?.cipher?.doFinal("ValidBiometric".toByteArray(StandardCharsets.UTF_8))
                 val iv = result.cryptoObject?.cipher?.iv
-                
                 if (encrypted != null && iv != null) {
-                    val ivString = Base64.encodeToString(iv, Base64.NO_WRAP)
-                    val keyData = "$alias|$ivString"
-                    
+                    val keyData = "$alias|${Base64.encodeToString(iv, Base64.NO_WRAP)}"
                     viewModelScope.launch(Dispatchers.IO) {
                         userDao.updateBiometricKey(user.id, keyData)
                         userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "DAFTAR BIOMETRIK", actionType = "AUTH"))
                         withContext(Dispatchers.Main) { onResult(true, "Biometrik berhasil didaftarkan!") }
                     }
-                } else {
-                    onResult(false, "Gagal mengenkripsi data.")
-                }
-            } catch (e: Exception) {
-                onResult(false, "Error enkripsi: ${e.message}")
-            }
-        },
-        onError = { error ->
-            onResult(false, "Gagal mendaftarkan: $error")
-        }
+                } else onResult(false, "Gagal mengenkripsi data.")
+            } catch (e: Exception) { onResult(false, "Error enkripsi: ${e.message}") }
+        }, onError = { onResult(false, "Gagal: $it") }
     )
 }
 
 fun PosViewModel.loginWithBiometric(activity: FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
-    if (user.role != "OWNER") {
-        onResult(false, "Login biometrik hanya tersedia untuk OWNER.")
-        return
-    }
-    
-    if (!BiometricCryptoHelper.isBiometricSupported(activity)) {
-        onResult(false, "Perangkat Anda tidak mendukung Biometrik Kelas Kuat (Strong).")
-        return
-    }
-
-    if (user.biometricKey.isBlank()) {
-        onResult(false, "Anda belum mendaftarkan sidik jari/wajah.")
-        return
-    }
+    if (user.role != "OWNER") { onResult(false, "Hanya OWNER."); return }
+    if (!BiometricCryptoHelper.isBiometricSupported(activity)) { onResult(false, "Tidak mendukung Biometrik Strong."); return }
+    if (user.biometricKey.isBlank()) { onResult(false, "Belum mendaftarkan biometrik."); return }
 
     val parts = user.biometricKey.split("|")
-    if (parts.size != 2) {
-        onResult(false, "Data biometrik rusak.")
-        return
-    }
+    if (parts.size != 2) return onResult(false, "Data biometrik rusak.")
 
-    val alias = parts[0]
-    val iv = Base64.decode(parts[1], Base64.NO_WRAP)
-    val cipher = BiometricCryptoHelper.getCipherForDecryption(alias, iv)
-
-    if (cipher == null) {
-        onResult(false, "Kunci biometrik kedaluwarsa. Silakan login dengan PIN dan daftarkan ulang.")
-        return
-    }
+    val cipher = BiometricCryptoHelper.getCipherForDecryption(parts[0], Base64.decode(parts[1], Base64.NO_WRAP)) ?: return onResult(false, "Kunci kedaluwarsa.")
 
     BiometricCryptoHelper.showBiometricPrompt(
-        activity = activity,
-        title = "Login Biometrik",
-        subtitle = "Halo ${user.name}, tempelkan sidik jari/wajah Anda",
-        negativeButtonText = "Gunakan PIN",
-        cipher = cipher,
+        activity, "Login Biometrik", "Halo ${user.name}", "Gunakan PIN", cipher,
         onSuccess = { 
             viewModelScope.launch(Dispatchers.IO) {
-                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN_SUCCESS (BIOMETRIC)", actionType = "AUTH"))
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN (BIOMETRIC)", actionType = "AUTH"))
                 withContext(Dispatchers.Main) { onResult(true, "Login Berhasil") }
             }
-        },
-        onError = { error ->
-            onResult(false, "Gagal Login: $error")
-        }
+        }, onError = { onResult(false, "Gagal Login: $it") }
     )
 }
 
@@ -160,8 +90,7 @@ fun PosViewModel.loginWithBiometric(activity: FragmentActivity, user: UserEntity
 fun PosViewModel.addUser(name: String, pin: String, role: String, baseSalary: Long = 0L, adminUser: UserEntity) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            val hashedPin = hashPin(pin)
-            userDao.insertUser(UserEntity(name = name, pin = hashedPin, role = role, baseSalary = baseSalary, branchId = _currentBranchId.value))
+            userDao.insertUser(UserEntity(name = name, pin = hashPin(pin), role = role, baseSalary = baseSalary, branchId = _currentBranchId.value))
             userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "TAMBAH KARYAWAN: $name", actionType = "AUTH"))
         } catch (e: Exception) {}
     }
@@ -170,8 +99,7 @@ fun PosViewModel.addUser(name: String, pin: String, role: String, baseSalary: Lo
 fun PosViewModel.updateUser(user: UserEntity, adminUser: UserEntity) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            val hashedPin = hashPin(user.pin)
-            userDao.updateUser(user.copy(pin = hashedPin))
+            userDao.updateUser(user.copy(pin = hashPin(user.pin)))
             userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "EDIT KARYAWAN: ${user.name}", actionType = "AUTH"))
         } catch (e: Exception) {}
     }
@@ -180,10 +108,7 @@ fun PosViewModel.updateUser(user: UserEntity, adminUser: UserEntity) {
 fun PosViewModel.deleteUser(user: UserEntity, adminUser: UserEntity) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            if (user.biometricKey.isNotBlank()) {
-                val alias = user.biometricKey.split("|").firstOrNull()
-                if (alias != null) BiometricCryptoHelper.deleteKey(alias)
-            }
+            if (user.biometricKey.isNotBlank()) BiometricCryptoHelper.deleteKey(user.biometricKey.split("|").firstOrNull() ?: "")
             userDao.deleteUser(user)
             userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "HAPUS KARYAWAN: ${user.name}", actionType = "AUTH"))
         } catch (e: Exception) {}
@@ -197,16 +122,11 @@ fun PosViewModel.setCustomer(customer: CustomerEntity?) {
     _selectedCustomer.value = customer
     _pointsUsed.value = 0
     _discount.value = 0
-    
     if (customer != null) {
         viewModelScope.launch(Dispatchers.IO) {
-            membershipDao.getActiveMembershipsForCustomer(customer.id).collectLatest {
-                _customerMemberships.value = it
-            }
+            membershipDao.getActiveMembershipsForCustomer(customer.id).collectLatest { _customerMemberships.value = it }
         }
-    } else {
-        _customerMemberships.value = emptyList()
-    }
+    } else _customerMemberships.value = emptyList()
 }
 
 fun PosViewModel.redeemPoints(pointsToRedeem: Int) {
@@ -219,9 +139,7 @@ fun PosViewModel.redeemPoints(pointsToRedeem: Int) {
 
 fun PosViewModel.addCustomer(name: String, phone: String, birthDate: Long = 0L) {
     viewModelScope.launch(Dispatchers.IO) {
-        try { 
-            customerDao.insertCustomer(CustomerEntity(name = name, phone = phone, birthDate = birthDate)) 
-        } catch (e: Exception) {}
+        try { customerDao.insertCustomer(CustomerEntity(name = name, phone = phone, birthDate = birthDate)) } catch (e: Exception) {}
     }
 }
 
@@ -229,10 +147,7 @@ fun PosViewModel.applyMembershipToCart(cartItem: CartItem, customerMembership: C
     val currentCart = _cart.value.toMutableList()
     val idx = currentCart.indexOfFirst { it.product.id == cartItem.product.id && it.selectedVariation == cartItem.selectedVariation }
     if (idx != -1) {
-        currentCart[idx] = currentCart[idx].copy(
-            usedMembershipId = customerMembership.id, 
-            usedMembershipName = customerMembership.membershipName
-        )
+        currentCart[idx] = currentCart[idx].copy(usedMembershipId = customerMembership.id, usedMembershipName = customerMembership.membershipName)
         _cart.value = currentCart
     }
 }
@@ -269,8 +184,6 @@ fun PosViewModel.applyVoucher(code: String, onResult: (Boolean, String) -> Unit)
                     onResult(false, "Kode voucher tidak valid.")
                 }
             }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) { onResult(false, "Terjadi kesalahan sistem.") }
-        }
+        } catch (e: Exception) { withContext(Dispatchers.Main) { onResult(false, "Terjadi kesalahan sistem.") } }
     }
 }
