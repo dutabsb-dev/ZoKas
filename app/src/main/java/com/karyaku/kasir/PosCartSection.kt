@@ -47,6 +47,7 @@ fun PosCartSection(
     enableOrderTypes: Boolean,
     enablePreOrder: Boolean,
     enableMembership: Boolean,
+    enableCrm: Boolean, // <-- TAMBAHAN PARAMETER BARU
     onOrderTypeChange: (String) -> Unit,
     onPickupDateChange: (Long) -> Unit,
     onToggleSplitMode: () -> Unit, 
@@ -157,14 +158,20 @@ fun PosCartSection(
         
         // Baris Pelanggan & Split Bill
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onCustomerClick, contentPadding = PaddingValues(0.dp)) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} Poin)" else "Pelanggan Umum", 
-                    fontWeight = FontWeight.Bold, color = AmberAccent, fontSize = 12.sp
-                )
+            // LOGIKA CRM: Hanya tampilkan tombol pelanggan jika enableCrm == true
+            if (enableCrm) {
+                TextButton(onClick = onCustomerClick, contentPadding = PaddingValues(0.dp)) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} Poin)" else "Pelanggan Umum", 
+                        fontWeight = FontWeight.Bold, color = AmberAccent, fontSize = 12.sp
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.width(1.dp))
             }
+            
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Split Bill", fontSize = 12.sp)
                 Spacer(modifier = Modifier.width(4.dp))
