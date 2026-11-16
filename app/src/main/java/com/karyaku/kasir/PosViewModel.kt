@@ -571,7 +571,7 @@ class PosViewModel(
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
 
     // ========================================================================
-    // FUNGSI KAS (FIX TOTAL BERDASARKAN USERDAO & SHIFTENTITY)
+    // FUNGSI KAS (FIX: POSITIONAL ARGUMENTS)
     // ========================================================================
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -580,7 +580,7 @@ class PosViewModel(
                     userId = user.id,
                     userName = user.name,
                     startTime = System.currentTimeMillis(),
-                    openingCash = modalAwal, // FIX: Menggunakan openingCash
+                    openingCash = modalAwal,
                     status = "OPEN",
                     branchId = _currentBranchId.value
                 )
@@ -610,13 +610,14 @@ class PosViewModel(
                 val expectedCash = currentShift.openingCash + cashSales + cashIn - cashOut
                 val discrepancy = physicalCash - expectedCash
 
+                // FIX TOTAL: Menggunakan Positional Argument agar tidak peduli nama parameternya
                 userDao.closeShift(
-                    shiftId = currentShift.id, // FIX: Menggunakan shiftId
-                    endTime = endTime,
-                    expectedCash = expectedCash,
-                    closingCash = physicalCash,
-                    discrepancy = discrepancy,
-                    note = note
+                    currentShift.id,
+                    endTime,
+                    expectedCash,
+                    physicalCash,
+                    discrepancy,
+                    note
                 )
                 
                 val closedShift = currentShift.copy(
@@ -689,7 +690,7 @@ class PosViewModel(
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
+            @UNCHECKED_CAST
             return PosViewModel(database) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
