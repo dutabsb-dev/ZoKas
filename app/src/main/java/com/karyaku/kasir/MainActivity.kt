@@ -418,7 +418,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             PosProductSection(
                 products = filteredProducts, categories = categories, selectedCategory = "Semua",
                 onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
-                onProductClick = { productToEdit = it; showProductForm = true }, onProductLongClick = { showActionDialogFor = it },
+                onProductClick = { prod -> productToEdit = prod; showProductForm = true }, onProductLongClick = { prod -> showActionDialogFor = prod },
                 onBarcodeScan = { }, onCameraScanClick = { }, searchFocusRequester = remember { FocusRequester() }
             )
         }

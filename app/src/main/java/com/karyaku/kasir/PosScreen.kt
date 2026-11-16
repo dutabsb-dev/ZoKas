@@ -297,12 +297,12 @@ fun PosScreen(
         if (showDiscountDialog) ManualDiscountDialog(discount, { amount -> viewModel.setDiscount(amount); showDiscountDialog = false }, { showDiscountDialog = false })
 
         if (showCustomerDialog) {
-            CustomerDialogV2(viewModel, customers, selectedCustomer, { viewModel.setCustomer(it); showCustomerDialog = false }, { name, phone, birthDate -> viewModel.addCustomer(name, phone, birthDate) }, { points -> viewModel.redeemPoints(points) }, { showCustomerDialog = false })
+            CustomerDialogV2(viewModel, customers, selectedCustomer, { customer -> viewModel.setCustomer(customer); showCustomerDialog = false }, { name, phone, birthDate -> viewModel.addCustomer(name, phone, birthDate) }, { points -> viewModel.redeemPoints(points) }, { showCustomerDialog = false })
         }
 
-        if (showTableSelector) TableSelectorDialog(selectedTable, occupiedTables, { viewModel.setTable(it) }, { showTableSelector = false })
+        if (showTableSelector) TableSelectorDialog(selectedTable, occupiedTables, { table -> viewModel.setTable(table) }, { showTableSelector = false })
         if (showVoucherDialog) VoucherDialog(appliedVoucher, { code -> viewModel.applyVoucher(code) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) showVoucherDialog = false } }, { viewModel.applyVoucher("") { _, _ -> }; showVoucherDialog = false }, { showVoucherDialog = false })
-        if (showHoldDialog) HoldOrderDialog(holdOrders, { viewModel.resumeHoldOrder(it); showHoldDialog = false }, { showHoldDialog = false })
+        if (showHoldDialog) HoldOrderDialog(holdOrders, { order -> viewModel.resumeHoldOrder(order); showHoldDialog = false }, { showHoldDialog = false })
 
         if (completedTransaction != null) {
             ReceiptDialog(completedTransaction!!, viewModel, settingsManager.storeName ?: "ZoKas", settingsManager.storeAddress ?: "", settingsManager.storePhone ?: "", settingsManager.storeFooter ?: "", settingsManager, { completedTransaction = null })
@@ -320,13 +320,12 @@ fun PosScreen(
                         Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
                             PosProductSection(
                                 products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                                onCategorySelect = { category -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query -> viewModel.setSearchQuery(query) }, 
                                 onProductClick = { prod -> 
                                     if (prod.variations.contains("|")) productToSelectMatrix = prod
                                     else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                     else viewModel.addToCart(prod) 
                                 }, 
-                                // FIX: Mengganti 'it' menjadi 'prod' agar compiler tidak bingung
                                 onProductLongClick = { prod -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
                                 onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                                 onCameraScanClick = {
@@ -345,16 +344,16 @@ fun PosScreen(
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                onOrderTypeChange = { viewModel.setOrderType(it) }, onPickupDateChange = { viewModel.setPickupDate(it) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, 
+                                onOrderTypeChange = { type -> viewModel.setOrderType(type) }, onPickupDateChange = { date -> viewModel.setPickupDate(date) },
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
                                 onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
                                 onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
                                 onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, 
-                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
+                                onAdd = { item -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item -> viewModel.removeFromCart(item.product, item.selectedVariation) }, 
+                                onDelete = { item -> viewModel.deleteItem(item.product, item.selectedVariation) }, 
                                 onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
-                                onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
-                                onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
+                                onCheckout = { showPaymentSheet = true }, onEditNotes = { product -> productToEditNotes = product },
+                                onEditSerial = { product -> productToEditSerial = product }, onAssignStaff = { product -> productToAssignStaff = product },
                                 onApplyMembership = { cartItem, cm -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language
@@ -376,16 +375,16 @@ fun PosScreen(
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                onOrderTypeChange = { viewModel.setOrderType(it) }, onPickupDateChange = { viewModel.setPickupDate(it) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, 
+                                onOrderTypeChange = { type -> viewModel.setOrderType(type) }, onPickupDateChange = { date -> viewModel.setPickupDate(date) },
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
                                 onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
                                 onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
                                 onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, 
-                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
+                                onAdd = { item -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item -> viewModel.removeFromCart(item.product, item.selectedVariation) }, 
+                                onDelete = { item -> viewModel.deleteItem(item.product, item.selectedVariation) }, 
                                 onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
-                                onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
-                                onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
+                                onCheckout = { showPaymentSheet = true }, onEditNotes = { product -> productToEditNotes = product },
+                                onEditSerial = { product -> productToEditSerial = product }, onAssignStaff = { product -> productToAssignStaff = product },
                                 onApplyMembership = { cartItem, cm -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language
@@ -394,13 +393,12 @@ fun PosScreen(
                     } else {
                         PosProductSection(
                             products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                            onCategorySelect = { category -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query -> viewModel.setSearchQuery(query) }, 
                             onProductClick = { prod -> 
                                 if (prod.variations.contains("|")) productToSelectMatrix = prod
                                 else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                 else viewModel.addToCart(prod) 
                             }, 
-                            // FIX: Mengganti 'it' menjadi 'prod' agar compiler tidak bingung
                             onProductLongClick = { prod -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
                             onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                             onCameraScanClick = {
