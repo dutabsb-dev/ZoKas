@@ -161,7 +161,6 @@ fun MainNavigation(
     language: String, onToggleLanguage: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
-    var isOnline by remember { mutableStateOf(false) }
     var showCfdDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
@@ -211,17 +210,6 @@ fun MainNavigation(
         onDispose { displayManager.unregisterDisplayListener(listener); presentation?.dismiss() }
     }
 
-    DisposableEffect(Unit) {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-        val callback = object : android.net.ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: android.net.Network) { isOnline = true }
-            override fun onLost(network: android.net.Network) { isOnline = false }
-        }
-        cm.registerDefaultNetworkCallback(callback)
-        isOnline = cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        onDispose { cm.unregisterNetworkCallback(callback) }
-    }
-
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             viewModel.processBarcodeScan(result.contents) { success, msg ->
@@ -268,11 +256,7 @@ fun MainNavigation(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(8.dp).background(if (isOnline) EmeraldGreen else ErrorRed, CircleShape))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = if (isOnline) "Online" else "Offline", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                        // FIX REVIEW 4: Status Online/Offline DIHAPUS
                     }
                     if (selectedTab == 0) {
                         IconButton(onClick = { showSearchDialog = true }) { Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) }
@@ -354,7 +338,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle() // Diambil untuk BOM
+    val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
     
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
@@ -366,7 +350,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) } // State untuk BOM
+    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
     
     val context = LocalContext.current
 
@@ -456,7 +440,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     showActionDialogFor = null 
                 },
                 onBom = { 
-                    // FIX: Sekarang membuka dialog BOM
                     productToManageBom = showActionDialogFor
                     showActionDialogFor = null 
                 },
@@ -468,7 +451,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        // DIALOG BOM
         if (productToManageBom != null) {
             BomManagementDialog(
                 product = productToManageBom!!, 

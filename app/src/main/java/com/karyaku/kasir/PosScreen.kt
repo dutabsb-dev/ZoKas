@@ -200,7 +200,6 @@ fun PosScreen(
                 onGenerateTransfer = { viewModel.generateTransferPayment(totalToPay) },
                 onDismiss = { showPaymentSheet = false; viewModel.resetQrisPayment(); viewModel.resetTransferPayment() }, 
                 onConfirmPayment = { cashReceived: Long, method: String ->
-                    // Ambil snapshot cart saat ini SEBELUM dikosongkan oleh processPayment
                     val currentCartSnapshot = if (isSplitBillMode) cart.filter { it.isSelectedForSplit } else cart
 
                     viewModel.processPayment(
@@ -215,7 +214,6 @@ fun PosScreen(
                         completedTransaction = newTransaction
                         if (isSplitBillMode) isSplitBillMode = false
                         
-                        // FIX SESI 3: Kirim snapshot keranjang ke fungsi printReceipt
                         viewModel.printReceipt(context, newTransaction, settingsManager, currentCartSnapshot)
                     }
                 }
@@ -471,6 +469,7 @@ fun PosScreen(
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
+                                enableCrm = settingsManager.enableCrmModule, // PARAMETER BARU UNTUK HIDE CRM
                                 onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                 onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
                                 onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
@@ -502,6 +501,7 @@ fun PosScreen(
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
+                                enableCrm = settingsManager.enableCrmModule, // PARAMETER BARU UNTUK HIDE CRM
                                 onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                 onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
                                 onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 

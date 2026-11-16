@@ -98,6 +98,10 @@ fun SettingsScreen(
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
 
+    // STATE BARU UNTUK MODUL HR DAN CRM
+    var enableHrModule by remember { mutableStateOf(settingsManager.enableHrModule) }
+    var enableCrmModule by remember { mutableStateOf(settingsManager.enableCrmModule) }
+
     var enableBirthdayDiscount by remember { mutableStateOf(settingsManager.enableBirthdayDiscount) }
     var birthdayDiscountPercent by remember { mutableStateOf(settingsManager.birthdayDiscountPercent.toFloat()) }
 
@@ -368,7 +372,6 @@ fun SettingsScreen(
         }
 
         item {
-            // FUNGSI INI BERADA DI SettingsCards.kt
             SettingsAccountCard(
                 currentUser = currentUser,
                 isBiometricEnabled = isBiometricEnabled,
@@ -416,7 +419,54 @@ fun SettingsScreen(
                     onManageClick = { showCustomerManagementDialog = true }
                 )
             }
+        }
 
+        item {
+            SettingsModuleCard(
+                isTableModeEnabled = isTableModeEnabled,
+                onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
+                enableMultiCurrency = enableMultiCurrency,
+                onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
+                exchangeRateUsd = exchangeRateUsd,
+                onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
+                onRawMaterialClick = { showRawMaterialDialog = true },
+                enableOrderTypes = enableOrderTypes,
+                onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
+                enableWholesale = enableWholesale,
+                onWholesaleToggle = { enableWholesale = it; settingsManager.enableWholesale = it },
+                enablePreOrder = enablePreOrder,
+                onPreOrderToggle = { enablePreOrder = it; settingsManager.enablePreOrder = it },
+                enableMembership = enableMembership,
+                onMembershipToggle = { enableMembership = it; settingsManager.enableMembership = it },
+                onManageMembershipClick = { showMembershipDialog = true },
+                enableSupplier = enableSupplier,
+                onSupplierToggle = { enableSupplier = it; settingsManager.enableSupplier = it },
+                onManageSupplierClick = { showSupplierDialog = true },
+                onCreatePOClick = { showPODialog = true },
+                enableReservation = enableReservation,
+                onReservationToggle = { enableReservation = it; settingsManager.enableReservation = it },
+                onManageReservationClick = { showReservationDialog = true },
+                enableFinance = enableFinance,
+                onFinanceToggle = { enableFinance = it; settingsManager.enableFinance = it },
+                onManageReceivableClick = { showReceivableDialog = true },
+                onManagePayableClick = { showPayableDialog = true },
+                onManageExpenseClick = { showExpenseDialog = true },
+                enableHrModule = enableHrModule,          // PARAMETER BARU
+                onHrModuleToggle = { 
+                    enableHrModule = it
+                    settingsManager.enableHrModule = it 
+                },                                        // PARAMETER BARU
+                enableCrmModule = enableCrmModule,        // PARAMETER BARU
+                onCrmModuleToggle = { 
+                    enableCrmModule = it
+                    settingsManager.enableCrmModule = it 
+                },                                        // PARAMETER BARU
+                language = language
+            )
+        }
+
+        // TAMPILKAN KARTU HR JIKA SAKLAR DINYALAKAN
+        if (currentUser.role == "OWNER" && enableHrModule) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -455,63 +505,34 @@ fun SettingsScreen(
             }
         }
 
-        item {
-            SettingsModuleCard(
-                isTableModeEnabled = isTableModeEnabled,
-                onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
-                enableMultiCurrency = enableMultiCurrency,
-                onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
-                exchangeRateUsd = exchangeRateUsd,
-                onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
-                onRawMaterialClick = { showRawMaterialDialog = true },
-                enableOrderTypes = enableOrderTypes,
-                onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
-                enableWholesale = enableWholesale,
-                onWholesaleToggle = { enableWholesale = it; settingsManager.enableWholesale = it },
-                enablePreOrder = enablePreOrder,
-                onPreOrderToggle = { enablePreOrder = it; settingsManager.enablePreOrder = it },
-                enableMembership = enableMembership,
-                onMembershipToggle = { enableMembership = it; settingsManager.enableMembership = it },
-                onManageMembershipClick = { showMembershipDialog = true },
-                enableSupplier = enableSupplier,
-                onSupplierToggle = { enableSupplier = it; settingsManager.enableSupplier = it },
-                onManageSupplierClick = { showSupplierDialog = true },
-                onCreatePOClick = { showPODialog = true },
-                enableReservation = enableReservation,
-                onReservationToggle = { enableReservation = it; settingsManager.enableReservation = it },
-                onManageReservationClick = { showReservationDialog = true },
-                enableFinance = enableFinance,
-                onFinanceToggle = { enableFinance = it; settingsManager.enableFinance = it },
-                onManageReceivableClick = { showReceivableDialog = true },
-                onManagePayableClick = { showPayableDialog = true },
-                onManageExpenseClick = { showExpenseDialog = true },
-                language = language
-            )
+        // TAMPILKAN QRIS JIKA METODE PEMBAYARAN MENDUKUNG
+        if (settingsManager.paymentMethods.contains("QRIS")) {
+            item {
+                SettingsQrisCard(
+                    qrisPayload = qrisPayload,
+                    onQrisPayloadChange = { qrisPayload = it; settingsManager.qrisStaticPayload = it },
+                    enableAutoDetect = enableQrisAutoDetect,
+                    onToggleAutoDetect = { enableQrisAutoDetect = it; settingsManager.enableQrisAutoDetect = it },
+                    language = language
+                )
+            }
         }
 
-        item {
-            SettingsQrisCard(
-                qrisPayload = qrisPayload,
-                onQrisPayloadChange = { qrisPayload = it; settingsManager.qrisStaticPayload = it },
-                enableAutoDetect = enableQrisAutoDetect,
-                onToggleAutoDetect = { enableQrisAutoDetect = it; settingsManager.enableQrisAutoDetect = it },
-                onManagePaymentMethodsClick = { showPaymentMethodsDialog = true },
-                language = language
-            )
-        }
-
-        item {
-            SettingsBankTransferCard(
-                bankName = bankName,
-                onBankNameChange = { bankName = it; settingsManager.bankName = it },
-                accountNumber = bankAccountNumber,
-                onAccountNumberChange = { bankAccountNumber = it; settingsManager.bankAccountNumber = it },
-                accountName = bankAccountName,
-                onAccountNameChange = { bankAccountName = it; settingsManager.bankAccountName = it },
-                enableAutoDetect = enableTransferAutoDetect,
-                onToggleAutoDetect = { enableTransferAutoDetect = it; settingsManager.enableTransferAutoDetect = it },
-                language = language
-            )
+        // TAMPILKAN TRANSFER BANK JIKA METODE PEMBAYARAN MENDUKUNG
+        if (settingsManager.paymentMethods.contains("Bank Transfer")) {
+            item {
+                SettingsBankTransferCard(
+                    bankName = bankName,
+                    onBankNameChange = { bankName = it; settingsManager.bankName = it },
+                    accountNumber = bankAccountNumber,
+                    onAccountNumberChange = { bankAccountNumber = it; settingsManager.bankAccountNumber = it },
+                    accountName = bankAccountName,
+                    onAccountNameChange = { bankAccountName = it; settingsManager.bankAccountName = it },
+                    enableAutoDetect = enableTransferAutoDetect,
+                    onToggleAutoDetect = { enableTransferAutoDetect = it; settingsManager.enableTransferAutoDetect = it },
+                    language = language
+                )
+            }
         }
 
         item {
@@ -592,7 +613,6 @@ fun SettingsScreen(
 
 // ====================================================================
 // FUNGSI DI BAWAH INI HANYA YANG MEMANG HILANG DARI SettingsCards.kt
-// (SettingsAccountCard TIDAK dimasukkan ke sini karena sudah ada di SettingsCards.kt)
 // ====================================================================
 
 @Composable
@@ -942,107 +962,46 @@ private fun SettingsCrmCard(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().clickable { onToggleBirthdayDiscount(!enableBirthdayDiscount) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Cake,
-                            contentDescription = null,
-                            tint = if (enableBirthdayDiscount) EmeraldGreen else SlateGrey,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Diskon Ulang Tahun",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "Otomatis untuk pelanggan di hari ulang tahunnya",
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
+                        Checkbox(
                             checked = enableBirthdayDiscount,
-                            onCheckedChange = onToggleBirthdayDiscount,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = EmeraldGreen,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                            )
+                            onCheckedChange = { onToggleBirthdayDiscount(it) },
+                            colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen)
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Diskon Ulang Tahun", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("Beri diskon otomatis di hari ulang tahun pelanggan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
 
                     if (enableBirthdayDiscount) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Besar Diskon",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Diskon (%):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            OutlinedTextField(
+                                value = (birthdayDiscountPercent * 100).toInt().toString(),
+                                onValueChange = { onChangeBirthdayPercent((it.toFloatOrNull() ?: 0f) / 100f) },
+                                modifier = Modifier.width(80.dp),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp)
                             )
-                            Spacer(modifier = Modifier.weight(1f))
-                            Surface(
-                                color = AmberAccent.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    "${birthdayDiscountPercent.toInt()}%",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AmberAccentDark,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
                         }
-                        Slider(
-                            value = birthdayDiscountPercent,
-                            onValueChange = onChangeBirthdayPercent,
-                            valueRange = 5f..50f,
-                            steps = 8,
-                            colors = SliderDefaults.colors(
-                                thumbColor = AmberAccent,
-                                activeTrackColor = AmberAccent
-                            )
-                        )
-                        Text(
-                            "Berlaku untuk transaksi non-tunai juga. Tetap dibatasi oleh Max Diskon global.",
-                            fontSize = 9.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
-
                     Button(
                         onClick = onManageClick,
-                        modifier = Modifier.fillMaxWidth().height(46.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Group,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "KELOLA PELANGGAN",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
+                        Text("Kelola Data Pelanggan", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
             }

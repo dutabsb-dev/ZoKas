@@ -12,7 +12,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
+import androidx.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,7 +41,7 @@ import com.karyaku.kasir.data.local.UserEntity
 import java.io.File
 import java.io.FileOutputStream
 
-// IMPORT BARU UNTUK SCAN QRIS
+// IMPORT UNTUK SCAN QRIS
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
@@ -370,7 +370,7 @@ fun SettingsBusinessTypeCard(
     }
 }
 
-// --- 4. CARD MODUL TOKO ---
+// --- 4. CARD MODUL TOKO (DENGAN SAKLAR HR & CRM) ---
 @Composable
 fun SettingsModuleCard(
     isTableModeEnabled: Boolean, onTableModeToggle: (Boolean) -> Unit,
@@ -391,6 +391,8 @@ fun SettingsModuleCard(
     onManageReceivableClick: () -> Unit,
     onManagePayableClick: () -> Unit,
     onManageExpenseClick: () -> Unit,
+    enableHrModule: Boolean, onHrModuleToggle: (Boolean) -> Unit,
+    enableCrmModule: Boolean, onCrmModuleToggle: (Boolean) -> Unit,
     language: String
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -422,6 +424,38 @@ fun SettingsModuleCard(
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    // Modul HR (BARU)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onHrModuleToggle(!enableHrModule) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Badge, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Modul Kepegawaian (HR)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Aktifkan jika punya karyawan (Absensi & Gaji).", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = enableHrModule, onCheckedChange = onHrModuleToggle, colors = switchColors)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+
+                    // Modul CRM (BARU)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onCrmModuleToggle(!enableCrmModule) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.People, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Modul CRM (Pelanggan)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Fitur member, poin, dan data pelanggan setia.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = enableCrmModule, onCheckedChange = onCrmModuleToggle, colors = switchColors)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
                     // Mode Meja
                     Row(
@@ -515,7 +549,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Reservasi (Booking)
+                    // Reservasi
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onReservationToggle(!enableReservation) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -577,7 +611,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Supplier & PO
+                    // Supplier
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onSupplierToggle(!enableSupplier) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -620,7 +654,7 @@ fun SettingsModuleCard(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
 
-                    // Modul Keuangan
+                    // Keuangan
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onFinanceToggle(!enableFinance) }.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -963,14 +997,13 @@ fun SettingsBackupCard(
     }
 }
 
-// --- 9. CARD PENGATURAN QRIS (FITUR SCAN DITAMBAHKAN) ---
+// --- 9. CARD PENGATURAN QRIS (TANPA TOMBOL METODE PEMBAYARAN) ---
 @Composable
 fun SettingsQrisCard(
     qrisPayload: String,
     onQrisPayloadChange: (String) -> Unit,
     enableAutoDetect: Boolean,
     onToggleAutoDetect: (Boolean) -> Unit,
-    onManagePaymentMethodsClick: () -> Unit,
     language: String
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -1010,17 +1043,6 @@ fun SettingsQrisCard(
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                    Button(
-                        onClick = onManagePaymentMethodsClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Kelola Metode Pembayaran", color = Color.White)
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text("QRIS Statis (Payload)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("Tempelkan kode teks QRIS dari bank Anda, atau scan QRIS Toko.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

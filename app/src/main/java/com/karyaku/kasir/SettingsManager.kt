@@ -22,7 +22,7 @@ class SettingsManager(context: Context) {
     var storeLogoPath: String? get() = prefs.getString("store_logo_path", null); set(value) = prefs.edit().putString("store_logo_path", value).apply()
     
     var paymentMethods: Set<String> 
-        get() = prefs.getStringSet("payment_methods", setOf("CASH", "QRIS", "Bank Transfer")) ?: setOf("CASH", "QRIS", "Bank Transfer")
+        get() = prefs.getStringSet("payment_methods", setOf("CASH")) ?: setOf("CASH") // Default CASH saja
         set(value) = prefs.edit().putStringSet("payment_methods", value).apply()
     
     var taxPercent: Double get() = prefs.getFloat("tax_percent", 0f).toDouble(); set(value) = prefs.edit().putFloat("tax_percent", value.toFloat()).apply()
@@ -50,6 +50,10 @@ class SettingsManager(context: Context) {
     var enableReservation: Boolean get() = prefs.getBoolean("enable_reservation", true); set(value) = prefs.edit().putBoolean("enable_reservation", value).apply()
     var enableFinance: Boolean get() = prefs.getBoolean("enable_finance", true); set(value) = prefs.edit().putBoolean("enable_finance", value).apply()
     
+    // MODUL OPSIONAL BARU (Sesuai Review)
+    var enableHrModule: Boolean get() = prefs.getBoolean("enable_hr_module", false); set(value) = prefs.edit().putBoolean("enable_hr_module", value).apply()
+    var enableCrmModule: Boolean get() = prefs.getBoolean("enable_crm_module", false); set(value) = prefs.edit().putBoolean("enable_crm_module", value).apply()
+    
     // FITUR QRIS & TRANSFER
     var qrisStaticPayload: String? get() = prefs.getString("qris_static_payload", null); set(value) = prefs.edit().putString("qris_static_payload", value).apply()
     var enableQrisAutoDetect: Boolean get() = prefs.getBoolean("enable_qris_auto_detect", false); set(value) = prefs.edit().putBoolean("enable_qris_auto_detect", value).apply()
@@ -59,18 +63,8 @@ class SettingsManager(context: Context) {
     var bankAccountName: String? get() = prefs.getString("bank_account_name", ""); set(value) = prefs.edit().putString("bank_account_name", value).apply()
     var enableTransferAutoDetect: Boolean get() = prefs.getBoolean("enable_transfer_auto_detect", false); set(value) = prefs.edit().putBoolean("enable_transfer_auto_detect", value).apply()
 
-    // ================================================================
     // MODUL G — CRM Lanjutan
-    // ================================================================
-    var enableBirthdayDiscount: Boolean 
-        get() = prefs.getBoolean("enable_birthday_discount", true); 
-        set(value) = prefs.edit().putBoolean("enable_birthday_discount", value).apply()
-    
-    var birthdayDiscountPercent: Double 
-        get() = prefs.getFloat("birthday_discount_percent", 10f).toDouble(); 
-        set(value) = prefs.edit().putFloat("birthday_discount_percent", value.toFloat()).apply()
-    
-    var enableCrmDashboard: Boolean 
-        get() = prefs.getBoolean("enable_crm_dashboard", true); 
-        set(value) = prefs.edit().putBoolean("enable_crm_dashboard", value).apply()
+    var enableBirthdayDiscount: Boolean get() = prefs.getBoolean("enable_birthday_discount", true); set(value) = prefs.edit().putBoolean("enable_birthday_discount", value).apply()
+    var birthdayDiscountPercent: Double get() = prefs.getFloat("birthday_discount_percent", 10f).toDouble(); set(value) = prefs.edit().putFloat("birthday_discount_percent", value.toFloat()).apply()
+    var enableCrmDashboard: Boolean get() = prefs.getBoolean("enable_crm_dashboard", true); set(value) = prefs.edit().putBoolean("enable_crm_dashboard", value).apply()
 }
