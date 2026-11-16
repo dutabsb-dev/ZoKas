@@ -5,12 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed // <-- IMPORT YANG HILANG
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,7 +27,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.CustomerEntity
 import com.karyaku.kasir.data.local.UserEntity
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,6 +41,8 @@ fun CustomerManagementDialog(
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedTierFilter by remember { mutableStateOf<CustomerTier?>(null) }
+    
+    // FIX: State terpisah untuk Tambah dan Edit
     var showAddForm by remember { mutableStateOf(false) }
     var customerToEdit by remember { mutableStateOf<CustomerEntity?>(null) }
 
@@ -73,6 +71,7 @@ fun CustomerManagementDialog(
         }
     }
 
+    // Form Tambah
     if (showAddForm) {
         CustomerFormDialog(
             customerToEdit = null,
@@ -84,6 +83,7 @@ fun CustomerManagementDialog(
         )
     }
 
+    // Form Edit
     if (customerToEdit != null) {
         CustomerFormDialog(
             customerToEdit = customerToEdit,

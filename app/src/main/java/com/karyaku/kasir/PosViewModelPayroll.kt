@@ -1,8 +1,6 @@
 package com.karyaku.kasir
 
-import android.content.Context
 import android.util.Base64
-import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewModelScope
 import com.karyaku.kasir.data.local.*
@@ -12,11 +10,6 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import javax.crypto.Cipher
-
-// ====================================================================
-// MODUL C — ABSENSI & PAYROLL
-// ====================================================================
 
 // ================================================================
 // LOGIKA ABSENSI TERPADU (SAAT LOGIN)
@@ -26,32 +19,19 @@ fun PosViewModel.processLoginAttendance(user: UserEntity, onResult: (Boolean, St
         try {
             val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
             val todayStr = dateFormat.format(Date())
-            
             val existing = attendanceDao.getTodayAttendance(user.id, todayStr)
 
             if (existing == null) {
-                // 1. Belum Absen Masuk -> Lakukan Check-In Otomatis
                 val attendance = AttendanceEntity(
-                    userId = user.id,
-                    userName = user.name,
-                    date = todayStr,
-                    checkInTime = System.currentTimeMillis(),
-                    branchId = _currentBranchId.value
+                    userId = user.id, userName = user.name, date = todayStr,
+                    checkInTime = System.currentTimeMillis(), branchId = _currentBranchId.value
                 )
                 attendanceDao.insertCheckIn(attendance)
-                userDao.insertAuditLog(AuditLogEntity(
-                    userId = user.id, userName = user.name,
-                    action = "ABSEN MASUK (AUTO LOGIN)",
-                    actionType = "ATTENDANCE"
-                ))
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "ABSEN MASUK (AUTO LOGIN)", actionType = "ATTENDANCE"))
                 withContext(Dispatchers.Main) { onResult(true, "Absen Masuk berhasil. Selamat bekerja, ${user.name}!") }
-                
             } else if (existing.checkOutTime == null) {
-                // 2. Sudah Masuk, Belum Pulang -> HANYA LOGIN BIASA (TIDAK AUTO CHECK-OUT)
                 withContext(Dispatchers.Main) { onResult(true, "Login berhasil. Jangan lupa Absen Pulang saat selesai bekerja.") }
-                
             } else {
-                // 3. Sudah Selesai Absen Hari Ini -> Login Biasa
                 withContext(Dispatchers.Main) { onResult(true, "Login berhasil. Anda sudah menyelesaikan absensi hari ini.") }
             }
         } catch (e: Exception) {
@@ -63,11 +43,7 @@ fun PosViewModel.processLoginAttendance(user: UserEntity, onResult: (Boolean, St
 // ================================================================
 // VERIFIKASI ABSEN PULANG (WAJIB PIN / BIOMETRIK)
 // ================================================================
-fun PosViewModel.verifyAndCheckOut(
-    user: UserEntity,
-    pin: String,
-    onResult: (Boolean, String) -> Unit
-) {
+fun PosViewModel.verifyAndCheckOut(user: UserEntity, pin: String, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val hashedPin = hashPin(pin)
@@ -78,8 +54,8 @@ fun PosViewModel.verifyAndCheckOut(
 
             val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
             val todayStr = dateFormat.format(Date())
-            
             val existing = attendanceDao.getTodayAttendance(user.id, todayStr)
+            
             if (existing == null) {
                 withContext(Dispatchers.Main) { onResult(false, "Anda belum absen masuk hari ini.") }
                 return@launch
@@ -90,12 +66,7 @@ fun PosViewModel.verifyAndCheckOut(
             }
 
             attendanceDao.updateCheckOut(user.id, todayStr, System.currentTimeMillis())
-            
-            userDao.insertAuditLog(AuditLogEntity(
-                userId = user.id, userName = user.name,
-                action = "ABSEN PULANG (Terverifikasi)",
-                actionType = "ATTENDANCE"
-            ))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "ABSEN PULANG (Terverifikasi)", actionType = "ATTENDANCE"))
             
             withContext(Dispatchers.Main) { onResult(true, "Absen pulang berhasil pada ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.") }
         } catch (e: Exception) {
@@ -104,12 +75,7 @@ fun PosViewModel.verifyAndCheckOut(
     }
 }
 
-// Fungsi Biometrik khusus untuk Check-Out (hanya berlaku jika sidik jari user terdaftar)
-fun PosViewModel.verifyAndCheckOutBiometric(
-    activity: FragmentActivity,
-    user: UserEntity,
-    onResult: (Boolean, String) -> Unit
-) {
+fun PosViewModel.verifyAndCheckOutBiometric(activity: FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
     if (user.biometricKey.isBlank()) {
         onResult(false, "Anda belum mendaftarkan biometrik.")
         return
@@ -136,21 +102,24 @@ fun PosViewModel.verifyAndCheckOutBiometric(
         subtitle = "Tempelkan sidik jari Anda untuk konfirmasi pulang",
         negativeButtonText = "Batal",
         cipher = cipher,
-        onSuccess = { 
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-                    val todayStr = dateFormat.format(Date())
-                    attendanceDao.updateCheckOut(user.id, todayStr, System.currentTimeMillis())
-                    userDao.insertAuditLog(AuditLogEntity(
-                        userId = user.id, userName = user.name,
-                        action = "ABSEN PULANG (Biometrik)",
-                        actionType = "ATTENDANCE"
-                    ))
-                    withContext(Dispatchers.Main) { onResult(true, "Absen pulang berhasil (Biometrik).") }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { onResult(false, "Gagal simpan absen: ${e.message}") }
+        onSuccess = { result ->
+            try {
+                // Wajib panggil doFinal untuk membuktikan dekripsi berhasil (bukan sidik jari orang lain)
+                result.cryptoObject?.cipher?.doFinal() 
+                
+                viewModelScope.launch(Dispatchers.IO) {
+                    try {
+                        val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
+                        val todayStr = dateFormat.format(Date())
+                        attendanceDao.updateCheckOut(user.id, todayStr, System.currentTimeMillis())
+                        userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "ABSEN PULANG (Biometrik)", actionType = "ATTENDANCE"))
+                        withContext(Dispatchers.Main) { onResult(true, "Absen pulang berhasil (Biometrik).") }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) { onResult(false, "Gagal simpan absen: ${e.message}") }
+                    }
                 }
+            } catch (e: Exception) {
+                onResult(false, "Kriptografi gagal: ${e.message}")
             }
         },
         onError = { error ->
@@ -160,34 +129,23 @@ fun PosViewModel.verifyAndCheckOutBiometric(
 }
 
 // ================================================================
-// ABSENSI MANUAL (DARI MENU SETTING)
+// ABSENSI MANUAL
 // ================================================================
 fun PosViewModel.checkIn(user: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
             val todayStr = dateFormat.format(Date())
-            
             val existing = attendanceDao.getTodayAttendance(user.id, todayStr)
+            
             if (existing != null) {
                 withContext(Dispatchers.Main) { onResult(false, "Anda sudah absen masuk hari ini.") }
                 return@launch
             }
 
-            val attendance = AttendanceEntity(
-                userId = user.id,
-                userName = user.name,
-                date = todayStr,
-                checkInTime = System.currentTimeMillis(),
-                branchId = _currentBranchId.value
-            )
+            val attendance = AttendanceEntity(userId = user.id, userName = user.name, date = todayStr, checkInTime = System.currentTimeMillis(), branchId = _currentBranchId.value)
             attendanceDao.insertCheckIn(attendance)
-            
-            userDao.insertAuditLog(AuditLogEntity(
-                userId = user.id, userName = user.name,
-                action = "ABSEN MASUK (Manual)",
-                actionType = "ATTENDANCE"
-            ))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "ABSEN MASUK (Manual)", actionType = "ATTENDANCE"))
             
             withContext(Dispatchers.Main) { onResult(true, "Absen masuk berhasil pada ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}.") }
         } catch (e: Exception) {
@@ -197,17 +155,13 @@ fun PosViewModel.checkIn(user: UserEntity, onResult: (Boolean, String) -> Unit) 
 }
 
 // ================================================================
-// PAYROLL (GAJI KARYAWAN)
+// PAYROLL
 // ================================================================
 fun PosViewModel.updateUserBaseSalary(userId: Long, newSalary: Long, adminUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             userDao.updateBaseSalary(userId, newSalary)
-            userDao.insertAuditLog(AuditLogEntity(
-                userId = adminUser.id, userName = adminUser.name,
-                action = "UPDATE GAJI POKOK: Karyawan ID #$userId menjadi ${formatRupiah(newSalary)}",
-                actionType = "PAYROLL"
-            ))
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "UPDATE GAJI POKOK Karyawan ID #$userId menjadi ${formatRupiah(newSalary)}", actionType = "PAYROLL"))
             withContext(Dispatchers.Main) { onResult(true, "Gaji pokok berhasil diperbarui.") }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) { onResult(false, "Gagal update gaji: ${e.message}") }
@@ -215,13 +169,7 @@ fun PosViewModel.updateUserBaseSalary(userId: Long, newSalary: Long, adminUser: 
     }
 }
 
-fun PosViewModel.generatePayroll(
-    user: UserEntity, 
-    period: String, 
-    resetCommission: Boolean,
-    adminUser: UserEntity,
-    onResult: (Boolean, String) -> Unit
-) {
+fun PosViewModel.generatePayroll(user: UserEntity, period: String, resetCommission: Boolean, adminUser: UserEntity, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val baseSalary = user.baseSalary
@@ -234,14 +182,9 @@ fun PosViewModel.generatePayroll(
             }
 
             val payroll = PayrollEntity(
-                userId = user.id,
-                userName = user.name,
-                period = period,
-                baseSalary = baseSalary,
-                commission = commission,
-                totalSalary = totalSalary,
-                status = "UNPAID",
-                branchId = _currentBranchId.value
+                userId = user.id, userName = user.name, period = period,
+                baseSalary = baseSalary, commission = commission, totalSalary = totalSalary,
+                status = "UNPAID", branchId = _currentBranchId.value
             )
             payrollDao.insertPayroll(payroll)
 
@@ -249,12 +192,7 @@ fun PosViewModel.generatePayroll(
                 userDao.updateUser(user.copy(totalCommission = 0L))
             }
 
-            userDao.insertAuditLog(AuditLogEntity(
-                userId = adminUser.id, userName = adminUser.name,
-                action = "BUAT SLIP GAJI: ${user.name} periode $period. Total: ${formatRupiah(totalSalary)}",
-                actionType = "PAYROLL"
-            ))
-
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "BUAT SLIP GAJI: ${user.name} periode $period. Total: ${formatRupiah(totalSalary)}", actionType = "PAYROLL"))
             withContext(Dispatchers.Main) { onResult(true, "Slip gaji berhasil dibuat.") }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) { onResult(false, "Gagal buat slip gaji: ${e.message}") }
@@ -266,11 +204,7 @@ fun PosViewModel.payPayroll(payrollId: Long, adminUser: UserEntity, onResult: (B
     viewModelScope.launch(Dispatchers.IO) {
         try {
             payrollDao.markAsPaid(payrollId)
-            userDao.insertAuditLog(AuditLogEntity(
-                userId = adminUser.id, userName = adminUser.name,
-                action = "BAYAR GAJI: Slip Gaji #$payrollId telah dibayarkan.",
-                actionType = "PAYROLL"
-            ))
+            userDao.insertAuditLog(AuditLogEntity(userId = adminUser.id, userName = adminUser.name, action = "BAYAR GAJI: Slip Gaji #$payrollId telah dibayarkan.", actionType = "PAYROLL"))
             withContext(Dispatchers.Main) { onResult(true, "Gaji berhasil ditandai LUNAS.") }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) { onResult(false, "Gagal konfirmasi gaji: ${e.message}") }

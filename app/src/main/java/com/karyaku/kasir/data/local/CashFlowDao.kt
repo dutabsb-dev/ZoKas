@@ -10,9 +10,12 @@ interface CashFlowDao {
     @Insert
     suspend fun insertCashFlow(cashFlow: CashFlowEntity)
 
-    // TAMBAHKAN FUNGSI INI UNTUK MEMPERBAIKI ERROR BUILD
     @Query("SELECT * FROM cash_flows ORDER BY timestamp DESC")
     fun getAllCashFlows(): Flow<List<CashFlowEntity>>
+
+    // TAMBAHAN: Filter per cabang
+    @Query("SELECT * FROM cash_flows WHERE branchId = :branchId ORDER BY timestamp DESC")
+    fun getCashFlowsByBranch(branchId: Long): Flow<List<CashFlowEntity>>
 
     @Query("SELECT SUM(amount) FROM cash_flows WHERE type = 'OUT' AND shiftId = :shiftId")
     suspend fun getTotalCashOut(shiftId: Long): Long?

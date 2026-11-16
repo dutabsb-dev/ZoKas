@@ -16,6 +16,10 @@ interface StockOpnameDao {
     @Query("SELECT * FROM stock_opnames ORDER BY timestamp DESC")
     fun getAllOpnames(): Flow<List<StockOpnameEntity>>
 
+    // TAMBAHAN: Filter Opname per Cabang
+    @Query("SELECT * FROM stock_opnames WHERE branchId = :branchId ORDER BY timestamp DESC")
+    fun getAllOpnamesByBranch(branchId: Long): Flow<List<StockOpnameEntity>>
+
     @Query("SELECT * FROM stock_opname_items WHERE opnameId = :opnameId")
     fun getOpnameItems(opnameId: Long): Flow<List<StockOpnameItemEntity>>
 }

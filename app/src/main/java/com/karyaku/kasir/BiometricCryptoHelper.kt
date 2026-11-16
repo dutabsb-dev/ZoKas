@@ -24,15 +24,14 @@ object BiometricCryptoHelper {
     private const val KEY_SIZE = 256
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
 
-    // Fungsi untuk mengecek apakah perangkat support biometrik
+    // FIX: Gunakan BIOMETRIC_STRONG agar sinkron dengan syarat createKey
     fun isBiometricSupported(context: Context): Boolean {
         val biometricManager = BiometricManager.from(context)
-        val result = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
-        Log.d(TAG, "Cek Sensor Support: $result")
+        val result = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+        Log.d(TAG, "Cek Sensor Support (STRONG): $result")
         return result == BiometricManager.BIOMETRIC_SUCCESS
     }
 
-    // Fungsi untuk membuat kunci baru (saat pendaftaran)
     fun createKey(alias: String): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
@@ -48,7 +47,7 @@ object BiometricCryptoHelper {
                     .setInvalidatedByBiometricEnrollment(true)
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    builder.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
+                    builder.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
                 } else {
                     @Suppress("DEPRECATION")
                     builder.setUserAuthenticationValidityDurationSeconds(-1)
@@ -151,24 +150,11 @@ object BiometricCryptoHelper {
             val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
                 .setTitle(title)
                 .setSubtitle(subtitle)
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                .setNegativeButtonText(negativeButtonText)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                promptInfoBuilder.setAllowedAuthenticators(
-                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
-                )
-            } else {
-                promptInfoBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                promptInfoBuilder.setNegativeButtonText(negativeButtonText)
-            }
-
-            val promptInfo = promptInfoBuilder.build()
-
-            Log.d(TAG, "Menampilkan prompt biometrik...")
-            biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
-            
+            biometricPrompt.authenticate(promptInfoBuilder.build(), BiometricPrompt.CryptoObject(cipher))
         } catch (e: Exception) {
-            // INI ADALAH PENANGKAP ERROR UTAMA JIKA TERJADI CRASH SINKRON
             Log.e(TAG, "CRASH PREVENTED di authenticate(): ${e.message}", e)
             onError("Error Sistem: ${e.message}")
         }

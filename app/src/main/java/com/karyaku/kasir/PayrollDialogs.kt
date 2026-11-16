@@ -203,7 +203,6 @@ fun CheckOutVerificationDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Jika user punya biometrik, tampilkan tombol
                 if (user.biometricKey.isNotBlank() && activity != null) {
                     Text("Atau gunakan Sidik Jari:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -270,7 +269,7 @@ fun PayrollManagementDialog(
     val payrollList by viewModel.payrollList.collectAsStateWithLifecycle()
     
     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-    var selectedTab by remember { mutableStateOf(0) } // 0: Buat Gaji, 1: Riwayat
+    var selectedTab by remember { mutableStateOf(0) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -315,6 +314,7 @@ fun PayrollManagementDialog(
                                     Button(
                                         onClick = {
                                             val periodStr = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date())
+                                            // FIX: Parameter ke-3 adalah resetCommission (Boolean)
                                             viewModel.generatePayroll(emp, periodStr, true, currentUser) { success, msg ->
                                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                             }

@@ -15,14 +15,12 @@ object BackupHelper {
             val dbFile = context.getDatabasePath(DB_NAME)
             if (!dbFile.exists()) return false
 
-            // Tutup database agar file bisa disalin secara aman
+            // Tutup database agar file aman
             AppDatabase.closeAndResetDatabase()
 
-            val inputStream = FileInputStream(dbFile)
-            val outputStream = context.contentResolver.openOutputStream(targetUri)
-            
-            outputStream?.use { out ->
-                inputStream.use { input ->
+            // FIX: Gunakan use { } untuk memastikan stream selalu tertutup
+            context.contentResolver.openOutputStream(targetUri)?.use { out ->
+                FileInputStream(dbFile).use { input ->
                     input.copyTo(out)
                 }
             }
@@ -32,7 +30,7 @@ object BackupHelper {
             true
         } catch (e: Exception) {
             e.printStackTrace()
-            // Pastikan database dibuka kembali jika terjadi error
+            // Pastikan dibuka jika gagal
             AppDatabase.getDatabase(context)
             false
         }
@@ -43,27 +41,28 @@ object BackupHelper {
             val dbFile = context.getDatabasePath(DB_NAME)
             dbFile.parentFile?.mkdirs()
 
-            // 1. TUTUP DATABASE TERLEBIH DAHULU
+            // 1. TUTUP DATABASE
             AppDatabase.closeAndResetDatabase()
 
-            // 2. HAPUS FILE WAL & SHM AGAR TIDAK BENTROK
+            // 2. HAPUS FILE WAL & SHM (Wajib agar tidak bentrok)
             val walFile = File(dbFile.path + "-wal")
             val shmFile = File(dbFile.path + "-shm")
             if (walFile.exists()) walFile.delete()
             if (shmFile.exists()) shmFile.delete()
 
-            // 3. TIMPA FILE DATABASE BARU
-            val inputStream = context.contentResolver.openInputStream(sourceUri)
-            val outputStream = FileOutputStream(dbFile)
-            
-            outputStream.use { out ->
-                inputStream?.use { input ->
+            // 3. TIMPA FILE DATABASE
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(dbFile).use { out ->
                     input.copyTo(out)
                 }
             }
+            
+            // 4. FIX: JANGAN LUPA BUKA ULANG DATABASE SETELAH RESTORE
+            AppDatabase.getDatabase(context)
             true
         } catch (e: Exception) {
             e.printStackTrace()
+            AppDatabase.getDatabase(context) // Pastikan dibuka jika error
             false
         }
     }

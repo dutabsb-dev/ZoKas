@@ -11,12 +11,7 @@ import kotlinx.coroutines.withContext
 // ====================================================================
 // FILE 6 — SUPPLIER (MODUL E) + TRANSFER STOK (MODUL D-2)
 // ====================================================================
-// Extension functions untuk PosViewModel.
-// ====================================================================
 
-// ================================================================
-// MODUL E — SUPPLIER & PURCHASE ORDER
-// ================================================================
 fun PosViewModel.addSupplier(name: String, contact: String, phone: String, address: String) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -38,6 +33,7 @@ fun PosViewModel.createPurchaseOrder(
             database.withTransaction {
                 val total = items.sumOf { it.subtotal }
                 val purchase = PurchaseEntity(
+                    branchId = _currentBranchId.value, // FIX
                     supplierId = supplier.id,
                     supplierName = supplier.name,
                     invoiceNumber = invoiceNumber,
@@ -158,12 +154,7 @@ fun PosViewModel.payPurchase(purchaseId: Long) {
             if (purchase != null) {
                 val outstanding = (purchase.totalAmount - purchase.paidAmount).coerceAtLeast(0L)
                 if (outstanding > 0L) {
-                    val systemUser = UserEntity(
-                        id = 0L,
-                        name = "SYSTEM",
-                        pin = "",
-                        role = "SYSTEM"
-                    )
+                    val systemUser = UserEntity(id = 0L, name = "SYSTEM", pin = "", role = "SYSTEM")
                     recordSupplierPayment(
                         purchase = purchase,
                         amount = outstanding,
@@ -178,9 +169,6 @@ fun PosViewModel.payPurchase(purchaseId: Long) {
     }
 }
 
-// ================================================================
-// MODUL D-2 — TRANSFER STOK ANTAR CABANG
-// ================================================================
 fun PosViewModel.getTransferItems(transferId: Long): Flow<List<StockTransferItemEntity>> {
     return stockTransferDao.getItemsForTransfer(transferId)
 }
@@ -216,38 +204,24 @@ fun PosViewModel.transferStock(
             var toBranchName = ""
 
             database.withTransaction {
-                val fromBranch = branchDao.getBranchById(fromBranchId)
-                    ?: throw IllegalStateException("Cabang asal tidak ditemukan.")
-                val toBranch = branchDao.getBranchById(toBranchId)
-                    ?: throw IllegalStateException("Cabang tujuan tidak ditemukan.")
+                val fromBranch = branchDao.getBranchById(fromBranchId) ?: throw IllegalStateException("Cabang asal tidak ditemukan.")
+                val toBranch = branchDao.getBranchById(toBranchId) ?: throw IllegalStateException("Cabang tujuan tidak ditemukan.")
 
                 fromBranchName = fromBranch.name
                 toBranchName = toBranch.name
 
-                // Snapshot produk destination (suspend, aman di transaction).
                 val destProducts = productDao.getProductsByBranchOnce(toBranchId).toMutableList()
-
                 val transferItemsToInsert = mutableListOf<StockTransferItemEntity>()
 
                 items.forEach { (requestProduct, qty) ->
-                    // 1. Fresh read source
-                    val source = productDao.getProductById(requestProduct.id)
-                        ?: throw IllegalStateException("Produk '${requestProduct.name}' tidak ditemukan.")
+                    val source = productDao.getProductById(requestProduct.id) ?: throw IllegalStateException("Produk '${requestProduct.name}' tidak ditemukan.")
 
-                    if (source.branchId != fromBranchId) {
-                        throw IllegalStateException("Produk '${source.name}' bukan milik cabang asal.")
-                    }
-                    if (source.isService) {
-                        throw IllegalStateException("Produk '${source.name}' adalah jasa, tidak bisa ditransfer.")
-                    }
-                    if (source.stock < qty) {
-                        throw IllegalStateException("Stok '${source.name}' tidak cukup (tersedia: ${source.stock}, diminta: $qty).")
-                    }
+                    if (source.branchId != fromBranchId) throw IllegalStateException("Produk '${source.name}' bukan milik cabang asal.")
+                    if (source.isService) throw IllegalStateException("Produk '${source.name}' adalah jasa, tidak bisa ditransfer.")
+                    if (source.stock < qty) throw IllegalStateException("Stok '${source.name}' tidak cukup (tersedia: ${source.stock}, diminta: $qty).")
 
-                    // 2. Kurangi stok source
                     productDao.updateStock(source.id, source.stock - qty)
 
-                    // 3. Cari / buat produk di destination
                     val destExisting = destProducts.find { dest ->
                         (source.barcode.isNotBlank() && dest.barcode == source.barcode) ||
                         dest.name.equals(source.name, ignoreCase = true)
@@ -257,20 +231,10 @@ fun PosViewModel.transferStock(
                     if (destExisting != null) {
                         productDao.updateStock(destExisting.id, destExisting.stock + qty)
                         finalDestId = destExisting.id
-                        // Update cache lokal agar item berikutnya akurat
                         val idx = destProducts.indexOfFirst { it.id == destExisting.id }
-                        if (idx != -1) {
-                            destProducts[idx] = destExisting.copy(stock = destExisting.stock + qty)
-                        }
+                        if (idx != -1) destProducts[idx] = destExisting.copy(stock = destExisting.stock + qty)
                     } else {
-                        // Auto-create produk baru di destination.
-                        val newProduct = source.copy(
-                            id = 0L,
-                            stock = qty,
-                            branchId = toBranchId,
-                            isSynced = false,
-                            updatedAt = System.currentTimeMillis()
-                        )
+                        val newProduct = source.copy(id = 0L, stock = qty, branchId = toBranchId, isSynced = false, updatedAt = System.currentTimeMillis())
                         val newId = productDao.insertProduct(newProduct)
                         finalDestId = newId
                         destProducts.add(newProduct.copy(id = newId))
@@ -278,12 +242,8 @@ fun PosViewModel.transferStock(
 
                     transferItemsToInsert.add(
                         StockTransferItemEntity(
-                            transferId = 0L,
-                            sourceProductId = source.id,
-                            destinationProductId = finalDestId,
-                            productName = source.name,
-                            barcode = source.barcode,
-                            quantity = qty
+                            transferId = 0L, sourceProductId = source.id, destinationProductId = finalDestId,
+                            productName = source.name, barcode = source.barcode, quantity = qty
                         )
                     )
                     totalQty += qty
@@ -291,41 +251,21 @@ fun PosViewModel.transferStock(
 
                 totalItems = transferItemsToInsert.size
 
-                // 4. Insert header
                 val transfer = StockTransferEntity(
-                    fromBranchId = fromBranchId,
-                    fromBranchName = fromBranch.name,
-                    toBranchId = toBranchId,
-                    toBranchName = toBranch.name,
-                    note = note,
-                    userId = user.id,
-                    userName = user.name,
-                    totalItems = totalItems,
-                    totalQuantity = totalQty
+                    fromBranchId = fromBranchId, fromBranchName = fromBranch.name, toBranchId = toBranchId, toBranchName = toBranch.name,
+                    note = note, userId = user.id, userName = user.name, totalItems = totalItems, totalQuantity = totalQty
                 )
                 val transferId = stockTransferDao.insertTransfer(transfer)
 
-                // 5. Insert items dengan transferId
-                stockTransferDao.insertTransferItems(
-                    transferItemsToInsert.map { it.copy(transferId = transferId) }
-                )
+                stockTransferDao.insertTransferItems(transferItemsToInsert.map { it.copy(transferId = transferId) })
 
-                // 6. Audit log
                 userDao.insertAuditLog(
-                    AuditLogEntity(
-                        userId = user.id,
-                        userName = user.name,
-                        action = "TRANSFER STOK: $fromBranchName → $toBranchName, $totalItems item (${totalQty} pcs). Catatan: ${note.ifBlank { "-" }}",
-                        actionType = "INVENTORY"
-                    )
+                    AuditLogEntity(userId = user.id, userName = user.name, action = "TRANSFER STOK: $fromBranchName → $toBranchName, $totalItems item (${totalQty} pcs). Catatan: ${note.ifBlank { "-" }}", actionType = "INVENTORY")
                 )
             }
 
             withContext(Dispatchers.Main) {
-                onResult(
-                    true,
-                    "Transfer berhasil: $totalItems item ($totalQty pcs) dari $fromBranchName ke $toBranchName."
-                )
+                onResult(true, "Transfer berhasil: $totalItems item ($totalQty pcs) dari $fromBranchName ke $toBranchName.")
             }
         } catch (e: Exception) {
             e.printStackTrace()

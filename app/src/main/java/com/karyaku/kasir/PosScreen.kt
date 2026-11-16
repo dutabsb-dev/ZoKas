@@ -200,12 +200,23 @@ fun PosScreen(
                 onGenerateTransfer = { viewModel.generateTransferPayment(totalToPay) },
                 onDismiss = { showPaymentSheet = false; viewModel.resetQrisPayment(); viewModel.resetTransferPayment() }, 
                 onConfirmPayment = { cashReceived: Long, method: String ->
-                    viewModel.processPayment(cashReceived, currentUser.id, currentUser.name, isSplitBillMode, method, settingsManager.maxDiscountCap, if (settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0) { newTransaction ->
+                    // Ambil snapshot cart saat ini SEBELUM dikosongkan oleh processPayment
+                    val currentCartSnapshot = if (isSplitBillMode) cart.filter { it.isSelectedForSplit } else cart
+
+                    viewModel.processPayment(
+                        cashReceived = cashReceived, userId = currentUser.id, userName = currentUser.name,
+                        isSplitBill = isSplitBillMode, method = method, maxDiscountCap = settingsManager.maxDiscountCap,
+                        birthdayDiscountPercent = if (settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0,
+                        taxPercent = taxPercent, serviceChargePercent = serviceChargePercent,
+                        manualDiscount = discount, voucherDiscount = voucherDiscount, voucherCode = appliedVoucher
+                    ) { newTransaction ->
                         showPaymentSheet = false
                         if (!isSplitBillMode) showCartOnPhone = false
                         completedTransaction = newTransaction
                         if (isSplitBillMode) isSplitBillMode = false
-                        viewModel.printReceipt(context, newTransaction, settingsManager)
+                        
+                        // FIX SESI 3: Kirim snapshot keranjang ke fungsi printReceipt
+                        viewModel.printReceipt(context, newTransaction, settingsManager, currentCartSnapshot)
                     }
                 }
             )

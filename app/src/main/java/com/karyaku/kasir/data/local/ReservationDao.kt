@@ -13,6 +13,10 @@ interface ReservationDao {
     @Query("SELECT * FROM reservations ORDER BY dateTime ASC")
     fun getAllReservations(): Flow<List<ReservationEntity>>
 
+    // TAMBAHAN: Filter Reservasi per Cabang
+    @Query("SELECT * FROM reservations WHERE branchId = :branchId ORDER BY dateTime ASC")
+    fun getReservationsByBranch(branchId: Long): Flow<List<ReservationEntity>>
+
     @Query("UPDATE reservations SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String)
 

@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StockTransferItemEntity::class, KitchenTicketEntity::class,
         AttendanceEntity::class, PayrollEntity::class
     ], 
-    version = 36, 
+    version = 37, // NAIKKAN DARI 36 KE 37
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -47,7 +47,9 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // ... (MIGRASI 19 SAMPAI 34 TETAP SAMA SEPERTI SEBELUMNYA) ...
+        // ================================================================
+        // RIWAYAT MIGRASI ANDA (DARI VERSI 19 SAMPAI 36)
+        // ================================================================
         private val MIGRATION_19_20 = object : Migration(19, 20) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("CREATE TABLE IF NOT EXISTS `branches` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `isMainBranch` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isSynced` INTEGER NOT NULL)")
@@ -272,10 +274,36 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // FIX: MIGRASI UNTUK BIOMETRIK (V35 -> V36)
         private val MIGRATION_35_36 = object : Migration(35, 36) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE users ADD COLUMN biometricKey TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // ================================================================
+        // MIGRASI BARU (V36 -> V37) UNTUK MULTI-CABANG (SESI 6A & 6B)
+        // ================================================================
+        private val MIGRATION_36_37 = object : Migration(36, 37) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Sesi 6A: Keuangan & Pembelian
+                database.execSQL("ALTER TABLE cash_flows ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE expenses ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE purchases ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+
+                // Sesi 6B: Operasional
+                database.execSQL("ALTER TABLE kitchen_tickets ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE hold_orders ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE reservations ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE stock_opnames ADD COLUMN branchId INTEGER NOT NULL DEFAULT 1")
+
+                // Tambahkan Index untuk optimasi filter
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_cash_flows_branchId` ON `cash_flows` (`branchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_expenses_branchId` ON `expenses` (`branchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_purchases_branchId` ON `purchases` (`branchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_kitchen_tickets_branchId` ON `kitchen_tickets` (`branchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_hold_orders_branchId` ON `hold_orders` (`branchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_reservations_branchId` ON `reservations` (`branchId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_opnames_branchId` ON `stock_opnames` (`branchId`)")
             }
         }
 
@@ -291,7 +319,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
                     MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
                     MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
-                    MIGRATION_35_36
+                    MIGRATION_35_36, MIGRATION_36_37
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
