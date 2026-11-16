@@ -28,8 +28,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
-import com.karyaku.kasir.data.local.CartItem
-import com.karyaku.kasir.data.local.CustomerMembershipEntity
 import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
@@ -322,14 +320,14 @@ fun PosScreen(
                         Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
                             PosProductSection(
                                 products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                                onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) }, 
-                                onProductClick = { prod: ProductEntity -> 
+                                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                                onProductClick = { prod -> 
                                     if (prod.variations.contains("|")) productToSelectMatrix = prod
                                     else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                     else viewModel.addToCart(prod) 
                                 }, 
-                                onProductLongClick = { product: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = product }, 
-                                onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
+                                onProductLongClick = { if (currentUser.role == "OWNER") showActionDialogFor = it }, 
+                                onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                                 onCameraScanClick = {
                                     val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
                                     barcodeLauncher.launch(options)
@@ -346,18 +344,18 @@ fun PosScreen(
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
+                                onOrderTypeChange = { viewModel.setOrderType(it) }, onPickupDateChange = { viewModel.setPickupDate(it) },
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, 
                                 onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
                                 onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
                                 onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) }, 
-                                onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) }, 
+                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, 
+                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
                                 onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
-                                onCheckout = { showPaymentSheet = true }, onEditNotes = { product: ProductEntity -> productToEditNotes = product },
-                                onEditSerial = { product: ProductEntity -> productToEditSerial = product }, onAssignStaff = { product: ProductEntity -> productToAssignStaff = product },
-                                onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
-                                onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
+                                onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
+                                onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
+                                onApplyMembership = { cartItem, cm -> viewModel.applyMembershipToCart(cartItem, cm) },
+                                onRemoveMembership = { cartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language
                             )
                         }
@@ -377,32 +375,32 @@ fun PosScreen(
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
+                                onOrderTypeChange = { viewModel.setOrderType(it) }, onPickupDateChange = { viewModel.setPickupDate(it) },
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { viewModel.toggleSplitSelection(it.product, it.selectedVariation) }, 
                                 onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
                                 onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
                                 onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) }, 
-                                onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) }, 
+                                onAdd = { viewModel.addToCart(it.product, it.selectedVariation) }, onRemove = { viewModel.removeFromCart(it.product, it.selectedVariation) }, 
+                                onDelete = { viewModel.deleteItem(it.product, it.selectedVariation) }, 
                                 onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
-                                onCheckout = { showPaymentSheet = true }, onEditNotes = { product: ProductEntity -> productToEditNotes = product },
-                                onEditSerial = { product: ProductEntity -> productToEditSerial = product }, onAssignStaff = { product: ProductEntity -> productToAssignStaff = product },
-                                onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
-                                onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
+                                onCheckout = { showPaymentSheet = true }, onEditNotes = { productToEditNotes = it },
+                                onEditSerial = { productToEditSerial = it }, onAssignStaff = { productToAssignStaff = it },
+                                onApplyMembership = { cartItem, cm -> viewModel.applyMembershipToCart(cartItem, cm) },
+                                onRemoveMembership = { cartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language
                             )
                         }
                     } else {
                         PosProductSection(
                             products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                            onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) }, 
-                            onProductClick = { prod: ProductEntity -> 
+                            onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) }, 
+                            onProductClick = { prod -> 
                                 if (prod.variations.contains("|")) productToSelectMatrix = prod
                                 else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
                                 else viewModel.addToCart(prod) 
                             }, 
-                            onProductLongClick = { product: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = product }, 
-                            onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
+                            onProductLongClick = { if (currentUser.role == "OWNER") showActionDialogFor = it }, 
+                            onBarcodeScan = { barcode -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                             onCameraScanClick = {
                                 val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
                                 barcodeLauncher.launch(options)
