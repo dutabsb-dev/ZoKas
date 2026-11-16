@@ -571,7 +571,7 @@ class PosViewModel(
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
 
     // ========================================================================
-    // FUNGSI KAS (FIX: startCash -> openingCash, hapus branchId di DAO)
+    // FUNGSI KAS (FIX TOTAL BERDASARKAN USERDAO & SHIFTENTITY)
     // ========================================================================
     fun openShift(user: UserEntity, modalAwal: Long) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -580,7 +580,7 @@ class PosViewModel(
                     userId = user.id,
                     userName = user.name,
                     startTime = System.currentTimeMillis(),
-                    openingCash = modalAwal,
+                    openingCash = modalAwal, // FIX: Menggunakan openingCash
                     status = "OPEN",
                     branchId = _currentBranchId.value
                 )
@@ -611,7 +611,7 @@ class PosViewModel(
                 val discrepancy = physicalCash - expectedCash
 
                 userDao.closeShift(
-                    shiftId = currentShift.id,
+                    shiftId = currentShift.id, // FIX: Menggunakan shiftId
                     endTime = endTime,
                     expectedCash = expectedCash,
                     closingCash = physicalCash,
