@@ -354,6 +354,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle() // Diambil untuk BOM
     
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
@@ -365,6 +366,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) } // State untuk BOM
     
     val context = LocalContext.current
 
@@ -416,7 +418,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        // FIX: TAMBAHKAN FLOATING ACTION BUTTON UNTUK TAMBAH PRODUK
         ExtendedFloatingActionButton(
             onClick = { productToEdit = null; showProductForm = true },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
@@ -454,12 +455,26 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     else { productToWaste = showActionDialogFor }
                     showActionDialogFor = null 
                 },
-                onBom = { showActionDialogFor = null },
+                onBom = { 
+                    // FIX: Sekarang membuka dialog BOM
+                    productToManageBom = showActionDialogFor
+                    showActionDialogFor = null 
+                },
                 onSaveBarcode = { 
                     if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "BARCODE" } 
                     else { saveBarcodeToGallery(context, showActionDialogFor!!); showActionDialogFor = null }
                 },
                 onDelete = { showActionDialogFor = null }
+            )
+        }
+
+        // DIALOG BOM
+        if (productToManageBom != null) {
+            BomManagementDialog(
+                product = productToManageBom!!, 
+                rawMaterials = rawMaterials, 
+                viewModel = viewModel,
+                onDismiss = { productToManageBom = null }
             )
         }
 
