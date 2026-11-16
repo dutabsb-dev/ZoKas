@@ -3,9 +3,6 @@ package com.karyaku.kasir
 object QrisHelper {
     /**
      * Mengubah QRIS Statis menjadi QRIS Dinamis dengan menyisipkan nominal.
-     * @param staticQris String QRIS asli dari toko
-     * @param amount Nominal tagihan (Long)
-     * @return String QRIS dinamis yang sudah di-update CRC-nya
      */
     fun generateDynamicQris(staticQris: String, amount: Long): String {
         if (staticQris.isBlank()) return ""
@@ -18,8 +15,7 @@ object QrisHelper {
         val amountLen = String.format("%02d", amountStr.length)
         val tag54 = "54$amountLen$amountStr"
         
-        // 3. Cari posisi untuk menyisipkan Tag 54 (harus setelah Tag 53 jika ada, atau sebelum Tag 58)
-        // Cara paling aman adalah mencari Tag 58 (Country Code) atau 59 (Merchant Name)
+        // 3. Cari posisi untuk menyisipkan Tag 54
         val insertIndex = findInsertIndex(dynamicQris)
         
         if (insertIndex != -1) {
@@ -37,8 +33,25 @@ object QrisHelper {
         return staticQris // Fallback jika gagal parsing
     }
 
+    /**
+     * FITUR BARU: Validasi apakah string yang dipindai adalah QRIS yang valid.
+     * Cek awalan "000201" dan validasi checksum CRC16 di 4 karakter terakhir.
+     */
+    fun isValidQris(qris: String): Boolean {
+        if (qris.length < 20 || !qris.startsWith("000201")) return false
+        
+        val crcIndex = qris.lastIndexOf("6304")
+        // Pastikan Tag 63 ada dan tepat 4 karakter sebelum akhir string
+        if (crcIndex == -1 || crcIndex != qris.length - 8) return false 
+        
+        val dataToCalculate = qris.substring(0, crcIndex + 4)
+        val expectedCrc = qris.substring(crcIndex + 4)
+        val calculatedCrc = calculateCrc16(dataToCalculate)
+        
+        return expectedCrc.equals(calculatedCrc, ignoreCase = true)
+    }
+
     private fun findInsertIndex(qris: String): Int {
-        // Cari Tag 58 (Country Code) atau 59 (Merchant Name) karena Tag 54 harus disisipkan sebelum ini
         var index = 0
         while (index < qris.length) {
             if (index + 4 <= qris.length) {
@@ -59,7 +72,6 @@ object QrisHelper {
         return if (crcIndex != -1) crcIndex else qris.length
     }
 
-    // Algoritma CRC16-CCITT (FALSE) untuk EMVCo
     private fun calculateCrc16(data: String): String {
         var crc = 0xFFFF
         val bytes = data.toByteArray(Charsets.UTF_8)

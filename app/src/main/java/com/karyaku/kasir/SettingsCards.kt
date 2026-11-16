@@ -41,6 +41,10 @@ import com.karyaku.kasir.data.local.UserEntity
 import java.io.File
 import java.io.FileOutputStream
 
+// IMPORT BARU UNTUK SCAN QRIS
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+
 // --- 1. CARD TAMPILAN & BAHASA ---
 @Composable
 fun SettingsAppearanceCard(
@@ -125,7 +129,6 @@ fun SettingsAccountCard(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // Tombol Daftarkan Biometrik (Hanya Owner di Sesi 4 nanti, saat ini tetap tampil untuk semua agar tidak error dulu)
                     Button(
                         onClick = onRegisterBiometricClick,
                         modifier = Modifier.fillMaxWidth(),
@@ -753,7 +756,7 @@ fun SettingsPrinterCard(
                     Button(
                         onClick = onKitchenClick, 
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp), 
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), // FIX: Ubah ke EmeraldGreen agar konsisten
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
                         shape = RoundedCornerShape(12.dp)
                     ) { Text(LanguageManager.tr("pilih_printer_dapur", lang), color = Color.White) }
                 }
@@ -762,7 +765,7 @@ fun SettingsPrinterCard(
     }
 }
 
-// --- 6. CARD PROFIL TOKO (FIX PADDING & LOGO) ---
+// --- 6. CARD PROFIL TOKO ---
 @Composable
 fun SettingsStoreProfileCard(
     storeName: String, onStoreNameChange: (String) -> Unit,
@@ -816,11 +819,10 @@ fun SettingsStoreProfileCard(
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                    // Logo Section
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                         Box(
                             modifier = Modifier
-                                .size(72.dp) // FIX: Ukuran proporsional
+                                .size(72.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surface)
                                 .clickable { logoPickerLauncher.launch("image/*") },
@@ -839,9 +841,8 @@ fun SettingsStoreProfileCard(
                         }
                     }
 
-                    // Form Inputs dengan jarak yang lebih lega (12.dp)
                     OutlinedTextField(value = storeName, onValueChange = onStoreNameChange, label = { Text(LanguageManager.tr("nama_toko", lang)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
-                    Spacer(modifier = Modifier.height(12.dp)) // FIX: Spasi 12.dp
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = storeAddress, onValueChange = onStoreAddressChange, label = { Text(LanguageManager.tr("alamat_toko", lang)) }, modifier = Modifier.fillMaxWidth(), maxLines = 2, shape = RoundedCornerShape(12.dp))
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(value = storePhone, onValueChange = onStorePhoneChange, label = { Text(LanguageManager.tr("no_telp", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp))
@@ -949,7 +950,6 @@ fun SettingsBackupCard(
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                    // FITUR EXCEL
                     Text(LanguageManager.tr("manajemen_produk_massal", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text(LanguageManager.tr("manajemen_produk_massal_desc", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
@@ -963,7 +963,7 @@ fun SettingsBackupCard(
     }
 }
 
-// --- 9. CARD PENGATURAN QRIS ---
+// --- 9. CARD PENGATURAN QRIS (FITUR SCAN DITAMBAHKAN) ---
 @Composable
 fun SettingsQrisCard(
     qrisPayload: String,
@@ -975,6 +975,19 @@ fun SettingsQrisCard(
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
+    val context = LocalContext.current
+
+    // Launcher untuk scan QRIS
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            if (QrisHelper.isValidQris(result.contents)) {
+                onQrisPayloadChange(result.contents)
+                Toast.makeText(context, "QRIS berhasil dipindai!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Gagal: QR Code ini bukan QRIS yang valid (Gagal verifikasi CRC16).", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1010,16 +1023,40 @@ fun SettingsQrisCard(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text("QRIS Statis (Payload)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Tempelkan kode teks QRIS dari bank Anda. Aplikasi akan mengubah nominal otomatis.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Tempelkan kode teks QRIS dari bank Anda, atau scan QRIS Toko.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = qrisPayload,
-                        onValueChange = onQrisPayloadChange,
-                        label = { Text("Payload String (000201...)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        maxLines = 3,
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                    
+                    // Kolom Input dengan Tombol Scan
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = qrisPayload,
+                            onValueChange = onQrisPayloadChange,
+                            label = { Text("Payload String (000201...)") },
+                            modifier = Modifier.weight(1f),
+                            maxLines = 3,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        // Tombol Scanner
+                        IconButton(
+                            onClick = {
+                                val options = ScanOptions().apply {
+                                    setDesiredBarcodeFormats(ScanOptions.QR_CODE) // Hanya izinkan QR Code
+                                    setPrompt("Scan QRIS Toko")
+                                    setCameraId(0)
+                                    setBeepEnabled(false)
+                                    setOrientationLocked(true)
+                                }
+                                scanLauncher.launch(options)
+                            },
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(EmeraldGreen, RoundedCornerShape(12.dp))
+                        ) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QRIS", tint = Color.White)
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -1114,7 +1151,6 @@ fun PaymentMethodManagementDialog(
     onSave: (Set<String>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Virtual Account DIHAPUS
     val availableMethods = listOf("CASH", "QRIS", "Bank Transfer")
     val selectedMethods = remember { mutableStateListOf<String>().apply { addAll(currentMethods) } }
 
