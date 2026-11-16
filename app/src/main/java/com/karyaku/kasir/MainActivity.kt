@@ -416,6 +416,19 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
+        // FIX: TAMBAHKAN FLOATING ACTION BUTTON UNTUK TAMBAH PRODUK
+        ExtendedFloatingActionButton(
+            onClick = { productToEdit = null; showProductForm = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            containerColor = EmeraldGreen,
+            contentColor = Color.White,
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Tambah Produk")
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Tambah Produk", fontWeight = FontWeight.Bold)
+        }
+
         if (showProductForm) {
             ProductFormBottomSheet(
                 productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null },
