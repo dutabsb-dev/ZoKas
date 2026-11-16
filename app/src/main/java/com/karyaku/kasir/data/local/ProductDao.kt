@@ -57,20 +57,15 @@ interface ProductDao {
     // ================================================================
     // MODUL D-2: Query suspend untuk transfer stok
     // ================================================================
-    // Kenapa perlu method ini?
-    //   - transferStock() jalan di dalam withTransaction.
-    //   - Query Flow (getProductsByBranch, getAllProducts) TIDAK BOLEH
-    //     dipanggil .first() di dalam transaction — Room akan deadlock.
-    //   - Jadi kita butuh query suspend (bukan Flow) untuk snapshot
-    //     produk fresh di dalam transaction.
-    // ================================================================
     @Query("SELECT * FROM products WHERE id = :id LIMIT 1")
     suspend fun getProductById(id: Long): ProductEntity?
 
     @Query("SELECT * FROM products WHERE branchId = :branchId")
     suspend fun getProductsByBranchOnce(branchId: Long): List<ProductEntity>
 
+    // ================================================================
     // Bahan Baku & Resep
+    // ================================================================
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRawMaterial(material: RawMaterialEntity)
 
@@ -85,4 +80,10 @@ interface ProductDao {
 
     @Query("SELECT * FROM product_boms WHERE productId = :productId")
     suspend fun getBomForProduct(productId: Long): List<ProductBomEntity>
+
+    // ================================================================
+    // FITUR BARU: Menghapus semua resep untuk 1 produk (Clear Resep)
+    // ================================================================
+    @Query("DELETE FROM product_boms WHERE productId = :productId")
+    suspend fun deleteBomForProduct(productId: Long)
 }

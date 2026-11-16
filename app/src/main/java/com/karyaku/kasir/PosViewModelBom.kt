@@ -14,8 +14,10 @@ fun PosViewModel.saveBomBatch(
 ) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            // Hapus BOM lama (jika ada) agar tidak dobel, lalu simpan yang baru
-            // (Karena kita belum punya fungsi deleteBom, kita langsung insert saja)
+            // 1. Hapus semua resep lama terlebih dahulu (agar tidak menumpuk)
+            productDao.deleteBomForProduct(productId)
+            
+            // 2. Simpan resep baru secara massal
             boms.forEach { (material, qty) ->
                 productDao.insertProductBom(
                     ProductBomEntity(
@@ -25,6 +27,17 @@ fun PosViewModel.saveBomBatch(
                     )
                 )
             }
+            withContext(Dispatchers.Main) { onSuccess() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}
+
+fun PosViewModel.deleteBomProduct(productId: Long, onSuccess: () -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            productDao.deleteBomForProduct(productId)
             withContext(Dispatchers.Main) { onSuccess() }
         } catch (e: Exception) {
             e.printStackTrace()

@@ -1,12 +1,9 @@
 package com.karyaku.kasir
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -44,10 +41,44 @@ fun BomManagementDialog(
     var selectedMaterial by remember { mutableStateOf<RawMaterialEntity?>(null) }
     var qtyUsed by remember { mutableStateOf("") }
     var dropdownExpanded by remember { mutableStateOf(false) }
+    
+    // State Konfirmasi Hapus
+    var showClearConfirm by remember { mutableStateOf(false) }
+
+    // Fungsi untuk memuat ulang data BOM dari database
+    fun loadBoms() {
+        // Menggunakan CoroutineScope dari ViewModel secara tidak langsung lewat LaunchedEffect
+    }
 
     // Ambil data BOM yang sudah ada di database saat dialog dibuka
-    LaunchedEffect(product.id) {
+    LaunchedEffect(product.id, existingBoms) {
         existingBoms = viewModel.getBomForProductOnce(product.id)
+    }
+
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed) },
+            title = { Text("Kosongkan Resep?", fontWeight = FontWeight.Bold) },
+            text = { Text("Semua bahan baku yang tersimpan untuk produk ini akan dihapus permanen.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteBomProduct(product.id) {
+                            Toast.makeText(context, "Resep berhasil dikosongkan", Toast.LENGTH_SHORT).show()
+                            showClearConfirm = false
+                            // Memicu LaunchedEffect untuk reload
+                            existingBoms = emptyList() 
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("HAPUS SEMUA", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) { Text("Batal") }
+            }
+        )
     }
 
     AlertDialog(
@@ -113,9 +144,7 @@ fun BomManagementDialog(
                             if (selectedMaterial != null && qtyUsed.isNotBlank()) {
                                 val qty = qtyUsed.toDoubleOrNull()
                                 if (qty != null && qty > 0) {
-                                    // Tambahkan ke list sementara (bukan ke database)
                                     tempBomList.add(selectedMaterial!! to qty)
-                                    // Reset form
                                     selectedMaterial = null
                                     qtyUsed = ""
                                 }
@@ -139,9 +168,9 @@ fun BomManagementDialog(
                 if (tempBomList.isEmpty()) {
                     Text("Belum ada bahan yang ditambahkan.", fontSize = 11.sp, color = SlateGrey, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                 } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 150.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(tempBomList.size) { index ->
-                            val (material, qty) = tempBomList[index]
+                    LazyColumn(modifier = Modifier.heightIn(max = 120.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        itemsIndexed(tempBomList) { index, item ->
+                            val (material, qty) = item
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -161,16 +190,28 @@ fun BomManagementDialog(
                     }
                 }
 
-                // Tampilkan Resep Lama (Jika ada)
+                // Tampilkan Resep Lama (Jika ada) + Tombol Hapus
                 if (existingBoms.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Resep Tersimpan Sebelumnya:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    existingBoms.forEach { bom ->
-                        val rm = rawMaterials.find { it.id == bom.rawMaterialId }
-                        if (rm != null) {
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(rm.name, fontSize = 12.sp, color = SlateGrey)
-                                Text("${bom.quantityUsed} ${rm.unit}", fontSize = 12.sp, color = SlateGrey)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Resep Tersimpan Sebelumnya:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        TextButton(onClick = { showClearConfirm = true }) {
+                            Text("Kosongkan", fontSize = 11.sp, color = ErrorRed)
+                        }
+                    }
+                    
+                    LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
+                        itemsIndexed(existingBoms) { _, bom ->
+                            val rm = rawMaterials.find { it.id == bom.rawMaterialId }
+                            if (rm != null) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(rm.name, fontSize = 12.sp, color = SlateGrey)
+                                    Text("${bom.quantityUsed} ${rm.unit}", fontSize = 12.sp, color = SlateGrey)
+                                }
                             }
                         }
                     }
