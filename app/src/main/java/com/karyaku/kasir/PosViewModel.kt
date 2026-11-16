@@ -30,7 +30,6 @@ class PosViewModel(
     internal val database: AppDatabase
 ) : ViewModel() {
 
-    // DAO REFERENCES
     internal val productDao = database.productDao()
     internal val transactionDao = database.transactionDao()
     internal val userDao = database.userDao()
@@ -52,12 +51,10 @@ class PosViewModel(
     internal val attendanceDao = database.attendanceDao()
     internal val payrollDao = database.payrollDao()
 
-    // STATE KDS
     val activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> = kitchenTicketDao.getActiveTickets()
         .catch { emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // STATE MULTI-CABANG
     internal val _currentBranchId = MutableStateFlow(1L)
     val currentBranchId: StateFlow<Long> = _currentBranchId.asStateFlow()
 
@@ -71,18 +68,15 @@ class PosViewModel(
         branches.find { it.id == id }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // STATE TRANSFER STOK
     internal val _transfersForCurrentBranch = MutableStateFlow<List<StockTransferEntity>>(emptyList())
     val transfersForCurrentBranch: StateFlow<List<StockTransferEntity>> = _transfersForCurrentBranch.asStateFlow()
 
-    // STATE PRODUK & BAHAN BAKU
     internal val _products = MutableStateFlow<List<ProductEntity>>(emptyList())
     val products: StateFlow<List<ProductEntity>> = _products.asStateFlow()
 
     internal val _rawMaterials = MutableStateFlow<List<RawMaterialEntity>>(emptyList())
     val rawMaterials: StateFlow<List<RawMaterialEntity>> = _rawMaterials.asStateFlow()
 
-    // STATE KAS & KEUANGAN
     val cashFlows: StateFlow<List<CashFlowEntity>> = cashFlowDao.getAllCashFlows()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -96,11 +90,9 @@ class PosViewModel(
         products.sumOf { it.stock * it.costPrice }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
-    // STATE BEST SELLER
     internal val _bestSellers = MutableStateFlow<List<BestSellerData>>(emptyList())
     val bestSellers: StateFlow<List<BestSellerData>> = _bestSellers.asStateFlow()
 
-    // STATE PELANGGAN & MEMBERSHIP
     internal val _customers = MutableStateFlow<List<CustomerEntity>>(emptyList())
     val customers: StateFlow<List<CustomerEntity>> = _customers.asStateFlow()
 
@@ -110,25 +102,21 @@ class PosViewModel(
     internal val _customerMemberships = MutableStateFlow<List<CustomerMembershipEntity>>(emptyList())
     val customerMemberships: StateFlow<List<CustomerMembershipEntity>> = _customerMemberships.asStateFlow()
 
-    // STATE USER & SHIFT
     internal val _users = MutableStateFlow<List<UserEntity>>(emptyList())
     val users: StateFlow<List<UserEntity>> = _users.asStateFlow()
 
     internal val _shifts = MutableStateFlow<List<ShiftEntity>>(emptyList())
     val shifts: StateFlow<List<ShiftEntity>> = _shifts.asStateFlow()
 
-    // STATE ABSENSI & PAYROLL
     internal val _attendanceList = MutableStateFlow<List<AttendanceEntity>>(emptyList())
     val attendanceList: StateFlow<List<AttendanceEntity>> = _attendanceList.asStateFlow()
 
     internal val _payrollList = MutableStateFlow<List<PayrollEntity>>(emptyList())
     val payrollList: StateFlow<List<PayrollEntity>> = _payrollList.asStateFlow()
 
-    // STATE HOLD ORDER
     internal val _holdOrders = MutableStateFlow<List<HoldOrderEntity>>(emptyList())
     val holdOrders: StateFlow<List<HoldOrderEntity>> = _holdOrders.asStateFlow()
 
-    // STATE SUPPLIER & PURCHASE
     internal val _suppliers = MutableStateFlow<List<SupplierEntity>>(emptyList())
     val suppliers: StateFlow<List<SupplierEntity>> = _suppliers.asStateFlow()
 
@@ -142,18 +130,15 @@ class PosViewModel(
         .map { it ?: 0L }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
-    // STATE RESERVASI
     internal val _reservations = MutableStateFlow<List<ReservationEntity>>(emptyList())
     val reservations: StateFlow<List<ReservationEntity>> = _reservations.asStateFlow()
 
-    // STATE FILTER PRODUK
     internal val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
     internal val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // STATE DISKON & VOUCHER
     internal val _discount = MutableStateFlow(0L)
     val discount: StateFlow<Long> = _discount.asStateFlow()
 
@@ -163,7 +148,6 @@ class PosViewModel(
     internal val _appliedVoucher = MutableStateFlow("")
     val appliedVoucher: StateFlow<String> = _appliedVoucher.asStateFlow()
 
-    // STATE MEJA & TIPE PESANAN
     internal val _selectedTable = MutableStateFlow("Take-Away")
     val selectedTable: StateFlow<String> = _selectedTable.asStateFlow()
 
@@ -173,7 +157,6 @@ class PosViewModel(
     internal val _pickupDate = MutableStateFlow(0L)
     val pickupDate: StateFlow<Long> = _pickupDate.asStateFlow()
 
-    // STATE KERANJANG
     internal val _cart = MutableStateFlow<List<CartItem>>(emptyList())
     val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
 
@@ -183,7 +166,6 @@ class PosViewModel(
     internal val _pointsUsed = MutableStateFlow(0)
     val pointsUsed: StateFlow<Int> = _pointsUsed.asStateFlow()
 
-    // STATE TRANSAKSI & SHIFT AKTIF
     internal val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
     val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
 
@@ -193,11 +175,9 @@ class PosViewModel(
     internal val _auditLogs = MutableStateFlow<List<AuditLogEntity>>(emptyList())
     val auditLogs: StateFlow<List<AuditLogEntity>> = _auditLogs.asStateFlow()
 
-    // STATE INIT
     internal val _isInitializing = MutableStateFlow(true)
     val isInitializing: StateFlow<Boolean> = _isInitializing.asStateFlow()
 
-    // STATE QRIS & TRANSFER
     internal val _qrisDynamicString = MutableStateFlow("")
     val qrisDynamicString: StateFlow<String> = _qrisDynamicString.asStateFlow()
 
@@ -210,34 +190,27 @@ class PosViewModel(
     internal val _isTransferPaid = MutableStateFlow(false)
     val isTransferPaid: StateFlow<Boolean> = _isTransferPaid.asStateFlow()
 
-    // STATE PAJAK & SERVICE CHARGE
     internal val _taxPercent = MutableStateFlow(0.0)
     val taxPercent: StateFlow<Double> = _taxPercent.asStateFlow()
 
     internal val _serviceChargePercent = MutableStateFlow(0.0)
     val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
-    // COMPUTED FLOWS
     val netProfit: StateFlow<Long> = combine<List<TransactionEntity>, List<CashFlowEntity>, List<ExpenseEntity>, Long>(
-        _transactions,
-        cashFlowDao.getAllCashFlows(),
-        _expenses
+        _transactions, cashFlowDao.getAllCashFlows(), _expenses
     ) { txList, cashFlows, expenseList ->
         val labaKotor = txList.filter { it.status == "SUCCESS" }.sumOf { it.totalPrice - it.totalCost }
         val totalKasKeluar = cashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
         val totalExpenses = expenseList.sumOf { it.amount }
         labaKotor - totalKasKeluar - totalExpenses
-    }.catch { emit(0L) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+    }.catch { emit(0L) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
         val categories = productList.map { it.category }.distinct()
         listOf("Semua") + categories
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("Semua"))
 
-    val filteredProducts: StateFlow<List<ProductEntity>> = combine(
-        _products, _searchQuery, _selectedCategory
-    ) { products, query, category ->
+    val filteredProducts: StateFlow<List<ProductEntity>> = combine(_products, _searchQuery, _selectedCategory) { products, query, category ->
         products.filter { product ->
             val matchQuery = query.isBlank() || product.name.contains(query, ignoreCase = true) || product.barcode.contains(query, ignoreCase = true)
             val matchCategory = category == "Semua" || product.category == category
@@ -251,11 +224,9 @@ class PosViewModel(
         (holdTables + unpaidTables).distinct()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // INIT BLOCK
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            try { checkActiveShift() } catch (e: Exception) { e.printStackTrace() } 
-            finally { withContext(Dispatchers.Main) { _isInitializing.value = false } }
+            try { checkActiveShift() } catch (e: Exception) { e.printStackTrace() } finally { withContext(Dispatchers.Main) { _isInitializing.value = false } }
         }
         viewModelScope.launch { branchDao.getAllBranches().catch { _allBranches.value = emptyList() }.collectLatest { _allBranches.value = it } }
         viewModelScope.launch { _currentBranchId.collectLatest { id -> productDao.getProductsByBranch(id).catch { _products.value = emptyList() }.collectLatest { _products.value = it } } }
@@ -279,33 +250,12 @@ class PosViewModel(
         viewModelScope.launch { stockOpnameDao.getAllOpnames().catch { _stockOpnames.value = emptyList() }.collectLatest { _stockOpnames.value = it } }
     }
 
-    // ========================================================================
-    // CRUD PRODUK
-    // ========================================================================
-    fun addProduct(
-        name: String, price: Long, stock: Int, category: String, costPrice: Long,
-        barcode: String, variations: String, commission: Long, expiry: Long,
-        isService: Boolean, isCombo: Boolean, imagePath: String,
-        wholesalePrice: Long, wholesaleMinQty: Int, userId: Long, userName: String
-    ) {
+    fun addProduct(name: String, price: Long, stock: Int, category: String, costPrice: Long, barcode: String, variations: String, commission: Long, expiry: Long, isService: Boolean, isCombo: Boolean, imagePath: String, wholesalePrice: Long, wholesaleMinQty: Int, userId: Long, userName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val newProduct = ProductEntity(
-                    name = name, price = price, stock = stock, category = category,
-                    costPrice = costPrice, barcode = barcode, variations = variations,
-                    commissionPerItem = commission, expiryDate = expiry, isService = isService,
-                    isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice,
-                    wholesaleMinQty = wholesaleMinQty, branchId = _currentBranchId.value,
-                    updatedAt = System.currentTimeMillis(), isSynced = false
-                )
+                val newProduct = ProductEntity(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty, branchId = _currentBranchId.value, updatedAt = System.currentTimeMillis(), isSynced = false)
                 productDao.insertProduct(newProduct)
-                userDao.insertAuditLog(
-                    AuditLogEntity(
-                        userId = userId, userName = userName,
-                        action = "TAMBAH PRODUK BARU: $name",
-                        actionType = "INVENTORY"
-                    )
-                )
+                userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK: $name", actionType = "INVENTORY"))
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -314,13 +264,7 @@ class PosViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 productDao.updateProduct(product.copy(updatedAt = System.currentTimeMillis(), isSynced = false))
-                userDao.insertAuditLog(
-                    AuditLogEntity(
-                        userId = userId, userName = userName,
-                        action = "EDIT PRODUK: ${product.name} (Stok jadi: ${product.stock})",
-                        actionType = "INVENTORY"
-                    )
-                )
+                userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "EDIT PRODUK: ${product.name} (Stok: ${product.stock})", actionType = "INVENTORY"))
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -329,28 +273,51 @@ class PosViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 productDao.deleteProduct(product)
-                userDao.insertAuditLog(
-                    AuditLogEntity(
-                        userId = userId, userName = userName,
-                        action = "HAPUS PRODUK: ${product.name}",
-                        actionType = "INVENTORY"
-                    )
-                )
+                userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "HAPUS PRODUK: ${product.name}", actionType = "INVENTORY"))
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
-    // ========================================================================
-    // LOGIKA KERANJANG & VARIAN
-    // ========================================================================
+    fun addStock(product: ProductEntity, variation: String, qty: Int, user: UserEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val fresh = productDao.getProductById(product.id) ?: return@launch
+            val newStock = fresh.stock + qty
+            val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, qty) else fresh.variations
+            productDao.updateProduct(fresh.copy(stock = newStock, variations = newVar, updatedAt = System.currentTimeMillis()))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "RESTOCK: ${fresh.name} ($variation) +$qty", actionType = "INVENTORY"))
+        }
+    }
+
+    fun recordWaste(product: ProductEntity, variation: String, qty: Int, user: UserEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val fresh = productDao.getProductById(product.id) ?: return@launch
+            val newStock = (fresh.stock - qty).coerceAtLeast(0)
+            val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, -qty) else fresh.variations
+            productDao.updateProduct(fresh.copy(stock = newStock, variations = newVar, updatedAt = System.currentTimeMillis()))
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "WASTE: ${fresh.name} ($variation) -$qty", actionType = "INVENTORY"))
+        }
+    }
+
+    private fun modifyVariantStock(variationsStr: String, target: String, delta: Int): String {
+        val parts = variationsStr.split(",")
+        val newParts = parts.map { part ->
+            val p = part.split(":")
+            if (p.size >= 2 && p[0].trim().equals(target, ignoreCase = true)) {
+                val price = p[1].trim()
+                val cost = p.getOrNull(2)?.trim() ?: "0"
+                val currentStock = p.getOrNull(3)?.toIntOrNull() ?: 0
+                "${p[0]}:$price:$cost:${(currentStock + delta).coerceAtLeast(0)}"
+            } else { part }
+        }
+        return newParts.joinToString(",")
+    }
+
     fun getPriceForVariant(product: ProductEntity, variation: String): Long {
         if (variation.isBlank() || product.variations.isBlank()) return product.price
         val parts = product.variations.split(",")
         for (part in parts) {
             val pieces = part.split(":")
-            if (pieces.size >= 2 && pieces[0].trim().equals(variation, ignoreCase = true)) {
-                return pieces[1].trim().toLongOrNull() ?: product.price
-            }
+            if (pieces.size >= 2 && pieces[0].trim().equals(variation, ignoreCase = true)) return pieces[1].trim().toLongOrNull() ?: product.price
         }
         return product.price
     }
@@ -361,11 +328,7 @@ class PosViewModel(
         for (part in parts) {
             val pieces = part.split(":")
             if (pieces.size >= 2 && pieces[0].trim().equals(variation, ignoreCase = true)) {
-                if (pieces.size >= 4) {
-                    return pieces[3].trim().toIntOrNull() ?: 0
-                } else {
-                    return product.stock
-                }
+                if (pieces.size >= 4) return pieces[3].trim().toIntOrNull() ?: 0 else return product.stock
             }
         }
         return product.stock
@@ -409,24 +372,10 @@ class PosViewModel(
     }
 
     fun toggleSplitSelection(product: ProductEntity, variation: String) {
-        _cart.value = _cart.value.map { 
-            if (it.product.id == product.id && it.selectedVariation == variation) it.copy(isSelectedForSplit = !it.isSelectedForSplit) else it
-        }
+        _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(isSelectedForSplit = !it.isSelectedForSplit) else it }
     }
 
-    // ========================================================================
-    // PROSES PEMBAYARAN
-    // ========================================================================
-    fun processPayment(
-        cashReceived: Long,
-        userId: Long,
-        userName: String,
-        isSplitBill: Boolean,
-        method: String,
-        maxDiscountCap: Long,
-        birthdayDiscountPercent: Double,
-        onSuccess: (TransactionEntity) -> Unit
-    ) {
+    fun processPayment(cashReceived: Long, userId: Long, userName: String, isSplitBill: Boolean, method: String, maxDiscountCap: Long, birthdayDiscountPercent: Double, onSuccess: (TransactionEntity) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val cartToProcess = if (isSplitBill) _cart.value.filter { it.isSelectedForSplit } else _cart.value
@@ -435,44 +384,28 @@ class PosViewModel(
                 val total = cartToProcess.sumOf { getPriceForVariant(it.product, it.selectedVariation) * it.quantity }
                 
                 val newTransaction = TransactionEntity(
-                    timestamp = System.currentTimeMillis(),
-                    totalPrice = total,
-                    totalCost = cartToProcess.sumOf { it.product.costPrice * it.quantity },
-                    paymentMethod = method,
-                    status = "SUCCESS",
-                    cashierName = userName,
-                    customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum",
-                    orderType = _selectedOrderType.value,
-                    tableName = _selectedTable.value,
-                    branchId = _currentBranchId.value,
-                    cashReceived = cashReceived,
-                    changeAmount = if (cashReceived > total) cashReceived - total else 0L
+                    timestamp = System.currentTimeMillis(), totalPrice = total, totalCost = cartToProcess.sumOf { it.product.costPrice * it.quantity },
+                    paymentMethod = method, status = "SUCCESS", cashierName = userName, customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum",
+                    orderType = _selectedOrderType.value, tableName = _selectedTable.value, branchId = _currentBranchId.value,
+                    cashReceived = cashReceived, changeAmount = if (cashReceived > total) cashReceived - total else 0L
                 )
 
                 val transactionId = transactionDao.insertTransaction(newTransaction)
                 val savedTransaction = newTransaction.copy(id = transactionId)
-
                 val itemsToInsert = mutableListOf<TransactionItemEntity>()
 
                 for (cartItem in cartToProcess) {
                     val itemEntity = TransactionItemEntity(
-                        transactionId = transactionId,
-                        productId = cartItem.product.id,
-                        productName = cartItem.product.name,
-                        quantity = cartItem.quantity,
-                        price = getPriceForVariant(cartItem.product, cartItem.selectedVariation),
-                        costPrice = cartItem.product.costPrice,
-                        notes = cartItem.notes,
-                        serialNumber = cartItem.serialNumber,
-                        assignedStaff = cartItem.assignedStaff,
-                        subtotal = getPriceForVariant(cartItem.product, cartItem.selectedVariation) * cartItem.quantity
+                        transactionId = transactionId, productId = cartItem.product.id, productName = cartItem.product.name,
+                        quantity = cartItem.quantity, price = getPriceForVariant(cartItem.product, cartItem.selectedVariation),
+                        costPrice = cartItem.product.costPrice, notes = cartItem.notes, serialNumber = cartItem.serialNumber,
+                        assignedStaff = cartItem.assignedStaff, subtotal = getPriceForVariant(cartItem.product, cartItem.selectedVariation) * cartItem.quantity
                     )
                     itemsToInsert.add(itemEntity)
 
                     val freshProduct = productDao.getProductById(cartItem.product.id)
                     if (freshProduct != null) {
                         val newStock = (freshProduct.stock - cartItem.quantity).coerceAtLeast(0)
-                        
                         if (cartItem.selectedVariation.isNotBlank()) {
                             val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, cartItem.quantity)
                             productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newStock))
@@ -485,8 +418,7 @@ class PosViewModel(
                 transactionItemDao.insertTransactionItems(itemsToInsert)
 
                 withContext(Dispatchers.Main) {
-                    if (isSplitBill) _cart.value = _cart.value.filterNot { it.isSelectedForSplit }
-                    else _cart.value = emptyList()
+                    if (isSplitBill) _cart.value = _cart.value.filterNot { it.isSelectedForSplit } else _cart.value = emptyList()
                     onSuccess(savedTransaction)
                 }
             } catch (e: Exception) { e.printStackTrace() }
@@ -499,76 +431,36 @@ class PosViewModel(
         val newParts = parts.map { part ->
             val pieces = part.split(":")
             if (pieces.size >= 2 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
-                val price = pieces[1].trim()
-                val cost = pieces.getOrNull(2)?.trim() ?: "0"
-                
-                val currentStock = if (pieces.size >= 4) {
-                    pieces[3].trim().toIntOrNull() ?: 0
-                } else {
-                    999999 
-                }
-                
-                val newStock = (currentStock - deductQty).coerceAtLeast(0)
-                "${pieces[0]}:$price:$cost:$newStock"
+                val price = pieces[1].trim(); val cost = pieces.getOrNull(2)?.trim() ?: "0"
+                val currentStock = if (pieces.size >= 4) pieces[3].trim().toIntOrNull() ?: 0 else 999999 
+                "${pieces[0]}:$price:$cost:${(currentStock - deductQty).coerceAtLeast(0)}"
             } else { part }
         }
         return newParts.joinToString(",")
     }
 
-    // ========================================================================
-    // FUNGSI CETAK STRUK
-    // ========================================================================
     fun printReceipt(context: Context, transaction: TransactionEntity, settingsManager: SettingsManager) {
-        val macAddress = settingsManager.printerMacAddress
-        if (macAddress.isNullOrBlank()) {
-            Toast.makeText(context, "Printer belum diatur di Pengaturan", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
+        val macAddress = settingsManager.printerMacAddress ?: return
         val receiptItems = _cart.value.map { cartItem ->
-            ReceiptItem(
-                name = cartItem.product.name,
-                qty = cartItem.quantity,
-                price = getPriceForVariant(cartItem.product, cartItem.selectedVariation).toDouble(),
-                variation = cartItem.selectedVariation + (if (cartItem.notes.isNotBlank()) " | ${cartItem.notes}" else "")
-            )
+            ReceiptItem(name = cartItem.product.name, qty = cartItem.quantity, price = getPriceForVariant(cartItem.product, cartItem.selectedVariation).toDouble(), variation = cartItem.selectedVariation + (if (cartItem.notes.isNotBlank()) " | ${cartItem.notes}" else ""))
         }
 
         val strukText = ReceiptFormatter.buildReceipt(
-            storeName = settingsManager.storeName ?: "ZoKas",
-            storeAddress = settingsManager.storeAddress ?: "",
-            storePhone = settingsManager.storePhone ?: "",
-            storeFooter = settingsManager.storeFooter ?: "Terima kasih!",
-            transactionId = transaction.id,
-            dateStr = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date(transaction.timestamp)),
-            orderType = transaction.orderType ?: "Dine-In",
-            cashierName = transaction.cashierName ?: "Kasir",
-            customerName = transaction.customerName ?: "Pelanggan Umum",
-            items = receiptItems,
-            subtotal = transaction.totalPrice.toDouble(),
-            total = transaction.totalPrice.toDouble(),
-            payment = transaction.totalPrice.toDouble(),
-            change = 0.0
+            storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "", storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "Terima kasih!",
+            transactionId = transaction.id, dateStr = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(transaction.timestamp)),
+            orderType = transaction.orderType ?: "Dine-In", cashierName = transaction.cashierName ?: "Kasir", customerName = transaction.customerName ?: "Pelanggan Umum",
+            items = receiptItems, subtotal = transaction.totalPrice.toDouble(), total = transaction.totalPrice.toDouble(), payment = transaction.totalPrice.toDouble(), change = 0.0
         )
 
         viewModelScope.launch(Dispatchers.IO) {
             val printerManager = BluetoothPrinterManager(context)
             val outputStream = java.io.ByteArrayOutputStream()
-            outputStream.write(EscPosCommands.INIT)
-            outputStream.write(strukText.toByteArray(charset("GBK")))
-            outputStream.write(EscPosCommands.FEED_3)
-            outputStream.write(EscPosCommands.CUT_PAPER)
-
-            val success = printerManager.printData(macAddress, outputStream.toByteArray())
-            withContext(Dispatchers.Main) {
-                if (success) Toast.makeText(context, "Struk dicetak!", Toast.LENGTH_SHORT).show()
-            }
+            outputStream.write(EscPosCommands.INIT); outputStream.write(strukText.toByteArray(charset("GBK")))
+            outputStream.write(EscPosCommands.FEED_3); outputStream.write(EscPosCommands.CUT_PAPER)
+            printerManager.printData(macAddress, outputStream.toByteArray())
         }
     }
 
-    // ========================================================================
-    // FUNGSI STOCK OPNAME
-    // ========================================================================
     fun processStockOpname(items: List<StockOpnameItemEntity>, currentUser: UserEntity, onSuccess: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -576,30 +468,21 @@ class PosViewModel(
                 val totalGain = items.filter { it.difference > 0 }.sumOf { it.difference * 1000L } 
                 
                 val opname = StockOpnameEntity(
-                    timestamp = System.currentTimeMillis(),
-                    userId = currentUser.id,
-                    userName = currentUser.name,
-                    totalItemsChecked = items.size,
-                    totalLossValue = totalLoss,
-                    totalGainValue = totalGain
+                    timestamp = System.currentTimeMillis(), userId = currentUser.id, userName = currentUser.name,
+                    totalItemsChecked = items.size, totalLossValue = totalLoss, totalGainValue = totalGain
                 )
                 
                 val opnameId = stockOpnameDao.insertOpname(opname)
                 val itemsToInsert = items.map { it.copy(opnameId = opnameId) }
-                
                 stockOpnameDao.insertOpnameItems(itemsToInsert)
                 
                 for (item in items) {
                     val prod = productDao.getProductById(item.productId)
                     if (prod != null) {
-                        val newVariations = if (prod.variations.isNotBlank()) {
-                            syncVariationsWithOpname(prod.variations, item.physicalStock - prod.stock)
-                        } else prod.variations
-
+                        val newVariations = if (prod.variations.isNotBlank()) syncVariationsWithOpname(prod.variations, item.physicalStock - prod.stock) else prod.variations
                         productDao.updateProduct(prod.copy(stock = item.physicalStock, variations = newVariations))
                     }
                 }
-                
                 withContext(Dispatchers.Main) { onSuccess() }
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -609,25 +492,18 @@ class PosViewModel(
         if (variationsStr.isBlank() || deltaStock == 0) return variationsStr
         val parts = variationsStr.split(",")
         if (parts.isEmpty()) return variationsStr
-        
         val firstPart = parts[0]
         val pieces = firstPart.split(":")
         if (pieces.size >= 2) {
-            val name = pieces[0]
-            val price = pieces[1]
+            val name = pieces[0]; val price = pieces[1]
             val cost = pieces.getOrNull(2) ?: "0"
             val currentStock = pieces.getOrNull(3)?.toIntOrNull() ?: 0
             val newStock = (currentStock + deltaStock).coerceAtLeast(0)
-            
-            val newFirstPart = "$name:$price:$cost:$newStock"
-            return (listOf(newFirstPart) + parts.drop(1)).joinToString(",")
+            return (listOf("$name:$price:$cost:$newStock") + parts.drop(1)).joinToString(",")
         }
         return variationsStr
     }
 
-    // ========================================================================
-    // FUNGSI HR (ABSENSI & PAYROLL)
-    // ========================================================================
     fun checkIn(user: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -637,61 +513,36 @@ class PosViewModel(
                     withContext(Dispatchers.Main) { onResult(false, "Anda sudah absen hari ini.") }
                     return@launch
                 }
-                
-                val attendance = AttendanceEntity(
-                    userId = user.id,
-                    userName = user.name,
-                    date = todayStr,
-                    checkInTime = System.currentTimeMillis(),
-                    branchId = _currentBranchId.value
-                )
+                val attendance = AttendanceEntity(userId = user.id, userName = user.name, date = todayStr, checkInTime = System.currentTimeMillis(), branchId = _currentBranchId.value)
                 attendanceDao.insertCheckIn(attendance)
                 withContext(Dispatchers.Main) { onResult(true, "Absen masuk berhasil.") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
-            }
+            } catch (e: Exception) { withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") } }
         }
     }
 
     fun verifyAndCheckOut(user: UserEntity, pin: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                if (pin != user.pin) {
-                    withContext(Dispatchers.Main) { onResult(false, "PIN Salah.") }
-                    return@launch
-                }
+                if (pin != user.pin) { withContext(Dispatchers.Main) { onResult(false, "PIN Salah.") }; return@launch }
                 val todayStr = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
                 attendanceDao.updateCheckOut(user.id, todayStr, System.currentTimeMillis())
                 withContext(Dispatchers.Main) { onResult(true, "Absen pulang berhasil.") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
-            }
+            } catch (e: Exception) { withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") } }
         }
     }
 
-    fun verifyAndCheckOutBiometric(activity: androidx.fragment.app.FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) {
-        verifyAndCheckOut(user, user.pin, onResult)
-    }
+    fun verifyAndCheckOutBiometric(activity: androidx.fragment.app.FragmentActivity, user: UserEntity, onResult: (Boolean, String) -> Unit) { verifyAndCheckOut(user, user.pin, onResult) }
 
     fun generatePayroll(emp: UserEntity, periodStr: String, isPaid: Boolean, currentUser: UserEntity, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val payroll = PayrollEntity(
-                    userId = emp.id,
-                    userName = emp.name,
-                    period = periodStr,
-                    baseSalary = emp.baseSalary,
-                    commission = emp.totalCommission,
-                    totalSalary = emp.baseSalary + emp.totalCommission,
-                    status = if (isPaid) "PAID" else "UNPAID",
-                    timestamp = System.currentTimeMillis(),
-                    branchId = _currentBranchId.value
+                    userId = emp.id, userName = emp.name, period = periodStr, baseSalary = emp.baseSalary, commission = emp.totalCommission,
+                    totalSalary = emp.baseSalary + emp.totalCommission, status = if (isPaid) "PAID" else "UNPAID", timestamp = System.currentTimeMillis(), branchId = _currentBranchId.value
                 )
                 payrollDao.insertPayroll(payroll)
                 withContext(Dispatchers.Main) { onResult(true, "Slip gaji berhasil dibuat.") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
-            }
+            } catch (e: Exception) { withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") } }
         }
     }
 
@@ -700,15 +551,10 @@ class PosViewModel(
             try {
                 payrollDao.markAsPaid(payrollId)
                 withContext(Dispatchers.Main) { onResult(true, "Gaji ditandai lunas.") }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") }
-            }
+            } catch (e: Exception) { withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") } }
         }
     }
 
-    // ========================================================================
-    // FUNGSI SETTER DASAR & LAINNYA
-    // ========================================================================
     fun setCategory(category: String) { _selectedCategory.value = category }
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setOrderType(type: String) { _selectedOrderType.value = type }
@@ -719,18 +565,10 @@ class PosViewModel(
     fun redeemPoints(points: Int) { _pointsUsed.value = points }
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
     fun setServiceChargePercent(sc: Double) { _serviceChargePercent.value = sc }
-    
-    fun updateCartItemNotes(product: ProductEntity, variation: String, notes: String) {
-        _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(notes = notes) else it }
-    }
-    fun updateCartItemSerial(product: ProductEntity, variation: String, serial: String) {
-        _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(serialNumber = serial) else it }
-    }
-    fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) {
-        _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it }
-    }
+    fun updateCartItemNotes(product: ProductEntity, variation: String, notes: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(notes = notes) else it } }
+    fun updateCartItemSerial(product: ProductEntity, variation: String, serial: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(serialNumber = serial) else it } }
+    fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
 
-    // Fungsi Dummy untuk UI yang membutuhkan
     fun voidTransaction(tx: TransactionEntity, pin: String, user: UserEntity, onResult: (Boolean, String) -> Unit) {}
     fun refundTransaction(tx: TransactionEntity, pin: String, user: UserEntity, onResult: (Boolean, String) -> Unit) {}
     fun payUnpaidTransaction(tx: TransactionEntity, cash: Long, onSuccess: () -> Unit) {}
@@ -749,14 +587,7 @@ class PosViewModel(
     fun resetTransferPayment() { _isTransferPaid.value = false; _uniqueTransferAmount.value = 0L }
     fun applyMembershipToCart(cartItem: CartItem, cm: CustomerMembershipEntity) {}
     fun removeMembershipFromCart(cartItem: CartItem) {}
-    fun addStock(product: ProductEntity, qty: Int, user: UserEntity) {}
-    fun recordWaste(product: ProductEntity, qty: Int, user: UserEntity) {}
-    fun mergeOrder(tableA: String, tableB: String) {}
-    
-    fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> {
-        return transactionItemDao.getItemsByTransaction(transactionId)
-    }
-
+    fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> { return transactionItemDao.getItemsByTransaction(transactionId) }
     private fun checkActiveShift() {}
 }
 

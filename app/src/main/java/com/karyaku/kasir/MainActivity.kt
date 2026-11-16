@@ -19,6 +19,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,43 +65,18 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         val isTablet = resources.configuration.smallestScreenWidthDp >= 600
-        if (isTablet) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        if (isTablet) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED else requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - settingsManager.lastAutoBackup > 24 * 60 * 60 * 1000) {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val backupDir = File(getExternalFilesDir(null), "AutoBackups")
-                    if (!backupDir.exists()) backupDir.mkdirs()
-                    val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                    val backupFile = File(backupDir, "autobackup_${dateFormat.format(Date())}.db")
-                    val escapedPath = backupFile.absolutePath.replace("'", "''")
-                    val db = database.openHelper.writableDatabase
-                    db.execSQL("VACUUM INTO '$escapedPath'")
-                    settingsManager.lastAutoBackup = currentTime
-                } catch (e: Exception) { e.printStackTrace() }
-            }
-        }
-
         setContent {
-            CompositionLocalProvider(
-                LocalActivity provides this@MainActivity,
-                LocalActivityResultRegistryOwner provides this@MainActivity
-            ) {
+            CompositionLocalProvider(LocalActivity provides this@MainActivity, LocalActivityResultRegistryOwner provides this@MainActivity) {
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
                 var language by rememberSaveable { mutableStateOf(settingsManager.language) }
-
                 var storeNameState by remember { mutableStateOf(settingsManager.storeName) }
                 var storeLogoPathState by remember { mutableStateOf(settingsManager.storeLogoPath) }
 
@@ -111,14 +87,8 @@ class MainActivity : AppCompatActivity() {
                 var currentUser by rememberSaveable(stateSaver = userSaver) { mutableStateOf<UserEntity?>(null) }
 
                 val currentDensity = LocalDensity.current
-                CompositionLocalProvider(
-                    LocalDensity provides Density(density = currentDensity.density, fontScale = uiScale)
-                ) {
-                    PosTheme(
-                        isDarkMode = isDarkMode,
-                        isHighContrast = isHighContrast,
-                        language = language
-                    ) {
+                CompositionLocalProvider(LocalDensity provides Density(density = currentDensity.density, fontScale = uiScale)) {
+                    PosTheme(isDarkMode = isDarkMode, isHighContrast = isHighContrast, language = language) {
                         MainContent(
                             database = database, settingsManager = settingsManager, currentUser = currentUser,
                             isDarkMode = isDarkMode, isHighContrast = isHighContrast, uiScale = uiScale, language = language,
@@ -158,17 +128,9 @@ fun MainContent(
         var staffMessage by remember { mutableStateOf("") }
 
         if (!settingsManager.isSetupCompleted) {
-            SetupWizardScreen(
-                settingsManager = settingsManager,
-                viewModel = posViewModel,
-                onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) }
-            )
+            SetupWizardScreen(settingsManager, posViewModel, onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) })
         } else if (staffUserToLogout != null) {
-            LaunchedEffect(Unit) {
-                delay(3000)
-                staffUserToLogout = null
-                staffMessage = ""
-            }
+            LaunchedEffect(Unit) { delay(3000); staffUserToLogout = null; staffMessage = "" }
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(100.dp))
@@ -178,37 +140,20 @@ fun MainContent(
                     Text(staffMessage, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(32.dp))
                     CircularProgressIndicator(color = EmeraldGreen)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Mengembalikan ke layar Login...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else if (currentUser == null) {
-            LoginScreen(
-                viewModel = posViewModel,
-                settingsManager = settingsManager,
-                onLoginSuccess = { user ->
-                    posViewModel.processLoginAttendance(user) { success, msg ->
-                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                        if (success) {
-                            posViewModel.initCurrentBranchForUser(user)
-                            if (user.role == "STAFF") {
-                                staffMessage = msg
-                                staffUserToLogout = user
-                            } else {
-                                onUserChange(user)
-                            }
-                        }
+            LoginScreen(viewModel = posViewModel, settingsManager = settingsManager, onLoginSuccess = { user ->
+                posViewModel.processLoginAttendance(user) { success, msg ->
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    if (success) {
+                        posViewModel.initCurrentBranchForUser(user)
+                        if (user.role == "STAFF") { staffMessage = msg; staffUserToLogout = user } else onUserChange(user)
                     }
                 }
-            )
+            })
         } else {
-            MainNavigation(
-                viewModel = posViewModel, settingsManager = settingsManager, currentUser = currentUser,
-                storeName = storeName, storeLogoPath = storeLogoPath, onStoreNameChange = onStoreNameChange, onLogoChange = onLogoChange,
-                onLogout = { onUserChange(null) }, isDarkMode = isDarkMode, isHighContrast = isHighContrast, uiScale = uiScale,
-                onToggleDarkMode = onToggleDarkMode, onToggleHighContrast = onToggleHighContrast, onChangeUiScale = onChangeUiScale,
-                language = language, onToggleLanguage = onToggleLanguage
-            )
+            MainNavigation(viewModel = posViewModel, settingsManager = settingsManager, currentUser = currentUser, storeName = storeName, storeLogoPath = storeLogoPath, onStoreNameChange = onStoreNameChange, onLogoChange = onLogoChange, onLogout = { onUserChange(null) }, isDarkMode = isDarkMode, isHighContrast = isHighContrast, uiScale = uiScale, onToggleDarkMode = onToggleDarkMode, onToggleHighContrast = onToggleHighContrast, onChangeUiScale = onChangeUiScale, language = language, onToggleLanguage = onToggleLanguage)
         }
     }
 }
@@ -230,12 +175,11 @@ fun MainNavigation(
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
+    val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
 
-    val businessType = settingsManager.businessType
-    val isKuliner = businessType.equals("KULINER", ignoreCase = true)
-
-    LaunchedEffect(isKuliner, selectedTab) {
-        if (!isKuliner && selectedTab == 4) selectedTab = 0
+    LaunchedEffect(currentUser.role, selectedTab) {
+        if (currentUser.role == "CASHIER" && selectedTab != 0) selectedTab = 0
+        if (currentUser.role == "STAFF" && isKuliner && selectedTab != 4 && selectedTab != 0) selectedTab = 4
     }
 
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
@@ -324,25 +268,10 @@ fun MainNavigation(
         topBar = {
             Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDarkMode) MaterialTheme.colorScheme.surfaceVariant else Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (logoFile != null && logoFile.exists()) {
-                            AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        } else {
-                            Image(
-                                painter = painterResource(id = R.drawable.logo_zokas),
-                                contentDescription = "Logo",
-                                modifier = Modifier.fillMaxSize(),
-                                colorFilter = if (isDarkMode) ColorFilter.tint(Color.White) else null
-                            )
-                        }
+                    Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(if (isDarkMode) MaterialTheme.colorScheme.surfaceVariant else Color.White), contentAlignment = Alignment.Center) {
+                        if (logoFile != null && logoFile.exists()) AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) 
+                        else Image(painter = painterResource(id = R.drawable.logo_zokas), contentDescription = "Logo", modifier = Modifier.fillMaxSize(), colorFilter = if (isDarkMode) ColorFilter.tint(Color.White) else null)
                     }
-
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -352,7 +281,6 @@ fun MainNavigation(
                             Text(text = if (isOnline) "Online" else "Offline", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-
                     if (selectedTab == 0) {
                         IconButton(onClick = { showSearchDialog = true }) { Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) }
                         IconButton(onClick = { showCfdDialog = true }) { Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) }
@@ -364,7 +292,9 @@ fun MainNavigation(
                                 }
                                 DropdownMenuItem(text = { Text(LanguageManager.tr("buka_laci", language)) }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { posActionTrigger = "DRAWER"; showMenu = false })
                                 DropdownMenuItem(text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { posActionTrigger = "HOLD"; showMenu = false })
-                                DropdownMenuItem(text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { posActionTrigger = "CASHFLOW"; showMenu = false })
+                                if (currentUser.role == "OWNER") {
+                                    DropdownMenuItem(text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { posActionTrigger = "CASHFLOW"; showMenu = false })
+                                }
                                 HorizontalDivider()
                                 if (currentUser.role == "OWNER") {
                                     DropdownMenuItem(text = { Text("Kelola Cabang") }, leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = EmeraldGreen) }, onClick = { showBranchManagementDialog = true; showMenu = false })
@@ -376,7 +306,6 @@ fun MainNavigation(
                         }
                     }
                 }
-
                 Row(modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     BranchSelectorHeader(viewModel = viewModel, onManageBranchesClick = { if (currentUser.role == "OWNER") showBranchManagementDialog = true else Toast.makeText(context, "Hanya OWNER yang bisa mengelola cabang.", Toast.LENGTH_SHORT).show() })
                     Spacer(modifier = Modifier.weight(1f))
@@ -395,11 +324,15 @@ fun MainNavigation(
         },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                NavigationBarItem(icon = { Icon(Icons.Default.Storefront, contentDescription = "Cashier") }, label = { Text(LanguageManager.tr("kasir", language), textAlign = TextAlign.Center) }, selected = selectedTab == 0, onClick = { selectedTab = 0 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
-                NavigationBarItem(icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") }, label = { Text(LanguageManager.tr("produk", language), textAlign = TextAlign.Center) }, selected = selectedTab == 1, onClick = { selectedTab = 1 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
-                NavigationBarItem(icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") }, label = { Text(LanguageManager.tr("laporan", language), textAlign = TextAlign.Center) }, selected = selectedTab == 2, onClick = { selectedTab = 2 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
-                if (isKuliner) NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text(LanguageManager.tr("dapur", language), textAlign = TextAlign.Center) }, selected = selectedTab == 4, onClick = { selectedTab = 4 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
-                NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }, label = { Text(LanguageManager.tr("pengaturan", language), textAlign = TextAlign.Center) }, selected = selectedTab == 3, onClick = { selectedTab = 3 }, colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, selectedTextColor = MaterialTheme.colorScheme.primary, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, indicatorColor = MaterialTheme.colorScheme.primaryContainer))
+                NavigationBarItem(icon = { Icon(Icons.Default.Storefront, contentDescription = "Kasir") }, label = { Text(LanguageManager.tr("kasir", language)) }, selected = selectedTab == 0, onClick = { selectedTab = 0 })
+                if (currentUser.role == "OWNER") {
+                    NavigationBarItem(icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") }, label = { Text(LanguageManager.tr("produk", language)) }, selected = selectedTab == 1, onClick = { selectedTab = 1 })
+                    NavigationBarItem(icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") }, label = { Text(LanguageManager.tr("laporan", language)) }, selected = selectedTab == 2, onClick = { selectedTab = 2 })
+                    if (isKuliner) NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text(LanguageManager.tr("dapur", language)) }, selected = selectedTab == 4, onClick = { selectedTab = 4 })
+                    NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }, label = { Text(LanguageManager.tr("pengaturan", language)) }, selected = selectedTab == 3, onClick = { selectedTab = 3 })
+                } else if (currentUser.role == "STAFF" && isKuliner) {
+                    NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text(LanguageManager.tr("dapur", language)) }, selected = selectedTab == 4, onClick = { selectedTab = 4 })
+                }
             }
         }
     ) { paddingValues ->
@@ -427,106 +360,69 @@ fun MainNavigation(
 fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
-    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val allProducts by viewModel.products.collectAsStateWithLifecycle()
-
+    
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
+    
+    var productForVariantAction by remember { mutableStateOf<ProductEntity?>(null) }
+    var variantActionType by remember { mutableStateOf("") }
+    var variantToProcess by remember { mutableStateOf("") }
+
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
-    var showBulkStockOpnameDialog by remember { mutableStateOf(false) }
-
-    val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
-    val searchFocusRequester = remember { FocusRequester() }
+    
     val context = LocalContext.current
 
-    // Launcher untuk scan barcode di tab produk
-    val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) {
-            val barcode = result.contents
-            viewModel.setSearchQuery(barcode)
-            
-            // Jika barcode persis sama dengan 1 produk, langsung buka form edit
-            val matchedProduct = allProducts.find { it.barcode == barcode }
-            if (matchedProduct != null) {
-                productToEdit = matchedProduct
-                showProductForm = true
-                viewModel.setSearchQuery("") // Bersihkan search setelah buka form
+    if (productForVariantAction != null) {
+        AlertDialog(
+            onDismissRequest = { productForVariantAction = null },
+            title = { Text("Pilih Varian", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val variants = productForVariantAction!!.variations.split(",").map { it.split(":")[0].trim() }
+                    variants.forEach { vName ->
+                        Button(
+                            onClick = {
+                                variantToProcess = vName
+                                if (variantActionType == "RESTOCK") productToRestock = productForVariantAction
+                                if (variantActionType == "WASTE") productToWaste = productForVariantAction
+                                if (variantActionType == "BARCODE") { 
+                                    saveBarcodeToGallery(context, productForVariantAction!!) 
+                                    productForVariantAction = null 
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface),
+                            shape = RoundedCornerShape(8.dp)
+                        ) { Text(vName) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { productForVariantAction = null }) { Text("Batal", color = SlateGrey) }
             }
-        }
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // --- FITUR PENCARIAN & SCAN BARCODE ---
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Cari nama atau scan barcode...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = SlateGrey) },
-                trailingIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Hapus", tint = SlateGrey)
-                            }
-                        }
-                        IconButton(onClick = {
-                            val options = ScanOptions().apply {
-                                setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                                setPrompt("Scan Barcode Produk")
-                                setCameraId(0)
-                                setBeepEnabled(false)
-                                setBarcodeImageEnabled(true)
-                                setOrientationLocked(true)
-                            }
-                            barcodeLauncher.launch(options)
-                        }) {
-                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = EmeraldGreen)
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                value = searchQuery, onValueChange = { viewModel.setSearchQuery(it) },
+                placeholder = { Text("Cari nama atau scan barcode...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), shape = RoundedCornerShape(12.dp), singleLine = true
             )
-
-            // --- DAFTAR PRODUK (GRID) ---
-            Box(modifier = Modifier.weight(1f)) {
-                PosProductSection(
-                    products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
-                    onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
-                    onProductClick = { productToEdit = it; showProductForm = true }, onProductLongClick = { showActionDialogFor = it },
-                    onBarcodeScan = { }, onCameraScanClick = { }, searchFocusRequester = searchFocusRequester
-                )
-            }
+            PosProductSection(
+                products = filteredProducts, categories = categories, selectedCategory = "Semua",
+                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
+                onProductClick = { productToEdit = it; showProductForm = true }, onProductLongClick = { showActionDialogFor = it },
+                onBarcodeScan = { }, onCameraScanClick = { }, searchFocusRequester = remember { FocusRequester() }
+            )
         }
 
-        // --- FLOATING ACTION BUTTONS ---
-        Row(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ExtendedFloatingActionButton(
-                onClick = { showBulkStockOpnameDialog = true }, 
-                containerColor = AmberAccent, 
-                contentColor = Color.White, 
-                shape = RoundedCornerShape(12.dp), 
-                icon = { Icon(Icons.Default.FactCheck, contentDescription = "Audit") }, 
-                text = { Text("Audit Stok", fontWeight = FontWeight.Bold) }
-            )
-            FloatingActionButton(
-                onClick = { productToEdit = null; showProductForm = true }, 
-                containerColor = EmeraldGreen
-            ) { 
-                Icon(Icons.Default.Add, contentDescription = "Add Product", tint = Color.White) 
-            }
-        }
-
-        // --- DIALOGS ---
         if (showProductForm) {
             ProductFormBottomSheet(
                 productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null },
@@ -538,23 +434,42 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        if (showBulkStockOpnameDialog) BulkStockOpnameDialog(products = allProducts, currentUser = currentUser, viewModel = viewModel, onDismiss = { showBulkStockOpnameDialog = false })
-
         if (showActionDialogFor != null) {
             PosActionMenuBottomSheet(
                 product = showActionDialogFor!!, onDismiss = { showActionDialogFor = null },
                 onEdit = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null },
-                onRestock = { productToRestock = showActionDialogFor; showActionDialogFor = null },
-                onWaste = { productToWaste = showActionDialogFor; showActionDialogFor = null },
-                onBom = { productToManageBom = showActionDialogFor; showActionDialogFor = null },
-                onSaveBarcode = { val product = showActionDialogFor!!; showActionDialogFor = null; saveBarcodeToGallery(context, product) },
-                onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }
+                onRestock = { 
+                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "RESTOCK" } 
+                    else { productToRestock = showActionDialogFor }
+                    showActionDialogFor = null 
+                },
+                onWaste = { 
+                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "WASTE" } 
+                    else { productToWaste = showActionDialogFor }
+                    showActionDialogFor = null 
+                },
+                onBom = { showActionDialogFor = null },
+                onSaveBarcode = { 
+                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "BARCODE" } 
+                    else { saveBarcodeToGallery(context, showActionDialogFor!!); showActionDialogFor = null }
+                },
+                onDelete = { showActionDialogFor = null }
             )
         }
 
-        if (productToRestock != null) StockOpnameDialog(product = productToRestock!!, onDismiss = { productToRestock = null }, onSave = { qty -> viewModel.addStock(productToRestock!!, qty, currentUser); productToRestock = null })
-        if (productToWaste != null) WasteRecordDialog(product = productToWaste!!, onSave = { qty -> if (qty > 0 && qty <= productToWaste!!.stock) { viewModel.recordWaste(productToWaste!!, qty, currentUser); productToWaste = null } }, onDismiss = { productToWaste = null })
-        if (productToManageBom != null) BomManagementDialog(product = productToManageBom!!, rawMaterials = rawMaterials, viewModel = viewModel, onDismiss = { productToManageBom = null })
-        if (productToDelete != null) DeleteProductConfirmDialog(product = productToDelete!!, onDelete = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null }, onDismiss = { productToDelete = null })
+        if (productToRestock != null) {
+            StockOpnameDialog(
+                product = productToRestock!!,
+                onDismiss = { productToRestock = null },
+                onSave = { qty -> viewModel.addStock(productToRestock!!, variantToProcess, qty, currentUser); productToRestock = null; variantToProcess = "" }
+            )
+        }
+        if (productToWaste != null) {
+            WasteRecordDialog(
+                product = productToWaste!!,
+                onDismiss = { productToWaste = null },
+                onSave = { qty -> viewModel.recordWaste(productToWaste!!, variantToProcess, qty, currentUser); productToWaste = null; variantToProcess = "" }
+            )
+        }
     }
 }
