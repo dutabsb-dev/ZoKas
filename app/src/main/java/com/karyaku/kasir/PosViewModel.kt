@@ -565,9 +565,102 @@ class PosViewModel(
     fun redeemPoints(points: Int) { _pointsUsed.value = points }
     fun setTaxPercent(tax: Double) { _taxPercent.value = tax }
     fun setServiceChargePercent(sc: Double) { _serviceChargePercent.value = sc }
+    
     fun updateCartItemNotes(product: ProductEntity, variation: String, notes: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(notes = notes) else it } }
     fun updateCartItemSerial(product: ProductEntity, variation: String, serial: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(serialNumber = serial) else it } }
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
+
+    // ========================================================================
+    // FUNGSI KAS (FIX: TIDAK LAGI KOSONG)
+    // ========================================================================
+    fun openShift(user: UserEntity, modalAwal: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val newShift = ShiftEntity(
+                    userId = user.id,
+                    userName = user.name,
+                    startTime = System.currentTimeMillis(),
+                    startCash = modalAwal,
+                    status = "OPEN",
+                    branchId = _currentBranchId.value
+                )
+                userDao.insertShift(newShift)
+                checkActiveShift() // Refresh active shift
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun closeShift(user: UserEntity, physicalCash: Long, note: String, onDone: (ShiftEntity) -> Unit) {
+        val currentShift = _activeShift.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val endTime = System.currentTimeMillis()
+                
+                // Hitung penjualan tunai selama shift ini berlangsung
+                val cashSales = _transactions.value
+                    .filter { it.timestamp >= currentShift.startTime && it.status == "SUCCESS" && it.paymentMethod == "CASH" }
+                    .sumOf { it.totalPrice }
+                
+                // Hitung kas masuk & kas keluar
+                val cashIn = cashFlows.value
+                    .filter { it.timestamp >= currentShift.startTime && it.type == "IN" }
+                    .sumOf { it.amount }
+                val cashOut = cashFlows.value
+                    .filter { it.timestamp >= currentShift.startTime && it.type == "OUT" }
+                    .sumOf { it.amount }
+                
+                // Ekspektasi uang di laci
+                val expectedCash = currentShift.startCash + cashSales + cashIn - cashOut
+                val discrepancy = physicalCash - expectedCash
+
+                userDao.closeShift(
+                    shiftId = currentShift.id,
+                    endTime = endTime,
+                    expectedCash = expectedCash,
+                    closingCash = physicalCash,
+                    discrepancy = discrepancy,
+                    note = note
+                )
+                
+                val closedShift = currentShift.copy(
+                    endTime = endTime,
+                    expectedCash = expectedCash,
+                    closingCash = physicalCash,
+                    discrepancy = discrepancy,
+                    status = "CLOSED",
+                    note = note
+                )
+                
+                _activeShift.value = null
+                withContext(Dispatchers.Main) { onDone(closedShift) }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun addCashFlow(type: String, amount: Long, note: String, user: UserEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cashFlow = CashFlowEntity(
+                    type = type,
+                    amount = amount,
+                    note = note,
+                    timestamp = System.currentTimeMillis(),
+                    userId = user.id,
+                    userName = user.name,
+                    branchId = _currentBranchId.value
+                )
+                // Pastikan DAO Anda memiliki fungsi insertCashFlow
+                cashFlowDao.insertCashFlow(cashFlow)
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "KAS ${if (type == "IN") "MASUK" else "KELUAR"}: Rp $amount ($note)", actionType = "CASHFLOW"))
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun logCashDrawerOpen(user: UserEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "BUKA LACI KASIR", actionType = "SYSTEM"))
+        }
+    }
 
     fun voidTransaction(tx: TransactionEntity, pin: String, user: UserEntity, onResult: (Boolean, String) -> Unit) {}
     fun refundTransaction(tx: TransactionEntity, pin: String, user: UserEntity, onResult: (Boolean, String) -> Unit) {}
@@ -575,10 +668,6 @@ class PosViewModel(
     fun processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {}
     fun saveHoldOrder(name: String) {}
     fun resumeHoldOrder(order: HoldOrderEntity) {}
-    fun logCashDrawerOpen(user: UserEntity) {}
-    fun openShift(user: UserEntity, modal: Long) {}
-    fun closeShift(user: UserEntity, physical: Long, note: String, onDone: (ShiftEntity) -> Unit) {}
-    fun addCashFlow(type: String, amount: Long, note: String, user: UserEntity) {}
     fun addCustomer(name: String, phone: String, birthDate: Long) {}
     fun applyVoucher(code: String, callback: (Boolean, String) -> Unit) {}
     fun generateQrisPayment(amount: Long, payload: String) {}
@@ -587,8 +676,18 @@ class PosViewModel(
     fun resetTransferPayment() { _isTransferPaid.value = false; _uniqueTransferAmount.value = 0L }
     fun applyMembershipToCart(cartItem: CartItem, cm: CustomerMembershipEntity) {}
     fun removeMembershipFromCart(cartItem: CartItem) {}
+    fun mergeOrder(tableA: String, tableB: String) {}
+    
     fun getTransactionItems(transactionId: Long): Flow<List<TransactionItemEntity>> { return transactionItemDao.getItemsByTransaction(transactionId) }
-    private fun checkActiveShift() {}
+    
+    private fun checkActiveShift() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val active = userDao.getActiveShiftByBranch(_currentBranchId.value)
+                withContext(Dispatchers.Main) { _activeShift.value = active }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
 }
 
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
