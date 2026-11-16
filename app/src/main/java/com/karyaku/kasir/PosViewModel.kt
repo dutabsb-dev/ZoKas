@@ -60,7 +60,6 @@ class PosViewModel(
         branches.find { it.id == id }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // STATE DATA OPERASIONAL
     internal val _transfersForCurrentBranch = MutableStateFlow<List<StockTransferEntity>>(emptyList())
     val transfersForCurrentBranch: StateFlow<List<StockTransferEntity>> = _transfersForCurrentBranch.asStateFlow()
 
@@ -112,7 +111,6 @@ class PosViewModel(
     internal val _reservations = MutableStateFlow<List<ReservationEntity>>(emptyList())
     val reservations: StateFlow<List<ReservationEntity>> = _reservations.asStateFlow()
 
-    // STATE KERANJANG & UI
     internal val _selectedCategory = MutableStateFlow("Semua")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
@@ -176,7 +174,6 @@ class PosViewModel(
     internal val _serviceChargePercent = MutableStateFlow(0.0)
     val serviceChargePercent: StateFlow<Double> = _serviceChargePercent.asStateFlow()
 
-    // QUERY PER CABANG (MENGGUNAKAN flatMapLatest)
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val activeKitchenTickets: StateFlow<List<KitchenTicketEntity>> = _currentBranchId.flatMapLatest { id ->
         kitchenTicketDao.getActiveTicketsByBranch(id).catch { emit(emptyList()) }
@@ -231,13 +228,11 @@ class PosViewModel(
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
-            try { checkActiveShift() } catch (e: Exception) { e.printStackTrace() } finally { withContext(Dispatchers.Main) { _isInitializing.value = false } }
+            // Hapus checkActiveShift() dari sini karena saat init belum ada user yang login
+            withContext(Dispatchers.Main) { _isInitializing.value = false }
         }
         
-        // Observe Cabang
         viewModelScope.launch { branchDao.getAllBranches().catch { _allBranches.value = emptyList() }.collectLatest { _allBranches.value = it } }
-        
-        // Observe Data Berdasarkan Cabang
         viewModelScope.launch { _currentBranchId.collectLatest { id -> productDao.getProductsByBranch(id).catch { _products.value = emptyList() }.collectLatest { _products.value = it } } }
         viewModelScope.launch { _currentBranchId.collectLatest { id -> transactionDao.getTransactionsByBranch(id).catch { _transactions.value = emptyList() }.collectLatest { _transactions.value = it } } }
         viewModelScope.launch { _currentBranchId.collectLatest { id -> userDao.getUsersByBranch(id).catch { _users.value = emptyList() }.collectLatest { _users.value = it } } }
@@ -251,7 +246,6 @@ class PosViewModel(
         viewModelScope.launch { _currentBranchId.collectLatest { id -> purchaseDao.getPurchasesByBranch(id).catch { _purchases.value = emptyList() }.collectLatest { _purchases.value = it } } }
         viewModelScope.launch { _currentBranchId.collectLatest { id -> reservationDao.getReservationsByBranch(id).catch { _reservations.value = emptyList() }.collectLatest { _reservations.value = it } } }
 
-        // Observe Data Global (Tidak Perlu Filter Cabang)
         viewModelScope.launch { productDao.getAllRawMaterials().catch { _rawMaterials.value = emptyList() }.collectLatest { _rawMaterials.value = it } }
         viewModelScope.launch { userDao.getAllAuditLogs().catch { _auditLogs.value = emptyList() }.collectLatest { _auditLogs.value = it } }
         viewModelScope.launch { customerDao.getAllCustomers().catch { _customers.value = emptyList() }.collectLatest { _customers.value = it } }
@@ -259,21 +253,15 @@ class PosViewModel(
         viewModelScope.launch { membershipDao.getAllMemberships().catch { _memberships.value = emptyList() }.collectLatest { _memberships.value = it } }
         viewModelScope.launch { supplierDao.getAllSuppliers().catch { _suppliers.value = emptyList() }.collectLatest { _suppliers.value = it } }
         
-        // FIX SESI 3: Jalankan listener notifikasi QRIS/Transfer
         listenToPaymentNotifications()
     }
 
-    // ================================================================
-    // CART FUNCTIONS (Core Logic)
-    // ================================================================
     fun addToCart(product: ProductEntity, variation: String = "") {
         val currentCart = _cart.value
         val existingIndex = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         val stockAvailable = getStockForVariant(product, variation)
         val currentQtyInCart = if (existingIndex != -1) currentCart[existingIndex].quantity else 0
-
         if (currentQtyInCart + 1 > stockAvailable && !product.isService) return 
-
         if (existingIndex != -1) {
             val newCart = currentCart.toMutableList()
             newCart[existingIndex] = newCart[existingIndex].copy(quantity = newCart[existingIndex].quantity + 1)
@@ -347,9 +335,6 @@ class PosViewModel(
     fun updateCartItemSerial(product: ProductEntity, variation: String, serial: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(serialNumber = serial) else it } }
     fun updateCartItemStaff(product: ProductEntity, variation: String, staff: String) { _cart.value = _cart.value.map { if (it.product.id == product.id && it.selectedVariation == variation) it.copy(assignedStaff = staff) else it } }
 
-    // ================================================================
-    // STATE SETTERS & SHIFT
-    // ================================================================
     fun setCategory(category: String) { _selectedCategory.value = category }
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setOrderType(type: String) { _selectedOrderType.value = type }
@@ -363,15 +348,11 @@ class PosViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val newShift = ShiftEntity(
-                    userId = user.id,
-                    userName = user.name,
-                    startTime = System.currentTimeMillis(),
-                    openingCash = modalAwal,
-                    status = "OPEN",
-                    branchId = _currentBranchId.value
+                    userId = user.id, userName = user.name, startTime = System.currentTimeMillis(),
+                    openingCash = modalAwal, status = "OPEN", branchId = _currentBranchId.value
                 )
                 userDao.insertShift(newShift)
-                checkActiveShift()
+                checkActiveShift(user.id) // FIX: Passing userId
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -382,10 +363,11 @@ class PosViewModel(
         }
     }
 
-    internal fun checkActiveShift() {
+    internal fun checkActiveShift(userId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val active = userDao.getActiveShiftByBranch(_currentBranchId.value)
+                // FIX: Menggunakan getActiveShiftForUser agar tidak menumpang shift orang lain
+                val active = userDao.getActiveShiftForUser(_currentBranchId.value, userId)
                 withContext(Dispatchers.Main) { _activeShift.value = active }
             } catch (e: Exception) { e.printStackTrace() }
         }

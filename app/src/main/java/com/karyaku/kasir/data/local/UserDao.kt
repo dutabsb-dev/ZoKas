@@ -54,12 +54,9 @@ interface UserDao {
     @Insert
     suspend fun insertShift(shift: ShiftEntity): Long
 
-    @Deprecated("Gunakan getActiveShiftByBranch() untuk multi-cabang.")
-    @Query("SELECT * FROM shifts WHERE status = 'OPEN' LIMIT 1")
-    suspend fun getActiveShift(): ShiftEntity?
-
-    @Query("SELECT * FROM shifts WHERE status = 'OPEN' AND branchId = :branchId LIMIT 1")
-    suspend fun getActiveShiftByBranch(branchId: Long): ShiftEntity?
+    // FIX: Tambahkan filter userId agar shift milik kasir A tidak dipakai kasir B
+    @Query("SELECT * FROM shifts WHERE status = 'OPEN' AND branchId = :branchId AND userId = :userId LIMIT 1")
+    suspend fun getActiveShiftForUser(branchId: Long, userId: Long): ShiftEntity?
 
     @Query("UPDATE shifts SET endTime = :endTime, expectedCash = :expectedCash, closingCash = :closingCash, discrepancy = :discrepancy, status = 'CLOSED', note = :note WHERE id = :shiftId")
     suspend fun closeShift(shiftId: Long, endTime: Long, expectedCash: Long, closingCash: Long, discrepancy: Long, note: String)
