@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.karyaku.kasir.data.local.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -63,17 +64,39 @@ fun PosViewModel.resumeHoldOrder(order: HoldOrderEntity) {
     }
 }
 
-fun PosViewModel.payUnpaidTransaction(tx: TransactionEntity, cashReceived: Long, paidMethod: String, user: UserEntity, onSuccess: () -> Unit) {
+// FIX: Tambahkan nilai default untuk paidMethod & user agar cocok dengan panggilan UI lama
+fun PosViewModel.payUnpaidTransaction(
+    tx: TransactionEntity, 
+    cashReceived: Long, 
+    paidMethod: String = "CASH", 
+    user: UserEntity? = null, 
+    onSuccess: () -> Unit
+) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val changeAmount = if (cashReceived > tx.totalPrice) cashReceived - tx.totalPrice else 0L
-            transactionDao.updateTransactionStatus(tx.id, cashReceived, changeAmount, paidMethod, System.currentTimeMillis())
+            transactionDao.updateTransactionStatus(
+                transactionId = tx.id,
+                cashReceived = cashReceived,
+                changeAmount = changeAmount,
+                paidMethod = paidMethod,
+                paidAt = System.currentTimeMillis()
+            )
             
             cashFlowDao.insertCashFlow(CashFlowEntity(
                 shiftId = _activeShift.value?.id ?: 0L, branchId = _currentBranchId.value, type = "IN", 
-                amount = tx.totalPrice, note = "Pelunasan BON #${tx.id} (${tx.customerName})", userId = user.id, userName = user.name
+                amount = tx.totalPrice, note = "Pelunasan BON #${tx.id} (${tx.customerName})", 
+                userId = user?.id ?: 0L, userName = user?.name ?: "SYSTEM"
             ))
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "PELUNASAN BON #${tx.id}: ${formatRupiah(tx.totalPrice)}", actionType = "TRANSACTION"))
+            
+            if (user != null) {
+                userDao.insertAuditLog(AuditLogEntity(
+                    userId = user.id, userName = user.name, 
+                    action = "PELUNASAN BON #${tx.id}: ${formatRupiah(tx.totalPrice)} via $paidMethod", 
+                    actionType = "TRANSACTION"
+                ))
+            }
+            
             withContext(Dispatchers.Main) { onSuccess() }
         } catch (e: Exception) { e.printStackTrace() }
     }
@@ -87,10 +110,13 @@ fun PosViewModel.voidTransaction(transaction: TransactionEntity, pin: String, cu
                 return@launch
             }
             transactionDao.voidTransaction(transaction.id)
-            transactionItemDao.getItemsByTransaction(transaction.id).first().forEach { item ->
+            
+            val items = transactionItemDao.getItemsByTransaction(transaction.id).first()
+            items.forEach { item ->
                 val prod = productDao.getProductById(item.productId)
                 if (prod != null) productDao.updateStock(prod.id, prod.stock + item.quantity)
             }
+            
             userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "VOID TRANSAKSI #${transaction.id}", actionType = "TRANSACTION"))
             withContext(Dispatchers.Main) { onResult(true, "Transaksi berhasil di-void.") }
         } catch (e: Exception) { withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") } }
@@ -105,10 +131,13 @@ fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, 
                 return@launch
             }
             transactionDao.refundTransaction(transaction.id)
-            transactionItemDao.getItemsByTransaction(transaction.id).first().forEach { item ->
+            
+            val items = transactionItemDao.getItemsByTransaction(transaction.id).first()
+            items.forEach { item ->
                 val prod = productDao.getProductById(item.productId)
                 if (prod != null) productDao.updateStock(prod.id, prod.stock + item.quantity)
             }
+            
             userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "REFUND TRANSAKSI #${transaction.id}", actionType = "TRANSACTION"))
             withContext(Dispatchers.Main) { onResult(true, "Transaksi berhasil di-refund.") }
         } catch (e: Exception) { withContext(Dispatchers.Main) { onResult(false, "Gagal: ${e.message}") } }
