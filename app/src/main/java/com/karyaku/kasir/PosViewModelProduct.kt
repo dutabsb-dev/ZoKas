@@ -10,10 +10,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ====================================================================
-// FILE 3 — PRODUCT, STOCK, BOM, RAW MATERIAL, EXCEL, BARCODE
-// ====================================================================
-
 fun PosViewModel.deductVariantStock(variationsStr: String, targetVariantName: String, deductQty: Int): String {
     if (variationsStr.isBlank()) return ""
     val parts = variationsStr.split(",")
@@ -168,9 +164,58 @@ fun PosViewModel.addBom(productId: Long, rawMaterialId: Long, qty: Double) {
     }
 }
 
+// ================================================================
+// FUNGSI BAHAN BAKU (RAW MATERIAL) BARU
+// ================================================================
 fun PosViewModel.addRawMaterial(name: String, stock: Double, unit: String, costPerUnit: Long) {
     viewModelScope.launch(Dispatchers.IO) {
-        try { productDao.insertRawMaterial(RawMaterialEntity(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit)) } catch (e: Exception) { e.printStackTrace() }
+        try { 
+            productDao.insertRawMaterial(RawMaterialEntity(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit)) 
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+}
+
+fun PosViewModel.updateRawMaterial(id: Long, name: String, stock: Double, unit: String, costPerUnit: Long, onSuccess: () -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val material = _rawMaterials.value.find { it.id == id }
+            if (material != null) {
+                productDao.insertRawMaterial(material.copy(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit))
+                withContext(Dispatchers.Main) { onSuccess() }
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+}
+
+fun PosViewModel.deleteRawMaterial(id: Long, onSuccess: () -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            productDao.deleteRawMaterial(id)
+            withContext(Dispatchers.Main) { onSuccess() }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+}
+
+fun PosViewModel.restockRawMaterial(id: Long, qty: Double, note: String) {
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val material = _rawMaterials.value.find { it.id == id }
+            if (material != null) {
+                productDao.updateRawMaterialStock(id, material.stock + qty)
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+}
+
+fun PosViewModel.wasteRawMaterial(id: Long, qty: Double, note: String) {
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            val material = _rawMaterials.value.find { it.id == id }
+            if (material != null) {
+                val newStock = (material.stock - qty).coerceAtLeast(0.0)
+                productDao.updateRawMaterialStock(id, newStock)
+            }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 }
 

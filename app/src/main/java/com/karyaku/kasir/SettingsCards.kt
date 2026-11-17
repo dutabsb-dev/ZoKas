@@ -41,7 +41,6 @@ import com.karyaku.kasir.data.local.UserEntity
 import java.io.File
 import java.io.FileOutputStream
 
-// IMPORT UNTUK SCAN QRIS
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
@@ -997,7 +996,7 @@ fun SettingsBackupCard(
     }
 }
 
-// --- 9. CARD PENGATURAN QRIS (TANPA TOMBOL METODE PEMBAYARAN) ---
+// --- 9. CARD PENGATURAN QRIS (DENGAN TOMBOL TUTORIAL) ---
 @Composable
 fun SettingsQrisCard(
     qrisPayload: String,
@@ -1007,17 +1006,41 @@ fun SettingsQrisCard(
     language: String
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    var showTutorial by remember { mutableStateOf(false) }
     val lang = language
     val context = LocalContext.current
 
-    // Launcher untuk scan QRIS
+    if (showTutorial) {
+        AlertDialog(
+            onDismissRequest = { showTutorial = false },
+            icon = { Icon(Icons.Default.Info, contentDescription = null, tint = AmberAccent) },
+            title = { Text("Cara Mendapatkan QRIS Statis") },
+            text = {
+                Column {
+                    Text("1. Buka aplikasi Bank atau E-Wallet Anda (BCA, Mandiri, GoPay, OVO, dll).", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("2. Cari menu \"QRIS\" atau \"Terima Pembayaran\".", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("3. Pastikan Anda menggunakan **QRIS Statis** (bukan QR dinamis yang nominalnya berubah-ubah).", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("4. Screenshot QR tersebut, atau minta file gambar QRIS ke bank Anda.", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("5. Gunakan tombol 'Scan QRIS' di aplikasi ini untuk memindai gambar tersebut. Aplikasi akan otomatis menyimpan kode rahasianya.", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Catatan: Aplikasi memvalidasi QRIS menggunakan checksum CRC16. Jika QR yang Anda scan adalah QRIS dinamis atau bukan QRIS, aplikasi akan menolak.", fontSize = 11.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = { Button(onClick = { showTutorial = false }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("Mengerti") } }
+        )
+    }
+
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             if (QrisHelper.isValidQris(result.contents)) {
                 onQrisPayloadChange(result.contents)
-                Toast.makeText(context, "QRIS berhasil dipindai!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "QRIS Statis berhasil dipindai!", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(context, "Gagal: QR Code ini bukan QRIS yang valid (Gagal verifikasi CRC16).", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Gagal: QR Code ini bukan QRIS Statis yang valid (Gagal verifikasi CRC16).", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -1044,11 +1067,17 @@ fun SettingsQrisCard(
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                    Text("QRIS Statis (Payload)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("QRIS Statis (Payload)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                        TextButton(onClick = { showTutorial = true }) {
+                            Icon(Icons.Default.Help, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Tutorial", fontSize = 11.sp)
+                        }
+                    }
                     Text("Tempelkan kode teks QRIS dari bank Anda, atau scan QRIS Toko.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // Kolom Input dengan Tombol Scan
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = qrisPayload,
@@ -1060,11 +1089,10 @@ fun SettingsQrisCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         
-                        // Tombol Scanner
                         IconButton(
                             onClick = {
                                 val options = ScanOptions().apply {
-                                    setDesiredBarcodeFormats(ScanOptions.QR_CODE) // Hanya izinkan QR Code
+                                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                                     setPrompt("Scan QRIS Toko")
                                     setCameraId(0)
                                     setBeepEnabled(false)

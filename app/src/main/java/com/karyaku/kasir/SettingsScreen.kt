@@ -451,16 +451,16 @@ fun SettingsScreen(
                 onManageReceivableClick = { showReceivableDialog = true },
                 onManagePayableClick = { showPayableDialog = true },
                 onManageExpenseClick = { showExpenseDialog = true },
-                enableHrModule = enableHrModule,          // PARAMETER BARU
+                enableHrModule = enableHrModule,
                 onHrModuleToggle = { 
                     enableHrModule = it
                     settingsManager.enableHrModule = it 
-                },                                        // PARAMETER BARU
-                enableCrmModule = enableCrmModule,        // PARAMETER BARU
+                },
+                enableCrmModule = enableCrmModule,
                 onCrmModuleToggle = { 
                     enableCrmModule = it
                     settingsManager.enableCrmModule = it 
-                },                                        // PARAMETER BARU
+                },
                 language = language
             )
         }
@@ -983,8 +983,12 @@ private fun SettingsCrmCard(
                             Text("Diskon (%):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.width(8.dp))
                             OutlinedTextField(
-                                value = (birthdayDiscountPercent * 100).toInt().toString(),
-                                onValueChange = { onChangeBirthdayPercent((it.toFloatOrNull() ?: 0f) / 100f) },
+                                // FIX: Jangan kalikan 100, karena data dari SettingsManager sudah dalam bentuk persen (10.0 = 10%)
+                                value = birthdayDiscountPercent.toInt().toString(),
+                                onValueChange = { 
+                                    // FIX: Jangan bagi 100, simpan langsung sebagai persen
+                                    onChangeBirthdayPercent(it.toFloatOrNull() ?: 0f) 
+                                },
                                 modifier = Modifier.width(80.dp),
                                 singleLine = true,
                                 shape = RoundedCornerShape(8.dp)
