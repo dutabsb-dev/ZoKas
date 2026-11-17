@@ -47,7 +47,7 @@ fun PosCartSection(
     enableOrderTypes: Boolean,
     enablePreOrder: Boolean,
     enableMembership: Boolean,
-    enableCrm: Boolean, // <-- TAMBAHAN PARAMETER BARU
+    enableCrm: Boolean,
     onOrderTypeChange: (String) -> Unit,
     onPickupDateChange: (Long) -> Unit,
     onToggleSplitMode: () -> Unit, 
@@ -100,9 +100,21 @@ fun PosCartSection(
                     FilterChip(
                         selected = selectedOrderType == type,
                         onClick = { onOrderTypeChange(type) },
-                        label = { Text(type, fontSize = 11.sp, fontWeight = if (selectedOrderType == type) FontWeight.Bold else FontWeight.Normal) },
+                        label = { 
+                            Text(
+                                type, 
+                                fontSize = 11.sp, 
+                                fontWeight = if (selectedOrderType == type) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selectedOrderType == type) 
+                                    MaterialTheme.colorScheme.onPrimary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurface
+                            ) 
+                        },
                         modifier = Modifier.weight(1f),
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = EmeraldGreen, selectedLabelColor = MaterialTheme.colorScheme.onPrimary)
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary
+                        )
                     )
                 }
             }
@@ -115,9 +127,18 @@ fun PosCartSection(
                     modifier = Modifier.weight(1f).height(40.dp), 
                     contentPadding = PaddingValues(0.dp), 
                     shape = RoundedCornerShape(12.dp), 
-                    border = BorderStroke(1.dp, AmberAccent)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.tertiary
+                    )
                 ) { 
-                    Text(selectedTable, fontWeight = FontWeight.Bold, color = AmberAccent, fontSize = 11.sp, maxLines = 1) 
+                    Text(
+                        selectedTable, 
+                        fontWeight = FontWeight.Bold, 
+                        color = MaterialTheme.colorScheme.tertiary, 
+                        fontSize = 11.sp, 
+                        maxLines = 1
+                    ) 
                 }
             }
             
@@ -127,11 +148,17 @@ fun PosCartSection(
                     modifier = Modifier.weight(1f).height(40.dp), 
                     contentPadding = PaddingValues(0.dp), 
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ErrorRed)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 ) { 
                     Text(
                         text = if (pickupDate > 0) dateFormat.format(Date(pickupDate)) else "Pre-Order",
-                        fontWeight = FontWeight.Bold, color = ErrorRed, fontSize = 11.sp, maxLines = 1
+                        fontWeight = FontWeight.Bold, 
+                        color = MaterialTheme.colorScheme.error, 
+                        fontSize = 11.sp, 
+                        maxLines = 1
                     ) 
                 }
             }
@@ -140,17 +167,33 @@ fun PosCartSection(
                 onClick = onHoldClick, 
                 modifier = Modifier.weight(1f).height(40.dp), 
                 contentPadding = PaddingValues(0.dp), 
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
             ) { 
-                Text("Parkir", fontWeight = FontWeight.Bold, color = EmeraldGreen, fontSize = 11.sp) 
+                Text(
+                    "Parkir", 
+                    fontWeight = FontWeight.Bold, 
+                    color = MaterialTheme.colorScheme.primary, 
+                    fontSize = 11.sp
+                ) 
             }
             OutlinedButton(
                 onClick = onViewHoldClick, 
                 modifier = Modifier.weight(1f).height(40.dp), 
                 contentPadding = PaddingValues(0.dp), 
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
             ) { 
-                Text("Lihat", fontWeight = FontWeight.Bold, color = EmeraldGreen, fontSize = 11.sp) 
+                Text(
+                    "Lihat", 
+                    fontWeight = FontWeight.Bold, 
+                    color = MaterialTheme.colorScheme.primary, 
+                    fontSize = 11.sp
+                ) 
             }
         }
         
@@ -158,14 +201,20 @@ fun PosCartSection(
         
         // Baris Pelanggan & Split Bill
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            // LOGIKA CRM: Hanya tampilkan tombol pelanggan jika enableCrm == true
             if (enableCrm) {
                 TextButton(onClick = onCustomerClick, contentPadding = PaddingValues(0.dp)) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Default.Person, 
+                        contentDescription = null, 
+                        tint = MaterialTheme.colorScheme.tertiary, 
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} Poin)" else "Pelanggan Umum", 
-                        fontWeight = FontWeight.Bold, color = AmberAccent, fontSize = 12.sp
+                        fontWeight = FontWeight.Bold, 
+                        color = MaterialTheme.colorScheme.tertiary, 
+                        fontSize = 12.sp
                     )
                 }
             } else {
@@ -173,13 +222,19 @@ fun PosCartSection(
             }
             
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Split Bill", fontSize = 12.sp)
+                Text(
+                    "Split Bill", 
+                    fontSize = 12.sp, 
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Spacer(modifier = Modifier.width(4.dp))
                 Switch(
                     checked = isSplitBillMode, 
                     onCheckedChange = { onToggleSplitMode() }, 
                     modifier = Modifier.scale(0.8f), 
-                    colors = SwitchDefaults.colors(checkedTrackColor = EmeraldGreen)
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = MaterialTheme.colorScheme.primary
+                    )
                 )
             }
         }
@@ -189,7 +244,9 @@ fun PosCartSection(
             items(cart) { item ->
                 Card(
                     modifier = Modifier.fillMaxWidth(), 
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), 
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ), 
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
@@ -202,48 +259,115 @@ fun PosCartSection(
                                 checked = item.isSelectedForSplit, 
                                 onCheckedChange = { onToggleSplitSelection(item) }, 
                                 modifier = Modifier.scale(0.8f), 
-                                colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen)
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
+                                )
                             ) 
                         }
                         
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(item.product.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                item.product.name, 
+                                fontWeight = FontWeight.Bold, 
+                                fontSize = 13.sp, 
+                                maxLines = 1, 
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                             if (item.selectedVariation.isNotEmpty()) {
-                                Text("Varian: ${item.selectedVariation}", fontSize = 10.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Varian: ${item.selectedVariation}", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.primary, 
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                             if (item.serialNumber.isNotEmpty()) {
-                                Text("SN: ${item.serialNumber}", fontSize = 10.sp, color = SlateGrey, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "SN: ${item.serialNumber}", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                             if (item.assignedStaff.isNotEmpty()) {
-                                Text("Staf: ${item.assignedStaff}", fontSize = 10.sp, color = AmberAccent, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Staf: ${item.assignedStaff}", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.tertiary, 
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                             
                             val isWholesale = item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0
-                            val displayPrice = if (item.usedMembershipId != null) 0L else if (isWholesale) item.product.wholesalePrice else getPriceForVariant(item.product, item.selectedVariation) // FIX VARIAN HARGA
+                            val displayPrice = if (item.usedMembershipId != null) 0L else if (isWholesale) item.product.wholesalePrice else getPriceForVariant(item.product, item.selectedVariation)
                             
-                            Text(formatRupiah(displayPrice), fontSize = 11.sp, color = if(item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty()) EmeraldGreen else SlateGrey, fontWeight = if(item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty()) FontWeight.Bold else FontWeight.Normal)
+                            Text(
+                                formatRupiah(displayPrice), 
+                                fontSize = 11.sp, 
+                                color = if (item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty()) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant, 
+                                fontWeight = if (item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty()) 
+                                    FontWeight.Bold 
+                                else 
+                                    FontWeight.Normal
+                            )
                             
                             if (item.notes.isNotEmpty()) { 
-                                Text("Cat: ${item.notes}", fontSize = 10.sp, color = ErrorRed, maxLines = 1, overflow = TextOverflow.Ellipsis) 
+                                Text(
+                                    "Cat: ${item.notes}", 
+                                    fontSize = 10.sp, 
+                                    color = MaterialTheme.colorScheme.error, 
+                                    maxLines = 1, 
+                                    overflow = TextOverflow.Ellipsis
+                                ) 
                             }
 
                             if (item.usedMembershipId != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Paket: ${item.usedMembershipName}", fontSize = 10.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)
-                                    IconButton(onClick = { onRemoveMembership(item) }, modifier = Modifier.size(20.dp)) {
-                                        Icon(Icons.Default.Close, contentDescription = "Batal Paket", tint = ErrorRed, modifier = Modifier.size(12.dp))
+                                    Text(
+                                        "Paket: ${item.usedMembershipName}", 
+                                        fontSize = 10.sp, 
+                                        color = MaterialTheme.colorScheme.primary, 
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    IconButton(
+                                        onClick = { onRemoveMembership(item) }, 
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close, 
+                                            contentDescription = "Batal Paket", 
+                                            tint = MaterialTheme.colorScheme.error, 
+                                            modifier = Modifier.size(12.dp)
+                                        )
                                     }
                                 }
                             } else if (enableMembership && customerMemberships.isNotEmpty()) {
                                 var expanded by remember { mutableStateOf(false) }
                                 Box {
-                                    TextButton(onClick = { expanded = true }, contentPadding = PaddingValues(0.dp), modifier = Modifier.height(24.dp)) {
-                                        Text("Gunakan Paket", fontSize = 10.sp, color = EmeraldGreen)
+                                    TextButton(
+                                        onClick = { expanded = true }, 
+                                        contentPadding = PaddingValues(0.dp), 
+                                        modifier = Modifier.height(24.dp)
+                                    ) {
+                                        Text(
+                                            "Gunakan Paket", 
+                                            fontSize = 10.sp, 
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                                         customerMemberships.forEach { cm ->
                                             DropdownMenuItem(
-                                                text = { Text("${cm.membershipName} (Sisa: ${cm.remainingQuota})", fontSize = 12.sp) },
+                                                text = { 
+                                                    Text(
+                                                        "${cm.membershipName} (Sisa: ${cm.remainingQuota})", 
+                                                        fontSize = 12.sp
+                                                    ) 
+                                                },
                                                 onClick = {
                                                     onApplyMembership(item, cm)
                                                     expanded = false
@@ -258,27 +382,63 @@ fun PosCartSection(
                         // Tombol Aksi
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { onEditNotes(item.product) }, modifier = Modifier.size(28.dp)) { 
-                                Icon(Icons.Default.Edit, contentDescription = "Edit Catatan", tint = EmeraldGreen, modifier = Modifier.size(16.dp)) 
+                                Icon(
+                                    Icons.Default.Edit, 
+                                    contentDescription = "Edit Catatan", 
+                                    tint = MaterialTheme.colorScheme.primary, 
+                                    modifier = Modifier.size(16.dp)
+                                ) 
                             }
                             if (item.product.isService) {
                                 IconButton(onClick = { onAssignStaff(item.product) }, modifier = Modifier.size(28.dp)) { 
-                                    Icon(Icons.Default.Person, contentDescription = "Assign Staf", tint = AmberAccent, modifier = Modifier.size(16.dp)) 
+                                    Icon(
+                                        Icons.Default.Person, 
+                                        contentDescription = "Assign Staf", 
+                                        tint = MaterialTheme.colorScheme.tertiary, 
+                                        modifier = Modifier.size(16.dp)
+                                    ) 
                                 }
                             }
                             if (item.product.category == "Elektronik" || item.product.isService) {
                                 IconButton(onClick = { onEditSerial(item.product) }, modifier = Modifier.size(28.dp)) { 
-                                    Icon(Icons.Default.List, contentDescription = "Input SN", tint = SlateGrey, modifier = Modifier.size(16.dp)) 
+                                    Icon(
+                                        Icons.Default.List, 
+                                        contentDescription = "Input SN", 
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                        modifier = Modifier.size(16.dp)
+                                    ) 
                                 }
                             }
                             IconButton(onClick = { onRemove(item) }, modifier = Modifier.size(28.dp)) { 
-                                Icon(Icons.Default.Remove, contentDescription = "Kurang", modifier = Modifier.size(16.dp)) 
+                                Icon(
+                                    Icons.Default.Remove, 
+                                    contentDescription = "Kurang", 
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(16.dp)
+                                ) 
                             }
-                            Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(
+                                text = "${item.quantity}", 
+                                modifier = Modifier.padding(horizontal = 4.dp), 
+                                fontWeight = FontWeight.Bold, 
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
                             IconButton(onClick = { onAdd(item) }, modifier = Modifier.size(28.dp)) { 
-                                Icon(Icons.Default.Add, contentDescription = "Tambah", modifier = Modifier.size(16.dp)) 
+                                Icon(
+                                    Icons.Default.Add, 
+                                    contentDescription = "Tambah", 
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(16.dp)
+                                ) 
                             }
                             IconButton(onClick = { onDelete(item) }, modifier = Modifier.size(28.dp)) { 
-                                Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = ErrorRed, modifier = Modifier.size(16.dp)) 
+                                Icon(
+                                    Icons.Default.Delete, 
+                                    contentDescription = "Hapus", 
+                                    tint = MaterialTheme.colorScheme.error, 
+                                    modifier = Modifier.size(16.dp)
+                                ) 
                             }
                         }
                     }
@@ -287,35 +447,68 @@ fun PosCartSection(
         }
 
         // Ringkasan Total
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp), 
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Subtotal:", fontSize = 12.sp, color = SlateGrey)
-            Text(formatRupiah(subtotal), fontSize = 12.sp, color = SlateGrey)
+            Text("Subtotal:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                formatRupiah(subtotal), 
+                fontSize = 12.sp, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Diskon:", fontSize = 12.sp, color = SlateGrey)
+                Text("Diskon:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = onDiscountClick, contentPadding = PaddingValues(horizontal = 4.dp)) { 
-                    Text("Ubah", color = AmberAccent, fontSize = 11.sp) 
+                    Text(
+                        "Ubah", 
+                        color = MaterialTheme.colorScheme.tertiary, 
+                        fontSize = 11.sp
+                    ) 
                 }
             }
-            Text("- ${formatRupiah(discount)}", fontSize = 12.sp, color = ErrorRed)
+            Text(
+                "- ${formatRupiah(discount)}", 
+                fontSize = 12.sp, 
+                color = MaterialTheme.colorScheme.error
+            )
         }
         if (taxAmount > 0) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Pajak:", fontSize = 12.sp, color = SlateGrey)
-                Text("+ ${formatRupiah(taxAmount)}", fontSize = 12.sp, color = AmberAccent)
+                Text("Pajak:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "+ ${formatRupiah(taxAmount)}", 
+                    fontSize = 12.sp, 
+                    color = MaterialTheme.colorScheme.tertiary
+                )
             }
         }
         if (serviceCharge > 0) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Service Charge:", fontSize = 12.sp, color = SlateGrey)
-                Text("+ ${formatRupiah(serviceCharge)}", fontSize = 12.sp, color = AmberAccent)
+                Text("Service Charge:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "+ ${formatRupiah(serviceCharge)}", 
+                    fontSize = 12.sp, 
+                    color = MaterialTheme.colorScheme.tertiary
+                )
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Total:", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-            Text(formatRupiah(totalPrice), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "Total:", 
+                fontWeight = FontWeight.ExtraBold, 
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                formatRupiah(totalPrice), 
+                fontWeight = FontWeight.ExtraBold, 
+                fontSize = 20.sp, 
+                color = MaterialTheme.colorScheme.primary
+            )
         }
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -325,7 +518,10 @@ fun PosCartSection(
             onClick = onCheckout, 
             modifier = Modifier.fillMaxWidth().height(48.dp), 
             enabled = cart.isNotEmpty(), 
-            colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), 
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ), 
             shape = RoundedCornerShape(12.dp)
         ) {
             Text("BAYAR (F2)", fontSize = 16.sp, fontWeight = FontWeight.Bold)

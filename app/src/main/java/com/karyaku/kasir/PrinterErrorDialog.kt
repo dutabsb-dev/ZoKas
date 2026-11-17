@@ -9,14 +9,14 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp // <--- IMPORT YANG HILANG
-import androidx.compose.ui.unit.sp // <--- IMPORT YANG HILANG
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun PrinterErrorDialog(onDismiss: () -> Unit) {
@@ -24,10 +24,14 @@ fun PrinterErrorDialog(onDismiss: () -> Unit) {
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed) },
+        icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
         title = { Text("Koneksi Printer Gagal", fontWeight = FontWeight.Bold) },
         text = { 
-            Text("Aplikasi tidak dapat terhubung ke printer Bluetooth.\n\nPastikan:\n1. Printer dalam keadaan menyala.\n2. Bluetooth HP aktif.\n3. Printer sudah di-pairing dengan HP ini.", fontSize = 14.sp) 
+            Text(
+                "Aplikasi tidak dapat terhubung ke printer Bluetooth.\n\nPastikan:\n1. Printer dalam keadaan menyala.\n2. Bluetooth HP aktif.\n3. Printer sudah di-pairing dengan HP ini.",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ) 
         },
         confirmButton = {
             Button(
@@ -40,14 +44,19 @@ fun PrinterErrorDialog(onDismiss: () -> Unit) {
                     }
                     onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) { 
                 Text("BUKA PENGATURAN BLUETOOTH") 
             }
         },
         dismissButton = { 
-            TextButton(onClick = onDismiss) { Text("Tutup", color = SlateGrey) } 
+            TextButton(onClick = onDismiss) {
+                Text("Tutup", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     )
 }

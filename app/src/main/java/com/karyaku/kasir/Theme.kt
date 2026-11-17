@@ -38,25 +38,63 @@ private val LightColors = lightColorScheme(
     onError = Color.White
 )
 
+// =====================================================================
+// FIX #6 — TEMA GELAP LEBIH TERANG & BERKONTRAS
+// =====================================================================
+// Perubahan utama dibanding versi lama:
+//   1. onSurfaceVariant: 0xFFCBD5E1 → 0xFFE2E8F0 (jauh lebih terang,
+//      ini yang paling sering bikin teks "tenggelam" di dark mode)
+//   2. onPrimary: EmeraldGreenDark → 0xFF022C22 (teks di tombol emerald
+//      sekarang HIJAU SANGAT TUA di atas hijau cerah → kontras tinggi)
+//   3. error: 0xFFEF4444 → 0xFFF87171 (merah lebih cerah, terbaca di dark bg)
+//   4. Tambah outline, outlineVariant, inverse*, scrim (field ini tidak
+//      dideklarasikan sebelumnya → Material 3 pakai default black → border
+//      kadang tak terlihat)
+// =====================================================================
 private val DarkColors = darkColorScheme(
-    primary = EmeraldGreenLight,
-    onPrimary = EmeraldGreenDark,
-    primaryContainer = Color(0xFF065F46),
-    onPrimaryContainer = Color.White,
+    // PRIMARY — Emerald
+    primary = EmeraldGreenLight,               // 0xFF34D399 (lebih cerah)
+    onPrimary = Color(0xFF022C22),             // Hijau sangat tua → teks di tombol emerald
+    primaryContainer = EmeraldGreenDark,
+    onPrimaryContainer = Color(0xFFA7F3D0),    // Mint terang
+
+    // SECONDARY — Slate
     secondary = SlateGreyLight,
-    onSecondary = SlateGreyDark,
-    secondaryContainer = SlateGreyDark,
-    onSecondaryContainer = SlateGreyLight,
+    onSecondary = BackgroundDark,
+    secondaryContainer = SurfaceVariantDark,
+    onSecondaryContainer = Color(0xFFE2E8F0),
+
+    // TERTIARY — Amber
     tertiary = AmberAccent,
-    onTertiary = Color.White,
-    background = BackgroundDark,
-    onBackground = Color(0xFFF8FAFC), 
-    surface = SurfaceDark,
-    onSurface = Color(0xFFF8FAFC), 
-    surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = Color(0xFFCBD5E1), 
-    error = ErrorRed,
-    onError = Color.White
+    onTertiary = Color(0xFF451A03),            // Cokelat tua (teks di tombol amber)
+    tertiaryContainer = Color(0xFF78350F),
+    onTertiaryContainer = Color(0xFFFEF3C7),   // Krim terang
+
+    // BACKGROUND & SURFACE
+    background = BackgroundDark,               // 0xFF0F172A
+    onBackground = Color(0xFFF1F5F9),          // Lebih hangat dari F8FAFC
+    surface = SurfaceDark,                     // 0xFF1E293B
+    onSurface = Color(0xFFF1F5F9),
+    surfaceVariant = SurfaceVariantDark,       // 0xFF334155
+    onSurfaceVariant = Color(0xFFE2E8F0),      // ★ KUNCI PERBAIKAN
+    surfaceTint = EmeraldGreenLight,
+
+    // INVERSE (snackbar, tooltip, dll)
+    inverseSurface = Color(0xFFE2E8F0),
+    inverseOnSurface = BackgroundDark,
+    inversePrimary = EmeraldGreenDark,
+
+    // ERROR
+    error = Color(0xFFF87171),                 // ★ Merah lebih cerah
+    onError = Color(0xFF450A0A),
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color(0xFFFECACA),
+
+    // OUTLINE & BORDER
+    outline = Color(0xFF94A3B8),               // ★ Border jadi jelas
+    outlineVariant = Color(0xFF475569),        // Divider halus
+
+    scrim = Color(0xFF000000)
 )
 
 @Composable

@@ -16,8 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,18 +26,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.BranchEntity
 import com.karyaku.kasir.data.local.UserEntity
-
-// ====================================================================
-// MODUL D-1 — DIALOG KELOLA CABANG
-// ====================================================================
-// Container:
-//   - List cabang (card per cabang)
-//   - FAB tambah cabang
-//   - Edit / delete per cabang (lewat tombol di card)
-//   - Confirm dialog sebelum delete
-// Validasi hapus (masih ada transaksi/produk) ditangani ViewModel —
-// dialog hanya menampilkan pesan error dari ViewModel.
-// ====================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,13 +42,17 @@ fun BranchManagementDialog(
     var branchToEdit by remember { mutableStateOf<BranchEntity?>(null) }
     var branchToDelete by remember { mutableStateOf<BranchEntity?>(null) }
 
-    // ================================================================
-    // PROTEKSI ROLE — hanya OWNER
-    // ================================================================
+    // PROTEKSI ROLE
     if (currentUser.role != "OWNER") {
         AlertDialog(
             onDismissRequest = onDismiss,
-            icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = ErrorRed) },
+            icon = {
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Akses Ditolak", fontWeight = FontWeight.Bold) },
             text = { Text("Hanya OWNER yang bisa mengelola cabang.") },
             confirmButton = {
@@ -72,9 +62,7 @@ fun BranchManagementDialog(
         return
     }
 
-    // ================================================================
-    // FORM TAMBAH / EDIT CABANG
-    // ================================================================
+    // FORM TAMBAH / EDIT
     if (showForm) {
         BranchFormDialog(
             branchToEdit = branchToEdit,
@@ -110,17 +98,24 @@ fun BranchManagementDialog(
         )
     }
 
-    // ================================================================
     // CONFIRM DELETE
-    // ================================================================
     if (branchToDelete != null) {
         AlertDialog(
             onDismissRequest = { branchToDelete = null },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed) },
+            icon = {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Hapus Cabang?", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Cabang '${branchToDelete!!.name}' akan dihapus permanen.")
+                    Text(
+                        "Cabang '${branchToDelete!!.name}' akan dihapus permanen.",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "Cabang yang masih punya transaksi atau produk tidak bisa dihapus. " +
@@ -139,21 +134,24 @@ fun BranchManagementDialog(
                             branchToDelete = null
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("HAPUS", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("HAPUS", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { branchToDelete = null }) { Text("Batal") }
+                TextButton(onClick = { branchToDelete = null }) { 
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                }
             }
         )
     }
 
-    // ================================================================
     // MAIN DIALOG
-    // ================================================================
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -165,7 +163,7 @@ fun BranchManagementDialog(
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
 
-                    // -------- TOP BAR --------
+                    // TOP BAR
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -186,17 +184,21 @@ fun BranchManagementDialog(
                             )
                         }
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "Tutup")
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Tutup",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
 
-                    // -------- INFO CARD --------
+                    // INFO CARD
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = EmeraldGreen.copy(alpha = 0.08f)
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -207,7 +209,7 @@ fun BranchManagementDialog(
                             Icon(
                                 Icons.Default.Info,
                                 contentDescription = null,
-                                tint = EmeraldGreen,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
@@ -223,7 +225,7 @@ fun BranchManagementDialog(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // -------- LIST CABANG --------
+                    // LIST CABANG
                     if (allBranches.isEmpty()) {
                         Box(
                             modifier = Modifier
@@ -235,14 +237,14 @@ fun BranchManagementDialog(
                                 Icon(
                                     Icons.Default.Store,
                                     contentDescription = null,
-                                    tint = SlateGrey,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     "Belum ada cabang.",
                                     fontWeight = FontWeight.Bold,
-                                    color = SlateGrey
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     "Tambahkan cabang pertama dengan tombol +",
@@ -258,7 +260,7 @@ fun BranchManagementDialog(
                                 start = 16.dp,
                                 end = 16.dp,
                                 top = 4.dp,
-                                bottom = 96.dp // ruang untuk FAB
+                                bottom = 96.dp
                             ),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -277,7 +279,7 @@ fun BranchManagementDialog(
                     }
                 }
 
-                // -------- FAB TAMBAH --------
+                // FAB
                 ExtendedFloatingActionButton(
                     onClick = {
                         branchToEdit = null
@@ -286,8 +288,8 @@ fun BranchManagementDialog(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp),
-                    containerColor = EmeraldGreen,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp),
                     icon = { Icon(Icons.Default.Add, contentDescription = null) },
                     text = { Text("Tambah Cabang", fontWeight = FontWeight.Bold) }
@@ -297,9 +299,6 @@ fun BranchManagementDialog(
     }
 }
 
-// ====================================================================
-// CARD CABANG
-// ====================================================================
 @Composable
 private fun BranchCard(
     branch: BranchEntity,
@@ -311,7 +310,7 @@ private fun BranchCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrent)
-                EmeraldGreen.copy(alpha = 0.08f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             else
                 MaterialTheme.colorScheme.surfaceVariant
         ),
@@ -319,16 +318,15 @@ private fun BranchCard(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
 
-            // Header baris 1: ikon, nama, badge
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
                             color = if (branch.isMainBranch)
-                                AmberAccent.copy(alpha = 0.15f)
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)
                             else
-                                EmeraldGreen.copy(alpha = 0.15f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -339,7 +337,10 @@ private fun BranchCard(
                         else
                             Icons.Default.Store,
                         contentDescription = null,
-                        tint = if (branch.isMainBranch) AmberAccentDark else EmeraldGreen,
+                        tint = if (branch.isMainBranch)
+                            MaterialTheme.colorScheme.tertiary
+                        else
+                            MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -358,14 +359,14 @@ private fun BranchCard(
                         if (branch.isMainBranch) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                color = AmberAccent.copy(alpha = 0.20f),
+                                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.20f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
                                     text = "UTAMA",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = AmberAccentDark,
+                                    color = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                                 )
                             }
@@ -373,7 +374,7 @@ private fun BranchCard(
                         if (isCurrent) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                color = EmeraldGreen.copy(alpha = 0.20f),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Row(
@@ -383,14 +384,17 @@ private fun BranchCard(
                                     Box(
                                         modifier = Modifier
                                             .size(5.dp)
-                                            .background(EmeraldGreen, CircleShape)
+                                            .background(
+                                                MaterialTheme.colorScheme.primary,
+                                                CircleShape
+                                            )
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
                                         text = "AKTIF",
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = EmeraldGreen
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -404,7 +408,6 @@ private fun BranchCard(
                 }
             }
 
-            // Info alamat & telepon
             if (branch.address.isNotBlank() || branch.phone.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 if (branch.address.isNotBlank()) {
@@ -444,7 +447,6 @@ private fun BranchCard(
                 }
             }
 
-            // Aksi
             Spacer(modifier = Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -455,7 +457,9 @@ private fun BranchCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(vertical = 4.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldGreen)
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
                     Icon(
                         Icons.Default.Edit,
@@ -470,7 +474,9 @@ private fun BranchCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(vertical = 4.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
                     enabled = !branch.isMainBranch
                 ) {
                     Icon(
@@ -498,9 +504,6 @@ private fun BranchCard(
     }
 }
 
-// ====================================================================
-// FORM TAMBAH / EDIT CABANG
-// ====================================================================
 @Composable
 private fun BranchFormDialog(
     branchToEdit: BranchEntity?,
@@ -520,7 +523,7 @@ private fun BranchFormDialog(
             Icon(
                 imageVector = if (isEdit) Icons.Default.Edit else Icons.Default.Add,
                 contentDescription = null,
-                tint = EmeraldGreen
+                tint = MaterialTheme.colorScheme.primary
             )
         },
         title = {
@@ -553,7 +556,7 @@ private fun BranchFormDialog(
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
-                        color = ErrorRed,
+                        color = MaterialTheme.colorScheme.error,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(start = 4.dp, top = 2.dp)
                     )
@@ -616,12 +619,14 @@ private fun BranchFormDialog(
                     }
                     onSave(trimmedName, address.trim(), phone.trim())
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = if (isEdit) "SIMPAN" else "TAMBAH",
-                    color = Color.White,
                     fontWeight = FontWeight.Bold
                 )
             }

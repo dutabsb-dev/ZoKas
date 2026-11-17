@@ -14,16 +14,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.karyaku.kasir.data.local.RawMaterialEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,7 +63,12 @@ fun RawMaterialManagementDialog(
 
         AlertDialog(
             onDismissRequest = { showAddForm = false; materialToEdit = null },
-            title = { Text(if (isEdit) "Edit Bahan Baku" else "Tambah Bahan Baku", fontWeight = FontWeight.Bold) },
+            title = { 
+                Text(
+                    if (isEdit) "Edit Bahan Baku" else "Tambah Bahan Baku", 
+                    fontWeight = FontWeight.Bold
+                ) 
+            },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
@@ -141,12 +143,17 @@ fun RawMaterialManagementDialog(
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(12.dp)
-                ) { Text(if (isEdit) "SIMPAN" else "TAMBAH", color = Color.White) }
+                ) { Text(if (isEdit) "SIMPAN" else "TAMBAH") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddForm = false; materialToEdit = null }) { Text("Batal") }
+                TextButton(onClick = { showAddForm = false; materialToEdit = null }) { 
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                }
             }
         )
     }
@@ -154,8 +161,20 @@ fun RawMaterialManagementDialog(
     if (materialToDelete != null) {
         AlertDialog(
             onDismissRequest = { materialToDelete = null },
+            icon = {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
             title = { Text("Hapus Bahan Baku?") },
-            text = { Text("Bahan '${materialToDelete!!.name}' akan dihapus permanen. Resep (BOM) yang menggunakan bahan ini mungkin akan error.") },
+            text = { 
+                Text(
+                    "Bahan '${materialToDelete!!.name}' akan dihapus permanen. Resep (BOM) yang menggunakan bahan ini mungkin akan error.",
+                    color = MaterialTheme.colorScheme.onSurface
+                ) 
+            },
             confirmButton = {
                 Button(
                     onClick = {
@@ -164,10 +183,17 @@ fun RawMaterialManagementDialog(
                             materialToDelete = null
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                ) { Text("HAPUS", color = Color.White) }
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) { Text("HAPUS") }
             },
-            dismissButton = { TextButton(onClick = { materialToDelete = null }) { Text("Batal") } }
+            dismissButton = { 
+                TextButton(onClick = { materialToDelete = null }) { 
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                } 
+            }
         )
     }
 
@@ -176,84 +202,136 @@ fun RawMaterialManagementDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Kelola Bahan Baku", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("Atur stok dan harga per satuan", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Tutup") }
-                }
-
-                if (rawMaterials.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Belum ada bahan baku.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp, bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        items(rawMaterials, key = { it.id }) { material ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(material.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                            Text("Stok: ${material.stock} ${material.unit}", fontSize = 12.sp, color = EmeraldGreen)
-                                            Text("Harga: ${formatRupiah(material.costPerUnit)} / ${material.unit}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                        // Tombol Aksi
-                                        IconButton(onClick = { materialToEdit = material }) {
-                                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AmberAccent, modifier = Modifier.size(20.dp))
-                                        }
-                                        IconButton(onClick = { materialToDelete = material }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = ErrorRed, modifier = Modifier.size(20.dp))
-                                        }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        // Restock Button
-                                        OutlinedButton(
-                                            onClick = {
-                                                // Logika restock cepat (tambah 10 unit default, atau minta input)
-                                                // Untuk simplifikasi, kita pakai dialog prompt
-                                                // Di aplikasi nyata, ini sebaiknya pakai AlertDialog input angka
-                                                viewModel.restockRawMaterial(material.id, 10.0, "Restock manual +10")
-                                                Toast.makeText(context, "+10 ${material.unit} ditambahkan", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(vertical = 4.dp)
-                                        ) {
-                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Tambah +10", fontSize = 11.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Kelola Bahan Baku", 
+                                style = MaterialTheme.typography.titleLarge, 
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Atur stok dan harga per satuan", 
+                                fontSize = 12.sp, 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = onDismiss) { 
+                            Icon(
+                                Icons.Default.Close, 
+                                contentDescription = "Tutup",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            ) 
+                        }
+                    }
+
+                    if (rawMaterials.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                "Belum ada bahan baku.", 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp).copy(bottom = 96.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(rawMaterials, key = { it.id }) { material ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    material.name, 
+                                                    fontWeight = FontWeight.Bold, 
+                                                    fontSize = 16.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    "Stok: ${material.stock} ${material.unit}", 
+                                                    fontSize = 12.sp, 
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Text(
+                                                    "Harga: ${formatRupiah(material.costPerUnit)} / ${material.unit}", 
+                                                    fontSize = 11.sp, 
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            IconButton(onClick = { materialToEdit = material }) {
+                                                Icon(
+                                                    Icons.Default.Edit, 
+                                                    contentDescription = "Edit", 
+                                                    tint = MaterialTheme.colorScheme.tertiary, 
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            IconButton(onClick = { materialToDelete = material }) {
+                                                Icon(
+                                                    Icons.Default.Delete, 
+                                                    contentDescription = "Hapus", 
+                                                    tint = MaterialTheme.colorScheme.error, 
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
                                         }
                                         
-                                        // Waste Button
-                                        OutlinedButton(
-                                            onClick = {
-                                                viewModel.wasteRawMaterial(material.id, 1.0, "Waste/Basi -1")
-                                                Toast.makeText(context, "-1 ${material.unit} (Waste)", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(8.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
-                                            contentPadding = PaddingValues(vertical = 4.dp)
-                                        ) {
-                                            Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(14.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Kurangi -1", fontSize = 11.sp)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    viewModel.restockRawMaterial(material.id, 10.0, "Restock manual +10")
+                                                    Toast.makeText(context, "+10 ${material.unit} ditambahkan", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(vertical = 4.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.primary
+                                                )
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Add, 
+                                                    contentDescription = null, 
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Tambah +10", fontSize = 11.sp)
+                                            }
+                                            
+                                            OutlinedButton(
+                                                onClick = {
+                                                    viewModel.wasteRawMaterial(material.id, 1.0, "Waste/Basi -1")
+                                                    Toast.makeText(context, "-1 ${material.unit} (Waste)", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.error
+                                                ),
+                                                contentPadding = PaddingValues(vertical = 4.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Remove, 
+                                                    contentDescription = null, 
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Kurangi -1", fontSize = 11.sp)
+                                            }
                                         }
                                     }
                                 }
@@ -261,26 +339,20 @@ fun RawMaterialManagementDialog(
                         }
                     }
                 }
-            }
-        }
-    }
 
-    if (showAddForm || materialToEdit != null) {
-        // Form sudah ditangani di atas
-    }
-    
-    // Floating Action Button
-    Box(modifier = Modifier.fillMaxSize()) {
-         ExtendedFloatingActionButton(
-            onClick = { showAddForm = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            containerColor = EmeraldGreen,
-            contentColor = Color.White,
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Tambah Bahan", fontWeight = FontWeight.Bold)
+                // FAB
+                ExtendedFloatingActionButton(
+                    onClick = { showAddForm = true },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Tambah Bahan", fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }

@@ -37,6 +37,15 @@ import com.karyaku.kasir.data.local.UserEntity
 import com.karyaku.kasir.data.local.ShiftEntity
 import kotlinx.coroutines.launch
 
+// ====================================================================
+// SESI 3 (#4) & SESI 4 (#2) — PosScreen.kt:
+//   1. Modul CRM ON/OFF: menyembunyikan akses pelanggan jika nonaktif.
+//   2. Akses Cepat Bahan Baku & Resep BOM langsung dari ProductFormBottomSheet
+//      dan PosActionMenuBottomSheet (melalui state showRawMaterialDialog
+//      dan productToManageBom) tanpa harus ke Pengaturan -> Modul Toko.
+//   3. Warna 100% adaptif Material 3.
+// ====================================================================
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosScreen(
@@ -88,9 +97,14 @@ fun PosScreen(
     val uniqueTransferAmount by viewModel.uniqueTransferAmount.collectAsStateWithLifecycle()
     val isTransferPaid by viewModel.isTransferPaid.collectAsStateWithLifecycle()
 
+    val isCrmEnabled = settingsManager.enableCrmModule
+
     LaunchedEffect(Unit) {
         viewModel.setTaxPercent(settingsManager.taxPercent)
         viewModel.setServiceChargePercent(settingsManager.serviceChargePercent)
+        if (!isCrmEnabled && selectedCustomer != null) {
+            viewModel.setCustomer(null)
+        }
     }
 
     var showCartOnPhone by rememberSaveable { mutableStateOf(false) }
@@ -107,6 +121,7 @@ fun PosScreen(
     var productToEditSerial by remember { mutableStateOf<ProductEntity?>(null) }
     var productToAssignStaff by remember { mutableStateOf<ProductEntity?>(null) }
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
+    var showRawMaterialDialog by remember { mutableStateOf(false) }
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
     var showOpenShiftDialog by remember { mutableStateOf(false) }
@@ -162,8 +177,8 @@ fun PosScreen(
         }
     }
 
-    LaunchedEffect(activeShift, showShiftReport) { 
-        if (activeShift == null && showShiftReport == null) showOpenShiftDialog = true 
+    LaunchedEffect(activeShift, showShiftReport) {
+        if (activeShift == null && showShiftReport == null) showOpenShiftDialog = true
     }
 
     if (showPrinterErrorDialog) PrinterErrorDialog { showPrinterErrorDialog = false }
@@ -180,7 +195,7 @@ fun PosScreen(
                 when (event.key) {
                     Key.F1 -> { searchFocusRequester.requestFocus(); true }
                     Key.F2 -> { if (cart.isNotEmpty()) { showPaymentSheet = true; true } else false }
-                    Key.F3 -> { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); true } else false }
+                    Key.F3 -> { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); true } else false }
                     else -> false
                 }
             } else false
@@ -198,14 +213,14 @@ fun PosScreen(
                     else viewModel.generateQrisPayment(totalToPay, payload)
                 },
                 onGenerateTransfer = { viewModel.generateTransferPayment(totalToPay) },
-                onDismiss = { showPaymentSheet = false; viewModel.resetQrisPayment(); viewModel.resetTransferPayment() }, 
+                onDismiss = { showPaymentSheet = false; viewModel.resetQrisPayment(); viewModel.resetTransferPayment() },
                 onConfirmPayment = { cashReceived: Long, method: String ->
                     val currentCartSnapshot = if (isSplitBillMode) cart.filter { it.isSelectedForSplit } else cart
 
                     viewModel.processPayment(
                         cashReceived = cashReceived, userId = currentUser.id, userName = currentUser.name,
                         isSplitBill = isSplitBillMode, method = method, maxDiscountCap = settingsManager.maxDiscountCap,
-                        birthdayDiscountPercent = if (settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0,
+                        birthdayDiscountPercent = if (isCrmEnabled && settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0,
                         taxPercent = taxPercent, serviceChargePercent = serviceChargePercent,
                         manualDiscount = discount, voucherDiscount = voucherDiscount, voucherCode = appliedVoucher
                     ) { newTransaction ->
@@ -213,7 +228,7 @@ fun PosScreen(
                         if (!isSplitBillMode) showCartOnPhone = false
                         completedTransaction = newTransaction
                         if (isSplitBillMode) isSplitBillMode = false
-                        
+
                         viewModel.printReceipt(context, newTransaction, settingsManager, currentCartSnapshot)
                     }
                 }
@@ -222,7 +237,14 @@ fun PosScreen(
 
         if (showProductForm) {
             ProductFormBottomSheet(
-                productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null }, 
+                productToEdit = productToEdit,
+                onDismiss = { showProductForm = false; productToEdit = null },
+                onManageBom = { prod ->
+                    productToManageBom = prod
+                },
+                onManageRawMaterial = {
+                    showRawMaterialDialog = true
+                },
                 onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty ->
                     if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty, currentUser.id, currentUser.name)
                     else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty), currentUser.id, currentUser.name)
@@ -233,11 +255,13 @@ fun PosScreen(
 
         if (showActionDialogFor != null) {
             PosActionMenuBottomSheet(
-                product = showActionDialogFor!!, onDismiss = { showActionDialogFor = null },
+                product = showActionDialogFor!!,
+                onDismiss = { showActionDialogFor = null },
                 onEdit = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null },
                 onRestock = { productToRestock = showActionDialogFor; showActionDialogFor = null },
                 onWaste = { productToWaste = showActionDialogFor; showActionDialogFor = null },
                 onBom = { productToManageBom = showActionDialogFor; showActionDialogFor = null },
+                onRawMaterial = { showRawMaterialDialog = true; showActionDialogFor = null },
                 onSaveBarcode = { val product = showActionDialogFor!!; showActionDialogFor = null; saveBarcodeToGallery(context, product) },
                 onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }
             )
@@ -250,7 +274,7 @@ fun PosScreen(
                 onDismiss = { productToSelectMatrix = null }
             )
         }
-        
+
         if (productToSelectVariant != null) {
             ProductVariantDialog(
                 product = productToSelectVariant!!,
@@ -258,18 +282,18 @@ fun PosScreen(
                 onDismiss = { productToSelectVariant = null }
             )
         }
-        
+
         if (showMergeOrderDialog) {
             MergeTableDialog(
                 onMerge = { tableA: String, tableB: String -> viewModel.mergeOrder(tableA, tableB); showMergeOrderDialog = false },
                 onDismiss = { showMergeOrderDialog = false }
             )
         }
-        
+
         if (productToEditSerial != null) {
             val currentSerial = cart.find { item -> item.product.id == productToEditSerial!!.id }?.serialNumber ?: ""
             SerialNumberDialog(
-                product = productToEditSerial!!, 
+                product = productToEditSerial!!,
                 currentSerial = currentSerial,
                 onSave = { serial: String -> viewModel.updateCartItemSerial(productToEditSerial!!, cart.find { item -> item.product.id == productToEditSerial!!.id }?.selectedVariation ?: "", serial); productToEditSerial = null },
                 onDismiss = { productToEditSerial = null }
@@ -286,21 +310,31 @@ fun PosScreen(
 
         if (productToManageBom != null) {
             BomManagementDialog(
-                product = productToManageBom!!, rawMaterials = rawMaterials, viewModel = viewModel,
+                product = productToManageBom!!,
+                rawMaterials = rawMaterials,
+                viewModel = viewModel,
                 onDismiss = { productToManageBom = null }
             )
         }
-        
+
+        if (showRawMaterialDialog) {
+            RawMaterialManagementDialog(
+                rawMaterials = rawMaterials,
+                viewModel = viewModel,
+                onDismiss = { showRawMaterialDialog = false }
+            )
+        }
+
         if (showShiftReport != null) {
             ShiftReportDialog(shift = showShiftReport!!, onLogout = { showShiftReport = null; onLogout() })
         }
-        
+
         if (showPinForDiscount) {
             PinDiscountDialog(
                 onVerify = { pin: String ->
                     val supervisor = users.find { user -> user.pin == hashPin(pin) && (user.role == "OWNER" || user.role == "SUPERVISOR" || user.id == currentUser.id) }
                     if (supervisor != null) { showPinForDiscount = false; showDiscountDialog = true } else Toast.makeText(context, "PIN Salah atau Akses Ditolak!", Toast.LENGTH_SHORT).show()
-                }, 
+                },
                 onDismiss = { showPinForDiscount = false }
             )
         }
@@ -316,14 +350,14 @@ fun PosScreen(
                             if (success) Toast.makeText(context, "Laci berhasil dibuka!", Toast.LENGTH_SHORT).show()
                             else Toast.makeText(context, "Gagal buka laci. Periksa printer.", Toast.LENGTH_LONG).show()
                             viewModel.logCashDrawerOpen(currentUser)
-                            showDrawerConfirm = false 
+                            showDrawerConfirm = false
                         }
                     } else {
                         Toast.makeText(context, "Printer belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
                         viewModel.logCashDrawerOpen(currentUser)
                         showDrawerConfirm = false
                     }
-                }, 
+                },
                 onDismiss = { showDrawerConfirm = false }
             )
         }
@@ -347,32 +381,32 @@ fun PosScreen(
 
         if (showOpenShiftDialog) {
             OpenShiftDialog(
-                modalAwal = modalAwal, 
+                modalAwal = modalAwal,
                 onModalChange = { input: String -> if (input.length <= 10) modalAwal = input },
                 onConfirm = { viewModel.openShift(currentUser, modalAwal.toLongOrNull() ?: 0L); showOpenShiftDialog = false }
             )
         }
 
-        if (showCloseShiftDialog && activeShift != null) { 
+        if (showCloseShiftDialog && activeShift != null) {
             CloseShiftWizardDialog(
                 shift = activeShift!!, transactions = transactions, cashFlows = cashFlows,
                 onDismiss = { showCloseShiftDialog = false },
-                onConfirm = { uangFisik: Long, note: String -> 
-                    viewModel.closeShift(currentUser, uangFisik, note) { closedShift -> 
+                onConfirm = { uangFisik: Long, note: String ->
+                    viewModel.closeShift(currentUser, uangFisik, note) { closedShift ->
                         showCloseShiftDialog = false
-                        showShiftReport = closedShift 
-                    } 
+                        showShiftReport = closedShift
+                    }
                 }
-            ) 
+            )
         }
-        
+
         if (showCashFlowDialog) {
             CashFlowDialog(
                 onSave = { type: String, amount: Long, note: String -> viewModel.addCashFlow(type, amount, note, currentUser); showCashFlowDialog = false },
                 onDismiss = { showCashFlowDialog = false }
             )
         }
-        
+
         if (showDiscountDialog) {
             ManualDiscountDialog(
                 currentDiscount = discount,
@@ -381,13 +415,13 @@ fun PosScreen(
             )
         }
 
-        if (showCustomerDialog) {
+        if (showCustomerDialog && isCrmEnabled) {
             CustomerDialogV2(
                 viewModel = viewModel,
                 customers = customers, selectedCustomer = selectedCustomer,
-                onSelect = { customer: CustomerEntity? -> 
+                onSelect = { customer: CustomerEntity? ->
                     viewModel.setCustomer(customer)
-                    showCustomerDialog = false 
+                    showCustomerDialog = false
                 },
                 onAddCustomer = { name: String, phone: String, birthDate: Long -> viewModel.addCustomer(name, phone, birthDate) },
                 onRedeemPoints = { points: Int -> viewModel.redeemPoints(points) },
@@ -402,7 +436,7 @@ fun PosScreen(
                 onDismiss = { showTableSelector = false }
             )
         }
-        
+
         if (showVoucherDialog) {
             VoucherDialog(
                 currentCode = appliedVoucher,
@@ -411,7 +445,7 @@ fun PosScreen(
                 onDismiss = { showVoucherDialog = false }
             )
         }
-        
+
         if (showHoldDialog) {
             HoldOrderDialog(
                 holdOrders = holdOrders,
@@ -422,9 +456,9 @@ fun PosScreen(
 
         if (completedTransaction != null) {
             ReceiptDialog(
-                transaction = completedTransaction!!, viewModel = viewModel, 
-                storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "", 
-                storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "", 
+                transaction = completedTransaction!!, viewModel = viewModel,
+                storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "",
+                storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "",
                 settingsManager = settingsManager, onDismiss = { completedTransaction = null }
             )
         }
@@ -442,42 +476,42 @@ fun PosScreen(
                 val isWideScreen = maxWidth > 600.dp || isLandscape
                 if (isWideScreen) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) { 
+                        Box(modifier = Modifier.weight(0.6f).fillMaxHeight()) {
                             PosProductSection(
-                                products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                                onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) }, 
-                                onProductClick = { prod: ProductEntity -> 
+                                products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
+                                onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) },
+                                onProductClick = { prod: ProductEntity ->
                                     if (prod.variations.contains("|")) productToSelectMatrix = prod
-                                    else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
-                                    else viewModel.addToCart(prod) 
-                                }, 
-                                onProductLongClick = { prod: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
+                                    else if (prod.variations.isNotEmpty()) productToSelectVariant = prod
+                                    else viewModel.addToCart(prod)
+                                },
+                                onProductLongClick = { prod: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = prod },
                                 onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                                 onCameraScanClick = {
                                     val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
                                     barcodeLauncher.launch(options)
                                 },
                                 searchFocusRequester = searchFocusRequester
-                            ) 
+                            )
                         }
-                        VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                        VerticalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.outlineVariant)
                         Box(modifier = Modifier.weight(0.4f).fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
                             PosCartSection(
-                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice, 
-                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, 
-                                selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher, 
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
+                                selectedCustomer = if (isCrmEnabled) selectedCustomer else null, pointsUsed = pointsUsed, selectedTable = selectedTable,
+                                selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher,
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                enableCrm = settingsManager.enableCrmModule, // PARAMETER BARU UNTUK HIDE CRM
+                                enableCrm = isCrmEnabled,
                                 onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
-                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
-                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
-                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) }, 
-                                onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) }, 
-                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
+                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
+                                onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
+                                onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },
+                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } },
                                 onCheckout = { showPaymentSheet = true }, onEditNotes = { product: ProductEntity -> productToEditNotes = product },
                                 onEditSerial = { product: ProductEntity -> productToEditSerial = product }, onAssignStaff = { product: ProductEntity -> productToAssignStaff = product },
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
@@ -489,27 +523,27 @@ fun PosScreen(
                 } else {
                     if (showCartOnPhone) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { 
+                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                                 Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) 
+                                Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
                             PosCartSection(
-                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice, 
-                                selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable, 
-                                selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher, 
+                                cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
+                                selectedCustomer = if (isCrmEnabled) selectedCustomer else null, pointsUsed = pointsUsed, selectedTable = selectedTable,
+                                selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher,
                                 voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                 enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
                                 customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                enableCrm = settingsManager.enableCrmModule, // PARAMETER BARU UNTUK HIDE CRM
+                                enableCrm = isCrmEnabled,
                                 onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
-                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) }, 
-                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true }, 
-                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } }, 
-                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true }, 
-                                onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) }, 
-                                onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) }, 
-                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } }, 
+                                onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
+                                onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
+                                onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
+                                onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
+                                onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },
+                                onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } },
                                 onCheckout = { showPaymentSheet = true }, onEditNotes = { product: ProductEntity -> productToEditNotes = product },
                                 onEditSerial = { product: ProductEntity -> productToEditSerial = product }, onAssignStaff = { product: ProductEntity -> productToAssignStaff = product },
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
@@ -519,14 +553,14 @@ fun PosScreen(
                         }
                     } else {
                         PosProductSection(
-                            products = filteredProducts, categories = categories, selectedCategory = selectedCategory, 
-                            onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) }, 
-                            onProductClick = { prod: ProductEntity -> 
+                            products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
+                            onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) },
+                            onProductClick = { prod: ProductEntity ->
                                 if (prod.variations.contains("|")) productToSelectMatrix = prod
-                                else if (prod.variations.isNotEmpty()) productToSelectVariant = prod 
-                                else viewModel.addToCart(prod) 
-                            }, 
-                            onProductLongClick = { prod: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = prod }, 
+                                else if (prod.variations.isNotEmpty()) productToSelectVariant = prod
+                                else viewModel.addToCart(prod)
+                            },
+                            onProductLongClick = { prod: ProductEntity -> if (currentUser.role == "OWNER") showActionDialogFor = prod },
                             onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                             onCameraScanClick = {
                                 val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
@@ -538,13 +572,13 @@ fun PosScreen(
                 }
             }
         }
-        
+
         if (cart.isNotEmpty() && !showCartOnPhone && isPhone && !isLandscape) {
             ExtendedFloatingActionButton(
                 onClick = { showCartOnPhone = true },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                containerColor = EmeraldGreen,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")

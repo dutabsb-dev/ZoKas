@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -96,7 +95,6 @@ fun ReceiptDialog(
 
     val subtotalItems = items.sumOf { it.subtotal }
     
-    // Rakit text menggunakan Formatter (Wajib rapi)
     val strukText = ReceiptFormatter.buildReceipt(
         storeName = storeName,
         storeAddress = storeAddress,
@@ -121,23 +119,45 @@ fun ReceiptDialog(
     if (showShareFallbackDialog) {
         AlertDialog(
             onDismissRequest = { showShareFallbackDialog = false },
-            icon = { Icon(Icons.Default.Share, contentDescription = null, tint = AmberAccent) },
-            title = { Text("Gagal Membagikan File") },
-            text = { Text("Sistem gagal membagikan PDF. Anda dapat menyalin teks struk di bawah ini dan mengirimkannya secara manual.") },
-            confirmButton = {
-                Button(onClick = {
-                    try {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("Struk ZoKas", textToShare)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, "Teks struk disalin ke Clipboard", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Gagal menyalin teks", Toast.LENGTH_SHORT).show()
-                    }
-                    showShareFallbackDialog = false
-                }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen), shape = RoundedCornerShape(12.dp)) { Text("SALIN TEKS") }
+            icon = {
+                Icon(
+                    Icons.Default.Share, 
+                    contentDescription = null, 
+                    tint = MaterialTheme.colorScheme.tertiary
+                )
             },
-            dismissButton = { TextButton(onClick = { showShareFallbackDialog = false }) { Text("Tutup") } }
+            title = { Text("Gagal Membagikan File") },
+            text = { 
+                Text(
+                    "Sistem gagal membagikan PDF. Anda dapat menyalin teks struk di bawah ini dan mengirimkannya secara manual.",
+                    color = MaterialTheme.colorScheme.onSurface
+                ) 
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        try {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("Struk ZoKas", textToShare)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "Teks struk disalin ke Clipboard", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Gagal menyalin teks", Toast.LENGTH_SHORT).show()
+                        }
+                        showShareFallbackDialog = false
+                    }, 
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ), 
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("SALIN TEKS") }
+            },
+            dismissButton = { 
+                TextButton(onClick = { showShareFallbackDialog = false }) { 
+                    Text("Tutup", color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                } 
+            }
         )
     }
 
@@ -190,17 +210,24 @@ fun ReceiptDialog(
                     },
                     enabled = isItemsLoaded && !isGeneratingFile,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isGeneratingFile) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary, 
+                            modifier = Modifier.size(20.dp), 
+                            strokeWidth = 2.dp
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("MEMPROSES PDF...", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("MEMPROSES PDF...", fontWeight = FontWeight.Bold)
                     } else {
                         Icon(Icons.Default.Share, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("KIRIM STRUK (PDF)", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("KIRIM STRUK (PDF)", fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -229,10 +256,13 @@ fun ReceiptDialog(
                     },
                     enabled = isItemsLoaded,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("CETAK STRUK THERMAL", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("CETAK STRUK THERMAL", fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -261,12 +291,21 @@ fun ReceiptDialog(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = EmeraldGreen)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp), 
+                            strokeWidth = 2.dp, 
+                            color = MaterialTheme.colorScheme.primary
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Memuat rincian...", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = SlateGrey)
+                        Text(
+                            "Memuat rincian...", 
+                            fontFamily = FontFamily.Monospace, 
+                            fontSize = 12.sp, 
+                            color = Color(0xFF64748B)  // Di atas kertas putih, SlateGrey aman
+                        )
                     }
                 } else {
-                    // TAMPILAN STRUK (Menggunakan hasil dari ReceiptFormatter)
+                    // TAMPILAN STRUK — teks hitam di atas kertas putih, TIDAK diubah
                     Text(
                         text = strukText,
                         fontFamily = FontFamily.Monospace,
@@ -287,14 +326,12 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
     val document = PdfDocument()
     val lines = strukText.lines()
     
-    // Ukuran kertas disesuaikan agar ramping seperti struk (contoh: 300x...)
     val pageWidth = 350
     val fontSize = 12f
     val lineHeight = 16f
     val padding = 20f
     val logoHeight = if (logoFile != null && logoFile.exists()) 100f else 0f
     
-    // Hitung tinggi halaman secara dinamis (tidak akan crash meskipun sangat panjang)
     val pageHeight = ((lines.size * lineHeight) + (padding * 2) + logoHeight + 50).toInt()
 
     val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
@@ -310,7 +347,6 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
 
     var currentY = padding
 
-    // Gambar Logo jika ada
     if (logoFile != null && logoFile.exists()) {
         try {
             val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
@@ -330,7 +366,6 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
         }
     }
 
-    // Tulis teks struk
     for (line in lines) {
         canvas.drawText(line, padding, currentY, paint)
         currentY += lineHeight
@@ -362,7 +397,6 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
 
-    // Cetak Logo jika ada
     if (logoFile != null && logoFile.exists()) {
         try {
             val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
@@ -382,11 +416,9 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
         }
     }
 
-    // Cetak Teks Struk (Teks ini sudah di-wrap oleh ReceiptFormatter)
     output.write(EscPosCommands.ALIGN_LEFT)
     output.write(strukText.toByteArray(charset("GBK"))) 
     
-    // Perintah potong kertas
     output.write(EscPosCommands.FEED_3)
     output.write(EscPosCommands.CUT_PAPER)
     

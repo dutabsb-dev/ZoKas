@@ -1,7 +1,6 @@
 package com.karyaku.kasir
 
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,17 +35,16 @@ fun AttendanceDialog(
     val context = LocalContext.current
     val activity = LocalActivity.current as? FragmentActivity
     val attendanceList by viewModel.attendanceList.collectAsStateWithLifecycle()
-    
+
     val dateFormat = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     val todayStr = dateFormat.format(Date())
-    
+
     val todayAttendance = attendanceList.find { it.userId == currentUser.id && it.date == todayStr }
-    
+
     var selectedTab by remember { mutableStateOf(0) }
     var showCheckOutDialog by remember { mutableStateOf(false) }
 
-    // Dialog Verifikasi Absen Pulang
     if (showCheckOutDialog) {
         CheckOutVerificationDialog(
             user = currentUser,
@@ -66,7 +63,11 @@ fun AttendanceDialog(
         title = { Text("Absensi Karyawan", fontWeight = FontWeight.Bold) },
         text = {
             Column(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp)) {
-                TabRow(selectedTabIndex = selectedTab, containerColor = MaterialTheme.colorScheme.surface, contentColor = EmeraldGreen) {
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Absen Saya") })
                     if (currentUser.role == "OWNER") {
                         Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Rekap Hari Ini") })
@@ -76,75 +77,141 @@ fun AttendanceDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (selectedTab == 0) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Halo, ${currentUser.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Tanggal: $todayStr", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text(
+                            "Tanggal: $todayStr",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
 
                         if (todayAttendance == null) {
-                            Icon(Icons.Default.Login, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(64.dp))
+                            Icon(
+                                Icons.Default.Login,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(64.dp)
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("Anda belum absen hari ini.", fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
                                 onClick = {
-                                    viewModel.checkIn(currentUser) { success, msg ->
+                                    viewModel.checkIn(currentUser) { _, msg ->
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
                                 shape = RoundedCornerShape(12.dp)
                             ) { Text("ABSEN MASUK", fontWeight = FontWeight.Bold) }
                         } else if (todayAttendance?.checkOutTime == null) {
-                            Icon(Icons.Default.Timer, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(64.dp))
+                            Icon(
+                                Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(64.dp)
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Masuk pada: ${timeFormat.format(Date(todayAttendance!!.checkInTime))}", fontWeight = FontWeight.Bold)
-                            Text("Anda sedang bekerja.", fontSize = 12.sp, color = EmeraldGreen)
+                            Text(
+                                "Masuk pada: ${timeFormat.format(Date(todayAttendance!!.checkInTime))}",
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Anda sedang bekerja.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                             Spacer(modifier = Modifier.height(16.dp))
-                            
-                            // TOMBOL ABSEN PULANG DENGAN VERIFIKASI
+
                             Button(
                                 onClick = { showCheckOutDialog = true },
                                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                ),
                                 shape = RoundedCornerShape(12.dp)
-                            ) { Text("ABSEN PULANG", fontWeight = FontWeight.Bold, color = Color.White) }
-                            
+                            ) { Text("ABSEN PULANG", fontWeight = FontWeight.Bold) }
                         } else {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(64.dp))
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(64.dp)
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("Absensi Selesai!", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text("Masuk: ${timeFormat.format(Date(todayAttendance!!.checkInTime))}", fontSize = 14.sp)
-                            Text("Pulang: ${timeFormat.format(Date(todayAttendance!!.checkOutTime!!))}", fontSize = 14.sp)
+                            Text(
+                                "Masuk: ${timeFormat.format(Date(todayAttendance!!.checkInTime))}",
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                "Pulang: ${timeFormat.format(Date(todayAttendance!!.checkOutTime!!))}",
+                                fontSize = 14.sp
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
                             val durationMs = todayAttendance!!.checkOutTime!! - todayAttendance!!.checkInTime
                             val hours = durationMs / (1000 * 60 * 60)
                             val minutes = (durationMs / (1000 * 60)) % 60
-                            Text("Total Jam Kerja: $hours jam $minutes menit", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Total Jam Kerja: $hours jam $minutes menit",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 } else {
                     val todaysRecords = attendanceList.filter { it.date == todayStr }
                     if (todaysRecords.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Belum ada karyawan yang absen hari ini.", textAlign = TextAlign.Center)
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Belum ada karyawan yang absen hari ini.",
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(todaysRecords) { record ->
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Text(record.userName, fontWeight = FontWeight.Bold)
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Masuk: ${timeFormat.format(Date(record.checkInTime))}", fontSize = 12.sp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                "Masuk: ${timeFormat.format(Date(record.checkInTime))}",
+                                                fontSize = 12.sp
+                                            )
                                             if (record.checkOutTime != null) {
-                                                Text("Pulang: ${timeFormat.format(Date(record.checkOutTime!!))}", fontSize = 12.sp)
+                                                Text(
+                                                    "Pulang: ${timeFormat.format(Date(record.checkOutTime!!))}",
+                                                    fontSize = 12.sp
+                                                )
                                             } else {
-                                                Text("Sedang Bekerja", fontSize = 12.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                                                Text(
+                                                    "Sedang Bekerja",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
                                             }
                                         }
                                     }
@@ -173,16 +240,27 @@ fun CheckOutVerificationDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = ErrorRed) },
+        icon = {
+            Icon(
+                Icons.Default.Lock,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
         title = { Text("Verifikasi Absen Pulang", fontWeight = FontWeight.Bold) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Untuk mencegah titip absen, silakan verifikasi identitas Anda.", fontSize = 12.sp, textAlign = TextAlign.Center)
+                Text(
+                    "Untuk mencegah titip absen, silakan verifikasi identitas Anda.",
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 OutlinedTextField(
                     value = pin,
-                    onValueChange = { 
+                    onValueChange = {
                         if (it.length <= 6 && it.all { c -> c.isDigit() }) {
                             pin = it
                             errorMessage = ""
@@ -196,15 +274,24 @@ fun CheckOutVerificationDialog(
                     isError = errorMessage.isNotEmpty(),
                     shape = RoundedCornerShape(12.dp)
                 )
-                
+
                 if (errorMessage.isNotEmpty()) {
-                    Text(errorMessage, color = ErrorRed, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text(
+                        errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 if (user.biometricKey.isNotBlank() && activity != null) {
-                    Text("Atau gunakan Sidik Jari:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Atau gunakan Sidik Jari:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = {
@@ -221,11 +308,25 @@ fun CheckOutVerificationDialog(
                         enabled = !isProcessing,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldGreen)
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
                     ) {
-                        Icon(Icons.Default.Fingerprint, contentDescription = null, tint = EmeraldGreen)
+                        Icon(
+                            Icons.Default.Fingerprint,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("SCAN SIDIK JARI", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                        Text(
+                            "SCAN SIDIK JARI",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -248,9 +349,12 @@ fun CheckOutVerificationDialog(
                     }
                 },
                 enabled = !isProcessing && pin.length == 6,
-                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
                 shape = RoundedCornerShape(12.dp)
-            ) { Text("KONFIRMASI PULANG", color = Color.White) }
+            ) { Text("KONFIRMASI PULANG") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Batal") }
@@ -267,7 +371,7 @@ fun PayrollManagementDialog(
     val context = LocalContext.current
     val users by viewModel.users.collectAsStateWithLifecycle()
     val payrollList by viewModel.payrollList.collectAsStateWithLifecycle()
-    
+
     val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     var selectedTab by remember { mutableStateOf(0) }
 
@@ -276,7 +380,11 @@ fun PayrollManagementDialog(
         title = { Text("Manajemen Gaji (Payroll)", fontWeight = FontWeight.Bold) },
         text = {
             Column(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp)) {
-                TabRow(selectedTabIndex = selectedTab, containerColor = MaterialTheme.colorScheme.surface, contentColor = EmeraldGreen) {
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Karyawan") })
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Riwayat Gaji") })
                 }
@@ -287,40 +395,79 @@ fun PayrollManagementDialog(
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         val employees = users.filter { it.role != "OWNER" }
                         if (employees.isEmpty()) {
-                            item { Text("Belum ada data karyawan.") }
+                            item {
+                                Text(
+                                    "Belum ada data karyawan.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         items(employees) { emp ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(emp.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
                                         Text("Gaji Pokok:", fontSize = 12.sp)
-                                        Text(formatRupiah(emp.baseSalary), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            formatRupiah(emp.baseSalary),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
                                         Text("Komisi:", fontSize = 12.sp)
-                                        Text(formatRupiah(emp.totalCommission), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = EmeraldGreen)
+                                        Text(
+                                            formatRupiah(emp.totalCommission),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text("Total Diterima:", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                        Text(formatRupiah(emp.baseSalary + emp.totalCommission), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AmberAccentDark)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            "Total Diterima:",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            formatRupiah(emp.baseSalary + emp.totalCommission),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.tertiary
+                                        )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Button(
                                         onClick = {
-                                            val periodStr = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date())
-                                            // FIX: Parameter ke-3 adalah resetCommission (Boolean)
-                                            viewModel.generatePayroll(emp, periodStr, true, currentUser) { success, msg ->
+                                            val periodStr = SimpleDateFormat(
+                                                "MMMM yyyy",
+                                                Locale.getDefault()
+                                            ).format(Date())
+                                            viewModel.generatePayroll(emp, periodStr, true, currentUser) { _, msg ->
                                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        ),
                                         shape = RoundedCornerShape(8.dp)
                                     ) { Text("BUAT SLIP GAJI BULAN INI", fontSize = 12.sp) }
                                 }
@@ -329,48 +476,84 @@ fun PayrollManagementDialog(
                     }
                 } else {
                     if (payrollList.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Belum ada riwayat slip gaji.", textAlign = TextAlign.Center)
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Belum ada riwayat slip gaji.",
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(payrollList) { payroll ->
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Text(payroll.userName, fontWeight = FontWeight.Bold)
+                                            val statusColor = if (payroll.status == "PAID")
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.error
                                             Surface(
-                                                color = if (payroll.status == "PAID") EmeraldGreen.copy(alpha = 0.2f) else ErrorRed.copy(alpha = 0.2f),
+                                                color = statusColor.copy(alpha = 0.2f),
                                                 shape = RoundedCornerShape(4.dp)
                                             ) {
                                                 Text(
                                                     payroll.status,
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (payroll.status == "PAID") EmeraldGreen else ErrorRed,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    color = statusColor,
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 6.dp,
+                                                        vertical = 2.dp
+                                                    )
                                                 )
                                             }
                                         }
-                                        Text("Periode: ${payroll.period}", fontSize = 12.sp)
-                                        Text("Total: ${formatRupiah(payroll.totalSalary)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AmberAccentDark)
-                                        Text("Dibuat: ${dateFormat.format(Date(payroll.timestamp))}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        
+                                        Text(
+                                            "Periode: ${payroll.period}",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            "Total: ${formatRupiah(payroll.totalSalary)}",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.tertiary
+                                        )
+                                        Text(
+                                            "Dibuat: ${dateFormat.format(Date(payroll.timestamp))}",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+
                                         if (payroll.status == "UNPAID") {
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Button(
                                                 onClick = {
-                                                    viewModel.payPayroll(payroll.id, currentUser) { success, msg ->
+                                                    viewModel.payPayroll(payroll.id, currentUser) { _, msg ->
                                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                                     }
                                                 },
                                                 modifier = Modifier.fillMaxWidth(),
-                                                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                                    contentColor = MaterialTheme.colorScheme.onTertiary
+                                                ),
                                                 shape = RoundedCornerShape(8.dp)
-                                            ) { Text("TANDAI LUNAS / BAYAR", fontSize = 12.sp, color = Color.White) }
+                                            ) { Text("TANDAI LUNAS / BAYAR", fontSize = 12.sp) }
                                         }
                                     }
                                 }

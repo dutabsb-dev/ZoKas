@@ -1,7 +1,6 @@
 package com.karyaku.kasir
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,7 +40,6 @@ fun CustomerManagementDialog(
     var searchQuery by remember { mutableStateOf("") }
     var selectedTierFilter by remember { mutableStateOf<CustomerTier?>(null) }
     
-    // FIX: State terpisah untuk Tambah dan Edit
     var showAddForm by remember { mutableStateOf(false) }
     var customerToEdit by remember { mutableStateOf<CustomerEntity?>(null) }
 
@@ -71,7 +68,6 @@ fun CustomerManagementDialog(
         }
     }
 
-    // Form Tambah
     if (showAddForm) {
         CustomerFormDialog(
             customerToEdit = null,
@@ -83,7 +79,6 @@ fun CustomerManagementDialog(
         )
     }
 
-    // Form Edit
     if (customerToEdit != null) {
         CustomerFormDialog(
             customerToEdit = customerToEdit,
@@ -131,7 +126,11 @@ fun CustomerManagementDialog(
                             )
                         }
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "Tutup")
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Tutup",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
 
@@ -184,14 +183,30 @@ fun CustomerManagementDialog(
                             OutlinedTextField(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
-                                placeholder = { Text("Cari nama / HP...", fontSize = 12.sp) },
+                                placeholder = { 
+                                    Text(
+                                        "Cari nama / HP...", 
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    ) 
+                                },
                                 leadingIcon = {
-                                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Icon(
+                                        Icons.Default.Search, 
+                                        contentDescription = null, 
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 },
                                 trailingIcon = if (searchQuery.isNotEmpty()) {
                                     {
                                         IconButton(onClick = { searchQuery = "" }) {
-                                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Icon(
+                                                Icons.Default.Close, 
+                                                contentDescription = null, 
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
                                     }
                                 } else null,
@@ -212,10 +227,18 @@ fun CustomerManagementDialog(
                                 FilterChip(
                                     selected = selectedTierFilter == null,
                                     onClick = { selectedTierFilter = null },
-                                    label = { Text("Semua (${totalCustomers})", fontSize = 11.sp) },
+                                    label = { 
+                                        Text(
+                                            "Semua ($totalCustomers)", 
+                                            fontSize = 11.sp,
+                                            color = if (selectedTierFilter == null)
+                                                MaterialTheme.colorScheme.onPrimary
+                                            else
+                                                MaterialTheme.colorScheme.onSurface
+                                        ) 
+                                    },
                                     colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = AmberAccent,
-                                        selectedLabelColor = Color.White
+                                        selectedContainerColor = MaterialTheme.colorScheme.tertiary
                                     )
                                 )
                                 CustomerTier.entries.forEach { tier ->
@@ -225,10 +248,18 @@ fun CustomerManagementDialog(
                                         onClick = {
                                             selectedTierFilter = if (selectedTierFilter == tier) null else tier
                                         },
-                                        label = { Text("${tier.label} ($count)", fontSize = 11.sp) },
+                                        label = { 
+                                            Text(
+                                                "${tier.label} ($count)", 
+                                                fontSize = 11.sp,
+                                                color = if (selectedTierFilter == tier)
+                                                    MaterialTheme.colorScheme.onPrimary
+                                                else
+                                                    MaterialTheme.colorScheme.onSurface
+                                            ) 
+                                        },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = tierColor(tier),
-                                            selectedLabelColor = Color.White
+                                            selectedContainerColor = adaptiveTierColor(tier)
                                         )
                                     )
                                 }
@@ -239,7 +270,9 @@ fun CustomerManagementDialog(
                             item {
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    ),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Column(
@@ -249,7 +282,7 @@ fun CustomerManagementDialog(
                                         Icon(
                                             Icons.Default.PersonOff,
                                             contentDescription = null,
-                                            tint = SlateGrey,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(48.dp)
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
@@ -259,7 +292,7 @@ fun CustomerManagementDialog(
                                             else
                                                 "Tidak ada yang cocok",
                                             fontWeight = FontWeight.Bold,
-                                            color = SlateGrey
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
                                             text = if (customers.isEmpty())
@@ -293,14 +326,28 @@ fun CustomerManagementDialog(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp),
-                    containerColor = EmeraldGreen,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp),
                     icon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
                     text = { Text("Tambah Pelanggan", fontWeight = FontWeight.Bold) }
                 )
             }
         }
+    }
+}
+
+// ====================================================================
+// ADAPTIVE TIER COLOR — pengganti `tierColor()` dari CustomerDialogV2.kt
+// agar StatsOverviewCard & TopSpenderCard tetap kontras di dark mode
+// ====================================================================
+@Composable
+private fun adaptiveTierColor(tier: CustomerTier): androidx.compose.ui.graphics.Color {
+    return when (tier) {
+        CustomerTier.REGULAR -> MaterialTheme.colorScheme.onSurfaceVariant
+        CustomerTier.SILVER -> MaterialTheme.colorScheme.secondary
+        CustomerTier.GOLD -> MaterialTheme.colorScheme.tertiary
+        CustomerTier.PLATINUM -> MaterialTheme.colorScheme.primary
     }
 }
 
@@ -312,7 +359,10 @@ private fun StatsOverviewCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = EmeraldGreen),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -323,14 +373,14 @@ private fun StatsOverviewCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "TOTAL PELANGGAN",
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
                     Text(
                         "$totalCustomers",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black
                     )
@@ -338,14 +388,14 @@ private fun StatsOverviewCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         "TOTAL BELANJA",
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
                     Text(
                         formatRupiah(totalSpending),
-                        color = AmberAccent,
+                        color = MaterialTheme.colorScheme.tertiary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Black
                     )
@@ -353,7 +403,7 @@ private fun StatsOverviewCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(10.dp))
 
             Row(
@@ -369,18 +419,18 @@ private fun StatsOverviewCard(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(tierColor(tier), CircleShape)
+                                .background(adaptiveTierColor(tier), CircleShape)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             tier.label,
-                            color = Color.White.copy(alpha = 0.85f),
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
                             fontSize = 9.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             "$count",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -395,15 +445,17 @@ private fun StatsOverviewCard(
 private fun TopSpenderCard(rank: Int, customer: CustomerEntity) {
     val tier = CustomerTier.fromPoints(customer.points)
     val rankColor = when (rank) {
-        1 -> Color(0xFFFFD700)
-        2 -> Color(0xFFC0C0C0)
-        3 -> Color(0xFFCD7F32)
-        else -> SlateGrey
+        1 -> androidx.compose.ui.graphics.Color(0xFFFFD700)  // Gold (universal)
+        2 -> androidx.compose.ui.graphics.Color(0xFFC0C0C0)  // Silver (universal)
+        3 -> androidx.compose.ui.graphics.Color(0xFFCD7F32)  // Bronze (universal)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
         shape = RoundedCornerShape(10.dp)
     ) {
         Row(
@@ -438,14 +490,14 @@ private fun TopSpenderCard(rank: Int, customer: CustomerEntity) {
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
-                        color = tierColor(tier).copy(alpha = 0.15f),
+                        color = adaptiveTierColor(tier).copy(alpha = 0.15f),
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
                             tier.label,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
-                            color = tierColor(tier),
+                            color = adaptiveTierColor(tier),
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                         )
                     }
@@ -462,7 +514,7 @@ private fun TopSpenderCard(rank: Int, customer: CustomerEntity) {
                     formatRupiah(customer.totalSpending),
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = EmeraldGreen
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

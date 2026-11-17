@@ -60,13 +60,11 @@ fun LoginScreen(
     var pin by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    
-    // State untuk mengintip PIN
     var isPinVisible by remember { mutableStateOf(false) }
 
     if (isInitializing) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = EmeraldGreen)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
         return
     }
@@ -82,7 +80,6 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(24.dp).fillMaxWidth().widthIn(max = 600.dp)
         ) {
-            // Logo ZoKas
             Image(
                 painter = painterResource(id = R.drawable.logo_zokas),
                 contentDescription = "Logo",
@@ -91,13 +88,12 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             if (selectedUser == null) {
-                // === TAMPILAN 1: PILIH PROFIL ===
                 Text("Pilih Akun Anda", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text("Ketuk profil untuk masuk", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(32.dp))
 
                 if (users.isEmpty()) {
-                    Text("Belum ada karyawan terdaftar.", color = ErrorRed)
+                    Text("Belum ada karyawan terdaftar.", color = MaterialTheme.colorScheme.error)
                 } else {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 120.dp),
@@ -111,20 +107,16 @@ fun LoginScreen(
                                 onClick = {
                                     errorMessage = ""
                                     isPinVisible = false 
-                                    
-                                    // FIX: Hanya OWNER yang bisa memicu login biometrik dari kartu
                                     if (user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
                                         viewModel.loginWithBiometric(activity, user) { success, msg ->
                                             if (success) {
                                                 onLoginSuccess(user)
                                             } else {
                                                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                                // Fallback ke PIN jika biometrik gagal
                                                 selectedUser = user
                                             }
                                         }
                                     } else {
-                                        // Karyawan biasa (atau Owner yang belum daftar) langsung ke PIN
                                         selectedUser = user
                                     }
                                 }
@@ -133,7 +125,6 @@ fun LoginScreen(
                     }
                 }
             } else {
-                // === TAMPILAN 2: MASUK DENGAN PIN ===
                 val user = selectedUser!!
                 
                 TextButton(
@@ -145,25 +136,24 @@ fun LoginScreen(
                     },
                     modifier = Modifier.align(Alignment.Start)
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Kembali", color = MaterialTheme.colorScheme.primary)
                 }
 
-                // Avatar user
                 Box(
-                    modifier = Modifier.size(80.dp).background(EmeraldGreen.copy(alpha = 0.15f), CircleShape),
+                    modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = user.name.firstOrNull()?.uppercase() ?: "?",
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EmeraldGreen
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(user.role, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -197,7 +187,7 @@ fun LoginScreen(
                 )
                 
                 if (errorMessage.isNotEmpty()) {
-                    Text(errorMessage, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp).align(Alignment.Start))
+                    Text(errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp).align(Alignment.Start))
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -222,17 +212,19 @@ fun LoginScreen(
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     enabled = !isLoading,
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("MASUK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("MASUK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
 
-                // Tombol Biometrik (HANYA UNTUK OWNER)
                 if (user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(
@@ -247,11 +239,12 @@ fun LoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, EmeraldGreen)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Icon(Icons.Default.Fingerprint, contentDescription = "Biometric", tint = EmeraldGreen)
+                        Icon(Icons.Default.Fingerprint, contentDescription = "Biometric", tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("MASUK DENGAN BIOMETRIK", color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                        Text("MASUK DENGAN BIOMETRIK", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -278,14 +271,14 @@ fun UserProfileCard(
             verticalArrangement = Arrangement.Center
         ) {
             Box(
-                modifier = Modifier.size(56.dp).background(EmeraldGreen.copy(alpha = 0.15f), CircleShape),
+                modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = user.name.firstOrNull()?.uppercase() ?: "?",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = EmeraldGreen
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -295,18 +288,22 @@ fun UserProfileCard(
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = user.role,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
-            // FIX: Ikon Sidik Jari HANYA untuk OWNER
             if (user.role == "OWNER" && user.biometricKey.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Icon(Icons.Default.Fingerprint, contentDescription = "Biometrik Aktif", tint = AmberAccent, modifier = Modifier.size(14.dp))
+                Icon(
+                    Icons.Default.Fingerprint,
+                    contentDescription = "Biometrik Aktif",
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(14.dp)
+                )
             }
         }
     }

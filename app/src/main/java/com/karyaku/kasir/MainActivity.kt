@@ -55,6 +55,18 @@ import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.delay
 import java.io.File
 
+// ====================================================================
+// SESI 4 (#2), SESI 5 & 6 (#3), & TEMA GELAP ADAPTIF — MainActivity.kt:
+//   1. Menambahkan ikon Bantuan/Tutorial (?) di TopBar utama dan di
+//      DropdownMenu agar semua pengguna (Owner maupun Kasir) dapat
+//      membuka TutorialCenterDialog kapan saja dari layar mana pun.
+//   2. Menghubungkan ProductFormBottomSheet & PosActionMenuBottomSheet
+//      di ProductManagementScreen (Tab Produk) dengan manajemen Resep (BOM)
+//      dan Kelola Bahan Baku secara langsung.
+//   3. Mengubah seluruh warna keras (EmeraldGreen, AmberAccent, SlateGrey,
+//      ErrorRed) di MainActivity menjadi warna adaptif Material 3.
+// ====================================================================
+
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,7 +128,7 @@ fun MainContent(
     val context = LocalContext.current
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         val posViewModel: PosViewModel = viewModel(factory = PosViewModelFactory(database))
-        
+
         var staffUserToLogout by remember { mutableStateOf<UserEntity?>(null) }
         var staffMessage by remember { mutableStateOf("") }
 
@@ -126,13 +138,29 @@ fun MainContent(
             LaunchedEffect(Unit) { delay(3000); staffUserToLogout = null; staffMessage = "" }
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(100.dp))
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(100.dp)
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Text("Terima Kasih, ${staffUserToLogout!!.name}!", fontWeight = FontWeight.Bold, fontSize = 24.sp, textAlign = TextAlign.Center)
+                    Text(
+                        "Terima Kasih, ${staffUserToLogout!!.name}!",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(staffMessage, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Text(
+                        staffMessage,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                     Spacer(modifier = Modifier.height(32.dp))
-                    CircularProgressIndicator(color = EmeraldGreen)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
         } else if (currentUser == null) {
@@ -146,7 +174,15 @@ fun MainContent(
                 }
             })
         } else {
-            MainNavigation(viewModel = posViewModel, settingsManager = settingsManager, currentUser = currentUser, storeName = storeName, storeLogoPath = storeLogoPath, onStoreNameChange = onStoreNameChange, onLogoChange = onLogoChange, onLogout = { onUserChange(null) }, isDarkMode = isDarkMode, isHighContrast = isHighContrast, uiScale = uiScale, onToggleDarkMode = onToggleDarkMode, onToggleHighContrast = onToggleHighContrast, onChangeUiScale = onChangeUiScale, language = language, onToggleLanguage = onToggleLanguage)
+            MainNavigation(
+                viewModel = posViewModel, settingsManager = settingsManager, currentUser = currentUser,
+                storeName = storeName, storeLogoPath = storeLogoPath,
+                onStoreNameChange = onStoreNameChange, onLogoChange = onLogoChange,
+                onLogout = { onUserChange(null) },
+                isDarkMode = isDarkMode, isHighContrast = isHighContrast, uiScale = uiScale,
+                onToggleDarkMode = onToggleDarkMode, onToggleHighContrast = onToggleHighContrast,
+                onChangeUiScale = onChangeUiScale, language = language, onToggleLanguage = onToggleLanguage
+            )
         }
     }
 }
@@ -164,6 +200,7 @@ fun MainNavigation(
     var showCfdDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
+    var showTutorialDialog by remember { mutableStateOf(false) }
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
@@ -219,6 +256,13 @@ fun MainNavigation(
         }
     }
 
+    if (showTutorialDialog) {
+        TutorialCenterDialog(
+            initialCategory = "SEMUA",
+            onDismiss = { showTutorialDialog = false }
+        )
+    }
+
     if (showSearchDialog) {
         var query by remember { mutableStateOf(searchQuery) }
         AlertDialog(
@@ -233,13 +277,29 @@ fun MainNavigation(
                         IconButton(onClick = {
                             val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
                             barcodeLauncher.launch(options)
-                        }) { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = EmeraldGreen) }
+                        }) {
+                            Icon(
+                                Icons.Default.QrCodeScanner,
+                                contentDescription = "Scan Barcode",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
                 )
             },
-            confirmButton = { TextButton(onClick = { showSearchDialog = false }) { Text(LanguageManager.tr("tutup", language)) } },
-            dismissButton = { if (query.isNotEmpty()) TextButton(onClick = { query = ""; viewModel.setSearchQuery("") }) { Text(LanguageManager.tr("hapus", language), color = ErrorRed) } }
+            confirmButton = {
+                TextButton(onClick = { showSearchDialog = false }) {
+                    Text(LanguageManager.tr("tutup", language), color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            dismissButton = {
+                if (query.isNotEmpty()) {
+                    TextButton(onClick = { query = ""; viewModel.setSearchQuery("") }) {
+                        Text(LanguageManager.tr("hapus", language), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
         )
     }
 
@@ -249,50 +309,146 @@ fun MainNavigation(
         topBar = {
             Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(if (isDarkMode) MaterialTheme.colorScheme.surfaceVariant else Color.White), contentAlignment = Alignment.Center) {
-                        if (logoFile != null && logoFile.exists()) AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) 
-                        else Image(painter = painterResource(id = R.drawable.logo_zokas), contentDescription = "Logo", modifier = Modifier.fillMaxSize(), colorFilter = if (isDarkMode) ColorFilter.tint(Color.White) else null)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDarkMode) MaterialTheme.colorScheme.surfaceVariant else Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (logoFile != null && logoFile.exists()) {
+                            AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        } else {
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_zokas),
+                                contentDescription = "Logo",
+                                modifier = Modifier.fillMaxSize(),
+                                colorFilter = if (isDarkMode) ColorFilter.tint(Color.White) else null
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        // FIX REVIEW 4: Status Online/Offline DIHAPUS
+                        Text(
+                            text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
+
+                    // Tombol Cepat Buka Panduan / Tutorial di TopBar
+                    IconButton(onClick = { showTutorialDialog = true }) {
+                        Icon(
+                            Icons.Default.HelpOutline,
+                            contentDescription = "Panduan & Tutorial",
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+
                     if (selectedTab == 0) {
-                        IconButton(onClick = { showSearchDialog = true }) { Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) }
-                        IconButton(onClick = { showCfdDialog = true }) { Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary) }
+                        IconButton(onClick = { showSearchDialog = true }) {
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = { showCfdDialog = true }) {
+                            Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary)
+                        }
                         Box {
-                            IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface) }
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
+                            }
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Panduan & Tutorial", fontWeight = FontWeight.SemiBold) },
+                                    leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                                    onClick = { showTutorialDialog = true; showMenu = false }
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 if (isKuliner) {
-                                    DropdownMenuItem(text = { Text(LanguageManager.tr("gabung_meja", language)) }, leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = EmeraldGreen) }, onClick = { posActionTrigger = "MERGE"; showMenu = false })
+                                    DropdownMenuItem(
+                                        text = { Text(LanguageManager.tr("gabung_meja", language)) },
+                                        leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { posActionTrigger = "MERGE"; showMenu = false }
+                                    )
                                 }
-                                DropdownMenuItem(text = { Text(LanguageManager.tr("buka_laci", language)) }, leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = EmeraldGreen) }, onClick = { posActionTrigger = "DRAWER"; showMenu = false })
-                                DropdownMenuItem(text = { Text(LanguageManager.tr("pesanan_parkir", language)) }, leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = EmeraldGreen) }, onClick = { posActionTrigger = "HOLD"; showMenu = false })
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("buka_laci", language)) },
+                                    leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = { posActionTrigger = "DRAWER"; showMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("pesanan_parkir", language)) },
+                                    leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = { posActionTrigger = "HOLD"; showMenu = false }
+                                )
                                 if (currentUser.role == "OWNER") {
-                                    DropdownMenuItem(text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) }, leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = AmberAccent) }, onClick = { posActionTrigger = "CASHFLOW"; showMenu = false })
+                                    DropdownMenuItem(
+                                        text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) },
+                                        leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                                        onClick = { posActionTrigger = "CASHFLOW"; showMenu = false }
+                                    )
                                 }
-                                HorizontalDivider()
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 if (currentUser.role == "OWNER") {
-                                    DropdownMenuItem(text = { Text("Kelola Cabang") }, leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = EmeraldGreen) }, onClick = { showBranchManagementDialog = true; showMenu = false })
-                                    DropdownMenuItem(text = { Text("Transfer Stok") }, leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = EmeraldGreen) }, onClick = { showStockTransferDialog = true; showMenu = false })
+                                    DropdownMenuItem(
+                                        text = { Text("Kelola Cabang") },
+                                        leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { showBranchManagementDialog = true; showMenu = false }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Transfer Stok") },
+                                        leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { showStockTransferDialog = true; showMenu = false }
+                                    )
                                 }
-                                DropdownMenuItem(text = { Text("Tutup Kasir (Close Harian)") }, leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AmberAccent) }, onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false })
-                                DropdownMenuItem(text = { Text(LanguageManager.tr("logout", language), color = ErrorRed) }, leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = ErrorRed) }, onClick = { onLogout(); showMenu = false })
+                                DropdownMenuItem(
+                                    text = { Text("Tutup Kasir (Close Harian)") },
+                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                                    onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(LanguageManager.tr("logout", language), color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = { onLogout(); showMenu = false }
+                                )
                             }
                         }
                     }
                 }
-                Row(modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    BranchSelectorHeader(viewModel = viewModel, onManageBranchesClick = { if (currentUser.role == "OWNER") showBranchManagementDialog = true else Toast.makeText(context, "Hanya OWNER yang bisa mengelola cabang.", Toast.LENGTH_SHORT).show() })
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BranchSelectorHeader(
+                        viewModel = viewModel,
+                        onManageBranchesClick = {
+                            if (currentUser.role == "OWNER") showBranchManagementDialog = true
+                            else Toast.makeText(context, "Hanya OWNER yang bisa mengelola cabang.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                     Spacer(modifier = Modifier.weight(1f))
                     val shift = activeShift
                     if (shift != null) {
-                        Surface(color = EmeraldGreen.copy(alpha = 0.12f), shape = RoundedCornerShape(6.dp)) {
-                            Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.size(6.dp).background(EmeraldGreen, CircleShape))
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = "Shift: ${shift.userName}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = EmeraldGreen, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    text = "Shift: ${shift.userName}",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -301,14 +457,46 @@ fun MainNavigation(
         },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                NavigationBarItem(icon = { Icon(Icons.Default.Storefront, contentDescription = "Kasir") }, label = { Text(LanguageManager.tr("kasir", language)) }, selected = selectedTab == 0, onClick = { selectedTab = 0 })
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Storefront, contentDescription = "Kasir") },
+                    label = { Text(LanguageManager.tr("kasir", language)) },
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 }
+                )
                 if (currentUser.role == "OWNER") {
-                    NavigationBarItem(icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") }, label = { Text(LanguageManager.tr("produk", language)) }, selected = selectedTab == 1, onClick = { selectedTab = 1 })
-                    NavigationBarItem(icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") }, label = { Text(LanguageManager.tr("laporan", language)) }, selected = selectedTab == 2, onClick = { selectedTab = 2 })
-                    if (isKuliner) NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text(LanguageManager.tr("dapur", language)) }, selected = selectedTab == 4, onClick = { selectedTab = 4 })
-                    NavigationBarItem(icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }, label = { Text(LanguageManager.tr("pengaturan", language)) }, selected = selectedTab == 3, onClick = { selectedTab = 3 })
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
+                        label = { Text(LanguageManager.tr("produk", language)) },
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 }
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
+                        label = { Text(LanguageManager.tr("laporan", language)) },
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 }
+                    )
+                    if (isKuliner) {
+                        NavigationBarItem(
+                            icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },
+                            label = { Text(LanguageManager.tr("dapur", language)) },
+                            selected = selectedTab == 4,
+                            onClick = { selectedTab = 4 }
+                        )
+                    }
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                        label = { Text(LanguageManager.tr("pengaturan", language)) },
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 }
+                    )
                 } else if (currentUser.role == "STAFF" && isKuliner) {
-                    NavigationBarItem(icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") }, label = { Text(LanguageManager.tr("dapur", language)) }, selected = selectedTab == 4, onClick = { selectedTab = 4 })
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },
+                        label = { Text(LanguageManager.tr("dapur", language)) },
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 }
+                    )
                 }
             }
         }
@@ -319,15 +507,30 @@ fun MainNavigation(
                 (slideInHorizontally(animationSpec = tween(200)) { fullWidth -> fullWidth * direction } + fadeIn(animationSpec = tween(200))) togetherWith (slideOutHorizontally(animationSpec = tween(200)) { fullWidth -> -fullWidth * direction } + fadeOut(animationSpec = tween(200)))
             }, label = "tab_transition") { targetTab ->
                 when (targetTab) {
-                    0 -> PosScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser, onLogout = onLogout, showCfd = showCfdDialog, onDismissCfd = { showCfdDialog = false }, actionTrigger = posActionTrigger, onActionHandled = { posActionTrigger = null })
+                    0 -> PosScreen(
+                        viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser,
+                        onLogout = onLogout, showCfd = showCfdDialog, onDismissCfd = { showCfdDialog = false },
+                        actionTrigger = posActionTrigger, onActionHandled = { posActionTrigger = null }
+                    )
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     2 -> HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
-                    3 -> SettingsScreen(settingsManager = settingsManager, isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode, isHighContrast = isHighContrast, onToggleHighContrast = onToggleHighContrast, uiScale = uiScale, onChangeUiScale = onChangeUiScale, language = language, onToggleLanguage = onToggleLanguage, onLogout = onLogout, auditLogs = auditLogs, currentUser = currentUser, viewModel = viewModel, storeName = storeName, onStoreNameChange = onStoreNameChange, storeLogoPath = storeLogoPath, onLogoChange = onLogoChange)
+                    3 -> SettingsScreen(
+                        settingsManager = settingsManager, isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
+                        isHighContrast = isHighContrast, onToggleHighContrast = onToggleHighContrast,
+                        uiScale = uiScale, onChangeUiScale = onChangeUiScale, language = language,
+                        onToggleLanguage = onToggleLanguage, onLogout = onLogout, auditLogs = auditLogs,
+                        currentUser = currentUser, viewModel = viewModel, storeName = storeName,
+                        onStoreNameChange = onStoreNameChange, storeLogoPath = storeLogoPath, onLogoChange = onLogoChange
+                    )
                     4 -> if (isKuliner) KitchenScreen(viewModel = viewModel)
                 }
             }
-            if (showBranchManagementDialog) BranchManagementDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showBranchManagementDialog = false })
-            if (showStockTransferDialog) StockTransferDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showStockTransferDialog = false })
+            if (showBranchManagementDialog) {
+                BranchManagementDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showBranchManagementDialog = false })
+            }
+            if (showStockTransferDialog) {
+                StockTransferDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showStockTransferDialog = false })
+            }
         }
     }
 }
@@ -339,11 +542,12 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
-    
+
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
+    var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
-    
+
     var productForVariantAction by remember { mutableStateOf<ProductEntity?>(null) }
     var variantActionType by remember { mutableStateOf("") }
     var variantToProcess by remember { mutableStateOf("") }
@@ -351,7 +555,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
-    
+    var showRawMaterialDialog by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
 
     if (productForVariantAction != null) {
@@ -360,7 +565,10 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             title = { Text("Pilih Varian", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:")
+                    Text(
+                        "Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     val variants = productForVariantAction!!.variations.split(",").map { it.split(":")[0].trim() }
                     variants.forEach { vName ->
@@ -369,20 +577,25 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                 variantToProcess = vName
                                 if (variantActionType == "RESTOCK") productToRestock = productForVariantAction
                                 if (variantActionType == "WASTE") productToWaste = productForVariantAction
-                                if (variantActionType == "BARCODE") { 
-                                    saveBarcodeToGallery(context, productForVariantAction!!) 
-                                    productForVariantAction = null 
+                                if (variantActionType == "BARCODE") {
+                                    saveBarcodeToGallery(context, productForVariantAction!!)
+                                    productForVariantAction = null
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
                             shape = RoundedCornerShape(8.dp)
                         ) { Text(vName) }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { productForVariantAction = null }) { Text("Batal", color = SlateGrey) }
+                TextButton(onClick = { productForVariantAction = null }) {
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         )
     }
@@ -391,13 +604,16 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
         Column(modifier = Modifier.fillMaxSize()) {
             OutlinedTextField(
                 value = searchQuery, onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Cari nama atau scan barcode...") }, leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), shape = RoundedCornerShape(12.dp), singleLine = true
+                placeholder = { Text("Cari nama atau scan barcode...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(12.dp), singleLine = true
             )
             PosProductSection(
                 products = filteredProducts, categories = categories, selectedCategory = "Semua",
                 onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
-                onProductClick = { prod -> productToEdit = prod; showProductForm = true }, onProductLongClick = { prod -> showActionDialogFor = prod },
+                onProductClick = { prod -> productToEdit = prod; showProductForm = true },
+                onProductLongClick = { prod -> showActionDialogFor = prod },
                 onBarcodeScan = { }, onCameraScanClick = { }, searchFocusRequester = remember { FocusRequester() }
             )
         }
@@ -405,8 +621,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
         ExtendedFloatingActionButton(
             onClick = { productToEdit = null; showProductForm = true },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            containerColor = EmeraldGreen,
-            contentColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Default.Add, contentDescription = "Tambah Produk")
@@ -416,7 +632,14 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
         if (showProductForm) {
             ProductFormBottomSheet(
-                productToEdit = productToEdit, onDismiss = { showProductForm = false; productToEdit = null },
+                productToEdit = productToEdit,
+                onDismiss = { showProductForm = false; productToEdit = null },
+                onManageBom = { prod ->
+                    productToManageBom = prod
+                },
+                onManageRawMaterial = {
+                    showRawMaterialDialog = true
+                },
                 onSave = { name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty ->
                     if (productToEdit == null) viewModel.addProduct(name, price, stock, category, costPrice, barcode, variations, commission, expiry, isService, isCombo, imagePath, wholesalePrice, wholesaleMinQty, currentUser.id, currentUser.name)
                     else viewModel.updateProduct(productToEdit!!.copy(name = name, price = price, stock = stock, category = category, costPrice = costPrice, barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry, isService = isService, isCombo = isCombo, imagePath = imagePath, wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty), currentUser.id, currentUser.name)
@@ -427,36 +650,52 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
         if (showActionDialogFor != null) {
             PosActionMenuBottomSheet(
-                product = showActionDialogFor!!, onDismiss = { showActionDialogFor = null },
+                product = showActionDialogFor!!,
+                onDismiss = { showActionDialogFor = null },
                 onEdit = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null },
-                onRestock = { 
-                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "RESTOCK" } 
+                onRestock = {
+                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "RESTOCK" }
                     else { productToRestock = showActionDialogFor }
-                    showActionDialogFor = null 
+                    showActionDialogFor = null
                 },
-                onWaste = { 
-                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "WASTE" } 
+                onWaste = {
+                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "WASTE" }
                     else { productToWaste = showActionDialogFor }
-                    showActionDialogFor = null 
+                    showActionDialogFor = null
                 },
-                onBom = { 
+                onBom = {
                     productToManageBom = showActionDialogFor
-                    showActionDialogFor = null 
+                    showActionDialogFor = null
                 },
-                onSaveBarcode = { 
-                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "BARCODE" } 
+                onRawMaterial = {
+                    showRawMaterialDialog = true
+                    showActionDialogFor = null
+                },
+                onSaveBarcode = {
+                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "BARCODE" }
                     else { saveBarcodeToGallery(context, showActionDialogFor!!); showActionDialogFor = null }
                 },
-                onDelete = { showActionDialogFor = null }
+                onDelete = {
+                    productToDelete = showActionDialogFor
+                    showActionDialogFor = null
+                }
             )
         }
 
         if (productToManageBom != null) {
             BomManagementDialog(
-                product = productToManageBom!!, 
-                rawMaterials = rawMaterials, 
+                product = productToManageBom!!,
+                rawMaterials = rawMaterials,
                 viewModel = viewModel,
                 onDismiss = { productToManageBom = null }
+            )
+        }
+
+        if (showRawMaterialDialog) {
+            RawMaterialManagementDialog(
+                rawMaterials = rawMaterials,
+                viewModel = viewModel,
+                onDismiss = { showRawMaterialDialog = false }
             )
         }
 
@@ -472,6 +711,13 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 product = productToWaste!!,
                 onDismiss = { productToWaste = null },
                 onSave = { qty -> viewModel.recordWaste(productToWaste!!, variantToProcess, qty, currentUser); productToWaste = null; variantToProcess = "" }
+            )
+        }
+        if (productToDelete != null) {
+            DeleteProductConfirmDialog(
+                product = productToDelete!!,
+                onDelete = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null },
+                onDismiss = { productToDelete = null }
             )
         }
     }

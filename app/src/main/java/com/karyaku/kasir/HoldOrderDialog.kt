@@ -26,7 +26,7 @@ fun HoldOrderDialog(
         title = { Text("Parkir Pesanan (Meja)") },
         text = {
             if (holdOrders.isEmpty()) {
-                Text("Tidak ada pesanan yang diparkir.")
+                Text("Tidak ada pesanan yang diparkir.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                     items(holdOrders) { order ->
@@ -42,10 +42,14 @@ fun HoldOrderDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(order.tableName, fontWeight = FontWeight.Bold, color = ZokasOrange)
-                                    Text(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(order.timestamp)), fontSize = 12.sp)
+                                    Text(order.tableName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+                                    Text(
+                                        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(order.timestamp)),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                Text("Nama: ${order.customerName}", fontSize = 14.sp)
+                                Text("Nama: ${order.customerName}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }

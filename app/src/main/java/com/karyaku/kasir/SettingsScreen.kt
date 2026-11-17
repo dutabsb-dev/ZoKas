@@ -40,6 +40,17 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// ====================================================================
+// SESI 2c, SESI 3, & SESI 5-6 — UPDATE SettingsScreen.kt:
+//   1. Menambahkan SettingsTutorialCard di bagian paling atas halaman
+//      Pengaturan untuk membuka TutorialCenterDialog (Sesi 5 & 6).
+//   2. Konsolidasi pengaturan QRIS & Bank Transfer ke dalam
+//      PaymentMethodManagementDialog (Sesi 2c).
+//   3. Paksa Virtual Account / auto-detect transfer tetap nonaktif.
+//   4. Sembunyikan SettingsCrmCard ketika enableCrmModule == false (Sesi 3).
+//   5. Semua warna keras diubah menjadi adaptif MaterialTheme.colorScheme.*
+// ====================================================================
+
 @Composable
 fun SettingsScreen(
     settingsManager: SettingsManager,
@@ -71,9 +82,8 @@ fun SettingsScreen(
 
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
-    // STATE BARU: Simpan metode pembayaran di lokal state agar langsung re-render saat diubah
+    // STATE METODE PEMBAYARAN, QRIS, & BANK TRANSFER
     var currentPaymentMethods by remember { mutableStateOf(settingsManager.paymentMethods) }
-
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
     var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
     var showPaymentMethodsDialog by remember { mutableStateOf(false) }
@@ -81,7 +91,13 @@ fun SettingsScreen(
     var bankName by remember { mutableStateOf(settingsManager.bankName ?: "") }
     var bankAccountNumber by remember { mutableStateOf(settingsManager.bankAccountNumber ?: "") }
     var bankAccountName by remember { mutableStateOf(settingsManager.bankAccountName ?: "") }
-    var enableTransferAutoDetect by remember { mutableStateOf(settingsManager.enableTransferAutoDetect) }
+
+    // Pastikan VA (auto-detect transfer) selalu nonaktif
+    LaunchedEffect(Unit) {
+        if (settingsManager.enableTransferAutoDetect) {
+            settingsManager.enableTransferAutoDetect = false
+        }
+    }
 
     var hhStart by remember { mutableStateOf(settingsManager.happyHourStart) }
     var hhEnd by remember { mutableStateOf(settingsManager.happyHourEnd) }
@@ -101,7 +117,7 @@ fun SettingsScreen(
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
 
-    // STATE BARU UNTUK MODUL HR DAN CRM
+    // STATE UNTUK MODUL HR DAN CRM
     var enableHrModule by remember { mutableStateOf(settingsManager.enableHrModule) }
     var enableCrmModule by remember { mutableStateOf(settingsManager.enableCrmModule) }
 
@@ -129,6 +145,7 @@ fun SettingsScreen(
     var showAttendanceDialog by remember { mutableStateOf(false) }
     var showPayrollDialog by remember { mutableStateOf(false) }
     var showBiometricDialog by remember { mutableStateOf(false) }
+    var showTutorialDialog by remember { mutableStateOf(false) }
 
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
@@ -279,15 +296,32 @@ fun SettingsScreen(
     if (showPayableDialog) {
         SupplierDebtDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showPayableDialog = false })
     }
-    
-    // DIALOG METODE PEMBAYARAN
+
+    // DIALOG METODE PEMBAYARAN TERKONSOLIDASI (SESI 2c)
     if (showPaymentMethodsDialog) {
         PaymentMethodManagementDialog(
             currentMethods = currentPaymentMethods,
-            onSave = { newMethods -> 
-                currentPaymentMethods = newMethods // Update state lokal agar UI langsung re-render
-                settingsManager.paymentMethods = newMethods // Simpan ke SharedPreferences
-                showPaymentMethodsDialog = false 
+            currentQrisPayload = qrisPayload,
+            currentEnableQrisAutoDetect = enableQrisAutoDetect,
+            currentBankName = bankName,
+            currentBankAccountNumber = bankAccountNumber,
+            currentBankAccountName = bankAccountName,
+            onSave = { methods, qPayload, qAutoDetect, bName, bNumber, bAccName ->
+                currentPaymentMethods = methods
+                settingsManager.paymentMethods = methods
+                qrisPayload = qPayload
+                settingsManager.qrisStaticPayload = qPayload
+                enableQrisAutoDetect = qAutoDetect
+                settingsManager.enableQrisAutoDetect = qAutoDetect
+                bankName = bName
+                settingsManager.bankName = bName
+                bankAccountNumber = bNumber
+                settingsManager.bankAccountNumber = bNumber
+                bankAccountName = bAccName
+                settingsManager.bankAccountName = bAccName
+                // VA tetap dinonaktifkan paksa
+                settingsManager.enableTransferAutoDetect = false
+                showPaymentMethodsDialog = false
             },
             onDismiss = { showPaymentMethodsDialog = false }
         )
@@ -329,9 +363,18 @@ fun SettingsScreen(
     }
     if (showRestartDialog) {
         AlertDialog(
-            onDismissRequest = { }, title = { Text("Restore Berhasil") },
+            onDismissRequest = { },
+            title = { Text("Restore Berhasil") },
             text = { Text("Aplikasi harus ditutup dan dibuka kembali untuk menerapkan data baru.") },
-            confirmButton = { Button(onClick = { android.os.Process.killProcess(android.os.Process.myPid()) }, colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)) { Text("TUTUP APLIKASI") } }
+            confirmButton = {
+                Button(
+                    onClick = { android.os.Process.killProcess(android.os.Process.myPid()) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) { Text("TUTUP APLIKASI") }
+            }
         )
     }
 
@@ -344,6 +387,12 @@ fun SettingsScreen(
     if (showBiometricDialog) {
         BiometricRegistrationDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showBiometricDialog = false })
     }
+    if (showTutorialDialog) {
+        TutorialCenterDialog(
+            initialCategory = "SEMUA",
+            onDismiss = { showTutorialDialog = false }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp).imePadding(),
@@ -352,8 +401,21 @@ fun SettingsScreen(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(LanguageManager.tr("pengaturan", lang), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    LanguageManager.tr("pengaturan", lang),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
+        }
+
+        // SESI 5 & 6 (#3): KARTU PINTASAN BUKU PANDUAN & TUTORIAL LENGKAP
+        item {
+            SettingsTutorialCard(
+                onOpenTutorial = { showTutorialDialog = true },
+                language = language
+            )
         }
 
         item {
@@ -412,25 +474,6 @@ fun SettingsScreen(
             }
         }
 
-        if (currentUser.role == "OWNER") {
-            item {
-                SettingsCrmCard(
-                    enableBirthdayDiscount = enableBirthdayDiscount,
-                    onToggleBirthdayDiscount = { isOn ->
-                        enableBirthdayDiscount = isOn
-                        settingsManager.enableBirthdayDiscount = isOn
-                    },
-                    birthdayDiscountPercent = birthdayDiscountPercent,
-                    onChangeBirthdayPercent = { newVal ->
-                        birthdayDiscountPercent = newVal
-                        settingsManager.birthdayDiscountPercent = newVal.toDouble()
-                    },
-                    totalCustomers = customers.size,
-                    onManageClick = { showCustomerManagementDialog = true }
-                )
-            }
-        }
-
         item {
             SettingsModuleCard(
                 isTableModeEnabled = isTableModeEnabled,
@@ -462,14 +505,14 @@ fun SettingsScreen(
                 onManagePayableClick = { showPayableDialog = true },
                 onManageExpenseClick = { showExpenseDialog = true },
                 enableHrModule = enableHrModule,
-                onHrModuleToggle = { 
+                onHrModuleToggle = {
                     enableHrModule = it
-                    settingsManager.enableHrModule = it 
+                    settingsManager.enableHrModule = it
                 },
                 enableCrmModule = enableCrmModule,
-                onCrmModuleToggle = { 
+                onCrmModuleToggle = {
                     enableCrmModule = it
-                    settingsManager.enableCrmModule = it 
+                    settingsManager.enableCrmModule = it
                 },
                 language = language
             )
@@ -484,30 +527,45 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Kepegawaian (HR)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Kepegawaian (HR)",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("Kelola absensi harian dan slip gaji karyawan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Kelola absensi harian dan slip gaji karyawan.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { showAttendanceDialog = true },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Absensi", fontSize = 12.sp, color = Color.White)
+                                Text("Absensi", fontSize = 12.sp)
                             }
                             Button(
                                 onClick = { showPayrollDialog = true },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiary,
+                                    contentColor = MaterialTheme.colorScheme.onTertiary
+                                ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.MonetizationOn, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                                Icon(Icons.Default.MonetizationOn, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Gaji (Payroll)", fontSize = 12.sp, color = Color.White)
+                                Text("Gaji (Payroll)", fontSize = 12.sp)
                             }
                         }
                     }
@@ -515,42 +573,34 @@ fun SettingsScreen(
             }
         }
 
-        // KARTU BARU: METODE PEMBAYARAN
+        // SESI 3 (#4): TAMPILKAN KARTU CRM HANYA JIKA SAKLAR MODUL CRM DINYALAKAN
+        if (currentUser.role == "OWNER" && enableCrmModule) {
+            item {
+                SettingsCrmCard(
+                    enableBirthdayDiscount = enableBirthdayDiscount,
+                    onToggleBirthdayDiscount = { isOn ->
+                        enableBirthdayDiscount = isOn
+                        settingsManager.enableBirthdayDiscount = isOn
+                    },
+                    birthdayDiscountPercent = birthdayDiscountPercent,
+                    onChangeBirthdayPercent = { newVal ->
+                        birthdayDiscountPercent = newVal
+                        settingsManager.birthdayDiscountPercent = newVal.toDouble()
+                    },
+                    totalCustomers = customers.size,
+                    onManageClick = { showCustomerManagementDialog = true }
+                )
+            }
+        }
+
+        // KARTU METODE PEMBAYARAN TERKONSOLIDASI (QRIS & BANK TRANSFER DI DALAM DIALOG)
         item {
             SettingsPaymentMethodCard(
                 currentMethods = currentPaymentMethods,
+                qrisConfigured = qrisPayload.isNotBlank(),
+                bankConfigured = bankAccountNumber.isNotBlank(),
                 onClick = { showPaymentMethodsDialog = true }
             )
-        }
-
-        // TAMPILKAN QRIS JIKA METODE PEMBAYARAN MENDUKUNG
-        if (currentPaymentMethods.contains("QRIS")) {
-            item {
-                SettingsQrisCard(
-                    qrisPayload = qrisPayload,
-                    onQrisPayloadChange = { qrisPayload = it; settingsManager.qrisStaticPayload = it },
-                    enableAutoDetect = enableQrisAutoDetect,
-                    onToggleAutoDetect = { enableQrisAutoDetect = it; settingsManager.enableQrisAutoDetect = it },
-                    language = language
-                )
-            }
-        }
-
-        // TAMPILKAN TRANSFER BANK JIKA METODE PEMBAYARAN MENDUKUNG
-        if (currentPaymentMethods.contains("Bank Transfer")) {
-            item {
-                SettingsBankTransferCard(
-                    bankName = bankName,
-                    onBankNameChange = { bankName = it; settingsManager.bankName = it },
-                    accountNumber = bankAccountNumber,
-                    onAccountNumberChange = { bankAccountNumber = it; settingsManager.bankAccountNumber = it },
-                    accountName = bankAccountName,
-                    onAccountNameChange = { bankAccountName = it; settingsManager.bankAccountName = it },
-                    enableAutoDetect = enableTransferAutoDetect,
-                    onToggleAutoDetect = { enableTransferAutoDetect = it; settingsManager.enableTransferAutoDetect = it },
-                    language = language
-                )
-            }
         }
 
         item {
@@ -621,8 +671,16 @@ fun SettingsScreen(
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) {
-                Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold, color = Color.White)
+            Button(
+                onClick = onLogout,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -630,7 +688,7 @@ fun SettingsScreen(
 }
 
 // ====================================================================
-// FUNGSI DI BAWAH INI HANYA YANG MEMANG HILANG DARI SettingsCards.kt
+// FUNGSI KARTU INTERNAL DI SettingsScreen.kt (SUDAH ADAPTIF MATERIAL 3)
 // ====================================================================
 
 @Composable
@@ -677,7 +735,7 @@ private fun SettingsAuditLogCard(
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
                     if (displayedLogs.isEmpty()) {
                         Text(
@@ -758,13 +816,13 @@ private fun SettingsBranchManagementCard(
                     Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .background(EmeraldGreen.copy(alpha = 0.15f), CircleShape),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.Storefront,
                             contentDescription = null,
-                            tint = EmeraldGreen,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -795,7 +853,7 @@ private fun SettingsBranchManagementCard(
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
@@ -808,7 +866,7 @@ private fun SettingsBranchManagementCard(
                         Icon(
                             Icons.Default.LocationOn,
                             contentDescription = null,
-                            tint = EmeraldGreen,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -831,14 +889,14 @@ private fun SettingsBranchManagementCard(
                         }
                         if (currentBranch?.isMainBranch == true) {
                             Surface(
-                                color = AmberAccent.copy(alpha = 0.15f),
+                                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
                                     text = "UTAMA",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = AmberAccentDark,
+                                    color = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                 )
                             }
@@ -855,20 +913,20 @@ private fun SettingsBranchManagementCard(
                             onClick = onManageClick,
                             modifier = Modifier.weight(1f).height(46.dp),
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, EmeraldGreen),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldGreen),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                             contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Icon(
                                 Icons.Default.Settings,
                                 contentDescription = null,
-                                tint = EmeraldGreen,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 "KELOLA",
-                                color = EmeraldGreen,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
@@ -880,21 +938,20 @@ private fun SettingsBranchManagementCard(
                             enabled = canTransfer,
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = EmeraldGreen,
-                                disabledContainerColor = EmeraldGreen.copy(alpha = 0.3f)
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                             ),
                             contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Icon(
                                 Icons.Default.SwapHoriz,
                                 contentDescription = null,
-                                tint = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 "TRANSFER",
-                                color = if (canTransfer) Color.White else Color.White.copy(alpha = 0.6f),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
@@ -942,13 +999,13 @@ private fun SettingsCrmCard(
                     Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .background(AmberAccent.copy(alpha = 0.15f), CircleShape),
+                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.People,
                             contentDescription = null,
-                            tint = AmberAccentDark,
+                            tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -976,7 +1033,7 @@ private fun SettingsCrmCard(
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
@@ -986,12 +1043,21 @@ private fun SettingsCrmCard(
                         Checkbox(
                             checked = enableBirthdayDiscount,
                             onCheckedChange = { onToggleBirthdayDiscount(it) },
-                            colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen)
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Diskon Ulang Tahun", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text("Beri diskon otomatis di hari ulang tahun pelanggan.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Diskon Ulang Tahun",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Beri diskon otomatis di hari ulang tahun pelanggan.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
@@ -1002,8 +1068,8 @@ private fun SettingsCrmCard(
                             Spacer(modifier = Modifier.width(8.dp))
                             OutlinedTextField(
                                 value = birthdayDiscountPercent.toInt().toString(),
-                                onValueChange = { 
-                                    onChangeBirthdayPercent(it.toFloatOrNull() ?: 0f) 
+                                onValueChange = {
+                                    onChangeBirthdayPercent(it.toFloatOrNull() ?: 0f)
                                 },
                                 modifier = Modifier.width(80.dp),
                                 singleLine = true,
@@ -1016,12 +1082,15 @@ private fun SettingsCrmCard(
                     Button(
                         onClick = onManageClick,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Kelola Data Pelanggan", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Kelola Data Pelanggan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
             }

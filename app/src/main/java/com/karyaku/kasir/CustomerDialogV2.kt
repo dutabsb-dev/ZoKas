@@ -34,14 +34,20 @@ import java.util.Locale
 // ====================================================================
 // MODUL G-3 — DIALOG PELANGGAN V2
 // ====================================================================
-// Fitur baru:
+// Fitur:
 //   - Filter tier (Regular/Silver/Gold/Platinum)
 //   - Search by nama/HP
-//   - Badge tier berwarna
+//   - Badge tier berwarna (ADAPTIF light/dark)
 //   - Indikator 🎂 untuk ulang tahun hari ini
 //   - Info last visit & total spending
 //   - Form tambah dengan date picker tanggal lahir
 //   - Edit profil via tombol di card
+//
+// FIX #6 — Tema gelap: semua warna keras (EmeraldGreen, AmberAccent,
+// AmberAccentDark, SlateGrey, ErrorRed) diganti ke pasangan Material 3
+// yang adaptif. Fungsi tierColor() kini mengembalikan warna dari
+// MaterialTheme, sehingga SEMUA pemanggil (CustomerManagementDialog,
+// PosScreen, dsb.) otomatis ikut membaik tanpa perlu diubah lagi.
 // ====================================================================
 
 @Composable
@@ -61,9 +67,8 @@ fun CustomerDialogV2(
     var customerToEdit by remember { mutableStateOf<CustomerEntity?>(null) }
 
     var searchQuery by remember { mutableStateOf("") }
-    var selectedTierFilter by remember { mutableStateOf<CustomerTier?>(null) } // null = Semua
+    var selectedTierFilter by remember { mutableStateOf<CustomerTier?>(null) }
 
-    // Filter
     val filteredCustomers = remember(customers, searchQuery, selectedTierFilter) {
         customers.filter { c ->
             val matchSearch = searchQuery.isBlank() ||
@@ -75,9 +80,7 @@ fun CustomerDialogV2(
         }
     }
 
-    // ============================================================
     // SUB-DIALOG: TAMBAH PELANGGAN
-    // ============================================================
     if (showAddForm) {
         CustomerFormDialog(
             customerToEdit = null,
@@ -89,9 +92,7 @@ fun CustomerDialogV2(
         )
     }
 
-    // ============================================================
     // SUB-DIALOG: EDIT PELANGGAN
-    // ============================================================
     if (customerToEdit != null) {
         CustomerFormDialog(
             customerToEdit = customerToEdit,
@@ -108,9 +109,7 @@ fun CustomerDialogV2(
         )
     }
 
-    // ============================================================
     // SUB-DIALOG: REDEEM POIN
-    // ============================================================
     if (showRedeemForm && selectedCustomer != null) {
         RedeemPointsDialog(
             customer = selectedCustomer,
@@ -123,12 +122,16 @@ fun CustomerDialogV2(
         )
     }
 
-    // ============================================================
     // MAIN DIALOG
-    // ============================================================
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.People, contentDescription = null, tint = AmberAccent) },
+        icon = {
+            Icon(
+                Icons.Default.People,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary
+            )
+        },
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -136,9 +139,18 @@ fun CustomerDialogV2(
             ) {
                 Text("Pelanggan", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 TextButton(onClick = { showAddForm = true }) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Default.PersonAdd,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Tambah", fontSize = 12.sp)
+                    Text(
+                        "Tambah",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         },
@@ -152,12 +164,30 @@ fun CustomerDialogV2(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Cari nama / HP...", fontSize = 12.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    placeholder = {
+                        Text(
+                            "Cari nama / HP...",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
                         {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     } else null,
@@ -181,8 +211,8 @@ fun CustomerDialogV2(
                         onClick = { selectedTierFilter = null },
                         label = { Text("Semua", fontSize = 11.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = AmberAccent,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.tertiary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onTertiary
                         )
                     )
                     CustomerTier.entries.forEach { tier ->
@@ -194,14 +224,14 @@ fun CustomerDialogV2(
                             label = { Text(tier.label, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = tierColor(tier),
-                                selectedLabelColor = Color.White
+                                selectedLabelColor = MaterialTheme.colorScheme.surface
                             )
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Quick: pilih pelanggan umum
@@ -209,9 +239,16 @@ fun CustomerDialogV2(
                     onClick = { onSelect(null); onDismiss() },
                     modifier = Modifier.fillMaxWidth().height(40.dp),
                     shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(vertical = 0.dp)
+                    contentPadding = PaddingValues(vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Pelanggan Umum", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
@@ -228,7 +265,7 @@ fun CustomerDialogV2(
                             Icon(
                                 Icons.Default.PersonOff,
                                 contentDescription = null,
-                                tint = SlateGrey,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(40.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -286,14 +323,16 @@ fun CustomerCardV2(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
-                AmberAccent.copy(alpha = 0.15f)
+                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)
             else if (isBirthday)
-                EmeraldGreen.copy(alpha = 0.08f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             else
                 MaterialTheme.colorScheme.surfaceVariant
         ),
         shape = RoundedCornerShape(10.dp),
-        border = if (isBirthday) BorderStroke(1.dp, EmeraldGreen.copy(alpha = 0.4f)) else null
+        border = if (isBirthday)
+            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+        else null
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -358,7 +397,7 @@ fun CustomerCardV2(
                     Icon(
                         Icons.Default.Edit,
                         contentDescription = "Edit",
-                        tint = SlateGrey,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -381,7 +420,7 @@ fun CustomerCardV2(
                     Text(
                         "💰 ${formatRupiah(customer.totalSpending)}",
                         fontSize = 10.sp,
-                        color = EmeraldGreen,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -402,9 +441,19 @@ fun CustomerCardV2(
                     modifier = Modifier.height(28.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = AmberAccent, modifier = Modifier.size(12.dp))
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(12.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Tukar Poin", fontSize = 10.sp, color = AmberAccent, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Tukar Poin",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -414,7 +463,7 @@ fun CustomerCardV2(
 // ====================================================================
 // FORM TAMBAH / EDIT PELANGGAN
 // ====================================================================
-@OptIn(ExperimentalMaterial3Api::class) // <--- TAMBAHAN UNTUK FIX ERROR DATEPICKER
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerFormDialog(
     customerToEdit: CustomerEntity?,
@@ -455,10 +504,15 @@ fun CustomerFormDialog(
             Icon(
                 if (isEdit) Icons.Default.Person else Icons.Default.PersonAdd,
                 contentDescription = null,
-                tint = AmberAccent
+                tint = MaterialTheme.colorScheme.tertiary
             )
         },
-        title = { Text(if (isEdit) "Edit Pelanggan" else "Tambah Pelanggan", fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                if (isEdit) "Edit Pelanggan" else "Tambah Pelanggan",
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -472,7 +526,12 @@ fun CustomerFormDialog(
                     isError = errorMessage.isNotEmpty()
                 )
                 if (errorMessage.isNotEmpty()) {
-                    Text(errorMessage, color = ErrorRed, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+                    Text(
+                        errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -495,18 +554,35 @@ fun CustomerFormDialog(
                     onClick = { showDatePicker = true },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, if (birthDate > 0L) EmeraldGreen else MaterialTheme.colorScheme.outline)
+                    border = BorderStroke(
+                        1.dp,
+                        if (birthDate > 0L) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outline
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (birthDate > 0L)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 ) {
                     Icon(
                         Icons.Default.Cake,
                         contentDescription = null,
-                        tint = if (birthDate > 0L) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (birthDate > 0L)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (birthDate > 0L) dateFormat.format(Date(birthDate)) else "Set Tanggal Lahir (opsional)",
-                        color = if (birthDate > 0L) EmeraldGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = if (birthDate > 0L) dateFormat.format(Date(birthDate))
+                        else "Set Tanggal Lahir (opsional)",
+                        color = if (birthDate > 0L)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Start
@@ -516,7 +592,11 @@ fun CustomerFormDialog(
                             onClick = { birthDate = 0L },
                             modifier = Modifier.size(20.dp)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Hapus", modifier = Modifier.size(14.dp))
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Hapus",
+                                modifier = Modifier.size(14.dp)
+                            )
                         }
                     }
                 }
@@ -526,7 +606,7 @@ fun CustomerFormDialog(
                     Text(
                         "🎂 Pelanggan akan dapat diskon otomatis di hari ulang tahunnya.",
                         fontSize = 10.sp,
-                        color = EmeraldGreen,
+                        color = MaterialTheme.colorScheme.primary,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                     )
                 }
@@ -541,14 +621,22 @@ fun CustomerFormDialog(
                     }
                     onSave(name.trim(), phone.trim().ifBlank { "-" }, birthDate)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                ),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text(if (isEdit) "SIMPAN" else "TAMBAH", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    if (isEdit) "SIMPAN" else "TAMBAH",
+                    fontWeight = FontWeight.Bold
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Batal") }
+            TextButton(onClick = onDismiss) {
+                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     )
 }
@@ -569,7 +657,13 @@ fun RedeemPointsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Default.Star, contentDescription = null, tint = AmberAccent) },
+        icon = {
+            Icon(
+                Icons.Default.Star,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary
+            )
+        },
         title = { Text("Tukar Poin", fontWeight = FontWeight.Bold) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -581,7 +675,7 @@ fun RedeemPointsDialog(
                 Text(
                     "Poin tersedia: ${customer.points}",
                     fontSize = 12.sp,
-                    color = EmeraldGreen,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -604,14 +698,14 @@ fun RedeemPointsDialog(
                 if (pointsToRedeem.isNotEmpty() && !isAmountValid) {
                     Text(
                         "Maksimal ${customer.points} poin.",
-                        color = ErrorRed,
+                        color = MaterialTheme.colorScheme.error,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(start = 4.dp, top = 2.dp)
                     )
                 } else if (isAmountValid) {
                     Text(
                         "= ${formatRupiah(rupiahValue)} diskon",
-                        color = EmeraldGreen,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(start = 4.dp, top = 2.dp)
@@ -620,14 +714,14 @@ fun RedeemPointsDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
-                    color = AmberAccent.copy(alpha = 0.1f),
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         "1 poin = Rp 1.000. Diskon akan otomatis diterapkan di keranjang.",
                         fontSize = 10.sp,
-                        color = AmberAccentDark,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.padding(8.dp)
                     )
                 }
@@ -639,25 +733,36 @@ fun RedeemPointsDialog(
                     if (isAmountValid) onRedeem(pointsInt)
                 },
                 enabled = isAmountValid,
-                colors = ButtonDefaults.buttonColors(containerColor = AmberAccent),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                ),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text("TUKAR", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("TUKAR", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Batal") }
+            TextButton(onClick = onDismiss) {
+                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     )
 }
 
 // ====================================================================
-// HELPER: Warna Tier
+// HELPER: Warna Tier (ADAPTIF)
+// ====================================================================
+// FIX #6 — Sebelumnya mengembalikan warna keras (SlateGrey, dll.) yang
+// tidak berubah antara light/dark. Sekarang memakai MaterialTheme
+// sehingga otomatis adaptif di kedua mode. Karena fungsi ini dipanggil
+// dari CustomerDialogV2, CustomerManagementDialog, dan PosScreen,
+// perubahan ini MEMPERBAIKI SEMUA PEMANGGIL sekaligus.
 // ====================================================================
 @Composable
 fun tierColor(tier: CustomerTier): Color = when (tier) {
-    CustomerTier.REGULAR -> SlateGrey
-    CustomerTier.SILVER -> Color(0xFF78909C)
-    CustomerTier.GOLD -> AmberAccentDark
-    CustomerTier.PLATINUM -> EmeraldGreenDark
+    CustomerTier.REGULAR -> MaterialTheme.colorScheme.onSurfaceVariant
+    CustomerTier.SILVER -> MaterialTheme.colorScheme.secondary
+    CustomerTier.GOLD -> MaterialTheme.colorScheme.tertiary
+    CustomerTier.PLATINUM -> MaterialTheme.colorScheme.primary
 }
