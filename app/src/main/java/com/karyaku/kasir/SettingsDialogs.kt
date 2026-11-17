@@ -308,58 +308,6 @@ fun ShiftHistoryDialog(
 }
 
 @Composable
-fun RawMaterialManagementDialog(
-    rawMaterials: List<RawMaterialEntity>,
-    viewModel: PosViewModel,
-    onDismiss: () -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var stock by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("gram") }
-    var cost by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Kelola Bahan Baku") },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nama Bahan (cth: Biji Kopi)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = stock, onValueChange = { if (it.length <= 10) stock = it }, label = { Text("Stok Awal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp))
-                    OutlinedTextField(value = unit, onValueChange = { unit = it }, label = { Text("Satuan") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp))
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = cost, onValueChange = { if (it.length <= 10) cost = it }, label = { Text("Harga Modal / Satuan (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Daftar Bahan Baku:", fontWeight = FontWeight.Bold)
-                rawMaterials.forEach { material ->
-                    Text("- ${material.name}: ${material.stock} ${material.unit}", fontSize = 12.sp)
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val s = stock.toDoubleOrNull() ?: 0.0
-                    val c = cost.toLongOrNull() ?: 0L
-                    if (name.isNotBlank()) {
-                        viewModel.addRawMaterial(name, s, unit, c)
-                        name = ""
-                        stock = ""
-                        cost = ""
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
-                shape = RoundedCornerShape(12.dp)
-            ) { Text("TAMBAH BAHAN") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
-    )
-}
-
-@Composable
 fun MembershipManagementDialog(
     memberships: List<MembershipEntity>,
     onAddMembership: (String, Long, Int, Int) -> Unit,

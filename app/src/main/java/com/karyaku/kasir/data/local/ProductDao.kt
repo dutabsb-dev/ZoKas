@@ -75,15 +75,19 @@ interface ProductDao {
     @Query("UPDATE raw_materials SET stock = :newStock WHERE id = :id")
     suspend fun updateRawMaterialStock(id: Long, newStock: Double)
 
+    // TAMBAHAN BARU: Fungsi untuk menghapus bahan baku
+    @Query("DELETE FROM raw_materials WHERE id = :id")
+    suspend fun deleteRawMaterial(id: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProductBom(bom: ProductBomEntity)
 
     @Query("SELECT * FROM product_boms WHERE productId = :productId")
     suspend fun getBomForProduct(productId: Long): List<ProductBomEntity>
 
-    // ================================================================
-    // FITUR BARU: Menghapus semua resep untuk 1 produk (Clear Resep)
-    // ================================================================
+    @Query("SELECT * FROM product_boms WHERE productId = :productId")
+    fun getBomForProductFlow(productId: Long): Flow<List<ProductBomEntity>>
+
     @Query("DELETE FROM product_boms WHERE productId = :productId")
     suspend fun deleteBomForProduct(productId: Long)
 }
