@@ -1,6 +1,7 @@
 package com.karyaku.kasir
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -78,7 +79,8 @@ fun PosCartSection(
     onAssignStaff: (CartItem) -> Unit,
     onApplyMembership: (CartItem, CustomerMembershipEntity) -> Unit,
     onRemoveMembership: (CartItem) -> Unit,
-    lang: String
+    lang: String,
+    isTaxInclusive: Boolean = false
 ) {
     val dateFormat = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
     var showDatePicker by remember { mutableStateOf(false) }
@@ -250,7 +252,48 @@ fun PosCartSection(
             }
         }
 
-        // Daftar Item di Keranjang
+        // Daftar Item di Keranjang (dengan Empty State Ilustratif jika keranjang kosong)
+        if (cart.isEmpty()) {
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                androidx.compose.foundation.shape.CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ShoppingCartCheckout,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (lang == "in") "Keranjang Masih Kosong" else "Cart is Empty",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (lang == "in") "Ketuk produk di katalog atau scan barcode untuk mulai transaksi." else "Tap a product or scan barcode to start.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        } else {
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             items(cart) { item ->
                 Card(
@@ -457,6 +500,7 @@ fun PosCartSection(
             }
         }
 
+        }
         // Ringkasan Total
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 8.dp),
@@ -521,11 +565,15 @@ fun PosCartSection(
         }
         if (taxAmount > 0) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Pajak:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    "+ ${formatRupiah(taxAmount)}",
+                    text = if (isTaxInclusive) "Pajak (Termasuk di Harga):" else "Pajak:",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.tertiary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = if (isTaxInclusive) "(${formatRupiah(taxAmount)})" else "+ ${formatRupiah(taxAmount)}",
+                    fontSize = 12.sp,
+                    color = if (isTaxInclusive) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.tertiary
                 )
             }
         }

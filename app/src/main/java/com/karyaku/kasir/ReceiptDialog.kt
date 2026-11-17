@@ -11,12 +11,14 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,9 +42,201 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+// ====================================================================
+// REKOMENDASI #2 & #3 DITERAPKAN — ReceiptDialog-v2.kt:
+//   1. Format Struk Presisi 32 Karakter (Standar Thermal 58mm):
+//      - Nama produk yang panjang otomatis di-wrap rapi ke baris bawah
+//        tanpa menabrak atau menggeser kolom subtotal di sebelah kanan.
+//      - Catatan, Serial Number (SN), dan Staf ditampilkan rapi di bawah
+//        nama barang dengan indentasi yang bersih.
+//   2. Rincian Lengkap Diskon, Voucher, Pajak (Inklusif/Eksklusif) & Service Charge:
+//      - Sebelumnya struk hanya menampilkan Subtotal dan Total (sehingga jika
+//        ada diskon, voucher, PB1/PPN, atau Service Charge, angkanya tampak
+//        melompat). Kini rincian potongan Diskon, Voucher, Pajak (termasuk
+//        keterangan Pajak Inklusif jika aktif), dan Service Charge dicetak
+//        lengkap dan sejajar vertikal.
+//   3. Pratinjau PDF & Kertas Struk Presisi:
+//      - Lebar halaman PDF disesuaikan agar proporsional dengan kertas struk
+//        32 kolom, menggunakan font Monospace tajam di atas kertas putih.
+// ====================================================================
+
+private const val RECEIPT_WIDTH = 32
+
+private fun formatNumPlain(amount: Long): String {
+    val nf = NumberFormat.getInstance(Locale("id", "ID"))
+    return "Rp" + nf.format(amount)
+}
+
+private fun centerLine(text: String, width: Int = RECEIPT_WIDTH): String {
+    val clean = text.trim()
+    if (clean.length >= width) return clean.take(width)
+    val padLeft = (width - clean.length) / 2
+    return " ".repeat(padLeft) + clean
+}
+
+private fun wrapTextLines(text: String, maxWidth: Int = RECEIPT_WIDTH): List<String> {
+    val words = text.trim().split(Regex("\s+"))
+    val lines = mutableListOf<String>()
+    var current = StringBuilder()
+    for (w in words) {
+        if (current.isEmpty()) {
+            if (w.length > maxWidth) {
+                w.chunked(maxWidth).forEach { lines.add(it) }
+            } else {
+                current.append(w)
+            }
+        } else if (current.length + 1 + w.length <= maxWidth) {
+            current.append(" ").append(w)
+        } else {
+            lines.add(current.toString())
+            current = StringBuilder()
+            if (w.length > maxWidth) {
+                w.chunked(maxWidth).forEach { lines.add(it) }
+            } else {
+                current.append(w)
+            }
+        }
+    }
+    if (current.isNotEmpty()) lines.add(current.toString())
+    return if (lines.isEmpty()) listOf("") else lines
+}
+
+private fun leftRightLine(left: String, right: String, width: Int = RECEIPT_WIDTH): String {
+    val r = right.trim()
+    val maxLeft = (width - r.length - 1).coerceAtLeast(1)
+    val l = if (left.length > maxLeft) left.take(maxLeft) else left
+    val spaces = (width - l.length - r.length).coerceAtLeast(1)
+    return l + " ".repeat(spaces) + r
+}
+
+private fun buildFormattedReceipt32(
+    storeName: String,
+    storeAddress: String,
+    storePhone: String,
+    storeFooter: String,
+    transaction: TransactionEntity,
+    items: List<TransactionItemEntity>,
+    dateStr: String,
+    taxPercent: Double,
+    serviceChargePercent: Double,
+    isTaxInclusive: Boolean
+): String {
+    val sb = StringBuilder()
+    val dashLine = "-".repeat(RECEIPT_WIDTH)
+    val doubleLine = "=".repeat(RECEIPT_WIDTH)
+
+    // HEADER TOKO (RATA TENGAH)
+    wrapTextLines(storeName.ifBlank { "ZoKas Store" }.uppercase()).forEach {
+        sb.appendLine(centerLine(it))
+    }
+    if (storeAddress.isNotBlank()) {
+        wrapTextLines(storeAddress).forEach { sb.appendLine(centerLine(it)) }
+    }
+    if (storePhone.isNotBlank()) {
+        sb.appendLine(centerLine("Telp: $storePhone"))
+    }
+    sb.appendLine(doubleLine)
+
+    // METADATA TRANSAKSI
+    sb.appendLine(leftRightLine("No. Struk", "#${transaction.id}"))
+    sb.appendLine(leftRightLine("Tanggal", dateStr))
+    sb.appendLine(leftRightLine("Kasir", transaction.cashierName ?: "Kasir"))
+    val customerLabel = transaction.customerName?.takeIf { it.isNotBlank() } ?: "Umum"
+    sb.appendLine(leftRightLine("Pelanggan", customerLabel))
+    val orderLabel = buildString {
+        append(transaction.orderType ?: "Dine-In")
+        if (!transaction.tableNumber.isNullOrBlank() && transaction.orderType == "Dine-In") {
+            append(" (${transaction.tableNumber})")
+        }
+    }
+    sb.appendLine(leftRightLine("Tipe", orderLabel))
+    sb.appendLine(dashLine)
+
+    // DAFTAR ITEM BELANJA (WORD-WRAP AMAN 32 KARAKTER)
+    var subtotalItems = 0L
+    items.forEach { item ->
+        subtotalItems += item.subtotal
+        val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
+        // Baris 1+: Nama Produk (dibungkus maksimal 32 karakter agar tidak pernah terpotong)
+        wrapTextLines(item.productName, RECEIPT_WIDTH).forEach { nameLine ->
+            sb.appendLine(nameLine)
+        }
+        // Baris Detail Varian / Catatan / SN / Staf
+        if (item.notes.isNotBlank()) {
+            wrapTextLines("  Cat: ${item.notes}", RECEIPT_WIDTH).forEach { sb.appendLine(it) }
+        }
+        if (item.serialNumber.isNotBlank()) {
+            wrapTextLines("  SN: ${item.serialNumber}", RECEIPT_WIDTH).forEach { sb.appendLine(it) }
+        }
+        if (item.assignedStaff.isNotBlank()) {
+            wrapTextLines("  Staf: ${item.assignedStaff}", RECEIPT_WIDTH).forEach { sb.appendLine(it) }
+        }
+        // Baris Kuantitas x Harga Satuan di kiri, Subtotal di kanan
+        val qtyPriceStr = "  ${item.quantity} x ${formatNumPlain(unitPrice)}"
+        val itemSubStr = formatNumPlain(item.subtotal)
+        sb.appendLine(leftRightLine(qtyPriceStr, itemSubStr))
+    }
+
+    sb.appendLine(dashLine)
+
+    // RINGKASAN SUBTOTAL, DISKON, PAJAK & TOTAL
+    sb.appendLine(leftRightLine("Subtotal", formatNumPlain(subtotalItems)))
+
+    if (transaction.discountAmount > 0) {
+        sb.appendLine(leftRightLine("Diskon", "-${formatNumPlain(transaction.discountAmount)}"))
+    }
+    if (transaction.voucherDiscount > 0) {
+        val vCode = transaction.voucherCode?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""
+        sb.appendLine(leftRightLine("Voucher$vCode", "-${formatNumPlain(transaction.voucherDiscount)}"))
+    }
+
+    val netAfterDisc = (subtotalItems - transaction.discountAmount - transaction.voucherDiscount).coerceAtLeast(0L)
+    val diffCharges = (transaction.totalPrice - netAfterDisc).coerceAtLeast(0L)
+
+    if (diffCharges > 0L) {
+        // Pajak Eksklusif dan/atau Service Charge ditambahkan ke tagihan
+        val totalRate = taxPercent + serviceChargePercent
+        val scVal = if (serviceChargePercent > 0.0 && totalRate > 0.0) {
+            (diffCharges * (serviceChargePercent / totalRate)).toLong()
+        } else 0L
+        val taxVal = (diffCharges - scVal).coerceAtLeast(0L)
+
+        if (taxVal > 0L) {
+            val taxLabel = if (taxPercent == 10.0) "PB1 (10%)" else if (taxPercent > 0.0) "Pajak (${taxPercent.toInt()}%)" else "Pajak"
+            sb.appendLine(leftRightLine(taxLabel, "+${formatNumPlain(taxVal)}"))
+        }
+        if (scVal > 0L) {
+            sb.appendLine(leftRightLine("Service (${serviceChargePercent.toInt()}%)", "+${formatNumPlain(scVal)}"))
+        }
+    } else if (isTaxInclusive && taxPercent > 0.0 && transaction.totalPrice > 0L) {
+        // Pajak Inklusif: tampilkan informasi nilai pajak yang sudah termasuk di dalam harga
+        val includedTax = (transaction.totalPrice - (transaction.totalPrice / (1.0 + (taxPercent / 100.0)))).toLong()
+        if (includedTax > 0L) {
+            val taxLabel = if (taxPercent == 10.0) "Termasuk PB1 10%" else "Termasuk Pajak ${taxPercent.toInt()}%"
+            sb.appendLine(leftRightLine(taxLabel, "(${formatNumPlain(includedTax)})"))
+        }
+    }
+
+    sb.appendLine(doubleLine)
+    sb.appendLine(leftRightLine("TOTAL TAGIHAN", formatNumPlain(transaction.totalPrice)))
+    sb.appendLine(leftRightLine("Metode Bayar", transaction.paymentMethod ?: "CASH"))
+    sb.appendLine(leftRightLine("Bayar", formatNumPlain(transaction.cashReceived)))
+    sb.appendLine(leftRightLine("Kembali", formatNumPlain(transaction.changeAmount)))
+    sb.appendLine(doubleLine)
+
+    // FOOTER STRUK
+    val footerMsg = storeFooter.ifBlank { "Terima Kasih atas Kunjungan Anda" }
+    wrapTextLines(footerMsg).forEach {
+        sb.appendLine(centerLine(it))
+    }
+
+    return sb.toString().trimEnd()
+}
 
 @Composable
 fun ReceiptDialog(
@@ -58,7 +252,10 @@ fun ReceiptDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val printerManager = remember { BluetoothPrinterManager(context) }
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
+
+    val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
+    val isTaxInclusive = remember { taxPrefs.getBoolean("is_tax_inclusive", false) }
 
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val itemsNullable by itemsFlow.collectAsStateWithLifecycle(
@@ -77,40 +274,29 @@ fun ReceiptDialog(
         if (!path.isNullOrBlank()) File(path) else null
     }
 
-    // --- MERAKIT TEKS STRUK YANG RAPI ---
-    val receiptItems = items.map { item ->
-        val variationText = buildString {
-            if (item.notes.isNotEmpty()) append("${item.notes} | ")
-            if (item.serialNumber.isNotEmpty()) append("SN: ${item.serialNumber} | ")
-            if (item.assignedStaff.isNotEmpty()) append("Staf: ${item.assignedStaff}")
-        }.trimEnd(' ', '|')
-
-        ReceiptItem(
-            name = item.productName,
-            qty = item.quantity,
-            price = if (item.quantity > 0) item.subtotal.toDouble() / item.quantity else 0.0,
-            variation = variationText
+    // Merakit teks struk presisi 32 karakter (Rekomendasi #2 & #3)
+    val strukText = remember(
+        transaction,
+        items,
+        storeName,
+        storeAddress,
+        storePhone,
+        storeFooter,
+        isTaxInclusive
+    ) {
+        buildFormattedReceipt32(
+            storeName = storeName,
+            storeAddress = storeAddress,
+            storePhone = storePhone,
+            storeFooter = storeFooter,
+            transaction = transaction,
+            items = items,
+            dateStr = dateFormat.format(Date(transaction.timestamp)),
+            taxPercent = settingsManager.taxPercent,
+            serviceChargePercent = settingsManager.serviceChargePercent,
+            isTaxInclusive = isTaxInclusive
         )
     }
-
-    val subtotalItems = items.sumOf { it.subtotal }
-    
-    val strukText = ReceiptFormatter.buildReceipt(
-        storeName = storeName,
-        storeAddress = storeAddress,
-        storePhone = storePhone,
-        storeFooter = storeFooter,
-        transactionId = transaction.id,
-        dateStr = dateFormat.format(Date(transaction.timestamp)),
-        orderType = transaction.orderType ?: "Dine-In",
-        cashierName = transaction.cashierName ?: "Kasir",
-        customerName = transaction.customerName ?: "Pelanggan Umum",
-        items = receiptItems,
-        subtotal = subtotalItems.toDouble(),
-        total = transaction.totalPrice.toDouble(),
-        payment = transaction.cashReceived.toDouble(),
-        change = transaction.changeAmount.toDouble()
-    )
 
     if (showPrinterError) {
         PrinterErrorDialog { showPrinterError = false }
@@ -121,17 +307,17 @@ fun ReceiptDialog(
             onDismissRequest = { showShareFallbackDialog = false },
             icon = {
                 Icon(
-                    Icons.Default.Share, 
-                    contentDescription = null, 
+                    Icons.Default.Share,
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.tertiary
                 )
             },
             title = { Text("Gagal Membagikan File") },
-            text = { 
+            text = {
                 Text(
                     "Sistem gagal membagikan PDF. Anda dapat menyalin teks struk di bawah ini dan mengirimkannya secara manual.",
                     color = MaterialTheme.colorScheme.onSurface
-                ) 
+                )
             },
             confirmButton = {
                 Button(
@@ -145,18 +331,18 @@ fun ReceiptDialog(
                             Toast.makeText(context, "Gagal menyalin teks", Toast.LENGTH_SHORT).show()
                         }
                         showShareFallbackDialog = false
-                    }, 
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
-                    ), 
+                    ),
                     shape = RoundedCornerShape(12.dp)
                 ) { Text("SALIN TEKS") }
             },
-            dismissButton = { 
-                TextButton(onClick = { showShareFallbackDialog = false }) { 
-                    Text("Tutup", color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                } 
+            dismissButton = {
+                TextButton(onClick = { showShareFallbackDialog = false }) {
+                    Text("Tutup", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         )
     }
@@ -164,35 +350,35 @@ fun ReceiptDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Column {
-                // TOMBOL WHATSAPP (Kirim File PDF)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // TOMBOL WHATSAPP / BAGIKAN PDF
                 Button(
                     onClick = {
                         if (!isItemsLoaded) return@Button
                         scope.launch {
                             isGeneratingFile = true
                             textToShare = strukText
-                            
+
                             val pdfFile = withContext(Dispatchers.IO) {
                                 generateReceiptPdf(context, strukText, transaction.id, logoFile)
                             }
-                            
+
                             isGeneratingFile = false
 
                             if (pdfFile != null) {
                                 try {
                                     val authority = "${context.packageName}.fileprovider"
                                     val uri: Uri = FileProvider.getUriForFile(context, authority, pdfFile)
-                                    
+
                                     val shareIntent = Intent().apply {
                                         action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, "Struk Pembayaran #${transaction.id}")
+                                        putExtra(Intent.EXTRA_TEXT, "Struk Pembayaran #${transaction.id} - $storeName")
                                         putExtra(Intent.EXTRA_STREAM, uri)
-                                        clipData = ClipData.newRawUri("Receipt", uri) 
+                                        clipData = ClipData.newRawUri("Receipt", uri)
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         type = "application/pdf"
                                     }
-                                    
+
                                     val chooser = Intent.createChooser(shareIntent, "Kirim Struk via...")
                                     chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     context.startActivity(chooser)
@@ -218,16 +404,16 @@ fun ReceiptDialog(
                 ) {
                     if (isGeneratingFile) {
                         CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.onPrimary, 
-                            modifier = Modifier.size(20.dp), 
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("MEMPROSES PDF...", fontWeight = FontWeight.Bold)
                     } else {
-                        Icon(Icons.Default.Share, contentDescription = null)
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("KIRIM STRUK (PDF)", fontWeight = FontWeight.Bold)
+                        Text("KIRIM STRUK (PDF / WA)", fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -262,57 +448,75 @@ fun ReceiptDialog(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
+                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text("CETAK STRUK THERMAL", fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Tutup Struk", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
         title = null,
         text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .background(Color.White, RoundedCornerShape(8.dp))
-                    .padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                shadowElevation = 2.dp
             ) {
-                if (logoFile != null && logoFile.exists()) {
-                    AsyncImage(
-                        model = logoFile,
-                        contentDescription = "Store Logo",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.size(64.dp).padding(bottom = 8.dp)
-                    )
-                }
-
-                if (!isItemsLoaded) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp), 
-                            strokeWidth = 2.dp, 
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Memuat rincian...", 
-                            fontFamily = FontFamily.Monospace, 
-                            fontSize = 12.sp, 
-                            color = Color(0xFF64748B)  // Di atas kertas putih, SlateGrey aman
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (logoFile != null && logoFile.exists()) {
+                        AsyncImage(
+                            model = logoFile,
+                            contentDescription = "Store Logo",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(64.dp).padding(bottom = 8.dp)
                         )
                     }
-                } else {
-                    // TAMPILAN STRUK — teks hitam di atas kertas putih, TIDAK diubah
-                    Text(
-                        text = strukText,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        color = Color.Black,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+
+                    if (!isItemsLoaded) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Memuat rincian...",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    } else {
+                        // TAMPILAN STRUK — Kertas putih bersih dengan teks Monospace hitam tajam
+                        Text(
+                            text = strukText,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp,
+                            color = Color.Black,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
@@ -320,46 +524,46 @@ fun ReceiptDialog(
 }
 
 // =========================================================================
-// FUNGSI PENDUKUNG UNTUK MEMBUAT FILE PDF
+// FUNGSI PENDUKUNG UNTUK MEMBUAT FILE PDF STRUK YANG PRESISI & RAPI
 // =========================================================================
 private fun generateReceiptPdf(context: Context, strukText: String, transactionId: Long, logoFile: File?): File? {
     val document = PdfDocument()
     val lines = strukText.lines()
-    
-    val pageWidth = 350
-    val fontSize = 12f
+
+    val paint = Paint().apply {
+        color = AndroidColor.BLACK
+        textSize = 11.5f
+        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+        isAntiAlias = true
+    }
+
+    // Hitung lebar halaman berdasarkan 32 karakter Monospace + margin kiri/kanan
+    val sampleWidth = paint.measureText("W".repeat(RECEIPT_WIDTH))
+    val padding = 22f
+    val pageWidth = (sampleWidth + (padding * 2)).toInt().coerceAtLeast(280)
     val lineHeight = 16f
-    val padding = 20f
-    val logoHeight = if (logoFile != null && logoFile.exists()) 100f else 0f
-    
-    val pageHeight = ((lines.size * lineHeight) + (padding * 2) + logoHeight + 50).toInt()
+    val logoHeight = if (logoFile != null && logoFile.exists()) 95f else 0f
+    val pageHeight = ((lines.size * lineHeight) + (padding * 2) + logoHeight + 36).toInt()
 
     val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
     val page = document.startPage(pageInfo)
 
     val canvas = page.canvas
-    val paint = Paint().apply {
-        color = AndroidColor.BLACK
-        textSize = fontSize
-        typeface = Typeface.MONOSPACE
-        isAntiAlias = true
-    }
+    // Latar belakang putih bersih untuk PDF
+    canvas.drawColor(AndroidColor.WHITE)
 
-    var currentY = padding
+    var currentY = padding + 10f
 
     if (logoFile != null && logoFile.exists()) {
         try {
             val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
-            if (bitmap != null) {
-                val scaledLogo = android.graphics.Bitmap.createScaledBitmap(
-                    bitmap, 
-                    (bitmap.width * (80f / bitmap.height)).toInt(), 
-                    80, 
-                    true
-                )
+            if (bitmap != null && bitmap.height > 0) {
+                val targetH = 72
+                val targetW = (bitmap.width * (targetH.toFloat() / bitmap.height)).toInt().coerceAtMost(pageWidth - 40)
+                val scaledLogo = android.graphics.Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
                 val left = (pageWidth - scaledLogo.width) / 2f
-                canvas.drawBitmap(scaledLogo, left, currentY, null)
-                currentY += 90f
+                canvas.drawBitmap(scaledLogo, left, currentY - 6f, null)
+                currentY += 84f
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -367,6 +571,11 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
     }
 
     for (line in lines) {
+        val isBoldLine = line.startsWith("TOTAL TAGIHAN")
+        paint.typeface = Typeface.create(
+            Typeface.MONOSPACE,
+            if (isBoldLine) Typeface.BOLD else Typeface.NORMAL
+        )
         canvas.drawText(line, padding, currentY, paint)
         currentY += lineHeight
     }
@@ -391,7 +600,7 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
 }
 
 // =========================================================================
-// FUNGSI PENDUKUNG UNTUK CETAK BLUETOOTH
+// FUNGSI PENDUKUNG UNTUK CETAK BLUETOOTH THERMAL 58MM
 // =========================================================================
 private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     val output = ByteArrayOutputStream()
@@ -400,12 +609,12 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     if (logoFile != null && logoFile.exists()) {
         try {
             val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
-            if (bitmap != null) {
-                val maxWidth = 384
+            if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
+                // Lebar optimal logo pada thermal 58mm (maks 384 dots, gunakan 240 dots agar proporsional & cepat)
+                val targetWidth = 240
                 val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
-                val newWidth = maxWidth
-                val newHeight = (newWidth / ratio).toInt()
-                val resizedBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+                val newHeight = ((targetWidth / ratio).toInt()).coerceAtLeast(8)
+                val resizedBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, newHeight, true)
 
                 output.write(EscPosCommands.ALIGN_CENTER)
                 output.write(EscPosCommands.printImage(resizedBitmap))
@@ -417,10 +626,11 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     }
 
     output.write(EscPosCommands.ALIGN_LEFT)
-    output.write(strukText.toByteArray(charset("GBK"))) 
-    
+    output.write((strukText + "
+").toByteArray(charset("GBK")))
+
     output.write(EscPosCommands.FEED_3)
     output.write(EscPosCommands.CUT_PAPER)
-    
+
     return output.toByteArray()
 }

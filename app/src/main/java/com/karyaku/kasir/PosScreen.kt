@@ -259,10 +259,25 @@ fun PosScreen(
         totalDiscount = settingsManager.maxDiscountCap
     }
 
+    val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
+    val isTaxInclusive = taxPrefs.getBoolean("is_tax_inclusive", false)
+
     val netAfterDiscount = (subtotal - totalDiscount - voucherDiscount).coerceAtLeast(0L)
-    val taxAmount = (netAfterDiscount * (taxPercent / 100.0)).toLong()
     val serviceChargeAmount = (netAfterDiscount * (serviceChargePercent / 100.0)).toLong()
-    val totalPrice = (netAfterDiscount + taxAmount + serviceChargeAmount).coerceAtLeast(0L)
+    val taxAmount = if (taxPercent <= 0.0) {
+        0L
+    } else if (isTaxInclusive) {
+        // Pajak Inklusif: Pajak sudah terkandung di dalam harga jual menu (DPP + Pajak = Harga Menu)
+        (netAfterDiscount - (netAfterDiscount / (1.0 + (taxPercent / 100.0)))).toLong()
+    } else {
+        // Pajak Eksklusif: Pajak ditambahkan di atas subtotal bersih
+        (netAfterDiscount * (taxPercent / 100.0)).toLong()
+    }
+    val totalPrice = if (isTaxInclusive) {
+        (netAfterDiscount + serviceChargeAmount).coerceAtLeast(0L)
+    } else {
+        (netAfterDiscount + taxAmount + serviceChargeAmount).coerceAtLeast(0L)
+    }
 
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
@@ -360,7 +375,7 @@ fun PosScreen(
                         cashReceived = cashReceived, userId = currentUser.id, userName = currentUser.name,
                         isSplitBill = isSplitBillMode, method = method, maxDiscountCap = settingsManager.maxDiscountCap,
                         birthdayDiscountPercent = if (isCrmEnabled && settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0,
-                        taxPercent = taxPercent, serviceChargePercent = serviceChargePercent,
+                        taxPercent = if (isTaxInclusive) 0.0 else taxPercent, serviceChargePercent = serviceChargePercent,
                         manualDiscount = discount + happyHourDiscountAmount, voucherDiscount = voucherDiscount, voucherCode = appliedVoucher
                     ) { newTransaction ->
                         showPaymentSheet = false
@@ -728,7 +743,8 @@ fun PosScreen(
                                 onAssignStaff = { item: CartItem -> cartItemToAssignStaff = item },
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
-                                lang = settingsManager.language
+                                lang = settingsManager.language,
+                                isTaxInclusive = isTaxInclusive
                             )
                         }
                     }
@@ -762,7 +778,8 @@ fun PosScreen(
                                 onAssignStaff = { item: CartItem -> cartItemToAssignStaff = item },
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
-                                lang = settingsManager.language
+                                lang = settingsManager.language,
+                                isTaxInclusive = isTaxInclusive
                             )
                         }
                     } else {

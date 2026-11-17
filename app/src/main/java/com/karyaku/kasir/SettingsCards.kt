@@ -1409,7 +1409,7 @@ fun SettingsPrinterCard(
     }
 }
 
-// --- 6. CARD PROFIL TOKO ---
+// --- 6. CARD PROFIL TOKO (DENGAN PRESET PAJAK INDONESIA PB1/PPN & OPSI PAJAK INKLUSIF) ---
 @Composable
 fun SettingsStoreProfileCard(
     storeName: String, onStoreNameChange: (String) -> Unit,
@@ -1419,7 +1419,9 @@ fun SettingsStoreProfileCard(
     taxPercent: String, onTaxPercentChange: (String) -> Unit,
     serviceChargePercent: String, onServiceChargeChange: (String) -> Unit,
     logoPath: String?, onLogoChange: (String) -> Unit,
-    language: String
+    language: String,
+    isTaxInclusive: Boolean = false,
+    onTaxInclusiveChange: (Boolean) -> Unit = {}
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
@@ -1557,25 +1559,122 @@ fun SettingsStoreProfileCard(
                         shape = RoundedCornerShape(12.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = taxPercent,
-                        onValueChange = onTaxPercentChange,
-                        label = { Text(LanguageManager.tr("pajak", lang)) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = serviceChargePercent,
-                        onValueChange = onServiceChargeChange,
-                        label = { Text("Service Charge (%) cth: 5") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                    Text(
+                        "Pengaturan Pajak & Layanan (Standar Indonesia)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary
                     )
+                    Text(
+                        "Pilih cepat tarif pajak sesuai jenis usaha Anda di Indonesia:",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val taxPresets = listOf(
+                            "0" to "0% (Non-PKP)",
+                            "10" to "10% (PB1 Resto)",
+                            "11" to "11% (PPN)",
+                            "12" to "12% (PPN)"
+                        )
+                        taxPresets.forEach { (rateVal, rateLabel) ->
+                            val isSelected = taxPercent.trim() == rateVal || taxPercent.trim() == "$rateVal.0"
+                            OutlinedButton(
+                                onClick = { onTaxPercentChange(rateVal) },
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                ),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                                    contentColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            ) {
+                                Text(
+                                    rateLabel,
+                                    fontSize = 9.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = taxPercent,
+                            onValueChange = onTaxPercentChange,
+                            label = { Text(LanguageManager.tr("pajak", lang), fontSize = 11.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        OutlinedTextField(
+                            value = serviceChargePercent,
+                            onValueChange = onServiceChargeChange,
+                            label = { Text("Service Charge (%)", fontSize = 11.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onTaxInclusiveChange(!isTaxInclusive) },
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Harga Produk Sudah Termasuk Pajak (Inclusive)",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    if (isTaxInclusive)
+                                        "Aktif: Pajak dihitung di dalam harga menu (tidak menambah total tagihan pembeli)."
+                                    else
+                                        "Nonaktif (Eksklusif): Pajak ditambahkan di atas subtotal belanja.",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = isTaxInclusive,
+                                onCheckedChange = onTaxInclusiveChange,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }

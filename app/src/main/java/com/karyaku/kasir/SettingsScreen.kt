@@ -79,6 +79,8 @@ fun SettingsScreen(
     var storePhone by remember { mutableStateOf(settingsManager.storePhone ?: "") }
     var taxPercent by remember { mutableStateOf(settingsManager.taxPercent.toString()) }
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
+    val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", android.content.Context.MODE_PRIVATE) }
+    var isTaxInclusive by remember { mutableStateOf(taxPrefs.getBoolean("is_tax_inclusive", false)) }
 
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
@@ -638,7 +640,12 @@ fun SettingsScreen(
                 },
                 logoPath = storeLogoPath,
                 onLogoChange = onLogoChange,
-                language = language
+                language = language,
+                isTaxInclusive = isTaxInclusive,
+                onTaxInclusiveChange = { inclusive ->
+                    isTaxInclusive = inclusive
+                    taxPrefs.edit().putBoolean("is_tax_inclusive", inclusive).apply()
+                }
             )
         }
 
