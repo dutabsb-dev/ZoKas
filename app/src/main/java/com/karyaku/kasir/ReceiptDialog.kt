@@ -146,12 +146,7 @@ private fun buildFormattedReceipt32(
     sb.appendLine(leftRightLine("Kasir", transaction.cashierName ?: "Kasir"))
     val customerLabel = transaction.customerName?.takeIf { it.isNotBlank() } ?: "Umum"
     sb.appendLine(leftRightLine("Pelanggan", customerLabel))
-    val orderLabel = buildString {
-        append(transaction.orderType ?: "Dine-In")
-        if (!transaction.tableNumber.isNullOrBlank() && transaction.orderType == "Dine-In") {
-            append(" (${transaction.tableNumber})")
-        }
-    }
+    val orderLabel = transaction.orderType?.takeIf { it.isNotBlank() } ?: "Dine-In"
     sb.appendLine(leftRightLine("Tipe", orderLabel))
     sb.appendLine(dashLine)
 
@@ -182,21 +177,29 @@ private fun buildFormattedReceipt32(
     // RINGKASAN SUBTOTAL, DISKON, PAJAK & TOTAL
     sb.appendLine(leftRightLine("Subtotal", formatNumPlain(subtotalItems)))
 
-    if (transaction.discountAmount > 0) {
-        sb.appendLine(leftRightLine("Diskon", "-${formatNumPlain(transaction.discountAmount)}"))
-    }
-    if (transaction.voucherDiscount > 0) {
-        val vCode = transaction.voucherCode?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""
-        sb.appendLine(leftRightLine("Voucher$vCode", "-${formatNumPlain(transaction.voucherDiscount)}"))
+    // Hitung estimasi dasar pengenaan pajak/service dari totalPrice
+    val effectiveTaxRate = if (isTaxInclusive) 0.0 else taxPercent
+    val totalExtraRate = (effectiveTaxRate + serviceChargePercent) / 100.0
+    val estimatedNetBeforeTax = if (totalExtraRate > 0.0) {
+        Math.round(transaction.totalPrice / (1.0 + totalExtraRate))
+    } else {
+        transaction.totalPrice
     }
 
-    val netAfterDisc = (subtotalItems - transaction.discountAmount - transaction.voucherDiscount).coerceAtLeast(0L)
-    val diffCharges = (transaction.totalPrice - netAfterDisc).coerceAtLeast(0L)
+    val totalDiscountSaved = (subtotalItems - estimatedNetBeforeTax).coerceAtLeast(0L)
+    if (totalDiscountSaved > 0L) {
+        val vCode = transaction.voucherCode?.takeIf { it.isNotBlank() }
+        val discLabel = if (vCode != null) "Diskon/Voucher ($vCode)" else "Total Diskon"
+        sb.appendLine(leftRightLine(discLabel, "-${formatNumPlain(totalDiscountSaved)}"))
+    }
+
+    val netBase = (subtotalItems - totalDiscountSaved).coerceAtLeast(0L)
+    val diffCharges = (transaction.totalPrice - netBase).coerceAtLeast(0L)
 
     if (diffCharges > 0L) {
-        val totalRate = taxPercent + serviceChargePercent
+        val totalRate = effectiveTaxRate + serviceChargePercent
         val scVal = if (serviceChargePercent > 0.0 && totalRate > 0.0) {
-            (diffCharges * (serviceChargePercent / totalRate)).toLong()
+            Math.round(diffCharges * (serviceChargePercent / totalRate))
         } else 0L
         val taxVal = (diffCharges - scVal).coerceAtLeast(0L)
 
@@ -207,7 +210,9 @@ private fun buildFormattedReceipt32(
         if (scVal > 0L) {
             sb.appendLine(leftRightLine("Service (${serviceChargePercent.toInt()}%)", "+${formatNumPlain(scVal)}"))
         }
-    } else if (isTaxInclusive && taxPercent > 0.0 && transaction.totalPrice > 0L) {
+    }
+
+    if (isTaxInclusive && taxPercent > 0.0 && transaction.totalPrice > 0L) {
         val includedTax = (transaction.totalPrice - (transaction.totalPrice / (1.0 + (taxPercent / 100.0)))).toLong()
         if (includedTax > 0L) {
             val taxLabel = if (taxPercent == 10.0) "Termasuk PB1 10%" else "Termasuk Pajak ${taxPercent.toInt()}%"

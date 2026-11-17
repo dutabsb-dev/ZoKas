@@ -473,10 +473,10 @@ fun MainNavigation(
                         }.timeInMillis
                     }
                     val todayTxList = remember(transactions, todayStartMillis) {
-                        transactions.filter { it.timestamp >= todayStartMillis && !it.isVoided }
+                        transactions.filter { it.timestamp >= todayStartMillis }
                     }
                     val todayOmzet = remember(todayTxList) {
-                        todayTxList.sumOf { it.totalAmount }
+                        todayTxList.sumOf { it.totalPrice }
                     }
                     if (currentUser.role == "OWNER") {
                         Surface(
