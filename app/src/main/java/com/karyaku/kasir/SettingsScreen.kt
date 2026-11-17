@@ -71,6 +71,9 @@ fun SettingsScreen(
 
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
+    // STATE BARU: Simpan metode pembayaran di lokal state agar langsung re-render saat diubah
+    var currentPaymentMethods by remember { mutableStateOf(settingsManager.paymentMethods) }
+
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
     var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
     var showPaymentMethodsDialog by remember { mutableStateOf(false) }
@@ -276,13 +279,20 @@ fun SettingsScreen(
     if (showPayableDialog) {
         SupplierDebtDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showPayableDialog = false })
     }
+    
+    // DIALOG METODE PEMBAYARAN
     if (showPaymentMethodsDialog) {
         PaymentMethodManagementDialog(
-            currentMethods = settingsManager.paymentMethods,
-            onSave = { newMethods -> settingsManager.paymentMethods = newMethods; showPaymentMethodsDialog = false },
+            currentMethods = currentPaymentMethods,
+            onSave = { newMethods -> 
+                currentPaymentMethods = newMethods // Update state lokal agar UI langsung re-render
+                settingsManager.paymentMethods = newMethods // Simpan ke SharedPreferences
+                showPaymentMethodsDialog = false 
+            },
             onDismiss = { showPaymentMethodsDialog = false }
         )
     }
+
     if (showPrinterDialog) {
         AlertDialog(
             onDismissRequest = { showPrinterDialog = false },
@@ -505,8 +515,16 @@ fun SettingsScreen(
             }
         }
 
+        // KARTU BARU: METODE PEMBAYARAN
+        item {
+            SettingsPaymentMethodCard(
+                currentMethods = currentPaymentMethods,
+                onClick = { showPaymentMethodsDialog = true }
+            )
+        }
+
         // TAMPILKAN QRIS JIKA METODE PEMBAYARAN MENDUKUNG
-        if (settingsManager.paymentMethods.contains("QRIS")) {
+        if (currentPaymentMethods.contains("QRIS")) {
             item {
                 SettingsQrisCard(
                     qrisPayload = qrisPayload,
@@ -519,7 +537,7 @@ fun SettingsScreen(
         }
 
         // TAMPILKAN TRANSFER BANK JIKA METODE PEMBAYARAN MENDUKUNG
-        if (settingsManager.paymentMethods.contains("Bank Transfer")) {
+        if (currentPaymentMethods.contains("Bank Transfer")) {
             item {
                 SettingsBankTransferCard(
                     bankName = bankName,
@@ -983,10 +1001,8 @@ private fun SettingsCrmCard(
                             Text("Diskon (%):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.width(8.dp))
                             OutlinedTextField(
-                                // FIX: Jangan kalikan 100, karena data dari SettingsManager sudah dalam bentuk persen (10.0 = 10%)
                                 value = birthdayDiscountPercent.toInt().toString(),
                                 onValueChange = { 
-                                    // FIX: Jangan bagi 100, simpan langsung sebagai persen
                                     onChangeBirthdayPercent(it.toFloatOrNull() ?: 0f) 
                                 },
                                 modifier = Modifier.width(80.dp),

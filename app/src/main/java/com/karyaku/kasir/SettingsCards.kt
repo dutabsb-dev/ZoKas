@@ -1194,7 +1194,59 @@ fun SettingsBankTransferCard(
     }
 }
 
-// --- 11. DIALOG KELOLA METODE PEMBAYARAN ---
+// --- 11. CARD PENGATURAN METODE PEMBAYARAN (BARU) ---
+@Composable
+fun SettingsPaymentMethodCard(
+    currentMethods: Set<String>,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(EmeraldGreen.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Payment,
+                    contentDescription = null,
+                    tint = EmeraldGreen,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Metode Pembayaran",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = currentMethods.joinToString(", "),
+                    fontSize = 11.sp,
+                    color = EmeraldGreen,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// --- 12. DIALOG KELOLA METODE PEMBAYARAN ---
 @Composable
 fun PaymentMethodManagementDialog(
     currentMethods: Set<String>,
