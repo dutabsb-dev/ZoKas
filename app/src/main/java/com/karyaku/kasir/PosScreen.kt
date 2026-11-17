@@ -36,15 +36,54 @@ import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
 import com.karyaku.kasir.data.local.ShiftEntity
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 // ====================================================================
-// SESI 3 (#4) & SESI 4 (#2) — PosScreen.kt:
-//   1. Modul CRM ON/OFF: menyembunyikan akses pelanggan jika nonaktif.
-//   2. Akses Cepat Bahan Baku & Resep BOM langsung dari ProductFormBottomSheet
-//      dan PosActionMenuBottomSheet (melalui state showRawMaterialDialog
-//      dan productToManageBom) tanpa harus ke Pengaturan -> Modul Toko.
-//   3. Warna 100% adaptif Material 3.
+// HASIL SIMULASI & PERBAIKAN FITUR TIDAK BEKERJA — PosScreen-v3.kt:
+//   1. FIX BUG #1 (Tambah Stok / Restock Tidak Muncul di Kasir):
+//      State productToRestock sebelumnya tidak pernah dirender ke
+//      StockOpnameDialog, serta belum mendukung produk ber-varian.
+//      Kini ditambahkan dialog pemilih varian (productForVariantAction)
+//      dan StockOpnameDialog untuk Restock.
+//   2. FIX BUG #2 (Barang Rusak / Waste Gagal pada Produk Varian):
+//      Kini jika produk memiliki varian, sistem meminta pemilihan varian
+//      terlebih dahulu dan meneruskan nama varian ke viewModel.recordWaste.
+//   3. FIX BUG #3 (Diskon Happy Hour & Diskon Ulang Tahun bernilai 0 di Keranjang):
+//      Sebelumnya happyHourDiscountAmount dan promoDiscountUI di-hardcode 0L.
+//      Kini dihitung secara real-time sesuai jam Happy Hour & tanggal lahir
+//      pelanggan yang dipilih agar tampilan keranjang sinkron dengan struk.
+//   4. FIX BUG #4 (Edit Catatan, Serial Number & Staf Terapis pada Varian Berbeda):
+//      Menggunakan state CartItem penuh (bukan hanya ProductEntity) agar
+//      ketika 1 produk memiliki 2 varian berbeda di keranjang, catatan/SN/staf
+//      tidak salah masuk ke varian pertama.
 // ====================================================================
+
+private fun isCurrentTimeInHappyHour(startStr: String, endStr: String): Boolean {
+    return try {
+        val sParts = startStr.split(":")
+        val eParts = endStr.split(":")
+        if (sParts.size < 2 || eParts.size < 2) return false
+        val startMin = (sParts[0].trim().toIntOrNull() ?: 0) * 60 + (sParts[1].trim().toIntOrNull() ?: 0)
+        val endMin = (eParts[0].trim().toIntOrNull() ?: 0) * 60 + (eParts[1].trim().toIntOrNull() ?: 0)
+        val now = Calendar.getInstance()
+        val nowMin = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        if (startMin <= endMin) {
+            nowMin in startMin..endMin
+        } else {
+            nowMin >= startMin || nowMin <= endMin
+        }
+    } catch (e: Exception) {
+        false
+    }
+}
+
+private fun isTodayCustomerBirthday(birthDateMillis: Long): Boolean {
+    if (birthDateMillis <= 0L) return false
+    val today = Calendar.getInstance()
+    val birth = Calendar.getInstance().apply { timeInMillis = birthDateMillis }
+    return today.get(Calendar.MONTH) == birth.get(Calendar.MONTH) &&
+        today.get(Calendar.DAY_OF_MONTH) == birth.get(Calendar.DAY_OF_MONTH)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,12 +153,16 @@ fun PosScreen(
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
     var productToRestock by remember { mutableStateOf<ProductEntity?>(null) }
     var productToWaste by remember { mutableStateOf<ProductEntity?>(null) }
+    var productForVariantAction by remember { mutableStateOf<ProductEntity?>(null) }
+    var variantActionType by remember { mutableStateOf("") }
+    var variantToProcess by remember { mutableStateOf("") }
+
     var showActionDialogFor by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToEditNotes by remember { mutableStateOf<ProductEntity?>(null) }
+    var cartItemToEditNotes by remember { mutableStateOf<CartItem?>(null) }
     var productToSelectVariant by remember { mutableStateOf<ProductEntity?>(null) }
     var productToSelectMatrix by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToEditSerial by remember { mutableStateOf<ProductEntity?>(null) }
-    var productToAssignStaff by remember { mutableStateOf<ProductEntity?>(null) }
+    var cartItemToEditSerial by remember { mutableStateOf<CartItem?>(null) }
+    var cartItemToAssignStaff by remember { mutableStateOf<CartItem?>(null) }
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
     var showRawMaterialDialog by remember { mutableStateOf(false) }
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
@@ -158,15 +201,34 @@ fun PosScreen(
         else if (item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0) item.product.wholesalePrice * item.quantity
         else viewModel.getPriceForVariant(item.product, item.selectedVariation) * item.quantity
     }
-    val happyHourDiscountAmount = 0L
-    var tierDiscount = 0L
-    var promoDiscountUI = 0L
-    var totalDiscount = discount + happyHourDiscountAmount + tierDiscount + promoDiscountUI
-    if (settingsManager.maxDiscountCap > 0 && totalDiscount > settingsManager.maxDiscountCap) totalDiscount = settingsManager.maxDiscountCap
 
-    val taxAmount = ((subtotal - totalDiscount - voucherDiscount) * (taxPercent / 100.0)).toLong()
-    val serviceChargeAmount = ((subtotal - totalDiscount - voucherDiscount) * (serviceChargePercent / 100.0)).toLong()
-    val totalPrice = (subtotal + taxAmount + serviceChargeAmount - totalDiscount - voucherDiscount).coerceAtLeast(0)
+    // FIX BUG #3: Kalkulasi aktif untuk Happy Hour & Diskon Ulang Tahun di UI Keranjang
+    val happyHourDiscountAmount = if (settingsManager.happyHourDiscount > 0.0 &&
+        isCurrentTimeInHappyHour(settingsManager.happyHourStart, settingsManager.happyHourEnd)
+    ) {
+        (subtotal * (settingsManager.happyHourDiscount / 100.0)).toLong()
+    } else 0L
+
+    val birthdayDiscountAmount = if (isCrmEnabled &&
+        settingsManager.enableBirthdayDiscount &&
+        settingsManager.birthdayDiscountPercent > 0.0 &&
+        selectedCustomer != null &&
+        isTodayCustomerBirthday(selectedCustomer!!.birthDate)
+    ) {
+        (subtotal * (settingsManager.birthdayDiscountPercent / 100.0)).toLong()
+    } else 0L
+
+    val pointsDiscountAmount = if (isCrmEnabled) (pointsUsed * 100L) else 0L
+
+    var totalDiscount = discount + happyHourDiscountAmount + birthdayDiscountAmount + pointsDiscountAmount
+    if (settingsManager.maxDiscountCap > 0 && totalDiscount > settingsManager.maxDiscountCap) {
+        totalDiscount = settingsManager.maxDiscountCap
+    }
+
+    val netAfterDiscount = (subtotal - totalDiscount - voucherDiscount).coerceAtLeast(0L)
+    val taxAmount = (netAfterDiscount * (taxPercent / 100.0)).toLong()
+    val serviceChargeAmount = (netAfterDiscount * (serviceChargePercent / 100.0)).toLong()
+    val totalPrice = (netAfterDiscount + taxAmount + serviceChargeAmount).coerceAtLeast(0L)
 
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
@@ -187,6 +249,53 @@ fun PosScreen(
         Dialog(onDismissRequest = onDismissCfd, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             CfdContent(viewModel = viewModel, settingsManager = settingsManager, onDismiss = onDismissCfd)
         }
+    }
+
+    // FIX BUG #1 & #2: Dialog Pemilih Varian untuk Restock / Waste / Simpan Barcode di Layar Kasir
+    if (productForVariantAction != null) {
+        AlertDialog(
+            onDismissRequest = { productForVariantAction = null },
+            title = { Text("Pilih Varian", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(
+                        "Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val variants = productForVariantAction!!.variations
+                        .replace("|", ",")
+                        .split(",")
+                        .map { it.split(":")[0].trim() }
+                        .filter { it.isNotEmpty() }
+                    variants.forEach { vName ->
+                        Button(
+                            onClick = {
+                                variantToProcess = vName
+                                val targetProd = productForVariantAction
+                                productForVariantAction = null
+                                if (variantActionType == "RESTOCK") productToRestock = targetProd
+                                if (variantActionType == "WASTE") productToWaste = targetProd
+                                if (variantActionType == "BARCODE" && targetProd != null) {
+                                    saveBarcodeToGallery(context, targetProd)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) { Text(vName) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { productForVariantAction = null }) {
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        )
     }
 
     Box(
@@ -222,7 +331,7 @@ fun PosScreen(
                         isSplitBill = isSplitBillMode, method = method, maxDiscountCap = settingsManager.maxDiscountCap,
                         birthdayDiscountPercent = if (isCrmEnabled && settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0,
                         taxPercent = taxPercent, serviceChargePercent = serviceChargePercent,
-                        manualDiscount = discount, voucherDiscount = voucherDiscount, voucherCode = appliedVoucher
+                        manualDiscount = discount + happyHourDiscountAmount, voucherDiscount = voucherDiscount, voucherCode = appliedVoucher
                     ) { newTransaction ->
                         showPaymentSheet = false
                         if (!isSplitBillMode) showCartOnPhone = false
@@ -258,11 +367,35 @@ fun PosScreen(
                 product = showActionDialogFor!!,
                 onDismiss = { showActionDialogFor = null },
                 onEdit = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null },
-                onRestock = { productToRestock = showActionDialogFor; showActionDialogFor = null },
-                onWaste = { productToWaste = showActionDialogFor; showActionDialogFor = null },
+                onRestock = {
+                    val target = showActionDialogFor!!
+                    showActionDialogFor = null
+                    if (target.variations.isNotBlank() && !target.variations.contains("|")) {
+                        productForVariantAction = target
+                        variantActionType = "RESTOCK"
+                    } else {
+                        variantToProcess = ""
+                        productToRestock = target
+                    }
+                },
+                onWaste = {
+                    val target = showActionDialogFor!!
+                    showActionDialogFor = null
+                    if (target.variations.isNotBlank() && !target.variations.contains("|")) {
+                        productForVariantAction = target
+                        variantActionType = "WASTE"
+                    } else {
+                        variantToProcess = ""
+                        productToWaste = target
+                    }
+                },
                 onBom = { productToManageBom = showActionDialogFor; showActionDialogFor = null },
                 onRawMaterial = { showRawMaterialDialog = true; showActionDialogFor = null },
-                onSaveBarcode = { val product = showActionDialogFor!!; showActionDialogFor = null; saveBarcodeToGallery(context, product) },
+                onSaveBarcode = {
+                    val product = showActionDialogFor!!
+                    showActionDialogFor = null
+                    saveBarcodeToGallery(context, product)
+                },
                 onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }
             )
         }
@@ -290,21 +423,31 @@ fun PosScreen(
             )
         }
 
-        if (productToEditSerial != null) {
-            val currentSerial = cart.find { item -> item.product.id == productToEditSerial!!.id }?.serialNumber ?: ""
+        // FIX BUG #4: Edit Serial Number berdasarkan CartItem spesifik (aman untuk multi-varian)
+        if (cartItemToEditSerial != null) {
+            val targetItem = cartItemToEditSerial!!
             SerialNumberDialog(
-                product = productToEditSerial!!,
-                currentSerial = currentSerial,
-                onSave = { serial: String -> viewModel.updateCartItemSerial(productToEditSerial!!, cart.find { item -> item.product.id == productToEditSerial!!.id }?.selectedVariation ?: "", serial); productToEditSerial = null },
-                onDismiss = { productToEditSerial = null }
+                product = targetItem.product,
+                currentSerial = targetItem.serialNumber,
+                onSave = { serial: String ->
+                    viewModel.updateCartItemSerial(targetItem.product, targetItem.selectedVariation, serial)
+                    cartItemToEditSerial = null
+                },
+                onDismiss = { cartItemToEditSerial = null }
             )
         }
 
-        if (productToAssignStaff != null) {
+        // FIX BUG #4: Assign Staff berdasarkan CartItem spesifik (aman untuk multi-varian)
+        if (cartItemToAssignStaff != null) {
+            val targetItem = cartItemToAssignStaff!!
             AssignStaffDialog(
-                product = productToAssignStaff!!, users = users,
-                onAssign = { staff: String -> viewModel.updateCartItemStaff(productToAssignStaff!!, cart.find { item -> item.product.id == productToAssignStaff!!.id }?.selectedVariation ?: "", staff); productToAssignStaff = null },
-                onDismiss = { productToAssignStaff = null }
+                product = targetItem.product,
+                users = users,
+                onAssign = { staff: String ->
+                    viewModel.updateCartItemStaff(targetItem.product, targetItem.selectedVariation, staff)
+                    cartItemToAssignStaff = null
+                },
+                onDismiss = { cartItemToAssignStaff = null }
             )
         }
 
@@ -362,20 +505,51 @@ fun PosScreen(
             )
         }
 
-        if (productToWaste != null) {
-            WasteRecordDialog(
-                product = productToWaste!!,
-                onDismiss = { productToWaste = null },
-                onSave = { qty: Int -> if (qty > 0 && qty <= productToWaste!!.stock) { viewModel.recordWaste(productToWaste!!, "", qty, currentUser); productToWaste = null } }
+        // FIX BUG #1: Render StockOpnameDialog saat productToRestock dipilih di Layar Kasir
+        if (productToRestock != null) {
+            StockOpnameDialog(
+                product = productToRestock!!,
+                onDismiss = { productToRestock = null; variantToProcess = "" },
+                onSave = { qty: Int ->
+                    if (qty > 0) {
+                        viewModel.addStock(productToRestock!!, variantToProcess, qty, currentUser)
+                        Toast.makeText(context, "Stok berhasil ditambahkan (+$qty)", Toast.LENGTH_SHORT).show()
+                    }
+                    productToRestock = null
+                    variantToProcess = ""
+                }
             )
         }
 
-        if (productToEditNotes != null) {
-            val currentNotes = cart.find { item -> item.product.id == productToEditNotes!!.id }?.notes ?: ""
+        // FIX BUG #2: WasteRecordDialog mendukung pengurangan stok per varian
+        if (productToWaste != null) {
+            WasteRecordDialog(
+                product = productToWaste!!,
+                onDismiss = { productToWaste = null; variantToProcess = "" },
+                onSave = { qty: Int ->
+                    if (qty > 0 && qty <= productToWaste!!.stock) {
+                        viewModel.recordWaste(productToWaste!!, variantToProcess, qty, currentUser)
+                        Toast.makeText(context, "Barang rusak tercatat (-$qty)", Toast.LENGTH_SHORT).show()
+                        productToWaste = null
+                        variantToProcess = ""
+                    } else {
+                        Toast.makeText(context, "Jumlah melebihi stok tersedia!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+        }
+
+        // FIX BUG #4: Edit Notes berdasarkan CartItem spesifik (aman untuk multi-varian)
+        if (cartItemToEditNotes != null) {
+            val targetItem = cartItemToEditNotes!!
             OrderNotesDialog(
-                product = productToEditNotes!!, currentNotes = currentNotes,
-                onSave = { notes: String -> viewModel.updateCartItemNotes(productToEditNotes!!, cart.find { item -> item.product.id == productToEditNotes!!.id }?.selectedVariation ?: "", notes); productToEditNotes = null },
-                onDismiss = { productToEditNotes = null }
+                product = targetItem.product,
+                currentNotes = targetItem.notes,
+                onSave = { notes: String ->
+                    viewModel.updateCartItemNotes(targetItem.product, targetItem.selectedVariation, notes)
+                    cartItemToEditNotes = null
+                },
+                onDismiss = { cartItemToEditNotes = null }
             )
         }
 
@@ -512,8 +686,10 @@ fun PosScreen(
                                 onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
                                 onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },
                                 onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } },
-                                onCheckout = { showPaymentSheet = true }, onEditNotes = { product: ProductEntity -> productToEditNotes = product },
-                                onEditSerial = { product: ProductEntity -> productToEditSerial = product }, onAssignStaff = { product: ProductEntity -> productToAssignStaff = product },
+                                onCheckout = { showPaymentSheet = true },
+                                onEditNotes = { item: CartItem -> cartItemToEditNotes = item },
+                                onEditSerial = { item: CartItem -> cartItemToEditSerial = item },
+                                onAssignStaff = { item: CartItem -> cartItemToAssignStaff = item },
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language
@@ -544,8 +720,10 @@ fun PosScreen(
                                 onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
                                 onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },
                                 onDiscountClick = { if (currentUser.role == "CASHIER" && settingsManager.requirePinForDiscount) { showPinForDiscount = true } else { showDiscountDialog = true } },
-                                onCheckout = { showPaymentSheet = true }, onEditNotes = { product: ProductEntity -> productToEditNotes = product },
-                                onEditSerial = { product: ProductEntity -> productToEditSerial = product }, onAssignStaff = { product: ProductEntity -> productToAssignStaff = product },
+                                onCheckout = { showPaymentSheet = true },
+                                onEditNotes = { item: CartItem -> cartItemToEditNotes = item },
+                                onEditSerial = { item: CartItem -> cartItemToEditSerial = item },
+                                onAssignStaff = { item: CartItem -> cartItemToAssignStaff = item },
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language
