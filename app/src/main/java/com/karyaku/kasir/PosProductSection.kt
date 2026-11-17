@@ -43,7 +43,7 @@ import com.karyaku.kasir.data.local.ProductEntity
 import java.io.File
 
 // ====================================================================
-// REKOMENDASI #6, #8, #9, & #10 DITERAPKAN — PosProductSection-v2.kt:
+// REKOMENDASI #6, #8, #9, & #10 DITERAPKAN — PosProductSection-v3.kt:
 //   1. REKOMENDASI #10 (Toggle Grid Bergambar vs List Padat & Ukuran Card):
 //      - Menambahkan tombol toggle "Grid / List" di sebelah kanan bar
 //        kategori (tersimpan otomatis di SharedPreferences).
@@ -56,7 +56,7 @@ import java.io.File
 //        dengan indikator warna merah jika ada varian yang habis.
 //   3. REKOMENDASI #8 (Gambar Produk Lebih Cerah & Kontras Teks Terjaga):
 //      - Gradien gelap tidak lagi menutupi seluruh foto produk, melainkan
-//        hanya di 45% bagian bawah tempat teks berada dengan opasitas lembut
+//        hanya di bagian bawah tempat teks berada dengan opasitas lembut
 //        sehingga foto makanan/barang tetap cerah dan segar.
 //   4. REKOMENDASI #6 (Empty State Ilustratif & Tema Gelap Adaptif):
 //      - Seluruh warna statis diubah ke MaterialTheme.colorScheme.* dan
@@ -218,7 +218,7 @@ fun PosProductSection(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = if (searchQuery.isNotBlank())
-                            "Produk "$searchQuery" tidak ditemukan"
+                            "Produk '$searchQuery' tidak ditemukan"
                         else
                             "Belum ada produk di kategori ini",
                         fontWeight = FontWeight.Bold,
@@ -322,13 +322,12 @@ private fun ProductGridCard(
     }
     val hasValidImage = imageFile != null && imageFile.exists()
 
-    val primaryColor = MaterialTheme.colorScheme.primary
     val errorColor = MaterialTheme.colorScheme.error
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.92f) // Lebih ringkas dibanding 0.85f agar tinggi kartu tidak memakan layar
+            .aspectRatio(0.92f)
             .scale(scale)
             .shadow(3.dp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
@@ -350,8 +349,6 @@ private fun ProductGridCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (hasValidImage) {
-                // REKOMENDASI #8: Gambar produk tampil terang & jernih di bagian atas,
-                // gradien gelap hanya di 45% bagian bawah tempat teks berada
                 AsyncImage(
                     model = imageFile,
                     contentDescription = product.name,
@@ -374,7 +371,6 @@ private fun ProductGridCard(
                         )
                 )
             } else {
-                // Tanpa foto: gunakan gradasi warna semantik yang bersih dan modern
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -396,7 +392,6 @@ private fun ProductGridCard(
                     .padding(10.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Baris Badge Kategori & Promo
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -447,7 +442,6 @@ private fun ProductGridCard(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Informasi Nama, Harga, & Detail Stok Varian (Rekomendasi #9)
                 Column {
                     Text(
                         text = product.name,
@@ -476,7 +470,6 @@ private fun ProductGridCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    // REKOMENDASI #9: Tampilkan rincian stok per varian jika produk memiliki varian
                     if (product.isService) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -567,7 +560,6 @@ private fun ProductCompactListRow(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Thumbnail Kecil 46.dp
             Box(
                 modifier = Modifier
                     .size(46.dp)
@@ -594,7 +586,6 @@ private fun ProductCompactListRow(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Kolom Tengah: Nama, Kategori, & Rincian Stok Varian (Rekomendasi #9)
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -630,7 +621,6 @@ private fun ProductCompactListRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else if (variantStocks.isNotEmpty()) {
-                    // Tampilkan chip kecil untuk masing-masing stok varian
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -683,7 +673,6 @@ private fun ProductCompactListRow(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Kolom Kanan: Harga Jual & Grosir
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = formatRupiah(product.price),

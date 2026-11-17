@@ -48,17 +48,15 @@ import java.util.Date
 import java.util.Locale
 
 // ====================================================================
-// REKOMENDASI #2 & #3 DITERAPKAN — ReceiptDialog-v2.kt:
+// REKOMENDASI #2 & #3 DITERAPKAN — ReceiptDialog-v3.kt:
 //   1. Format Struk Presisi 32 Karakter (Standar Thermal 58mm):
 //      - Nama produk yang panjang otomatis di-wrap rapi ke baris bawah
 //        tanpa menabrak atau menggeser kolom subtotal di sebelah kanan.
 //      - Catatan, Serial Number (SN), dan Staf ditampilkan rapi di bawah
 //        nama barang dengan indentasi yang bersih.
 //   2. Rincian Lengkap Diskon, Voucher, Pajak (Inklusif/Eksklusif) & Service Charge:
-//      - Sebelumnya struk hanya menampilkan Subtotal dan Total (sehingga jika
-//        ada diskon, voucher, PB1/PPN, atau Service Charge, angkanya tampak
-//        melompat). Kini rincian potongan Diskon, Voucher, Pajak (termasuk
-//        keterangan Pajak Inklusif jika aktif), dan Service Charge dicetak
+//      - Mencetak rincian potongan Diskon, Voucher, Pajak (termasuk
+//        keterangan Pajak Inklusif jika aktif), dan Service Charge secara
 //        lengkap dan sejajar vertikal.
 //   3. Pratinjau PDF & Kertas Struk Presisi:
 //      - Lebar halaman PDF disesuaikan agar proporsional dengan kertas struk
@@ -80,7 +78,7 @@ private fun centerLine(text: String, width: Int = RECEIPT_WIDTH): String {
 }
 
 private fun wrapTextLines(text: String, maxWidth: Int = RECEIPT_WIDTH): List<String> {
-    val words = text.trim().split(Regex("\s+"))
+    val words = text.trim().split(Regex("\\s+"))
     val lines = mutableListOf<String>()
     var current = StringBuilder()
     for (w in words) {
@@ -162,11 +160,9 @@ private fun buildFormattedReceipt32(
     items.forEach { item ->
         subtotalItems += item.subtotal
         val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
-        // Baris 1+: Nama Produk (dibungkus maksimal 32 karakter agar tidak pernah terpotong)
         wrapTextLines(item.productName, RECEIPT_WIDTH).forEach { nameLine ->
             sb.appendLine(nameLine)
         }
-        // Baris Detail Varian / Catatan / SN / Staf
         if (item.notes.isNotBlank()) {
             wrapTextLines("  Cat: ${item.notes}", RECEIPT_WIDTH).forEach { sb.appendLine(it) }
         }
@@ -176,7 +172,6 @@ private fun buildFormattedReceipt32(
         if (item.assignedStaff.isNotBlank()) {
             wrapTextLines("  Staf: ${item.assignedStaff}", RECEIPT_WIDTH).forEach { sb.appendLine(it) }
         }
-        // Baris Kuantitas x Harga Satuan di kiri, Subtotal di kanan
         val qtyPriceStr = "  ${item.quantity} x ${formatNumPlain(unitPrice)}"
         val itemSubStr = formatNumPlain(item.subtotal)
         sb.appendLine(leftRightLine(qtyPriceStr, itemSubStr))
@@ -199,7 +194,6 @@ private fun buildFormattedReceipt32(
     val diffCharges = (transaction.totalPrice - netAfterDisc).coerceAtLeast(0L)
 
     if (diffCharges > 0L) {
-        // Pajak Eksklusif dan/atau Service Charge ditambahkan ke tagihan
         val totalRate = taxPercent + serviceChargePercent
         val scVal = if (serviceChargePercent > 0.0 && totalRate > 0.0) {
             (diffCharges * (serviceChargePercent / totalRate)).toLong()
@@ -214,7 +208,6 @@ private fun buildFormattedReceipt32(
             sb.appendLine(leftRightLine("Service (${serviceChargePercent.toInt()}%)", "+${formatNumPlain(scVal)}"))
         }
     } else if (isTaxInclusive && taxPercent > 0.0 && transaction.totalPrice > 0L) {
-        // Pajak Inklusif: tampilkan informasi nilai pajak yang sudah termasuk di dalam harga
         val includedTax = (transaction.totalPrice - (transaction.totalPrice / (1.0 + (taxPercent / 100.0)))).toLong()
         if (includedTax > 0L) {
             val taxLabel = if (taxPercent == 10.0) "Termasuk PB1 10%" else "Termasuk Pajak ${taxPercent.toInt()}%"
@@ -274,7 +267,6 @@ fun ReceiptDialog(
         if (!path.isNullOrBlank()) File(path) else null
     }
 
-    // Merakit teks struk presisi 32 karakter (Rekomendasi #2 & #3)
     val strukText = remember(
         transaction,
         items,
@@ -351,7 +343,6 @@ fun ReceiptDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // TOMBOL WHATSAPP / BAGIKAN PDF
                 Button(
                     onClick = {
                         if (!isItemsLoaded) return@Button
@@ -417,7 +408,6 @@ fun ReceiptDialog(
                     }
                 }
 
-                // TOMBOL CETAK THERMAL
                 Button(
                     onClick = {
                         val mac = settingsManager.printerMacAddress
@@ -507,7 +497,6 @@ fun ReceiptDialog(
                             )
                         }
                     } else {
-                        // TAMPILAN STRUK — Kertas putih bersih dengan teks Monospace hitam tajam
                         Text(
                             text = strukText,
                             fontFamily = FontFamily.Monospace,
@@ -523,9 +512,6 @@ fun ReceiptDialog(
     )
 }
 
-// =========================================================================
-// FUNGSI PENDUKUNG UNTUK MEMBUAT FILE PDF STRUK YANG PRESISI & RAPI
-// =========================================================================
 private fun generateReceiptPdf(context: Context, strukText: String, transactionId: Long, logoFile: File?): File? {
     val document = PdfDocument()
     val lines = strukText.lines()
@@ -537,7 +523,6 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
         isAntiAlias = true
     }
 
-    // Hitung lebar halaman berdasarkan 32 karakter Monospace + margin kiri/kanan
     val sampleWidth = paint.measureText("W".repeat(RECEIPT_WIDTH))
     val padding = 22f
     val pageWidth = (sampleWidth + (padding * 2)).toInt().coerceAtLeast(280)
@@ -549,7 +534,6 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
     val page = document.startPage(pageInfo)
 
     val canvas = page.canvas
-    // Latar belakang putih bersih untuk PDF
     canvas.drawColor(AndroidColor.WHITE)
 
     var currentY = padding + 10f
@@ -599,9 +583,6 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
     }
 }
 
-// =========================================================================
-// FUNGSI PENDUKUNG UNTUK CETAK BLUETOOTH THERMAL 58MM
-// =========================================================================
 private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
@@ -610,7 +591,6 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
         try {
             val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
             if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
-                // Lebar optimal logo pada thermal 58mm (maks 384 dots, gunakan 240 dots agar proporsional & cepat)
                 val targetWidth = 240
                 val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
                 val newHeight = ((targetWidth / ratio).toInt()).coerceAtLeast(8)
@@ -626,8 +606,8 @@ private fun generatePrintData(strukText: String, logoFile: File?): ByteArray {
     }
 
     output.write(EscPosCommands.ALIGN_LEFT)
-    output.write((strukText + "
-").toByteArray(charset("GBK")))
+    output.write(strukText.toByteArray(charset("GBK")))
+    output.write(byteArrayOf(0x0A))
 
     output.write(EscPosCommands.FEED_3)
     output.write(EscPosCommands.CUT_PAPER)
