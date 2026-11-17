@@ -63,11 +63,11 @@ fun RawMaterialManagementDialog(
 
         AlertDialog(
             onDismissRequest = { showAddForm = false; materialToEdit = null },
-            title = { 
+            title = {
                 Text(
-                    if (isEdit) "Edit Bahan Baku" else "Tambah Bahan Baku", 
+                    if (isEdit) "Edit Bahan Baku" else "Tambah Bahan Baku",
                     fontWeight = FontWeight.Bold
-                ) 
+                )
             },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -80,7 +80,7 @@ fun RawMaterialManagementDialog(
                         singleLine = true
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = stock,
@@ -91,7 +91,7 @@ fun RawMaterialManagementDialog(
                             shape = RoundedCornerShape(12.dp),
                             singleLine = true
                         )
-                        
+
                         Box(modifier = Modifier.weight(1f)) {
                             OutlinedButton(
                                 onClick = { unitExpanded = true },
@@ -151,8 +151,8 @@ fun RawMaterialManagementDialog(
                 ) { Text(if (isEdit) "SIMPAN" else "TAMBAH") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddForm = false; materialToEdit = null }) { 
-                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                TextButton(onClick = { showAddForm = false; materialToEdit = null }) {
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -169,11 +169,11 @@ fun RawMaterialManagementDialog(
                 )
             },
             title = { Text("Hapus Bahan Baku?") },
-            text = { 
+            text = {
                 Text(
                     "Bahan '${materialToDelete!!.name}' akan dihapus permanen. Resep (BOM) yang menggunakan bahan ini mungkin akan error.",
                     color = MaterialTheme.colorScheme.onSurface
-                ) 
+                )
             },
             confirmButton = {
                 Button(
@@ -189,10 +189,10 @@ fun RawMaterialManagementDialog(
                     )
                 ) { Text("HAPUS") }
             },
-            dismissButton = { 
-                TextButton(onClick = { materialToDelete = null }) { 
-                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                } 
+            dismissButton = {
+                TextButton(onClick = { materialToDelete = null }) {
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         )
     }
@@ -210,37 +210,42 @@ fun RawMaterialManagementDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Kelola Bahan Baku", 
-                                style = MaterialTheme.typography.titleLarge, 
+                                "Kelola Bahan Baku",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Atur stok dan harga per satuan", 
-                                fontSize = 12.sp, 
+                                "Atur stok dan harga per satuan",
+                                fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(onClick = onDismiss) { 
+                        IconButton(onClick = onDismiss) {
                             Icon(
-                                Icons.Default.Close, 
+                                Icons.Default.Close,
                                 contentDescription = "Tutup",
                                 tint = MaterialTheme.colorScheme.onSurface
-                            ) 
+                            )
                         }
                     }
 
                     if (rawMaterials.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
-                                "Belum ada bahan baku.", 
+                                "Belum ada bahan baku.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp).copy(bottom = 96.dp),
+                            contentPadding = PaddingValues(
+                                start = 16.dp,
+                                top = 16.dp,
+                                end = 16.dp,
+                                bottom = 96.dp
+                            ),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(rawMaterials, key = { it.id }) { material ->
@@ -255,40 +260,40 @@ fun RawMaterialManagementDialog(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    material.name, 
-                                                    fontWeight = FontWeight.Bold, 
+                                                    material.name,
+                                                    fontWeight = FontWeight.Bold,
                                                     fontSize = 16.sp,
                                                     color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    "Stok: ${material.stock} ${material.unit}", 
-                                                    fontSize = 12.sp, 
+                                                    "Stok: ${material.stock} ${material.unit}",
+                                                    fontSize = 12.sp,
                                                     color = MaterialTheme.colorScheme.primary
                                                 )
                                                 Text(
-                                                    "Harga: ${formatRupiah(material.costPerUnit)} / ${material.unit}", 
-                                                    fontSize = 11.sp, 
+                                                    "Harga: ${formatRupiah(material.costPerUnit)} / ${material.unit}",
+                                                    fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                             IconButton(onClick = { materialToEdit = material }) {
                                                 Icon(
-                                                    Icons.Default.Edit, 
-                                                    contentDescription = "Edit", 
-                                                    tint = MaterialTheme.colorScheme.tertiary, 
+                                                    Icons.Default.Edit,
+                                                    contentDescription = "Edit",
+                                                    tint = MaterialTheme.colorScheme.tertiary,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
                                             IconButton(onClick = { materialToDelete = material }) {
                                                 Icon(
-                                                    Icons.Default.Delete, 
-                                                    contentDescription = "Hapus", 
-                                                    tint = MaterialTheme.colorScheme.error, 
+                                                    Icons.Default.Delete,
+                                                    contentDescription = "Hapus",
+                                                    tint = MaterialTheme.colorScheme.error,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
                                         }
-                                        
+
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             OutlinedButton(
@@ -304,14 +309,14 @@ fun RawMaterialManagementDialog(
                                                 )
                                             ) {
                                                 Icon(
-                                                    Icons.Default.Add, 
-                                                    contentDescription = null, 
+                                                    Icons.Default.Add,
+                                                    contentDescription = null,
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text("Tambah +10", fontSize = 11.sp)
                                             }
-                                            
+
                                             OutlinedButton(
                                                 onClick = {
                                                     viewModel.wasteRawMaterial(material.id, 1.0, "Waste/Basi -1")
@@ -325,8 +330,8 @@ fun RawMaterialManagementDialog(
                                                 contentPadding = PaddingValues(vertical = 4.dp)
                                             ) {
                                                 Icon(
-                                                    Icons.Default.Remove, 
-                                                    contentDescription = null, 
+                                                    Icons.Default.Remove,
+                                                    contentDescription = null,
                                                     modifier = Modifier.size(14.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
