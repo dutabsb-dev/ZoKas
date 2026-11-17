@@ -3,6 +3,7 @@ package com.karyaku.kasir
 import android.content.Context
 import android.content.res.Configuration
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -35,27 +36,30 @@ import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
 import com.karyaku.kasir.data.local.ShiftEntity
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
 // ====================================================================
-// HASIL SIMULASI & PERBAIKAN FITUR TIDAK BEKERJA — PosScreen-v3.kt:
-//   1. FIX BUG #1 (Tambah Stok / Restock Tidak Muncul di Kasir):
-//      State productToRestock sebelumnya tidak pernah dirender ke
-//      StockOpnameDialog, serta belum mendukung produk ber-varian.
-//      Kini ditambahkan dialog pemilih varian (productForVariantAction)
-//      dan StockOpnameDialog untuk Restock.
-//   2. FIX BUG #2 (Barang Rusak / Waste Gagal pada Produk Varian):
-//      Kini jika produk memiliki varian, sistem meminta pemilihan varian
-//      terlebih dahulu dan meneruskan nama varian ke viewModel.recordWaste.
-//   3. FIX BUG #3 (Diskon Happy Hour & Diskon Ulang Tahun bernilai 0 di Keranjang):
-//      Sebelumnya happyHourDiscountAmount dan promoDiscountUI di-hardcode 0L.
-//      Kini dihitung secara real-time sesuai jam Happy Hour & tanggal lahir
-//      pelanggan yang dipilih agar tampilan keranjang sinkron dengan struk.
-//   4. FIX BUG #4 (Edit Catatan, Serial Number & Staf Terapis pada Varian Berbeda):
-//      Menggunakan state CartItem penuh (bukan hanya ProductEntity) agar
-//      ketika 1 produk memiliki 2 varian berbeda di keranjang, catatan/SN/staf
-//      tidak salah masuk ke varian pertama.
+// UPDATE PosScreen-v4.kt:
+//   1. FIX BUG #1 (Selalu Minta Modal Awal Saat Buka Ulang Aplikasi):
+//      - Penyebab 1 (Race Condition Room Flow): Saat aplikasi baru dibuka,
+//        activeShift dan shifts masih bernilai awal (null / empty) selama
+//        beberapa milidetik selagi Room membaca database di background.
+//        LaunchedEffect(activeShift) sebelumnya langsung mendeteksi null
+//        di milidetik ke-0 dan memaksa showOpenShiftDialog = true.
+//      - Penyebab 2 (Sinkronisasi Shift): Mengecek baik dari activeShift
+//        maupun dari daftar shifts di database yang endTime == null.
+//      - Solusi: Menambahkan penantian inisialisasi DB (delay 450ms) +
+//        auto-close otomatis jika di tengah tunggu ternyata shift aktif
+//        ditemukan di database (hasOpenShift).
+//   2. FIX BUG #2 (Tombol Back Saat Membuka Keranjang di Layar HP):
+//      - Menambahkan BackHandler(enabled = showCartOnPhone) agar saat kasir
+//        membuka layar keranjang penuh di HP dan menekan tombol Back Android,
+//        layar kembali ke Katalog Produk (bukan keluar aplikasi).
+//   3. Mempertahankan seluruh perbaikan Simulasi sebelumnya (Restock di Kasir,
+//      Waste per varian, Diskon Happy Hour & Ultah, serta Edit Catatan/SN/Staf
+//      per CartItem).
 // ====================================================================
 
 private fun isCurrentTimeInHappyHour(startStr: String, endStr: String): Boolean {
@@ -108,6 +112,8 @@ fun PosScreen(
 
     val cart by viewModel.cart.collectAsStateWithLifecycle()
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
+    val shifts by viewModel.shifts.collectAsStateWithLifecycle()
+    val currentBranchId by viewModel.currentBranchId.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val discount by viewModel.discount.collectAsStateWithLifecycle()
     val customers by viewModel.customers.collectAsStateWithLifecycle()
@@ -147,6 +153,12 @@ fun PosScreen(
     }
 
     var showCartOnPhone by rememberSaveable { mutableStateOf(false) }
+
+    // FIX BUG #2: Jika sedang membuka tampilan Keranjang penuh di layar HP, tombol Back kembali ke Katalog Produk
+    BackHandler(enabled = showCartOnPhone && !isLandscape && isPhone) {
+        showCartOnPhone = false
+    }
+
     var showPaymentSheet by remember { mutableStateOf(false) }
     var showProductForm by remember { mutableStateOf(false) }
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
@@ -183,6 +195,28 @@ fun PosScreen(
     var showVoucherDialog by remember { mutableStateOf(false) }
     var isSplitBillMode by remember { mutableStateOf(false) }
 
+    // FIX BUG #1: Deteksi Shift Aktif yang Tahan Race Condition saat Aplikasi Baru Dibuka
+    // Cari apakah ada shift yang belum ditutup (endTime == null) baik dari activeShift maupun tabel shifts
+    val currentOpenShift = remember(activeShift, shifts, currentBranchId) {
+        activeShift ?: shifts.firstOrNull {
+            it.endTime == null && (it.branchId == currentBranchId || it.branchId == 0L)
+        } ?: shifts.firstOrNull { it.endTime == null }
+    }
+
+    LaunchedEffect(currentOpenShift, showShiftReport, currentBranchId) {
+        if (currentOpenShift != null) {
+            // Jika shift aktif ditemukan dari database, segera tutup dialog modal awal
+            showOpenShiftDialog = false
+        } else if (showShiftReport == null) {
+            // Beri waktu Room Database memuat Flow dari disk saat aplikasi baru dibuka (450ms)
+            delay(450)
+            val stillOpen = viewModel.activeShift.value ?: viewModel.shifts.value.firstOrNull { it.endTime == null }
+            if (stillOpen == null && showShiftReport == null) {
+                showOpenShiftDialog = true
+            }
+        }
+    }
+
     LaunchedEffect(actionTrigger) {
         if (actionTrigger != null) {
             when (actionTrigger) {
@@ -202,7 +236,7 @@ fun PosScreen(
         else viewModel.getPriceForVariant(item.product, item.selectedVariation) * item.quantity
     }
 
-    // FIX BUG #3: Kalkulasi aktif untuk Happy Hour & Diskon Ulang Tahun di UI Keranjang
+    // Kalkulasi aktif untuk Happy Hour & Diskon Ulang Tahun di UI Keranjang
     val happyHourDiscountAmount = if (settingsManager.happyHourDiscount > 0.0 &&
         isCurrentTimeInHappyHour(settingsManager.happyHourStart, settingsManager.happyHourEnd)
     ) {
@@ -239,10 +273,6 @@ fun PosScreen(
         }
     }
 
-    LaunchedEffect(activeShift, showShiftReport) {
-        if (activeShift == null && showShiftReport == null) showOpenShiftDialog = true
-    }
-
     if (showPrinterErrorDialog) PrinterErrorDialog { showPrinterErrorDialog = false }
 
     if (showCfd) {
@@ -251,7 +281,7 @@ fun PosScreen(
         }
     }
 
-    // FIX BUG #1 & #2: Dialog Pemilih Varian untuk Restock / Waste / Simpan Barcode di Layar Kasir
+    // Dialog Pemilih Varian untuk Restock / Waste / Simpan Barcode di Layar Kasir
     if (productForVariantAction != null) {
         AlertDialog(
             onDismissRequest = { productForVariantAction = null },
@@ -423,7 +453,7 @@ fun PosScreen(
             )
         }
 
-        // FIX BUG #4: Edit Serial Number berdasarkan CartItem spesifik (aman untuk multi-varian)
+        // Edit Serial Number berdasarkan CartItem spesifik (aman untuk multi-varian)
         if (cartItemToEditSerial != null) {
             val targetItem = cartItemToEditSerial!!
             SerialNumberDialog(
@@ -437,7 +467,7 @@ fun PosScreen(
             )
         }
 
-        // FIX BUG #4: Assign Staff berdasarkan CartItem spesifik (aman untuk multi-varian)
+        // Assign Staff berdasarkan CartItem spesifik (aman untuk multi-varian)
         if (cartItemToAssignStaff != null) {
             val targetItem = cartItemToAssignStaff!!
             AssignStaffDialog(
@@ -505,7 +535,7 @@ fun PosScreen(
             )
         }
 
-        // FIX BUG #1: Render StockOpnameDialog saat productToRestock dipilih di Layar Kasir
+        // Render StockOpnameDialog saat productToRestock dipilih di Layar Kasir
         if (productToRestock != null) {
             StockOpnameDialog(
                 product = productToRestock!!,
@@ -521,7 +551,7 @@ fun PosScreen(
             )
         }
 
-        // FIX BUG #2: WasteRecordDialog mendukung pengurangan stok per varian
+        // WasteRecordDialog mendukung pengurangan stok per varian
         if (productToWaste != null) {
             WasteRecordDialog(
                 product = productToWaste!!,
@@ -539,7 +569,7 @@ fun PosScreen(
             )
         }
 
-        // FIX BUG #4: Edit Notes berdasarkan CartItem spesifik (aman untuk multi-varian)
+        // Edit Notes berdasarkan CartItem spesifik (aman untuk multi-varian)
         if (cartItemToEditNotes != null) {
             val targetItem = cartItemToEditNotes!!
             OrderNotesDialog(
@@ -553,7 +583,7 @@ fun PosScreen(
             )
         }
 
-        if (showOpenShiftDialog) {
+        if (showOpenShiftDialog && currentOpenShift == null) {
             OpenShiftDialog(
                 modalAwal = modalAwal,
                 onModalChange = { input: String -> if (input.length <= 10) modalAwal = input },
@@ -561,17 +591,23 @@ fun PosScreen(
             )
         }
 
-        if (showCloseShiftDialog && activeShift != null) {
-            CloseShiftWizardDialog(
-                shift = activeShift!!, transactions = transactions, cashFlows = cashFlows,
-                onDismiss = { showCloseShiftDialog = false },
-                onConfirm = { uangFisik: Long, note: String ->
-                    viewModel.closeShift(currentUser, uangFisik, note) { closedShift ->
-                        showCloseShiftDialog = false
-                        showShiftReport = closedShift
+        if (showCloseShiftDialog) {
+            val shiftToClose = currentOpenShift
+            if (shiftToClose != null) {
+                CloseShiftWizardDialog(
+                    shift = shiftToClose, transactions = transactions, cashFlows = cashFlows,
+                    onDismiss = { showCloseShiftDialog = false },
+                    onConfirm = { uangFisik: Long, note: String ->
+                        viewModel.closeShift(currentUser, uangFisik, note) { closedShift ->
+                            showCloseShiftDialog = false
+                            showShiftReport = closedShift
+                        }
                     }
-                }
-            )
+                )
+            } else {
+                Toast.makeText(context, "Tidak ada shift kasir yang sedang aktif.", Toast.LENGTH_SHORT).show()
+                showCloseShiftDialog = false
+            }
         }
 
         if (showCashFlowDialog) {

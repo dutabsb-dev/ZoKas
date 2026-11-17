@@ -6,6 +6,7 @@ import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.view.Display
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -56,15 +57,21 @@ import kotlinx.coroutines.delay
 import java.io.File
 
 // ====================================================================
-// SESI 4 (#2), SESI 5 & 6 (#3), & TEMA GELAP ADAPTIF — MainActivity.kt:
-//   1. Menambahkan ikon Bantuan/Tutorial (?) di TopBar utama dan di
-//      DropdownMenu agar semua pengguna (Owner maupun Kasir) dapat
-//      membuka TutorialCenterDialog kapan saja dari layar mana pun.
-//   2. Menghubungkan ProductFormBottomSheet & PosActionMenuBottomSheet
-//      di ProductManagementScreen (Tab Produk) dengan manajemen Resep (BOM)
-//      dan Kelola Bahan Baku secara langsung.
-//   3. Mengubah seluruh warna keras (EmeraldGreen, AmberAccent, SlateGrey,
-//      ErrorRed) di MainActivity menjadi warna adaptif Material 3.
+// UPDATE MainActivity-v3.kt:
+//   1. FIX BUG TOMBOL BACK ANDROID (Double Back to Exit & Back ke Kasir):
+//      - Jika user sedang berada di tab selain Kasir (Produk, Laporan,
+//        Pengaturan, atau Dapur), menekan tombol Back akan mengembalikan
+//        ke menu utama (Tab 0 - Kasir).
+//      - Jika sudah di menu utama (Kasir), menekan tombol Back sekali
+//        menampilkan pesan "Tekan sekali lagi untuk keluar aplikasi",
+//        dan menekan 2x dalam 2 detik baru keluar dari aplikasi.
+//   2. FIX BUG KATEGORI DI TAB PRODUK (ProductManagementScreen):
+//      - Sebelumnya selectedCategory di-hardcode "Semua" sehingga klik
+//        filter kategori di Tab Produk tidak menyaring daftar produk.
+//        Kini telah dihubungkan ke viewModel.selectedCategory.
+//   3. FIX BUG INISIALISASI CABANG SAAT BUKA ULANG APLIKASI:
+//      - Memastikan initCurrentBranchForUser(currentUser) tetap dipanggil
+//        ketika aplikasi dibuka kembali dari memori (rememberSaveable).
 // ====================================================================
 
 class MainActivity : AppCompatActivity() {
@@ -131,6 +138,13 @@ fun MainContent(
 
         var staffUserToLogout by remember { mutableStateOf<UserEntity?>(null) }
         var staffMessage by remember { mutableStateOf("") }
+
+        // Pastikan cabang aktif diinisialisasi ulang jika currentUser dipulihkan dari rememberSaveable
+        LaunchedEffect(currentUser?.id) {
+            if (currentUser != null && currentUser.role != "STAFF") {
+                posViewModel.initCurrentBranchForUser(currentUser)
+            }
+        }
 
         if (!settingsManager.isSetupCompleted) {
             SetupWizardScreen(settingsManager, posViewModel, onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) })
@@ -206,6 +220,27 @@ fun MainNavigation(
     var showStockTransferDialog by remember { mutableStateOf(false) }
     val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
 
+    val context = LocalContext.current
+    val activity = LocalActivity.current
+    var lastBackPressTime by remember { mutableStateOf(0L) }
+
+    // FIX BUG #2: Tangani tombol Back Android (Kembali ke Menu Utama / Tekan 2x untuk Keluar)
+    val defaultHomeTab = if (currentUser.role == "STAFF" && isKuliner) 4 else 0
+    BackHandler(enabled = true) {
+        if (selectedTab != defaultHomeTab) {
+            selectedTab = defaultHomeTab
+        } else {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPressTime < 2000L) {
+                activity?.finish()
+            } else {
+                lastBackPressTime = now
+                val msg = if (language == "in") "Tekan sekali lagi untuk keluar aplikasi" else "Press back again to exit"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     LaunchedEffect(currentUser.role, selectedTab) {
         if (currentUser.role == "CASHIER" && selectedTab != 0) selectedTab = 0
         if (currentUser.role == "STAFF" && isKuliner && selectedTab != 4 && selectedTab != 0) selectedTab = 4
@@ -216,7 +251,6 @@ fun MainNavigation(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
 
-    val context = LocalContext.current
     var presentation by remember { mutableStateOf<CustomerDisplayPresentation?>(null) }
     val displayManager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager }
 
@@ -540,6 +574,7 @@ fun MainNavigation(
 fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
     val filteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.uniqueCategories.collectAsStateWithLifecycle()
+    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
 
@@ -570,16 +605,21 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    val variants = productForVariantAction!!.variations.split(",").map { it.split(":")[0].trim() }
+                    val variants = productForVariantAction!!.variations
+                        .replace("|", ",")
+                        .split(",")
+                        .map { it.split(":")[0].trim() }
+                        .filter { it.isNotEmpty() }
                     variants.forEach { vName ->
                         Button(
                             onClick = {
                                 variantToProcess = vName
-                                if (variantActionType == "RESTOCK") productToRestock = productForVariantAction
-                                if (variantActionType == "WASTE") productToWaste = productForVariantAction
-                                if (variantActionType == "BARCODE") {
-                                    saveBarcodeToGallery(context, productForVariantAction!!)
-                                    productForVariantAction = null
+                                val targetProd = productForVariantAction
+                                productForVariantAction = null
+                                if (variantActionType == "RESTOCK") productToRestock = targetProd
+                                if (variantActionType == "WASTE") productToWaste = targetProd
+                                if (variantActionType == "BARCODE" && targetProd != null) {
+                                    saveBarcodeToGallery(context, targetProd)
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -606,15 +646,29 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 value = searchQuery, onValueChange = { viewModel.setSearchQuery(it) },
                 placeholder = { Text("Cari nama atau scan barcode...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Hapus")
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp), singleLine = true
             )
+            // FIX BUG FILTER KATEGORI DI TAB PRODUK: Gunakan selectedCategory dari ViewModel (bukan hardcode "Semua")
             PosProductSection(
-                products = filteredProducts, categories = categories, selectedCategory = "Semua",
-                onCategorySelect = { viewModel.setCategory(it) }, searchQuery = searchQuery, onSearchChange = { viewModel.setSearchQuery(it) },
+                products = filteredProducts,
+                categories = categories,
+                selectedCategory = selectedCategory,
+                onCategorySelect = { viewModel.setCategory(it) },
+                searchQuery = searchQuery,
+                onSearchChange = { viewModel.setSearchQuery(it) },
                 onProductClick = { prod -> productToEdit = prod; showProductForm = true },
                 onProductLongClick = { prod -> showActionDialogFor = prod },
-                onBarcodeScan = { }, onCameraScanClick = { }, searchFocusRequester = remember { FocusRequester() }
+                onBarcodeScan = { },
+                onCameraScanClick = { },
+                searchFocusRequester = remember { FocusRequester() }
             )
         }
 
@@ -654,14 +708,26 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 onDismiss = { showActionDialogFor = null },
                 onEdit = { productToEdit = showActionDialogFor; showProductForm = true; showActionDialogFor = null },
                 onRestock = {
-                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "RESTOCK" }
-                    else { productToRestock = showActionDialogFor }
+                    val target = showActionDialogFor!!
                     showActionDialogFor = null
+                    if (target.variations.isNotBlank() && !target.variations.contains("|")) {
+                        productForVariantAction = target
+                        variantActionType = "RESTOCK"
+                    } else {
+                        variantToProcess = ""
+                        productToRestock = target
+                    }
                 },
                 onWaste = {
-                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "WASTE" }
-                    else { productToWaste = showActionDialogFor }
+                    val target = showActionDialogFor!!
                     showActionDialogFor = null
+                    if (target.variations.isNotBlank() && !target.variations.contains("|")) {
+                        productForVariantAction = target
+                        variantActionType = "WASTE"
+                    } else {
+                        variantToProcess = ""
+                        productToWaste = target
+                    }
                 },
                 onBom = {
                     productToManageBom = showActionDialogFor
@@ -672,8 +738,14 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     showActionDialogFor = null
                 },
                 onSaveBarcode = {
-                    if (showActionDialogFor!!.variations.isNotBlank()) { productForVariantAction = showActionDialogFor; variantActionType = "BARCODE" }
-                    else { saveBarcodeToGallery(context, showActionDialogFor!!); showActionDialogFor = null }
+                    val target = showActionDialogFor!!
+                    showActionDialogFor = null
+                    if (target.variations.isNotBlank() && !target.variations.contains("|")) {
+                        productForVariantAction = target
+                        variantActionType = "BARCODE"
+                    } else {
+                        saveBarcodeToGallery(context, target)
+                    }
                 },
                 onDelete = {
                     productToDelete = showActionDialogFor
@@ -702,14 +774,14 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
         if (productToRestock != null) {
             StockOpnameDialog(
                 product = productToRestock!!,
-                onDismiss = { productToRestock = null },
+                onDismiss = { productToRestock = null; variantToProcess = "" },
                 onSave = { qty -> viewModel.addStock(productToRestock!!, variantToProcess, qty, currentUser); productToRestock = null; variantToProcess = "" }
             )
         }
         if (productToWaste != null) {
             WasteRecordDialog(
                 product = productToWaste!!,
-                onDismiss = { productToWaste = null },
+                onDismiss = { productToWaste = null; variantToProcess = "" },
                 onSave = { qty -> viewModel.recordWaste(productToWaste!!, variantToProcess, qty, currentUser); productToWaste = null; variantToProcess = "" }
             )
         }
