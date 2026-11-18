@@ -79,6 +79,7 @@ fun HistoryScreen(
     val products by viewModel.products.collectAsStateWithLifecycle()
     val users by viewModel.users.collectAsStateWithLifecycle()
     val cashFlows by viewModel.cashFlows.collectAsStateWithLifecycle()
+    val expenses by viewModel.expenses.collectAsStateWithLifecycle()
 
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
 
@@ -165,16 +166,41 @@ fun HistoryScreen(
         }
     }
 
+    val filteredExpenses = expenses.filter { exp ->
+        when (dateFilter) {
+            "TODAY" -> exp.timestamp >= startOfToday
+            "THIS_MONTH" -> exp.timestamp >= startOfMonth
+            "7_DAYS" -> exp.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
+            "30_DAYS" -> exp.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
+            else -> true
+        }
+    }
+
+    val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
+    val isTaxInclusive = remember { taxPrefs.getBoolean("is_tax_inclusive", false) }
+    val currentTaxRate = settingsManager.taxPercent
+
     val validTransactions = filteredTransactions.filter { it.status == "SUCCESS" }
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
     val totalHpp = validTransactions.sumOf { it.totalCost }
-    val labaKotor = totalOmzet - totalHpp
+
+    // Pisahkan Titipan Pajak (PB1/PPN) agar tidak terhitung sebagai Laba Toko
+    val totalPajakTerkumpul = remember(validTransactions, currentTaxRate, isTaxInclusive) {
+        if (currentTaxRate <= 0.0) 0L
+        else validTransactions.sumOf { tx ->
+            (tx.totalPrice - (tx.totalPrice / (1.0 + (currentTaxRate / 100.0)))).toLong()
+        }
+    }
+    val omzetBersihTanpaPajak = (totalOmzet - totalPajakTerkumpul).coerceAtLeast(0L)
+    val labaKotor = omzetBersihTanpaPajak - totalHpp
 
     val totalCashIn = filteredCashFlows.filter { it.type == "IN" }.sumOf { it.amount }
     val totalCashOut = filteredCashFlows.filter { it.type == "OUT" }.sumOf { it.amount }
+    val totalOperationalExpenses = filteredExpenses.sumOf { it.amount }
     val penjualanTunai = validTransactions.filter { it.paymentMethod == "CASH" }.sumOf { it.totalPrice }
     val penjualanNonTunai = validTransactions.filter { it.paymentMethod != "CASH" }.sumOf { it.totalPrice }
-    val labaBersih = labaKotor - totalCashOut
+    val saldoLaciTunai = (penjualanTunai + totalCashIn - totalCashOut).coerceAtLeast(0L)
+    val labaBersih = labaKotor - totalCashOut - totalOperationalExpenses
 
     val chartBarColor = MaterialTheme.colorScheme.primary
     val chartAxisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
@@ -263,6 +289,47 @@ fun HistoryScreen(
                             formatRupiah(totalCashOut),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            "Biaya Operasional (Listrik/Gaji/dll)",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            formatRupiah(totalOperationalExpenses),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (totalPajakTerkumpul > 0L) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                "Titipan Pajak (PB1/PPN)",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                            Text(
+                                formatRupiah(totalPajakTerkumpul),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(
+                            "Estimasi Saldo Laci Tunai",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            formatRupiah(saldoLaciTunai),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -446,6 +513,37 @@ fun HistoryScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
+                    if (totalPajakTerkumpul > 0L) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                "Titipan Pajak (PB1/PPN):",
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                formatRupiah(totalPajakTerkumpul),
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+                    if (totalOperationalExpenses > 0L) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                "Biaya Operasional:",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                "- ${formatRupiah(totalOperationalExpenses)}",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             "${LanguageManager.tr("total_cogs", lang)}:",
@@ -1042,7 +1140,8 @@ fun TransactionDetailDialog(
                         val c = cash.toLongOrNull() ?: 0L
                         if (c >= transaction.totalPrice) {
                             viewModel.payUnpaidTransaction(transaction, c) {
-                                Toast.makeText(context, "BON Lunas", Toast.LENGTH_SHORT).show()
+                                viewModel.addCashFlow("IN", transaction.totalPrice, "Pelunasan Bon Struk #${transaction.id}", currentUser)
+                                Toast.makeText(context, "BON Lunas & dicatat ke Kas Masuk", Toast.LENGTH_SHORT).show()
                                 showPayBonDialog = false
                                 onDismiss()
                             }

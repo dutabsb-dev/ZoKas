@@ -1421,7 +1421,9 @@ fun SettingsStoreProfileCard(
     logoPath: String?, onLogoChange: (String) -> Unit,
     language: String,
     isTaxInclusive: Boolean = false,
-    onTaxInclusiveChange: (Boolean) -> Unit = {}
+    onTaxInclusiveChange: (Boolean) -> Unit = {},
+    cashRoundingUnit: Int = 0,
+    onCashRoundingChange: (Int) -> Unit = {}
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
@@ -1673,6 +1675,54 @@ fun SettingsStoreProfileCard(
                                     checkedTrackColor = MaterialTheme.colorScheme.primary
                                 )
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        "Pembulatan Otomatis Pembayaran Tunai (Cash)",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Menghindari kembalian receh satuan (misal Rp 43) saat ada pajak/diskon persen:",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val roundingOptions = listOf(
+                            0 to "Tanpa Bulat",
+                            100 to "Rp 100",
+                            500 to "Rp 500"
+                        )
+                        roundingOptions.forEach { (unitVal, unitLabel) ->
+                            val isSelected = cashRoundingUnit == unitVal
+                            OutlinedButton(
+                                onClick = { onCashRoundingChange(unitVal) },
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                ),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                                    contentColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            ) {
+                                Text(
+                                    text = unitLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }

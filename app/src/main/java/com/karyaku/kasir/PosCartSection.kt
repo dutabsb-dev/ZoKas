@@ -80,7 +80,8 @@ fun PosCartSection(
     onApplyMembership: (CartItem, CustomerMembershipEntity) -> Unit,
     onRemoveMembership: (CartItem) -> Unit,
     lang: String,
-    isTaxInclusive: Boolean = false
+    isTaxInclusive: Boolean = false,
+    roundingDiff: Long = 0L
 ) {
     val dateFormat = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
     var showDatePicker by remember { mutableStateOf(false) }
@@ -584,6 +585,16 @@ fun PosCartSection(
                     "+ ${formatRupiah(serviceCharge)}",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
+        if (roundingDiff != 0L) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Pembulatan Tunai:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    formatRupiah(roundingDiff),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

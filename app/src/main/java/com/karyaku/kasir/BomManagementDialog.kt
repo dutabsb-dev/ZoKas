@@ -317,13 +317,28 @@ fun BomManagementDialog(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // --- DAFTAR RESEP YANG AKAN DISIMPAN ---
-                Text(
-                    "Daftar Resep Baru:",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                // --- DAFTAR RESEP YANG AKAN DISIMPAN & ESTIMASI HPP OTOMATIS ---
+                val estimatedBomHpp = tempBomList.sumOf { (mat, qty) -> (mat.costPerUnit * qty).toLong() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Daftar Resep Baru:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (tempBomList.isNotEmpty()) {
+                        Text(
+                            "Est. HPP: ${formatRupiah(estimatedBomHpp)}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
 
                 if (tempBomList.isEmpty()) {
@@ -433,8 +448,20 @@ fun BomManagementDialog(
             Button(
                 onClick = {
                     if (tempBomList.isNotEmpty()) {
+                        val calculatedBomCost = tempBomList.sumOf { (mat, qty) -> (mat.costPerUnit * qty).toLong() }
                         viewModel.saveBomBatch(product.id, tempBomList.toList()) {
-                            Toast.makeText(context, "Resep berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                            if (calculatedBomCost > 0L) {
+                                viewModel.updateProduct(
+                                    product.copy(costPrice = calculatedBomCost),
+                                    0L,
+                                    "Sistem (Auto-HPP BOM)"
+                                )
+                            }
+                            Toast.makeText(
+                                context,
+                                "Resep & HPP (${formatRupiah(calculatedBomCost)}) berhasil disimpan!",
+                                Toast.LENGTH_SHORT
+                            ).show()
                             onDismiss()
                         }
                     } else {

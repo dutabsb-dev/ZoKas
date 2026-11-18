@@ -81,6 +81,7 @@ fun SettingsScreen(
     var serviceChargePercent by remember { mutableStateOf(settingsManager.serviceChargePercent.toString()) }
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", android.content.Context.MODE_PRIVATE) }
     var isTaxInclusive by remember { mutableStateOf(taxPrefs.getBoolean("is_tax_inclusive", false)) }
+    var cashRoundingUnit by remember { mutableStateOf(taxPrefs.getInt("cash_rounding_unit", 0)) }
 
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
@@ -664,6 +665,11 @@ fun SettingsScreen(
                 onTaxInclusiveChange = { inclusive ->
                     isTaxInclusive = inclusive
                     taxPrefs.edit().putBoolean("is_tax_inclusive", inclusive).apply()
+                },
+                cashRoundingUnit = cashRoundingUnit,
+                onCashRoundingChange = { unitVal ->
+                    cashRoundingUnit = unitVal
+                    taxPrefs.edit().putInt("cash_rounding_unit", unitVal).apply()
                 }
             )
         }

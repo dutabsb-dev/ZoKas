@@ -283,6 +283,7 @@ fun PosScreen(
 
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
     val isTaxInclusive = taxPrefs.getBoolean("is_tax_inclusive", false)
+    val cashRoundingUnit = taxPrefs.getInt("cash_rounding_unit", 0)
 
     val netAfterDiscount = (subtotal - totalDiscount - voucherDiscount).coerceAtLeast(0L)
     val serviceChargeAmount = (netAfterDiscount * (serviceChargePercent / 100.0)).toLong()
@@ -295,11 +296,15 @@ fun PosScreen(
         // Pajak Eksklusif: Pajak ditambahkan di atas subtotal bersih
         (netAfterDiscount * (taxPercent / 100.0)).toLong()
     }
-    val totalPrice = if (isTaxInclusive) {
+    val rawTotal = if (isTaxInclusive) {
         (netAfterDiscount + serviceChargeAmount).coerceAtLeast(0L)
     } else {
         (netAfterDiscount + taxAmount + serviceChargeAmount).coerceAtLeast(0L)
     }
+    val roundingDiff = if (cashRoundingUnit > 0 && rawTotal > 0L) {
+        -(rawTotal % cashRoundingUnit.toLong())
+    } else 0L
+    val totalPrice = (rawTotal + roundingDiff).coerceAtLeast(0L)
 
     val barcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
@@ -833,7 +838,8 @@ fun PosScreen(
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language,
-                                isTaxInclusive = isTaxInclusive
+                                isTaxInclusive = isTaxInclusive,
+                                roundingDiff = roundingDiff
                             )
                         }
                     }
@@ -868,7 +874,8 @@ fun PosScreen(
                                 onApplyMembership = { cartItem: CartItem, cm: CustomerMembershipEntity -> viewModel.applyMembershipToCart(cartItem, cm) },
                                 onRemoveMembership = { cartItem: CartItem -> viewModel.removeMembershipFromCart(cartItem) },
                                 lang = settingsManager.language,
-                                isTaxInclusive = isTaxInclusive
+                                isTaxInclusive = isTaxInclusive,
+                                roundingDiff = roundingDiff
                             )
                         }
                     } else {
