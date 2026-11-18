@@ -6,8 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -26,12 +29,13 @@ import androidx.compose.ui.window.DialogProperties
 
 // ====================================================================
 // SISTEM TUTORIAL PROAKTIF & KONTEKSTUAL INTERAKTIF (ProactiveGuideDialog.kt)
-//   1. Otomatis memunculkan panduan langkah-demi-langkah (coachmark dialog)
-//      saat pengguna baru pertama kali membuka layar/modul tertentu (Kasir,
-//      Produk & BOM, Pengaturan, Laporan, atau Modul Baru seperti CRM/HR).
-//   2. Menyimpan status "sudah dilihat" di SharedPreferences agar tidak
-//      mengganggu operasional harian, namun bisa diputar ulang kapan saja
-//      melalui tombol "Panduan Layar Ini" atau dari Pusat Panduan.
+//   - Fix Layout Teks Terpotong:
+//     1. Badge judul di header memakai weight(1f, fill = false) agar tombol
+//        "Lewati" di kanan selalu utuh 1 baris (tidak terpotong menjadi "Lew..").
+//     2. Tombol aksi akhir menggunakan label ringkas "Mulai" (1 baris penuh)
+//        dengan defaultMinSize(minHeight = 46.dp) & softWrap = false agar
+//        tidak pernah terpotong vertikal meski ukuran font diperbesar.
+//     3. Konten dialog mendukung verticalScroll agar aman di layar kecil.
 // ====================================================================
 
 data class GuidedStep(
@@ -67,7 +71,7 @@ object ProactiveGuideManager {
 
     fun getStepsForFeature(key: String): Pair<String, List<GuidedStep>> {
         return when (key) {
-            KEY_POS_SCREEN -> "Panduan Cepat Layar Kasir" to listOf(
+            KEY_POS_SCREEN -> "Panduan Layar Kasir" to listOf(
                 GuidedStep(
                     title = "1. Pilih Barang & Cek Stok Varian",
                     description = "Ketuk kartu produk untuk menambah ke keranjang. Jika produk memiliki varian, rincian stok tiap varian akan berjalan otomatis di bawah harga.",
@@ -87,7 +91,7 @@ object ProactiveGuideManager {
                     icon = Icons.Default.Payments
                 )
             )
-            KEY_PRODUCT_BOM -> "Panduan Kelola Produk, SKU & Resep (BOM)" to listOf(
+            KEY_PRODUCT_BOM -> "Panduan Produk & BOM" to listOf(
                 GuidedStep(
                     title = "1. Tambah Produk & Kode Unik (SKU)",
                     description = "Tekan tombol '+ Tambah Produk' di kanan bawah. Isi Nama, Harga, Stok, serta Kode Unik (SKU) atau ketuk ikon Bintang untuk membuat kode otomatis.",
@@ -107,7 +111,7 @@ object ProactiveGuideManager {
                     icon = Icons.Default.Inventory
                 )
             )
-            KEY_SETTINGS_SCREEN -> "Panduan Pengaturan Toko & Modul" to listOf(
+            KEY_SETTINGS_SCREEN -> "Panduan Pengaturan" to listOf(
                 GuidedStep(
                     title = "1. Atur Profil Toko & Pajak Indonesia",
                     description = "Buka kartu 'Profil Toko' untuk mengisi nama, alamat, logo struk, serta memilih tarif pajak standar Indonesia (PB1 10%, PPN 11%/12%, atau Pajak Inklusif).",
@@ -127,7 +131,7 @@ object ProactiveGuideManager {
                     icon = Icons.Default.Backup
                 )
             )
-            KEY_CRM_MODULE -> "Modul CRM & Pelanggan Aktif!" to listOf(
+            KEY_CRM_MODULE -> "Modul CRM & Pelanggan" to listOf(
                 GuidedStep(
                     title = "1. Kelola Member & Diskon Ulang Tahun",
                     description = "Kartu 'CRM & Pelanggan' kini muncul di halaman Pengaturan. Anda dapat mendaftarkan pelanggan setia dan mengatur Diskon Ulang Tahun otomatis.",
@@ -141,7 +145,7 @@ object ProactiveGuideManager {
                     icon = Icons.Default.CardGiftcard
                 )
             )
-            KEY_HR_MODULE -> "Modul Kepegawaian (HR) Aktif!" to listOf(
+            KEY_HR_MODULE -> "Modul Kepegawaian (HR)" to listOf(
                 GuidedStep(
                     title = "1. Pantau Absensi & Hitung Gaji (Payroll)",
                     description = "Kartu 'Kepegawaian (HR)' kini tersedia di Pengaturan. Gunakan menu 'Absensi' untuk melihat kehadiran staf dan 'Gaji (Payroll)' untuk slip gaji otomatis.",
@@ -193,7 +197,7 @@ fun ProactiveGuideDialog(
         ) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(0.90f)
+                    .fillMaxWidth(0.92f)
                     .wrapContentHeight(),
                 shape = RoundedCornerShape(20.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
@@ -205,36 +209,44 @@ fun ProactiveGuideDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Header Progress & Tombol Lewati
+                    // Header Progress & Tombol Lewati (Anti-terpotong)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
+                            modifier = Modifier.weight(1f, fill = false),
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
                                 text = "$featureTitle (${currentStepIndex + 1}/${steps.size})",
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.weight(1f))
                         TextButton(
                             onClick = finishAndRemember,
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                            modifier = Modifier.height(28.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.wrapContentWidth()
                         ) {
                             Text(
                                 text = "Lewati",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -332,6 +344,7 @@ fun ProactiveGuideDialog(
 
                     Spacer(modifier = Modifier.height(22.dp))
 
+                    // Tombol Navigasi Langkah (Anti-terpotong)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -339,10 +352,19 @@ fun ProactiveGuideDialog(
                         if (currentStepIndex > 0) {
                             OutlinedButton(
                                 onClick = { currentStepIndex-- },
-                                modifier = Modifier.weight(1f).height(46.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 46.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Sebelumnya", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    text = "Kembali",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
                         Button(
@@ -353,7 +375,10 @@ fun ProactiveGuideDialog(
                                     finishAndRemember()
                                 }
                             },
-                            modifier = Modifier.weight(1f).height(46.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minHeight = 46.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -361,9 +386,11 @@ fun ProactiveGuideDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = if (currentStepIndex < steps.size - 1) "Lanjut" else "Mengerti & Mulai",
+                                text = if (currentStepIndex < steps.size - 1) "Lanjut" else "Selesai",
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
