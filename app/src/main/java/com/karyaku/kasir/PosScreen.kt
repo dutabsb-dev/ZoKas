@@ -357,10 +357,76 @@ fun PosScreen(
 
     if (showPrinterErrorDialog) PrinterErrorDialog { showPrinterErrorDialog = false }
 
-    if (showCfd) {
-        Dialog(onDismissRequest = onDismissCfd, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-            CfdContent(viewModel = viewModel, settingsManager = settingsManager, onDismiss = onDismissCfd)
+    // Sinkronisasi Real-Time ke Local Wireless CFD Server (untuk Tablet / Layar Kedua dalam 1 Wi-Fi)
+    LaunchedEffect(
+        cart,
+        subtotal,
+        totalDiscount,
+        voucherDiscount,
+        taxAmount,
+        serviceChargeAmount,
+        roundingDiff,
+        totalPrice,
+        selectedCustomer,
+        selectedOrderType,
+        selectedTable,
+        isTaxInclusive
+    ) {
+        val mappedItems = cart.map { item ->
+            val isWholesale = item.product.wholesaleMinQty > 0 &&
+                item.quantity >= item.product.wholesaleMinQty &&
+                item.product.wholesalePrice > 0
+            val uPrice = when {
+                item.usedMembershipId != null -> 0L
+                isWholesale -> item.product.wholesalePrice
+                else -> viewModel.getPriceForVariant(item.product, item.selectedVariation)
+            }
+            CfdDisplayItem(
+                name = item.product.name,
+                variation = item.selectedVariation,
+                quantity = item.quantity,
+                unitPrice = uPrice,
+                subtotal = uPrice * item.quantity,
+                notes = item.notes
+            )
         }
+        val orderTypeInfo = if (settingsManager.isTableModeEnabled && selectedOrderType == "Dine-In") {
+            "$selectedOrderType ($selectedTable)"
+        } else {
+            selectedOrderType
+        }
+        val bankDetails = if (!settingsManager.bankAccountNumber.isNullOrBlank()) {
+            "Transfer: ${settingsManager.bankName ?: ""} ${settingsManager.bankAccountNumber} a/n ${settingsManager.bankAccountName ?: ""}"
+        } else ""
+
+        LocalCfdServerManager.updateState(
+            CfdLiveState(
+                storeName = settingsManager.storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store",
+                storeAddress = settingsManager.storeAddress ?: "",
+                storeFooter = settingsManager.storeFooter?.takeIf { it.isNotBlank() } ?: "Terima Kasih atas Kunjungan Anda",
+                cashierName = currentUser.name,
+                customerName = if (isCrmEnabled && selectedCustomer != null) selectedCustomer!!.name else "Pelanggan Umum",
+                orderType = orderTypeInfo,
+                items = mappedItems,
+                subtotal = subtotal,
+                discount = totalDiscount,
+                voucherDiscount = voucherDiscount,
+                taxAmount = taxAmount,
+                serviceCharge = serviceChargeAmount,
+                roundingDiff = roundingDiff,
+                totalPrice = totalPrice,
+                isTaxInclusive = isTaxInclusive,
+                bankInfo = bankDetails
+            )
+        )
+    }
+
+    if (showCfd) {
+        LocalWirelessCfdDialog(
+            viewModel = viewModel,
+            settingsManager = settingsManager,
+            onDismiss = onDismissCfd
+        )
     }
 
     // Dialog Pemilih Varian untuk Restock / Waste / Simpan Barcode di Layar Kasir

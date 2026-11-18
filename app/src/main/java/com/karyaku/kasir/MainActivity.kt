@@ -221,16 +221,32 @@ fun MainContent(
             }
         } else if (currentUser == null) {
             LoginScreen(viewModel = posViewModel, settingsManager = settingsManager, onLoginSuccess = { user ->
-                posViewModel.processLoginAttendance(user) { success, msg ->
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                    if (success) {
-                        posViewModel.cart.value.toList().forEach { posViewModel.deleteItem(it.product, it.selectedVariation) }
-                        posViewModel.setDiscount(0L)
-                        posViewModel.setCustomer(null)
-                        posViewModel.applyVoucher("") { _, _ -> }
-                        posViewModel.initCurrentBranchForUser(user)
-                        if (user.role == "STAFF") { staffMessage = msg; staffUserToLogout = user } else onUserChange(user)
+                val cleanAndEnterApp: (String?) -> Unit = { attendanceMsg ->
+                    posViewModel.cart.value.toList().forEach { posViewModel.deleteItem(it.product, it.selectedVariation) }
+                    posViewModel.setDiscount(0L)
+                    posViewModel.setCustomer(null)
+                    posViewModel.applyVoucher("") { _, _ -> }
+                    posViewModel.initCurrentBranchForUser(user)
+                    if (user.role == "STAFF") {
+                        staffMessage = attendanceMsg ?: "Absensi berhasil dicatat."
+                        staffUserToLogout = user
+                    } else {
+                        onUserChange(user)
                     }
+                }
+
+                // FIX #2: Hanya jalankan absensi & tampilkan notifikasi absen jika Modul HR aktif (atau role STAFF)
+                if (settingsManager.enableHrModule || user.role == "STAFF") {
+                    posViewModel.processLoginAttendance(user) { success, msg ->
+                        if (settingsManager.enableHrModule && msg.isNotBlank()) {
+                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        }
+                        if (success) {
+                            cleanAndEnterApp(msg)
+                        }
+                    }
+                } else {
+                    cleanAndEnterApp(null)
                 }
             })
         } else {

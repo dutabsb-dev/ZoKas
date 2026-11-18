@@ -1,17 +1,12 @@
 package com.karyaku.kasir
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -21,8 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip // <-- IMPORT YANG HILANG
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -31,360 +26,466 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.karyaku.kasir.data.local.UserEntity
 
-enum class BusinessType(val label: String, val description: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    KULINER("Kuliner", "Restoran, Cafe, Warung, Katering", Icons.Default.Restaurant),
-    RETAIL("Pedagang Eceran", "Toko Kelontong, Minimarket, Bangunan", Icons.Default.Store),
-    JASA("Usaha Jasa", "Salon, Barbershop, Laundry, Servis", Icons.Default.Build),
-    MUSIMAN("Usaha Khusus / Musiman", "Event Organizer, Toko Kue Musiman", Icons.Default.Event)
-}
-
-data class SetupWizardState(
-    val businessType: BusinessType? = null,
-    val storeName: String = "",
-    val storeAddress: String = "",
-    val storePhone: String = "",
-    val adminName: String = "",
-    val adminPin: String = "",
-    val cashierName: String = "",
-    val cashierPin: String = "",
-    val paymentMethods: Set<String> = setOf("CASH"),
-    val isTosAgreed: Boolean = false
+private data class BusinessTypePreset(
+    val key: String,
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val recommendedModules: List<String>,
+    val enableTableMode: Boolean,
+    val enableOrderTypes: Boolean,
+    val enableWholesale: Boolean,
+    val enablePreOrder: Boolean,
+    val enableMembership: Boolean,
+    val enableReservation: Boolean,
+    val enableSupplier: Boolean,
+    val enableCrm: Boolean
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val businessTypePresets = listOf(
+    BusinessTypePreset(
+        key = "KULINER",
+        title = "Kuliner (Restoran, Cafe, Warung)",
+        subtitle = "Cocok untuk rumah makan, kedai kopi, bakery, & minuman.",
+        icon = Icons.Default.Restaurant,
+        recommendedModules = listOf(
+            "Mode Meja Restoran (Dine-In & Gabung Meja)",
+            "Tipe Pesanan (Dine-In, Take-Away, Delivery)",
+            "Layar Dapur (KDS) & Printer Dapur",
+            "Resep Produk (BOM) & Pemotongan Bahan Baku"
+        ),
+        enableTableMode = true,
+        enableOrderTypes = true,
+        enableWholesale = false,
+        enablePreOrder = false,
+        enableMembership = false,
+        enableReservation = false,
+        enableSupplier = true,
+        enableCrm = false
+    ),
+    BusinessTypePreset(
+        key = "RETAIL",
+        title = "Retail (Toko, Minimarket, Grosir)",
+        subtitle = "Cocok untuk toko kelontong, minimarket, elektronik, & bangunan.",
+        icon = Icons.Default.Storefront,
+        recommendedModules = listOf(
+            "Harga Grosir Otomatis (Wholesale Min. Qty)",
+            "Kode Unik Produk (SKU) & Scan Barcode Cepat",
+            "Supplier & Pembelian Stok (Purchase Order)",
+            "Multi-Varian Satuan (Biji, Renteng, Dus)"
+        ),
+        enableTableMode = false,
+        enableOrderTypes = false,
+        enableWholesale = true,
+        enablePreOrder = false,
+        enableMembership = false,
+        enableReservation = false,
+        enableSupplier = true,
+        enableCrm = false
+    ),
+    BusinessTypePreset(
+        key = "JASA",
+        title = "Jasa (Salon, Laundry, Bengkel, Klinik)",
+        subtitle = "Cocok untuk barbershop, klinik kecantikan, cuci kendaraan, & servis.",
+        icon = Icons.Default.ContentCut,
+        recommendedModules = listOf(
+            "Paket Langganan / Kuota (Membership)",
+            "Reservasi & Jadwal Booking Pelanggan",
+            "Penugasan Staf / Terapis & Komisi per Layanan",
+            "Modul CRM & Riwayat Pelanggan Setia"
+        ),
+        enableTableMode = false,
+        enableOrderTypes = false,
+        enableWholesale = false,
+        enablePreOrder = false,
+        enableMembership = true,
+        enableReservation = true,
+        enableSupplier = false,
+        enableCrm = true
+    ),
+    BusinessTypePreset(
+        key = "MUSIMAN",
+        title = "Musiman (Toko Kue, Hampers, Event)",
+        subtitle = "Cocok untuk usaha PO kue kering, katering, bazar, & musiman.",
+        icon = Icons.Default.EventAvailable,
+        recommendedModules = listOf(
+            "Pre-Order (Atur Tanggal Pengambilan Pesanan)",
+            "Voucher Promo & Diskon Happy Hour",
+            "Parkir Pesanan (Hold Order) & Pembayaran DP/Bon",
+            "Modul CRM Pelanggan untuk Repeat Order"
+        ),
+        enableTableMode = false,
+        enableOrderTypes = true,
+        enableWholesale = false,
+        enablePreOrder = true,
+        enableMembership = false,
+        enableReservation = false,
+        enableSupplier = false,
+        enableCrm = true
+    )
+)
+
 @Composable
 fun SetupWizardScreen(
     settingsManager: SettingsManager,
     viewModel: PosViewModel,
     onSetupComplete: (UserEntity) -> Unit
 ) {
-    var currentStep by remember { mutableIntStateOf(1) }
-    val totalSteps = 8
-    
-    var wizardState by remember { mutableStateOf(SetupWizardState()) }
-    
-    var errorMessage by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    Scaffold(
-        topBar = {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("ZoKas Setup", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmeraldGreen)
-                    Text("Langkah $currentStep dari $totalSteps", fontSize = 14.sp, color = SlateGrey)
-                }
+    var storeName by remember { mutableStateOf(settingsManager.storeName ?: "") }
+    var storeAddress by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
+    var selectedBusinessType by remember { mutableStateOf("RETAIL") }
+    var applyRecommendedModules by remember { mutableStateOf(true) }
+
+    var ownerName by remember { mutableStateOf("") }
+    var ownerPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+
+    val activePreset = remember(selectedBusinessType) {
+        businessTypePresets.find { it.key == selectedBusinessType } ?: businessTypePresets.first()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp)
+            .imePadding(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.RocketLaunch,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Selamat Datang di ZoKas",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "Lengkapi profil usaha Anda agar sistem menyesuaikan fitur secara otomatis.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // STEP 1: IDENTITAS TOKO
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "1. Identitas Toko / Usaha",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = storeName,
+                    onValueChange = { storeName = it },
+                    label = { Text("Nama Toko / Usaha *") },
+                    placeholder = { Text("Contoh: Toko Berkah Jaya") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { currentStep.toFloat() / totalSteps.toFloat() },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                    color = EmeraldGreen,
-                    trackColor = SlateSurface
+                OutlinedTextField(
+                    value = storeAddress,
+                    onValueChange = { storeAddress = it },
+                    label = { Text("Alamat Singkat (Opsional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         }
-    ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            AnimatedContent(
-                targetState = currentStep,
-                transitionSpec = {
-                    val direction = if (targetState > initialState) 1 else -1
-                    (slideInHorizontally(animationSpec = tween(300)) { fullWidth -> fullWidth * direction } + fadeIn(animationSpec = tween(300))) togetherWith
-                    (slideOutHorizontally(animationSpec = tween(300)) { fullWidth -> -fullWidth * direction } + fadeOut(animationSpec = tween(300)))
-                }, label = "wizard_step_transition"
-            ) { step ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .imePadding()
-                        .verticalScroll(rememberScrollState())
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    when (step) {
-                        1 -> Step1BusinessType(
-                            selectedType = wizardState.businessType,
-                            onSelect = { wizardState = wizardState.copy(businessType = it); errorMessage = "" }
-                        )
-                        2 -> Step2StoreDetails(
-                            name = wizardState.storeName, address = wizardState.storeAddress, phone = wizardState.storePhone,
-                            onNameChange = { wizardState = wizardState.copy(storeName = it); errorMessage = "" },
-                            onAddressChange = { wizardState = wizardState.copy(storeAddress = it) },
-                            onPhoneChange = { wizardState = wizardState.copy(storePhone = it) }
-                        )
-                        3 -> Step3AdminAccount(
-                            name = wizardState.adminName, pin = wizardState.adminPin,
-                            onNameChange = { wizardState = wizardState.copy(adminName = it); errorMessage = "" },
-                            onPinChange = { wizardState = wizardState.copy(adminPin = it); errorMessage = "" }
-                        )
-                        4 -> Step4CashierAccount(
-                            name = wizardState.cashierName, pin = wizardState.cashierPin,
-                            onNameChange = { wizardState = wizardState.copy(cashierName = it); errorMessage = "" },
-                            onPinChange = { wizardState = wizardState.copy(cashierPin = it); errorMessage = "" }
-                        )
-                        5 -> Step5PaymentMethods(
-                            selectedMethods = wizardState.paymentMethods,
-                            onToggleMethod = { method ->
-                                val newMethods = if (wizardState.paymentMethods.contains(method)) {
-                                    wizardState.paymentMethods - method
-                                } else {
-                                    wizardState.paymentMethods + method
-                                }
-                                wizardState = wizardState.copy(paymentMethods = newMethods)
-                            }
-                        )
-                        6 -> Step6ModularFeatures(businessType = wizardState.businessType)
-                        7 -> Step7TermsAndConditions(
-                            isAgreed = wizardState.isTosAgreed,
-                            onToggleAgree = { wizardState = wizardState.copy(isTosAgreed = it); errorMessage = "" }
-                        )
-                        8 -> Step8Summary(wizardState = wizardState)
-                    }
 
-                    if (errorMessage.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(errorMessage, color = ErrorRed, fontSize = 14.sp, textAlign = TextAlign.Center)
-                    }
+        Spacer(modifier = Modifier.height(14.dp))
 
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // TOMBOL NAVIGASI
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        if (currentStep > 1) {
-                            OutlinedButton(
-                                onClick = { if (!isLoading) { currentStep--; errorMessage = "" } },
-                                modifier = Modifier.weight(1f).height(50.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                enabled = !isLoading,
-                                border = BorderStroke(1.dp, SlateGrey)
-                            ) {
-                                Text("Kembali", color = SlateGrey, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                        }
-                        
-                        Button(
-                            onClick = {
-                                when (currentStep) {
-                                    1 -> {
-                                        if (wizardState.businessType == null) errorMessage = "Silakan pilih jenis usaha Anda."
-                                        else currentStep++
-                                    }
-                                    2 -> {
-                                        if (wizardState.storeName.isBlank()) errorMessage = "Nama toko wajib diisi."
-                                        else currentStep++
-                                    }
-                                    3 -> {
-                                        if (wizardState.adminName.isBlank()) errorMessage = "Nama admin wajib diisi."
-                                        else if (wizardState.adminPin.length != 6) errorMessage = "PIN Admin harus 6 digit."
-                                        else currentStep++
-                                    }
-                                    4 -> {
-                                        if (wizardState.cashierName.isBlank()) errorMessage = "Nama kasir wajib diisi."
-                                        else if (wizardState.cashierPin.length != 6) errorMessage = "PIN Kasir harus 6 digit."
-                                        else currentStep++
-                                    }
-                                    5 -> {
-                                        if (wizardState.paymentMethods.isEmpty()) errorMessage = "Pilih minimal satu metode pembayaran."
-                                        else currentStep++
-                                    }
-                                    6 -> currentStep++
-                                    7 -> {
-                                        if (!wizardState.isTosAgreed) errorMessage = "Anda harus menyetujui Syarat & Ketentuan."
-                                        else currentStep++
-                                    }
-                                    8 -> {
-                                        // PROSES SIMPAN KE DATABASE
-                                        isLoading = true
-                                        settingsManager.businessType = wizardState.businessType?.name ?: "KULINER"
-                                        settingsManager.storeName = wizardState.storeName
-                                        settingsManager.storeAddress = wizardState.storeAddress
-                                        settingsManager.storePhone = wizardState.storePhone
-                                        settingsManager.paymentMethods = wizardState.paymentMethods
-                                        
-                                        // Konfigurasi otomatis fitur berdasarkan jenis usaha
-                                        when (wizardState.businessType) {
-                                            BusinessType.KULINER -> {
-                                                settingsManager.isTableModeEnabled = true
-                                            }
-                                            BusinessType.RETAIL -> {
-                                                settingsManager.isTableModeEnabled = false
-                                            }
-                                            BusinessType.JASA -> {
-                                                settingsManager.isTableModeEnabled = false
-                                            }
-                                            BusinessType.MUSIMAN -> {
-                                                settingsManager.isTableModeEnabled = false
-                                            }
-                                            null -> {}
-                                        }
-
-                                        viewModel.registerFullSetup(
-                                            businessType = settingsManager.businessType,
-                                            storeName = wizardState.storeName,
-                                            storeAddress = wizardState.storeAddress,
-                                            storePhone = wizardState.storePhone,
-                                            adminName = wizardState.adminName,
-                                            adminPin = wizardState.adminPin,
-                                            cashierName = wizardState.cashierName,
-                                            cashierPin = wizardState.cashierPin
-                                        ) { newAdmin ->
-                                            isLoading = false
-                                            settingsManager.isSetupCompleted = true
-                                            onSetupComplete(newAdmin)
-                                        }
-                                    }
-                                }
-                            },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            enabled = !isLoading,
-                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                            } else {
-                                Text(if (currentStep == 8) "Selesai & Mulai" else "Lanjut", fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// --- KOMPONEN LANGKAH 1-3 (Sama seperti Sub-sesi A2) ---
-@Composable fun Step1BusinessType(selectedType: BusinessType?, onSelect: (BusinessType) -> Unit) { /* Kode dari A2 */ 
-    Text("Apa Jenis Usaha Anda?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(24.dp))
-    BusinessType.entries.forEach { type ->
-        val isSelected = selectedType == type
+        // STEP 2: PILIH JENIS USAHA & REKOMENDASI MODUL DINAMIS
         Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).clickable { onSelect(type) },
-            colors = CardDefaults.cardColors(containerColor = if (isSelected) EmeraldGreen.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, if (isSelected) EmeraldGreen else SlateGreyLight),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(type.icon, contentDescription = type.label, tint = if (isSelected) EmeraldGreen else SlateGrey, modifier = Modifier.size(32.dp))
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(type.label, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = if (isSelected) EmeraldGreen else SlateGreyDark)
-                    Text(type.description, fontSize = 12.sp, color = SlateGrey)
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "2. Pilih Jenis Usaha Anda",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Rekomendasi modul akan menyesuaikan otomatis dengan kategori usaha yang Anda pilih:",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
+                businessTypePresets.forEach { preset ->
+                    val isSelected = preset.key == selectedBusinessType
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable { selectedBusinessType = preset.key },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                        else
+                            MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            width = if (isSelected) 1.5.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = preset.icon,
+                                contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = preset.title,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = preset.subtitle,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { selectedBusinessType = preset.key },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.weight(1f))
-                if (isSelected) Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = EmeraldGreen)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // KOTAK REKOMENDASI MODUL DINAMIS SESUAI JENIS USAHA TERPILIH
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Rekomendasi Modul untuk ${activePreset.key}:",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        activePreset.recommendedModules.forEach { modDesc ->
+                            Row(
+                                modifier = Modifier.padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = modDesc,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { applyRecommendedModules = !applyRecommendedModules },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = applyRecommendedModules,
+                                onCheckedChange = { applyRecommendedModules = it },
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Text(
+                                text = "Aktifkan otomatis rekomendasi modul ${activePreset.key}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
             }
         }
-    }
-}
-@Composable fun Step2StoreDetails(name: String, address: String, phone: String, onNameChange: (String) -> Unit, onAddressChange: (String) -> Unit, onPhoneChange: (String) -> Unit) { /* Kode dari A2 */ 
-    Text("Detail Toko", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(24.dp))
-    OutlinedTextField(value = name, onValueChange = onNameChange, label = { Text("Nama Toko *") }, leadingIcon = { Icon(Icons.Default.Store, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-    Spacer(modifier = Modifier.height(12.dp))
-    OutlinedTextField(value = address, onValueChange = onAddressChange, label = { Text("Alamat Toko") }, leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-    Spacer(modifier = Modifier.height(12.dp))
-    OutlinedTextField(value = phone, onValueChange = onPhoneChange, label = { Text("No. Telepon") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-}
-@Composable fun Step3AdminAccount(name: String, pin: String, onNameChange: (String) -> Unit, onPinChange: (String) -> Unit) { /* Kode dari A2 */ 
-    Text("Akun Admin (Owner)", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(24.dp))
-    OutlinedTextField(value = name, onValueChange = onNameChange, label = { Text("Nama Admin *") }, leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-    Spacer(modifier = Modifier.height(12.dp))
-    OutlinedTextField(value = pin, onValueChange = { if (it.length <= 6) onPinChange(it) }, label = { Text("PIN Keamanan (6-Digit) *") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-}
 
-// --- KOMPONEN LANGKAH 4: AKUN KASIR ---
-@Composable
-fun Step4CashierAccount(name: String, pin: String, onNameChange: (String) -> Unit, onPinChange: (String) -> Unit) {
-    Text("Akun Kasir", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Text("Kasir hanya dapat mengakses halaman transaksi dan tidak dapat melihat laporan keuangan.", style = MaterialTheme.typography.bodyMedium, color = SlateGrey, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-    OutlinedTextField(value = name, onValueChange = onNameChange, label = { Text("Nama Kasir *") }, leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-    Spacer(modifier = Modifier.height(12.dp))
-    OutlinedTextField(value = pin, onValueChange = { if (it.length <= 6) onPinChange(it) }, label = { Text("PIN Keamanan (6-Digit) *") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-}
-
-// --- KOMPONEN LANGKAH 5: METODE PEMBAYARAN ---
-@Composable
-fun Step5PaymentMethods(selectedMethods: Set<String>, onToggleMethod: (String) -> Unit) {
-    Text("Metode Pembayaran", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Text("Pilih metode pembayaran yang Anda terima di toko. (Bisa dipilih lebih dari satu).", style = MaterialTheme.typography.bodyMedium, color = SlateGrey, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(24.dp))
-
-    val methods = listOf("CASH", "QRIS", "Virtual Account", "Bank Transfer")
-    methods.forEach { method ->
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().clickable { onToggleMethod(method) }.padding(vertical = 8.dp)
+        // STEP 3: AKUN PEMILIK (OWNER)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Checkbox(
-                checked = selectedMethods.contains(method),
-                onCheckedChange = { onToggleMethod(method) },
-                colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen)
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "3. Akun Pemilik Toko (Owner)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = ownerName,
+                    onValueChange = { ownerName = it },
+                    label = { Text("Nama Pemilik *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = ownerPin,
+                        onValueChange = { raw -> if (raw.length <= 6 && raw.all { it.isDigit() }) ownerPin = raw },
+                        label = { Text("PIN (4-6 Angka) *") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    OutlinedTextField(
+                        value = confirmPin,
+                        onValueChange = { raw -> if (raw.length <= 6 && raw.all { it.isDigit() }) confirmPin = raw },
+                        label = { Text("Ulangi PIN *") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(22.dp))
+
+        Button(
+            onClick = {
+                if (storeName.isBlank()) {
+                    Toast.makeText(context, "Nama toko wajib diisi!", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (ownerName.isBlank()) {
+                    Toast.makeText(context, "Nama pemilik wajib diisi!", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (ownerPin.length < 4) {
+                    Toast.makeText(context, "PIN minimal 4 digit angka!", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (ownerPin != confirmPin) {
+                    Toast.makeText(context, "Konfirmasi PIN tidak cocok!", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+
+                settingsManager.storeName = storeName.trim()
+                settingsManager.storeAddress = storeAddress.trim()
+                settingsManager.businessType = activePreset.key
+
+                if (applyRecommendedModules) {
+                    settingsManager.isTableModeEnabled = activePreset.enableTableMode
+                    settingsManager.enableOrderTypes = activePreset.enableOrderTypes
+                    settingsManager.enableWholesale = activePreset.enableWholesale
+                    settingsManager.enablePreOrder = activePreset.enablePreOrder
+                    settingsManager.enableMembership = activePreset.enableMembership
+                    settingsManager.enableReservation = activePreset.enableReservation
+                    settingsManager.enableSupplier = activePreset.enableSupplier
+                    settingsManager.enableCrmModule = activePreset.enableCrm
+                } else {
+                    settingsManager.isTableModeEnabled = activePreset.key == "KULINER"
+                }
+
+                // Default modul HR dimatikan di awal agar notifikasi absensi tidak muncul sebelum diaktifkan
+                settingsManager.enableHrModule = false
+                settingsManager.isSetupCompleted = true
+
+                val adminEntity = UserEntity(
+                    id = 1L,
+                    name = ownerName.trim(),
+                    pin = hashPin(ownerPin),
+                    role = "OWNER",
+                    totalCommission = 0L,
+                    branchId = 1L
+                )
+                viewModel.addUser(ownerName.trim(), ownerPin, "OWNER", 0L, adminEntity)
+                onSetupComplete(adminEntity)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text(
+                text = "SIMPAN & MULAI GUNAKAN ZOKAS",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(method, fontSize = 16.sp)
         }
-    }
-}
 
-// --- KOMPONEN LANGKAH 6: FITUR MODULAR ---
-@Composable
-fun Step6ModularFeatures(businessType: BusinessType?) {
-    Text("Fitur Toko", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Text("ZoKas telah menyalakan fitur yang sesuai dengan jenis usaha Anda secara otomatis. Anda dapat mengubahnya nanti di menu Pengaturan.", style = MaterialTheme.typography.bodyMedium, color = SlateGrey, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(24.dp))
-
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            val isTableMode = businessType == BusinessType.KULINER
-            Text("Mode Meja Restoran (Aktif: ${if (isTableMode) "Ya" else "Tidak"})", fontWeight = FontWeight.Bold)
-            Text(if (isTableMode) "Karena Anda memilih Kuliner, fitur pilih meja otomatis dinyalakan." else "Anda bisa menyalakannya nanti jika ada area dine-in.", fontSize = 12.sp, color = SlateGrey)
-        }
-    }
-}
-
-// --- KOMPONEN LANGKAH 7: SYARAT & KETENTUAN ---
-@Composable
-fun Step7TermsAndConditions(isAgreed: Boolean, onToggleAgree: (Boolean) -> Unit) {
-    Text("Syarat & Ketentuan", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Card(modifier = Modifier.fillMaxWidth().height(250.dp), colors = CardDefaults.cardColors(containerColor = SlateSurface)) {
-        Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-            Text("Kebijakan Privasi ZoKas", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("1. Aplikasi ZoKas menyimpan data Anda secara OFFLINE di perangkat ini.\n\n2. Kami tidak mengambil atau mengirim data transaksi Anda ke server manapun (kecuali Anda mengaktifkan sinkronisasi cloud di masa depan).\n\n3. Anda bertanggung jawab penuh atas keamanan perangkat dan PIN akun Anda.\n\n4. Data pelanggan (jika ada) adalah tanggung jawab pemilik toko.\n\n5. Dengan menyetujui ini, Anda setuju bahwa ZoKas tidak bertanggung jawab atas kerugian yang timbul akibat kelalaian pengguna.", fontSize = 12.sp, color = SlateGreyDark)
-        }
-    }
-
-    Spacer(modifier = Modifier.height(16.dp))
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onToggleAgree(!isAgreed) }) {
-        Checkbox(checked = isAgreed, onCheckedChange = { onToggleAgree(it) }, colors = CheckboxDefaults.colors(checkedColor = EmeraldGreen))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Saya telah membaca dan menyetujui Syarat & Ketentuan serta Kebijakan Privasi.", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-// --- KOMPONEN LANGKAH 8: RINGKASAN ---
-@Composable
-fun Step8Summary(wizardState: SetupWizardState) {
-    Text("Ringkasan Data", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-    Text("Pastikan data di bawah ini sudah benar sebelum memulai.", style = MaterialTheme.typography.bodyMedium, color = SlateGrey, textAlign = TextAlign.Center)
-    Spacer(modifier = Modifier.height(24.dp))
-
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Jenis Usaha: ${wizardState.businessType?.label ?: "-"}", fontWeight = FontWeight.Bold)
-            Text("Nama Toko: ${wizardState.storeName}")
-            Text("Admin: ${wizardState.adminName}")
-            Text("Kasir: ${wizardState.cashierName}")
-            Text("Pembayaran: ${wizardState.paymentMethods.joinToString(", ")}")
-        }
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
