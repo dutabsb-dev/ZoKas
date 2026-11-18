@@ -76,10 +76,12 @@ fun PosViewModel.processPayment(
                     subtotal = itemPrice * cartItem.quantity, isService = cartItem.product.isService
                 ))
 
-                // A. Potong Stok Produk
+                // A. Potong Stok Produk (memperhitungkan konversi kemasan varian jika ada, misal Dus isi 24)
                 val freshProduct = productDao.getProductById(cartItem.product.id)
-                if (freshProduct != null) {
-                    val newStock = (freshProduct.stock - cartItem.quantity).coerceAtLeast(0)
+                if (freshProduct != null && !freshProduct.isService) {
+                    val packMult = getVariantPackMultiplier(freshProduct.variations, cartItem.selectedVariation)
+                    val totalSmallestDeducted = cartItem.quantity * packMult
+                    val newStock = (freshProduct.stock - totalSmallestDeducted).coerceAtLeast(0)
                     if (cartItem.selectedVariation.isNotBlank()) {
                         val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, cartItem.quantity)
                         productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newStock))
@@ -131,8 +133,13 @@ fun PosViewModel.processPayment(
             if (kitchenItems.isNotEmpty()) {
                 val itemsJson = JSONArray().apply {
                     kitchenItems.forEach { item ->
+                        val displayItemName = if (item.selectedVariation.isNotBlank()) {
+                            "${item.product.name} (${item.selectedVariation})"
+                        } else {
+                            item.product.name
+                        }
                         put(JSONObject().apply {
-                            put("name", item.product.name)
+                            put("name", displayItemName)
                             put("qty", item.quantity)
                             put("notes", item.notes)
                         })
@@ -228,6 +235,8 @@ fun PosViewModel.saveHoldOrder(customerName: String) {
                         put("quantity", item.quantity)
                         put("variation", item.selectedVariation)
                         put("notes", item.notes)
+                        put("serialNumber", item.serialNumber)
+                        put("assignedStaff", item.assignedStaff)
                     })
                 }
             }.toString()
@@ -251,7 +260,16 @@ fun PosViewModel.resumeHoldOrder(order: HoldOrderEntity) {
                 val obj = jsonArray.getJSONObject(i)
                 val product = productDao.getProductById(obj.getLong("productId"))
                 if (product != null) {
-                    newCart.add(CartItem(product = product, quantity = obj.getInt("quantity"), selectedVariation = obj.optString("variation", ""), notes = obj.optString("notes", "")))
+                    newCart.add(
+                        CartItem(
+                            product = product,
+                            quantity = obj.getInt("quantity"),
+                            selectedVariation = obj.optString("variation", ""),
+                            notes = obj.optString("notes", ""),
+                            serialNumber = obj.optString("serialNumber", ""),
+                            assignedStaff = obj.optString("assignedStaff", "")
+                        )
+                    )
                 }
             }
             withContext(Dispatchers.Main) {

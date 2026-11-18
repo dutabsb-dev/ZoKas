@@ -89,6 +89,18 @@ fun resolveVariantDisplayNameForReceipt(
     return itemProductName
 }
 
+fun getVariantPackMultiplier(variationsStr: String, targetVariantName: String): Int {
+    if (variationsStr.isBlank() || targetVariantName.isBlank()) return 1
+    val parts = variationsStr.replace("|", ",").split(",")
+    for (part in parts) {
+        val pieces = part.split(":")
+        if (pieces.size >= 5 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
+            return (pieces[4].trim().toIntOrNull() ?: 1).coerceAtLeast(1)
+        }
+    }
+    return 1
+}
+
 fun PosViewModel.deductVariantStock(variationsStr: String, targetVariantName: String, deductQty: Int): String {
     if (variationsStr.isBlank()) return ""
     val parts = variationsStr.split(",")
@@ -196,8 +208,10 @@ fun PosViewModel.addStock(product: ProductEntity, variation: String, qty: Int, u
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val fresh = productDao.getProductById(product.id) ?: return@launch
+            val packMult = getVariantPackMultiplier(fresh.variations, variation)
+            val variantDelta = if (packMult > 1) (qty / packMult).coerceAtLeast(1) else qty
             val newStock = fresh.stock + qty
-            val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, qty) else fresh.variations
+            val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, variantDelta) else fresh.variations
             productDao.updateProduct(fresh.copy(stock = newStock, variations = newVar, updatedAt = System.currentTimeMillis()))
             userDao.insertAuditLog(
                 AuditLogEntity(
@@ -217,8 +231,10 @@ fun PosViewModel.recordWaste(product: ProductEntity, variation: String, qty: Int
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val fresh = productDao.getProductById(product.id) ?: return@launch
+            val packMult = getVariantPackMultiplier(fresh.variations, variation)
+            val variantDelta = if (packMult > 1) (qty / packMult).coerceAtLeast(1) else qty
             val newStock = (fresh.stock - qty).coerceAtLeast(0)
-            val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, -qty) else fresh.variations
+            val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, -variantDelta) else fresh.variations
             productDao.updateProduct(fresh.copy(stock = newStock, variations = newVar, updatedAt = System.currentTimeMillis()))
             userDao.insertAuditLog(
                 AuditLogEntity(

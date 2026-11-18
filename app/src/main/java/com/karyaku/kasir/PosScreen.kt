@@ -513,12 +513,14 @@ fun PosScreen(
                 onConfirmPayment = { cashReceived: Long, method: String ->
                     val currentCartSnapshot = if (isSplitBillMode) cart.filter { it.isSelectedForSplit } else cart
 
+                    val cashRoundingDeduction = if (method == "CASH" && roundingDiff < 0L) Math.abs(roundingDiff) else 0L
                     viewModel.processPayment(
                         cashReceived = cashReceived, userId = currentUser.id, userName = currentUser.name,
                         isSplitBill = isSplitBillMode, method = method, maxDiscountCap = settingsManager.maxDiscountCap,
                         birthdayDiscountPercent = if (isCrmEnabled && settingsManager.enableBirthdayDiscount) settingsManager.birthdayDiscountPercent else 0.0,
                         taxPercent = if (isTaxInclusive) 0.0 else taxPercent, serviceChargePercent = serviceChargePercent,
-                        manualDiscount = discount + happyHourDiscountAmount, voucherDiscount = voucherDiscount, voucherCode = appliedVoucher
+                        manualDiscount = discount + happyHourDiscountAmount + cashRoundingDeduction,
+                        voucherDiscount = voucherDiscount, voucherCode = appliedVoucher
                     ) { newTransaction ->
                         showPaymentSheet = false
                         if (!isSplitBillMode) showCartOnPhone = false
@@ -731,13 +733,18 @@ fun PosScreen(
 
         // Render StockOpnameDialog saat productToRestock dipilih di Layar Kasir
         if (productToRestock != null) {
+            val targetRestock = productToRestock!!
+            val packMult = remember(targetRestock, variantToProcess) {
+                getVariantPackMultiplier(targetRestock.variations, variantToProcess)
+            }
             StockOpnameDialog(
-                product = productToRestock!!,
+                product = if (variantToProcess.isNotBlank()) targetRestock.copy(name = "${targetRestock.name} ($variantToProcess)") else targetRestock,
                 onDismiss = { productToRestock = null; variantToProcess = "" },
                 onSave = { qty: Int ->
                     if (qty > 0) {
-                        viewModel.addStock(productToRestock!!, variantToProcess, qty, currentUser)
-                        Toast.makeText(context, "Stok berhasil ditambahkan (+$qty)", Toast.LENGTH_SHORT).show()
+                        val totalSmallestQty = qty * packMult
+                        viewModel.addStock(targetRestock, variantToProcess, totalSmallestQty, currentUser)
+                        Toast.makeText(context, "Stok berhasil ditambahkan (+$totalSmallestQty)", Toast.LENGTH_SHORT).show()
                     }
                     productToRestock = null
                     variantToProcess = ""
@@ -748,6 +755,9 @@ fun PosScreen(
         // WasteRecordDialog mendukung validasi & pengurangan stok per varian spesifik
         if (productToWaste != null) {
             val targetProd = productToWaste!!
+            val packMult = remember(targetProd, variantToProcess) {
+                getVariantPackMultiplier(targetProd.variations, variantToProcess)
+            }
             val maxAvailableStock = remember(targetProd, variantToProcess) {
                 if (variantToProcess.isNotBlank() && targetProd.variations.isNotBlank() && !targetProd.variations.contains("|")) {
                     val part = targetProd.variations.split(",").find {
@@ -765,8 +775,9 @@ fun PosScreen(
                 onDismiss = { productToWaste = null; variantToProcess = "" },
                 onSave = { qty: Int ->
                     if (qty > 0 && qty <= maxAvailableStock) {
-                        viewModel.recordWaste(targetProd, variantToProcess, qty, currentUser)
-                        Toast.makeText(context, "Barang rusak tercatat (-$qty)", Toast.LENGTH_SHORT).show()
+                        val totalSmallestQty = qty * packMult
+                        viewModel.recordWaste(targetProd, variantToProcess, totalSmallestQty, currentUser)
+                        Toast.makeText(context, "Barang rusak tercatat (-$totalSmallestQty)", Toast.LENGTH_SHORT).show()
                         productToWaste = null
                         variantToProcess = ""
                     } else {

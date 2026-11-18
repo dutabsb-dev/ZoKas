@@ -1005,6 +1005,11 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val productBarcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+                    if (result.contents != null) {
+                        viewModel.setSearchQuery(result.contents.trim())
+                    }
+                }
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { viewModel.setSearchQuery(it) },
@@ -1017,9 +1022,30 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            IconButton(
+                                onClick = {
+                                    val options = ScanOptions().apply {
+                                        setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                        setPrompt("Scan Barcode Produk")
+                                        setCameraId(0)
+                                        setBeepEnabled(false)
+                                        setOrientationLocked(true)
+                                    }
+                                    productBarcodeLauncher.launch(options)
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.QrCodeScanner,
+                                    contentDescription = "Scan Barcode",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
                     },
@@ -1340,17 +1366,54 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
         }
 
         if (productToRestock != null) {
+            val targetRestock = productToRestock!!
+            val packMult = remember(targetRestock, variantToProcess) {
+                getVariantPackMultiplier(targetRestock.variations, variantToProcess)
+            }
             StockOpnameDialog(
-                product = productToRestock!!,
+                product = if (variantToProcess.isNotBlank()) targetRestock.copy(name = "${targetRestock.name} ($variantToProcess)") else targetRestock,
                 onDismiss = { productToRestock = null; variantToProcess = "" },
-                onSave = { qty -> viewModel.addStock(productToRestock!!, variantToProcess, qty, currentUser); productToRestock = null; variantToProcess = "" }
+                onSave = { qty ->
+                    if (qty > 0) {
+                        val totalSmallest = qty * packMult
+                        viewModel.addStock(targetRestock, variantToProcess, totalSmallest, currentUser)
+                        Toast.makeText(context, "Stok berhasil ditambahkan (+$totalSmallest)", Toast.LENGTH_SHORT).show()
+                    }
+                    productToRestock = null
+                    variantToProcess = ""
+                }
             )
         }
         if (productToWaste != null) {
+            val targetWaste = productToWaste!!
+            val packMult = remember(targetWaste, variantToProcess) {
+                getVariantPackMultiplier(targetWaste.variations, variantToProcess)
+            }
+            val maxAvail = remember(targetWaste, variantToProcess) {
+                if (variantToProcess.isNotBlank() && targetWaste.variations.isNotBlank() && !targetWaste.variations.contains("|")) {
+                    val part = targetWaste.variations.split(",").find {
+                        it.split(":").firstOrNull()?.trim().equals(variantToProcess, ignoreCase = true)
+                    }
+                    val vStockStr = part?.split(":")?.getOrNull(3)?.trim()
+                    if (!vStockStr.isNullOrEmpty()) vStockStr.toIntOrNull() ?: targetWaste.stock else targetWaste.stock
+                } else {
+                    targetWaste.stock
+                }
+            }
             WasteRecordDialog(
-                product = productToWaste!!,
+                product = if (variantToProcess.isNotBlank()) targetWaste.copy(name = "${targetWaste.name} ($variantToProcess)", stock = maxAvail) else targetWaste,
                 onDismiss = { productToWaste = null; variantToProcess = "" },
-                onSave = { qty -> viewModel.recordWaste(productToWaste!!, variantToProcess, qty, currentUser); productToWaste = null; variantToProcess = "" }
+                onSave = { qty ->
+                    if (qty > 0 && qty <= maxAvail) {
+                        val totalSmallest = qty * packMult
+                        viewModel.recordWaste(targetWaste, variantToProcess, totalSmallest, currentUser)
+                        Toast.makeText(context, "Barang rusak tercatat (-$totalSmallest)", Toast.LENGTH_SHORT).show()
+                        productToWaste = null
+                        variantToProcess = ""
+                    } else {
+                        Toast.makeText(context, "Jumlah melebihi stok tersedia ($maxAvail)!", Toast.LENGTH_SHORT).show()
+                    }
+                }
             )
         }
         if (productToDelete != null) {

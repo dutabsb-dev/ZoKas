@@ -214,8 +214,8 @@ class PosViewModel(
 
     val filteredProducts: StateFlow<List<ProductEntity>> = combine(_products, _searchQuery, _selectedCategory) { products, query, category ->
         products.filter { product ->
-            val matchQuery = query.isBlank() || product.name.contains(query, ignoreCase = true) || product.barcode.contains(query, ignoreCase = true)
-            val matchCategory = category == "Semua" || product.category == category
+            val matchQuery = query.isBlank() || matchesProductSearch(product, query)
+            val matchCategory = category == "Semua" || product.category.equals(category, ignoreCase = true)
             matchQuery && matchCategory
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -303,7 +303,13 @@ class PosViewModel(
                 val price = p[1].trim()
                 val cost = p.getOrNull(2)?.trim() ?: "0"
                 val currentStock = p.getOrNull(3)?.toIntOrNull() ?: 0
-                "${p[0]}:$price:$cost:${(currentStock + delta).coerceAtLeast(0)}"
+                val mult = p.getOrNull(4)?.trim()
+                val updatedStock = (currentStock + delta).coerceAtLeast(0)
+                if (!mult.isNullOrEmpty()) {
+                    "${p[0]}:$price:$cost:$updatedStock:$mult"
+                } else {
+                    "${p[0]}:$price:$cost:$updatedStock"
+                }
             } else { part }
         }
         return newParts.joinToString(",")
