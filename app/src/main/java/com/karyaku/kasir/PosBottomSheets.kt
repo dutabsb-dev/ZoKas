@@ -836,7 +836,7 @@ fun PaymentBottomSheet(
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
-    LaunchedEffect(paymentMethod) {
+    LaunchedEffect(paymentMethod, qrisString, uniqueTransferAmount, totalPrice) {
         if (paymentMethod != "Bank Transfer") {
             manualTransferConfirmed = false
         }
@@ -845,6 +845,21 @@ fun PaymentBottomSheet(
         } else if (paymentMethod == "Bank Transfer" && uniqueTransferAmount == 0L) {
             onGenerateTransfer()
         }
+        val activePayAmount = if (paymentMethod == "Bank Transfer" && uniqueTransferAmount > 0L) {
+            uniqueTransferAmount
+        } else {
+            totalPrice
+        }
+        val activeQris = qrisString.ifBlank { settingsManager.qrisStaticPayload ?: "" }
+        LocalCfdServerManager.updatePaymentStage(
+            isPaymentOpen = true,
+            method = paymentMethod,
+            amountToPay = activePayAmount,
+            qrisPayload = activeQris,
+            bankName = settingsManager.bankName ?: "",
+            bankAccountNumber = settingsManager.bankAccountNumber ?: "",
+            bankAccountName = settingsManager.bankAccountName ?: ""
+        )
     }
 
     ModalBottomSheet(

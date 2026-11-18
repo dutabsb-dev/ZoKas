@@ -1621,7 +1621,9 @@ fun SettingsStoreProfileCard(
     isTaxInclusive: Boolean = false,
     onTaxInclusiveChange: (Boolean) -> Unit = {},
     cashRoundingUnit: Int = 0,
-    onCashRoundingChange: (Int) -> Unit = {}
+    onCashRoundingChange: (Int) -> Unit = {},
+    cfdThankYouMessage: String = "Terima Kasih atas pembeliannya 🙏",
+    onCfdThankYouMessageChange: (String) -> Unit = {}
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
@@ -1758,6 +1760,16 @@ fun SettingsStoreProfileCard(
                         value = storeFooter,
                         onValueChange = onStoreFooterChange,
                         label = { Text(LanguageManager.tr("pesan_struk", lang)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 2,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = cfdThankYouMessage,
+                        onValueChange = onCfdThankYouMessageChange,
+                        label = { Text("Pesan Layar Pelanggan (CFD) Selesai Bayar") },
+                        placeholder = { Text("Contoh: Terima Kasih atas pembeliannya 🙏") },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
                         shape = RoundedCornerShape(12.dp)

@@ -999,75 +999,96 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
-                    value = searchQuery, onValueChange = { viewModel.setSearchQuery(it) },
-                    placeholder = { Text("Cari nama, Kode Unik (SKU), atau barcode...", fontSize = 12.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    value = searchQuery,
+                    onValueChange = { viewModel.setSearchQuery(it) },
+                    placeholder = {
+                        Text(
+                            text = "Cari nama, Kode Unik (SKU), atau barcode...",
+                            fontSize = 12.sp,
+                            maxLines = 1
+                        )
+                    },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Hapus")
+                                Icon(Icons.Default.Clear, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
                             }
                         }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
                 )
+
                 if (filteredProducts.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = { showStockAuditDialog = true },
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 14.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.FactCheck,
-                            contentDescription = "Audit Stok",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Audit",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            isBatchDeleteMode = !isBatchDeleteMode
-                            selectedBatchIds.clear()
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error.copy(alpha = 0.12f) else Color.Transparent,
-                            contentColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                        ),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isBatchDeleteMode) Icons.Default.Close else Icons.Default.Checklist,
-                            contentDescription = "Hapus Massal",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isBatchDeleteMode) "Batal" else "Hapus Massal",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        OutlinedButton(
+                            onClick = { showStockAuditDialog = true },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FactCheck,
+                                contentDescription = "Audit Stok",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Audit Stok",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                isBatchDeleteMode = !isBatchDeleteMode
+                                selectedBatchIds.clear()
+                            },
+                            modifier = Modifier.weight(1f).height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error.copy(alpha = 0.14f) else Color.Transparent,
+                                contentColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isBatchDeleteMode) Icons.Default.Close else Icons.Default.Checklist,
+                                contentDescription = "Hapus Massal",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isBatchDeleteMode) "Batal Pilih" else "Hapus Massal",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             }

@@ -401,6 +401,7 @@ fun PosScreen(
 
         LocalCfdServerManager.updateState(
             CfdLiveState(
+                displayStage = if (showPaymentSheet) "PAYMENT" else "CART",
                 storeName = settingsManager.storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store",
                 storeAddress = settingsManager.storeAddress ?: "",
                 storeFooter = settingsManager.storeFooter?.takeIf { it.isNotBlank() } ?: "Terima Kasih atas Kunjungan Anda",
@@ -416,7 +417,8 @@ fun PosScreen(
                 roundingDiff = roundingDiff,
                 totalPrice = totalPrice,
                 isTaxInclusive = isTaxInclusive,
-                bankInfo = bankDetails
+                bankInfo = bankDetails,
+                thankYouMessage = LocalCfdServerManager.getCustomThankYouMessage(context)
             )
         )
     }
@@ -500,7 +502,12 @@ fun PosScreen(
                     else viewModel.generateQrisPayment(totalToPay, payload)
                 },
                 onGenerateTransfer = { viewModel.generateTransferPayment(totalToPay) },
-                onDismiss = { showPaymentSheet = false; viewModel.resetQrisPayment(); viewModel.resetTransferPayment() },
+                onDismiss = {
+                    showPaymentSheet = false
+                    viewModel.resetQrisPayment()
+                    viewModel.resetTransferPayment()
+                    LocalCfdServerManager.updatePaymentStage(isPaymentOpen = false)
+                },
                 onConfirmPayment = { cashReceived: Long, method: String ->
                     val currentCartSnapshot = if (isSplitBillMode) cart.filter { it.isSelectedForSplit } else cart
 
@@ -515,6 +522,15 @@ fun PosScreen(
                         if (!isSplitBillMode) showCartOnPhone = false
                         completedTransaction = newTransaction
                         if (isSplitBillMode) isSplitBillMode = false
+
+                        val customThanks = LocalCfdServerManager.getCustomThankYouMessage(context)
+                        LocalCfdServerManager.triggerCompletedStage(
+                            totalPaid = newTransaction.totalPrice,
+                            cashReceived = newTransaction.cashReceived,
+                            changeAmount = newTransaction.changeAmount,
+                            method = method,
+                            thankYouMessage = customThanks
+                        )
 
                         viewModel.printReceipt(context, newTransaction, settingsManager, currentCartSnapshot)
                     }

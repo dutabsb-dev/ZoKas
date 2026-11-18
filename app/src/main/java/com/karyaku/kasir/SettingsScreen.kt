@@ -85,6 +85,7 @@ fun SettingsScreen(
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", android.content.Context.MODE_PRIVATE) }
     var isTaxInclusive by remember { mutableStateOf(taxPrefs.getBoolean("is_tax_inclusive", false)) }
     var cashRoundingUnit by remember { mutableStateOf(taxPrefs.getInt("cash_rounding_unit", 0)) }
+    var cfdThankYouMessage by remember { mutableStateOf(LocalCfdServerManager.getCustomThankYouMessage(context)) }
 
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
@@ -676,6 +677,11 @@ fun SettingsScreen(
                 onCashRoundingChange = { unitVal ->
                     cashRoundingUnit = unitVal
                     taxPrefs.edit().putInt("cash_rounding_unit", unitVal).apply()
+                },
+                cfdThankYouMessage = cfdThankYouMessage,
+                onCfdThankYouMessageChange = { newMsg ->
+                    cfdThankYouMessage = newMsg
+                    LocalCfdServerManager.setCustomThankYouMessage(context, newMsg)
                 }
             )
         }

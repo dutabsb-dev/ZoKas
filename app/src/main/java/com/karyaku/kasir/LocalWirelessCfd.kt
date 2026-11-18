@@ -7,8 +7,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.BorderStroke
@@ -37,7 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -48,6 +45,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -91,9 +90,19 @@ data class CfdLiveState(
     val roundingDiff: Long = 0L,
     val totalPrice: Long = 0L,
     val isTaxInclusive: Boolean = false,
-    val paymentMethod: String = "",
+    // Mode tampilan CFD: "CART" | "PAYMENT" | "COMPLETED"
+    val displayStage: String = "CART",
+    val paymentMethod: String = "CASH",
+    val amountToPay: Long = 0L,
     val qrisPayload: String = "",
+    val bankName: String = "",
+    val bankAccountNumber: String = "",
+    val bankAccountName: String = "",
     val bankInfo: String = "",
+    val cashReceived: Long = 0L,
+    val changeAmount: Long = 0L,
+    val thankYouMessage: String = "Terima Kasih atas pembeliannya 🙏",
+    val completedTimestamp: Long = 0L,
     val isCfdActive: Boolean = true,
     val updatedAt: Long = System.currentTimeMillis()
 )
@@ -119,12 +128,26 @@ object LocalCfdServerManager {
     var lastClientPingTime by mutableStateOf(0L)
         private set
 
-    // Status mode kiosk layar pelanggan pada perangkat klien (Tablet/Layar Kedua)
     var isKioskReceiverLocked by mutableStateOf(false)
         private set
 
     var connectedHostUrl by mutableStateOf("")
         private set
+
+    fun getCustomThankYouMessage(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_CFD, Context.MODE_PRIVATE)
+        return prefs.getString("cfd_thank_you_msg", "Terima Kasih atas pembeliannya 🙏")
+            ?: "Terima Kasih atas pembeliannya 🙏"
+    }
+
+    fun setCustomThankYouMessage(context: Context, message: String) {
+        val prefs = context.getSharedPreferences(PREFS_CFD, Context.MODE_PRIVATE)
+        prefs.edit().putString("cfd_thank_you_msg", message).apply()
+        currentState = currentState.copy(
+            thankYouMessage = message.ifBlank { "Terima Kasih atas pembeliannya 🙏" },
+            updatedAt = System.currentTimeMillis()
+        )
+    }
 
     fun restoreReceiverLockState(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_CFD, Context.MODE_PRIVATE)
@@ -164,6 +187,48 @@ object LocalCfdServerManager {
 
     fun updateState(newState: CfdLiveState) {
         currentState = newState.copy(
+            isCfdActive = isRunningFlag.get(),
+            updatedAt = System.currentTimeMillis()
+        )
+    }
+
+    fun updatePaymentStage(
+        isPaymentOpen: Boolean,
+        method: String = "CASH",
+        amountToPay: Long = 0L,
+        qrisPayload: String = "",
+        bankName: String = "",
+        bankAccountNumber: String = "",
+        bankAccountName: String = ""
+    ) {
+        currentState = currentState.copy(
+            displayStage = if (isPaymentOpen) "PAYMENT" else "CART",
+            paymentMethod = method,
+            amountToPay = amountToPay,
+            qrisPayload = qrisPayload,
+            bankName = bankName,
+            bankAccountNumber = bankAccountNumber,
+            bankAccountName = bankAccountName,
+            isCfdActive = isRunningFlag.get(),
+            updatedAt = System.currentTimeMillis()
+        )
+    }
+
+    fun triggerCompletedStage(
+        totalPaid: Long,
+        cashReceived: Long,
+        changeAmount: Long,
+        method: String,
+        thankYouMessage: String
+    ) {
+        currentState = currentState.copy(
+            displayStage = "COMPLETED",
+            amountToPay = totalPaid,
+            cashReceived = cashReceived,
+            changeAmount = changeAmount,
+            paymentMethod = method,
+            thankYouMessage = thankYouMessage.ifBlank { "Terima Kasih atas pembeliannya 🙏" },
+            completedTimestamp = System.currentTimeMillis(),
             isCfdActive = isRunningFlag.get(),
             updatedAt = System.currentTimeMillis()
         )
@@ -242,7 +307,6 @@ object LocalCfdServerManager {
 
     @Synchronized
     fun stopServer() {
-        // Tandai isCfdActive = false agar perangkat penerima yang sedang terkunci otomatis keluar dari mode CFD
         currentState = currentState.copy(isCfdActive = false, updatedAt = System.currentTimeMillis())
         isRunningFlag.set(false)
         isServerRunning = false
@@ -312,6 +376,7 @@ object LocalCfdServerManager {
     private fun buildStateJson(state: CfdLiveState): String {
         val root = JSONObject()
         root.put("isCfdActive", state.isCfdActive)
+        root.put("displayStage", state.displayStage)
         root.put("storeName", state.storeName)
         root.put("storeAddress", state.storeAddress)
         root.put("storeFooter", state.storeFooter)
@@ -334,7 +399,16 @@ object LocalCfdServerManager {
         root.put("totalPrice", formatRp(state.totalPrice))
         root.put("totalPriceRaw", state.totalPrice)
         root.put("paymentMethod", state.paymentMethod)
+        root.put("amountToPayRaw", state.amountToPay)
+        root.put("qrisPayload", state.qrisPayload)
+        root.put("bankName", state.bankName)
+        root.put("bankAccountNumber", state.bankAccountNumber)
+        root.put("bankAccountName", state.bankAccountName)
         root.put("bankInfo", state.bankInfo)
+        root.put("cashReceivedRaw", state.cashReceived)
+        root.put("changeAmountRaw", state.changeAmount)
+        root.put("thankYouMessage", state.thankYouMessage)
+        root.put("completedTimestamp", state.completedTimestamp)
 
         val arr = JSONArray()
         state.items.forEach { item ->
@@ -359,191 +433,18 @@ object LocalCfdServerManager {
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZoKas Customer Display</title>
-<style>
-  :root {
-    --bg: #0f172a;
-    --card: #1e293b;
-    --border: #334155;
-    --primary: #10b981;
-    --accent: #f59e0b;
-    --text: #f8fafc;
-    --muted: #94a3b8;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-  body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-  header {
-    background: var(--card); padding: 14px 24px; border-bottom: 1px solid var(--border);
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .store-title { font-size: 22px; font-weight: 800; color: var(--primary); }
-  .store-sub { font-size: 12px; color: var(--muted); }
-  .status-pill {
-    background: rgba(16,185,129,0.15); color: var(--primary); border: 1px solid rgba(16,185,129,0.4);
-    padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700;
-  }
-  main { flex: 1; display: grid; grid-template-columns: 1.45fr 1fr; gap: 16px; padding: 16px; overflow: hidden; }
-  @media (max-width: 720px) { main { grid-template-columns: 1fr; overflow-y: auto; } }
-  .panel {
-    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  .panel-header {
-    padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 15px;
-    display: flex; justify-content: space-between; color: var(--muted);
-  }
-  .items-list { flex: 1; overflow-y: auto; padding: 12px 18px; }
-  .empty-box {
-    height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; color: var(--muted); padding: 24px;
-  }
-  .empty-box h2 { color: var(--text); font-size: 24px; margin-bottom: 8px; }
-  .item-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 0; border-bottom: 1px dashed var(--border);
-  }
-  .item-name { font-size: 17px; font-weight: 700; }
-  .item-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .item-var { color: var(--primary); font-weight: 600; }
-  .item-note { color: #f87171; font-size: 12px; margin-top: 2px; }
-  .item-sub { font-size: 17px; font-weight: 800; color: var(--text); }
-  .summary-body { padding: 18px; display: flex; flex-direction: column; justify-content: space-between; flex: 1; }
-  .sum-row { display: flex; justify-content: space-between; font-size: 15px; margin-bottom: 10px; color: var(--muted); }
-  .sum-row strong { color: var(--text); }
-  .total-box {
-    background: rgba(16,185,129,0.12); border: 1.5px solid var(--primary);
-    border-radius: 14px; padding: 18px; text-align: center; margin-top: 12px;
-  }
-  .total-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
-  .total-val { font-size: 36px; font-weight: 900; color: var(--primary); margin-top: 4px; }
-  .bank-box {
-    margin-top: 12px; background: rgba(245,158,11,0.12); border: 1px solid var(--accent);
-    border-radius: 12px; padding: 12px; text-align: center; font-size: 14px; color: var(--accent); font-weight: 700;
-  }
-  footer {
-    background: var(--card); border-top: 1px solid var(--border); padding: 10px 24px;
-    text-align: center; font-size: 13px; color: var(--muted);
-  }
-</style>
 </head>
-<body>
-<header>
-  <div>
-    <div class="store-title" id="storeName">ZoKas Store</div>
-    <div class="store-sub" id="storeAddr">Layar Pelanggan • Terhubung ke Kasir</div>
-  </div>
-  <div class="status-pill" id="connStatus">● LIVE</div>
-</header>
-<main>
-  <section class="panel">
-    <div class="panel-header">
-      <span>DAFTAR PESANAN</span>
-      <span id="orderMeta">Pelanggan Umum • Dine-In</span>
-    </div>
-    <div class="items-list" id="itemsContainer">
-      <div class="empty-box">
-        <h2>Selamat Datang!</h2>
-        <p>Silakan letakkan belanjaan Anda di meja kasir.</p>
-      </div>
-    </div>
-  </section>
-  <section class="panel">
-    <div class="panel-header">
-      <span>RINGKASAN TAGIHAN</span>
-      <span id="itemCount">0 Item</span>
-    </div>
-    <div class="summary-body">
-      <div>
-        <div class="sum-row"><span>Subtotal</span><strong id="subtotalVal">Rp 0</strong></div>
-        <div class="sum-row" id="discRow" style="display:none;"><span>Diskon</span><strong style="color:#f87171;" id="discVal">- Rp 0</strong></div>
-        <div class="sum-row" id="vouchRow" style="display:none;"><span>Voucher</span><strong style="color:#10b981;" id="vouchVal">- Rp 0</strong></div>
-        <div class="sum-row" id="taxRow" style="display:none;"><span id="taxLabel">Pajak</span><strong id="taxVal">Rp 0</strong></div>
-        <div class="sum-row" id="scRow" style="display:none;"><span>Service Charge</span><strong id="scVal">Rp 0</strong></div>
-        <div class="sum-row" id="roundRow" style="display:none;"><span>Pembulatan</span><strong id="roundVal">Rp 0</strong></div>
-      </div>
-      <div>
-        <div class="total-box">
-          <div class="total-label">Total Pembayaran</div>
-          <div class="total-val" id="totalVal">Rp 0</div>
-        </div>
-        <div class="bank-box" id="bankBox" style="display:none;"></div>
-      </div>
-    </div>
-  </section>
-</main>
-<footer id="storeFooter">Terima Kasih atas Kunjungan Anda</footer>
-<script>
-async function pollCart() {
-  try {
-    const res = await fetch('/api/cart?t=' + Date.now());
-    const data = await res.json();
-    document.getElementById('connStatus').textContent = '● TERHUBUNG';
-    document.getElementById('storeName').textContent = data.storeName || 'ZoKas Store';
-    document.getElementById('storeAddr').textContent = data.storeAddress || 'Layar Pelanggan • Terhubung ke Kasir';
-    document.getElementById('storeFooter').textContent = data.storeFooter || 'Terima Kasih atas Kunjungan Anda';
-    document.getElementById('orderMeta').textContent = (data.customerName || 'Pelanggan Umum') + ' • ' + (data.orderType || 'Dine-In');
-
-    const container = document.getElementById('itemsContainer');
-    const items = data.items || [];
-    let totalQty = 0;
-    if (items.length === 0) {
-      container.innerHTML = '<div class="empty-box"><h2>Selamat Datang!</h2><p>Silakan letakkan belanjaan Anda di meja kasir.</p></div>';
-    } else {
-      container.innerHTML = items.map(it => {
-        totalQty += it.quantity;
-        const varHtml = it.variation ? ' <span class="item-var">(' + it.variation + ')</span>' : '';
-        const noteHtml = it.notes ? '<div class="item-note">Cat: ' + it.notes + '</div>' : '';
-        return '<div class="item-row"><div><div class="item-name">' + it.name + varHtml + '</div><div class="item-meta">' + it.quantity + ' x ' + it.unitPrice + '</div>' + noteHtml + '</div><div class="item-sub">' + it.subtotal + '</div></div>';
-      }).join('');
-    }
-    document.getElementById('itemCount').textContent = totalQty + ' Item';
-    document.getElementById('subtotalVal').textContent = data.subtotal;
-
-    document.getElementById('discRow').style.display = data.discountRaw > 0 ? 'flex' : 'none';
-    document.getElementById('discVal').textContent = '- ' + data.discount;
-
-    document.getElementById('vouchRow').style.display = data.voucherDiscountRaw > 0 ? 'flex' : 'none';
-    document.getElementById('vouchVal').textContent = '- ' + data.voucherDiscount;
-
-    document.getElementById('taxRow').style.display = data.taxAmountRaw > 0 ? 'flex' : 'none';
-    document.getElementById('taxLabel').textContent = data.isTaxInclusive ? 'Pajak (Termasuk)' : 'Pajak';
-    document.getElementById('taxVal').textContent = data.isTaxInclusive ? '(' + data.taxAmount + ')' : '+ ' + data.taxAmount;
-
-    document.getElementById('scRow').style.display = data.serviceChargeRaw > 0 ? 'flex' : 'none';
-    document.getElementById('scVal').textContent = '+ ' + data.serviceCharge;
-
-    document.getElementById('roundRow').style.display = data.roundingDiffRaw !== 0 ? 'flex' : 'none';
-    document.getElementById('roundVal').textContent = data.roundingDiff;
-
-    document.getElementById('totalVal').textContent = data.totalPrice;
-
-    const bankBox = document.getElementById('bankBox');
-    if (data.bankInfo) {
-      bankBox.style.display = 'block';
-      bankBox.textContent = data.bankInfo;
-    } else {
-      bankBox.style.display = 'none';
-    }
-  } catch (e) {
-    document.getElementById('connStatus').textContent = '○ MENUNGGU KONEKSI';
-  }
-}
-setInterval(pollCart, 650);
-pollCart();
-</script>
+<body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;text-align:center;padding:32px;">
+<h2>ZoKas Customer Facing Display Server</h2>
+<p>Gunakan aplikasi ZoKas pada perangkat layar pelanggan untuk tampilan Full-Screen interaktif.</p>
 </body>
 </html>
 """.trimIndent()
     }
 }
 
-// ==============================================================================
-// DIALOG KONTROL TRANSMITTER CFD (DI PERANGKAT KASIR UTAMA)
-// - Tanpa menyebut merek perangkat apapun (profesional & netral)
-// - Jika ingin mematikan / mengeluarkan perangkat penerima CFD, wajib verifikasi
-//   PIN Owner atau Sidik Jari (Biometrik) di perangkat kasir ini!
-// ==============================================================================
 @Composable
 fun LocalWirelessCfdDialog(
     viewModel: PosViewModel,
@@ -582,7 +483,6 @@ fun LocalWirelessCfdDialog(
     }
     val isClientConnected = (System.currentTimeMillis() - LocalCfdServerManager.lastClientPingTime) < 5000L
 
-    // Dialog Verifikasi PIN Owner / Biometrik untuk mematikan / mengeluarkan CFD
     if (showStopAuthDialog) {
         OwnerSecurityAuthDialog(
             title = "Otorisasi Matikan Layar Pelanggan",
@@ -669,7 +569,6 @@ fun LocalWirelessCfdDialog(
                                 if (enable) {
                                     LocalCfdServerManager.startServer()
                                 } else {
-                                    // Wajib verifikasi PIN Owner / Biometrik sebelum mematikan CFD
                                     showStopAuthDialog = true
                                 }
                             },
@@ -813,12 +712,13 @@ fun LocalWirelessCfdDialog(
 }
 
 // ==============================================================================
-// LAYAR FULL-SCREEN NATIVE & KIOSK LOCK UNTUK PERANGKAT PENERIMA CFD (DI TABLET)
-// - Menyembunyikan Status Bar & Navigation Bar secara penuh (Immersive Sticky)
-// - Memblokir tombol Back Android sepenuhnya
-// - Tanpa tombol Exit di layar penerima! Keluar HANYA terjadi otomatis ketika
-//   perangkat kasir utama menghentikan transmisi CFD (dengan PIN Owner / Fingerprint),
-//   atau melalui otorisasi darurat PIN Owner lokal jika koneksi terputus permanen.
+// LAYAR FULL-SCREEN NATIVE & KIOSK LOCK UNTUK PERANGKAT PENERIMA CFD
+// - Otomatis menampilkan 3 fase interaktif sesuai aktivitas kasir:
+//   1. CART      : Rincian belanja & total real-time
+//   2. PAYMENT   : Layar Pembayaran Pelanggan (QRIS scannable / Nomor Rekening
+//                  Transfer / Total Tagihan Tunai yang harus dibayar)
+//   3. COMPLETED : Layar Ucapan Terima Kasih Kustom dari Owner + info kembalian
+//                  selama beberapa detik setelah transaksi lunas!
 // ==============================================================================
 @Composable
 fun FullScreenKioskCfdReceiverScreen(
@@ -833,7 +733,10 @@ fun FullScreenKioskCfdReceiverScreen(
     var disconnectedStreak by remember { mutableStateOf(0) }
     var showEmergencyPinDialog by remember { mutableStateOf(false) }
 
-    // Blokir total tombol Back Android selama mode CFD terkunci
+    // Simpan timestamp transaksi selesai terakhir agar layar ucapan terima kasih tampil 7 detik
+    var lastShownCompletedTs by remember { mutableStateOf(0L) }
+    var showThankYouOverlay by remember { mutableStateOf(false) }
+
     BackHandler(enabled = true) {
         Toast.makeText(
             context,
@@ -842,7 +745,6 @@ fun FullScreenKioskCfdReceiverScreen(
         ).show()
     }
 
-    // Aktifkan Mode Immersive Full-Screen (sembunyikan status bar & nav bar)
     DisposableEffect(view) {
         val window = (view.context as? Activity)?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
@@ -853,7 +755,15 @@ fun FullScreenKioskCfdReceiverScreen(
         }
     }
 
-    // Polling real-time ke server kasir utama
+    LaunchedEffect(liveState.completedTimestamp) {
+        if (liveState.completedTimestamp > 0L && liveState.completedTimestamp != lastShownCompletedTs) {
+            lastShownCompletedTs = liveState.completedTimestamp
+            showThankYouOverlay = true
+            delay(7000L)
+            showThankYouOverlay = false
+        }
+    }
+
     LaunchedEffect(hostUrl) {
         while (true) {
             val fetched = withContext(Dispatchers.IO) {
@@ -886,6 +796,7 @@ fun FullScreenKioskCfdReceiverScreen(
                                 )
                             }
                             val parsedState = CfdLiveState(
+                                displayStage = json.optString("displayStage", "CART"),
                                 storeName = json.optString("storeName", "ZoKas Store"),
                                 storeAddress = json.optString("storeAddress", ""),
                                 storeFooter = json.optString("storeFooter", "Terima Kasih atas Kunjungan Anda"),
@@ -901,7 +812,17 @@ fun FullScreenKioskCfdReceiverScreen(
                                 roundingDiff = json.optLong("roundingDiffRaw"),
                                 totalPrice = json.optLong("totalPriceRaw"),
                                 isTaxInclusive = json.optBoolean("isTaxInclusive"),
+                                paymentMethod = json.optString("paymentMethod", "CASH"),
+                                amountToPay = json.optLong("amountToPayRaw"),
+                                qrisPayload = json.optString("qrisPayload", ""),
+                                bankName = json.optString("bankName", ""),
+                                bankAccountNumber = json.optString("bankAccountNumber", ""),
+                                bankAccountName = json.optString("bankAccountName", ""),
                                 bankInfo = json.optString("bankInfo", ""),
+                                cashReceived = json.optLong("cashReceivedRaw"),
+                                changeAmount = json.optLong("changeAmountRaw"),
+                                thankYouMessage = json.optString("thankYouMessage", "Terima Kasih atas pembeliannya 🙏"),
+                                completedTimestamp = json.optLong("completedTimestamp", 0L),
                                 isCfdActive = true
                             )
                             Pair(parsedState, true)
@@ -916,7 +837,6 @@ fun FullScreenKioskCfdReceiverScreen(
 
             val (newState, stillActive) = fetched
             if (!stillActive) {
-                // Perangkat kasir pengirim telah menghentikan transmisi CFD!
                 LocalCfdServerManager.unlockKioskReceiver(context)
                 onUnlockedAndExit()
                 break
@@ -928,7 +848,7 @@ fun FullScreenKioskCfdReceiverScreen(
                 isConnected = false
                 disconnectedStreak++
             }
-            delay(650)
+            delay(550)
         }
     }
 
@@ -1008,7 +928,6 @@ fun FullScreenKioskCfdReceiverScreen(
                                 )
                             }
                         }
-                        // Ikon gembok kecil hanya aktif jika koneksi terputus > 10 detik (darurat PIN Owner)
                         if (disconnectedStreak >= 15) {
                             Spacer(modifier = Modifier.width(8.dp))
                             IconButton(
@@ -1027,241 +946,454 @@ fun FullScreenKioskCfdReceiverScreen(
                 }
             }
 
-            // KONTEN UTAMA 2 KOLOM (DAFTAR PESANAN & RINGKASAN TAGIHAN)
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // KOLOM KIRI: DAFTAR ITEM BELANJA
-                Card(
+            // KONTEN DINAMIS BERDASARKAN TAHAP TRANSAKSI (COMPLETED -> PAYMENT -> CART)
+            if (showThankYouOverlay || liveState.displayStage == "COMPLETED") {
+                Box(
                     modifier = Modifier
-                        .weight(1.45f)
-                        .fillMaxHeight(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(16.dp)
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Row(
+                    Card(
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                "DAFTAR PESANAN",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                "${liveState.customerName} • ${liveState.orderType}",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                        if (liveState.items.isEmpty()) {
                             Box(
-                                modifier = Modifier.fillMaxSize().padding(24.dp),
+                                modifier = Modifier
+                                    .size(84.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        Icons.Default.Storefront,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(64.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text(
-                                        "Selamat Datang!",
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        "Silakan periksa rincian pesanan Anda di layar ini.",
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(54.dp)
+                                )
                             }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            Spacer(modifier = Modifier.height(18.dp))
+                            Text(
+                                text = "PEMBAYARAN BERHASIL",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 1.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = liveState.thankYouMessage,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 34.sp
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(0.7f),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                items(liveState.items) { item ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    text = item.name,
-                                                    fontSize = 17.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                if (item.variation.isNotBlank()) {
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text(
-                                                        text = "(${item.variation})",
-                                                        fontSize = 14.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                            Text(
-                                                text = "${item.quantity} x ${formatRupiah(item.unitPrice)}",
-                                                fontSize = 13.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                            if (item.notes.isNotBlank()) {
-                                                Text(
-                                                    text = "Catatan: ${item.notes}",
-                                                    fontSize = 12.sp,
-                                                    color = MaterialTheme.colorScheme.error
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            text = formatRupiah(item.subtotal),
-                                            fontSize = 17.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(top = 8.dp),
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                Text("Total Dibayar (${liveState.paymentMethod}):", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatRupiah(liveState.amountToPay), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                            if (liveState.changeAmount > 0L) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(0.7f),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Kembalian:", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        formatRupiah(liveState.changeAmount),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.tertiary
                                     )
                                 }
                             }
                         }
                     }
                 }
-
-                // KOLOM KANAN: RINGKASAN TOTAL PEMBAYARAN
-                Card(
+            } else if (liveState.displayStage == "PAYMENT") {
+                // LAYAR MODE PEMBAYARAN DI PERANGKAT PELANGGAN
+                val payAmount = if (liveState.amountToPay > 0L) liveState.amountToPay else liveState.totalPrice
+                Row(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(16.dp)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
+                    // KIRI: RINGKASAN PESANAN SINGKAT
+                    Card(
+                        modifier = Modifier.weight(1.1f).fillMaxHeight(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Column {
+                        Column(modifier = Modifier.fillMaxSize().padding(18.dp)) {
                             Text(
-                                "RINGKASAN TAGIHAN",
+                                "RINCIAN PESANAN (${liveState.items.sumOf { it.quantity }} ITEM)",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant
-                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(liveState.items) { item ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = if (item.variation.isNotBlank()) "${item.quantity}x ${item.name} (${item.variation})" else "${item.quantity}x ${item.name}",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(formatRupiah(item.subtotal), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Subtotal", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatRupiah(liveState.subtotal), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text("Total Tagihan", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(formatRupiah(payAmount), fontWeight = FontWeight.Black, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
                             }
-                            if (liveState.discount > 0L) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Diskon", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("- ${formatRupiah(liveState.discount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+
+                    // KANAN: INSTRUKSI PEMBAYARAN INTERAKTIF (QRIS / TRANSFER / TUNAI)
+                    Card(
+                        modifier = Modifier.weight(1.2f).fillMaxHeight(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = "PEMBAYARAN VIA ${liveState.paymentMethod.uppercase()}",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = formatRupiah(payAmount),
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            if (liveState.paymentMethod.equals("QRIS", ignoreCase = true) && liveState.qrisPayload.isNotBlank()) {
+                                val qrisBitmap = remember(liveState.qrisPayload) {
+                                    generateQrCodeBitmap(liveState.qrisPayload)
                                 }
-                            }
-                            if (liveState.voucherDiscount > 0L) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Voucher", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("- ${formatRupiah(liveState.voucherDiscount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                if (qrisBitmap != null) {
+                                    Surface(
+                                        color = Color.White,
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Image(
+                                            bitmap = qrisBitmap.asImageBitmap(),
+                                            contentDescription = "QRIS Pelanggan",
+                                            modifier = Modifier.size(210.dp).padding(10.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "Silakan scan QRIS di atas dengan aplikasi Bank / E-Wallet Anda",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
-                            }
-                            if (liveState.taxAmount > 0L) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(if (liveState.isTaxInclusive) "Pajak (Termasuk)" else "Pajak", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(if (liveState.isTaxInclusive) "(${formatRupiah(liveState.taxAmount)})" else "+ ${formatRupiah(liveState.taxAmount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            } else if (liveState.paymentMethod.equals("Bank Transfer", ignoreCase = true)) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth(0.88f)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(18.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("Silakan Transfer ke Rekening:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(liveState.bankName.ifBlank { "-" }, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            liveState.bankAccountNumber.ifBlank { "-" },
+                                            fontSize = 26.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text("a/n ${liveState.bankAccountName.ifBlank { "-" }}", fontSize = 14.sp)
+                                    }
                                 }
+                            } else {
+                                Icon(
+                                    Icons.Default.Payments,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(56.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    "Silakan lakukan pembayaran tunai kepada kasir",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
                             }
-                            if (liveState.serviceCharge > 0L) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Service Charge", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text("+ ${formatRupiah(liveState.serviceCharge)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else {
+                // LAYAR KERANJANG BELANJA REAL-TIME (CART STAGE)
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .weight(1.45f)
+                            .fillMaxHeight(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "DAFTAR PESANAN",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "${liveState.customerName} • ${liveState.orderType}",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                            if (liveState.items.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            Icons.Default.Storefront,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(64.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            "Selamat Datang!",
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            "Silakan periksa rincian pesanan Anda di layar ini.",
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
                                 }
-                            }
-                            if (liveState.roundingDiff != 0L) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Pembulatan", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(formatRupiah(liveState.roundingDiff), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(liveState.items) { item ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = item.name,
+                                                        fontSize = 17.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    if (item.variation.isNotBlank()) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text(
+                                                            text = "(${item.variation})",
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                }
+                                                Text(
+                                                    text = "${item.quantity} x ${formatRupiah(item.unitPrice)}",
+                                                    fontSize = 13.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                if (item.notes.isNotBlank()) {
+                                                    Text(
+                                                        text = "Catatan: ${item.notes}",
+                                                        fontSize = 12.sp,
+                                                        color = MaterialTheme.colorScheme.error
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = formatRupiah(item.subtotal),
+                                                fontSize = 17.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(top = 8.dp),
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
 
-                        Column {
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(18.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        "TOTAL PEMBAYARAN",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = formatRupiah(liveState.totalPrice),
-                                        fontSize = 34.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(20.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    "RINGKASAN TAGIHAN",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Subtotal", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(formatRupiah(liveState.subtotal), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                                if (liveState.discount > 0L) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Diskon", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("- ${formatRupiah(liveState.discount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                                if (liveState.voucherDiscount > 0L) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Voucher", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("- ${formatRupiah(liveState.voucherDiscount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                if (liveState.taxAmount > 0L) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(if (liveState.isTaxInclusive) "Pajak (Termasuk)" else "Pajak", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(if (liveState.isTaxInclusive) "(${formatRupiah(liveState.taxAmount)})" else "+ ${formatRupiah(liveState.taxAmount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                if (liveState.serviceCharge > 0L) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Service Charge", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("+ ${formatRupiah(liveState.serviceCharge)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                if (liveState.roundingDiff != 0L) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Pembulatan", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(formatRupiah(liveState.roundingDiff), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
 
-                            if (liveState.bankInfo.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(10.dp))
+                            Column {
                                 Surface(
-                                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
-                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                                    shape = RoundedCornerShape(16.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(
-                                        text = liveState.bankInfo,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.tertiary,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(10.dp)
-                                    )
+                                    Column(
+                                        modifier = Modifier.padding(18.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            "TOTAL PEMBAYARAN",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = formatRupiah(liveState.totalPrice),
+                                            fontSize = 34.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1286,10 +1418,6 @@ fun FullScreenKioskCfdReceiverScreen(
     }
 }
 
-// ==============================================================================
-// DIALOG OTORISASI PIN OWNER / FINGERPRINT UNTUK AKSI SENSITIF
-// (Dipakai bersama oleh: Exit CFD, Hapus Massal Produk, Reset Total Omzet)
-// ==============================================================================
 @Composable
 fun OwnerSecurityAuthDialog(
     title: String,
