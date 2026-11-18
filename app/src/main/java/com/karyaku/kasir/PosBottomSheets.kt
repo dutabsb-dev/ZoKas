@@ -836,7 +836,7 @@ fun PaymentBottomSheet(
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
 
-    LaunchedEffect(paymentMethod, qrisString, uniqueTransferAmount, totalPrice) {
+    LaunchedEffect(paymentMethod, qrisString, uniqueTransferAmount, totalPrice, cashReceived, change) {
         if (paymentMethod != "Bank Transfer") {
             manualTransferConfirmed = false
         }
@@ -855,6 +855,8 @@ fun PaymentBottomSheet(
             isPaymentOpen = true,
             method = paymentMethod,
             amountToPay = activePayAmount,
+            cashReceived = if (paymentMethod == "CASH") cashReceived else activePayAmount,
+            changeAmount = if (paymentMethod == "CASH") change else 0L,
             qrisPayload = activeQris,
             bankName = settingsManager.bankName ?: "",
             bankAccountNumber = settingsManager.bankAccountNumber ?: "",

@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,8 +28,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
@@ -35,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -45,6 +50,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.UserEntity
@@ -54,6 +60,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.Inet4Address
@@ -63,15 +71,18 @@ import java.net.Socket
 import java.net.URL
 import java.text.NumberFormat
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class CfdDisplayItem(
+    val productId: Long = 0L,
     val name: String,
     val variation: String,
     val quantity: Int,
     val unitPrice: Long,
     val subtotal: Long,
-    val notes: String
+    val notes: String,
+    val imagePath: String = ""
 )
 
 data class CfdLiveState(
@@ -115,9 +126,16 @@ object LocalCfdServerManager {
     private var serverSocket: ServerSocket? = null
     private var serverThread: Thread? = null
 
+    // Peta productId -> local image file path di perangkat kasir untuk streaming thumbnail ke CFD
+    private val productImageMap = ConcurrentHashMap<Long, String>()
+    private val thumbnailCache = ConcurrentHashMap<String, ByteArray>()
+
     @Volatile
     var currentState: CfdLiveState = CfdLiveState()
         private set
+
+    @Volatile
+    private var completedHoldUntil: Long = 0L
 
     var isServerRunning by mutableStateOf(false)
         private set
@@ -186,9 +204,31 @@ object LocalCfdServerManager {
     }
 
     fun updateState(newState: CfdLiveState) {
+        newState.items.forEach { item ->
+            if (item.productId > 0L && item.imagePath.isNotBlank()) {
+                productImageMap[item.productId] = item.imagePath
+            }
+        }
+        val now = System.currentTimeMillis()
+        // Jika baru saja selesai pembayaran (dalam 7 detik terakhir) dan keranjang masih kosong,
+        // pertahankan layar COMPLETED (ucapan terima kasih + bayar & kembalian) agar tidak langsung tertimpa CART kosong!
+        if (now < completedHoldUntil && newState.items.isEmpty() && newState.displayStage == "CART") {
+            currentState = currentState.copy(
+                storeName = newState.storeName,
+                storeAddress = newState.storeAddress,
+                storeFooter = newState.storeFooter,
+                thankYouMessage = newState.thankYouMessage,
+                isCfdActive = isRunningFlag.get(),
+                updatedAt = now
+            )
+            return
+        }
+        if (newState.items.isNotEmpty()) {
+            completedHoldUntil = 0L
+        }
         currentState = newState.copy(
             isCfdActive = isRunningFlag.get(),
-            updatedAt = System.currentTimeMillis()
+            updatedAt = now
         )
     }
 
@@ -196,21 +236,32 @@ object LocalCfdServerManager {
         isPaymentOpen: Boolean,
         method: String = "CASH",
         amountToPay: Long = 0L,
+        cashReceived: Long = 0L,
+        changeAmount: Long = 0L,
         qrisPayload: String = "",
         bankName: String = "",
         bankAccountNumber: String = "",
         bankAccountName: String = ""
     ) {
+        val now = System.currentTimeMillis()
+        if (!isPaymentOpen && now < completedHoldUntil) {
+            return
+        }
+        if (isPaymentOpen) {
+            completedHoldUntil = 0L
+        }
         currentState = currentState.copy(
             displayStage = if (isPaymentOpen) "PAYMENT" else "CART",
             paymentMethod = method,
             amountToPay = amountToPay,
+            cashReceived = cashReceived,
+            changeAmount = changeAmount,
             qrisPayload = qrisPayload,
             bankName = bankName,
             bankAccountNumber = bankAccountNumber,
             bankAccountName = bankAccountName,
             isCfdActive = isRunningFlag.get(),
-            updatedAt = System.currentTimeMillis()
+            updatedAt = now
         )
     }
 
@@ -221,6 +272,8 @@ object LocalCfdServerManager {
         method: String,
         thankYouMessage: String
     ) {
+        val now = System.currentTimeMillis()
+        completedHoldUntil = now + 7500L
         currentState = currentState.copy(
             displayStage = "COMPLETED",
             amountToPay = totalPaid,
@@ -228,9 +281,9 @@ object LocalCfdServerManager {
             changeAmount = changeAmount,
             paymentMethod = method,
             thankYouMessage = thankYouMessage.ifBlank { "Terima Kasih atas pembeliannya 🙏" },
-            completedTimestamp = System.currentTimeMillis(),
+            completedTimestamp = now,
             isCfdActive = isRunningFlag.get(),
-            updatedAt = System.currentTimeMillis()
+            updatedAt = now
         )
     }
 
@@ -318,6 +371,30 @@ object LocalCfdServerManager {
         serverThread = null
     }
 
+    private fun getCompressedThumbnailBytes(path: String): ByteArray? {
+        if (path.isBlank()) return null
+        thumbnailCache[path]?.let { return it }
+        return try {
+            val file = File(path)
+            if (!file.exists()) return null
+            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, opts)
+            var sample = 1
+            while (opts.outWidth / sample > 240 || opts.outHeight / sample > 240) {
+                sample *= 2
+            }
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOpts) ?: return null
+            val baos = ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+            val bytes = baos.toByteArray()
+            thumbnailCache[path] = bytes
+            bytes
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun handleClient(client: Socket) {
         Thread {
             try {
@@ -332,7 +409,29 @@ object LocalCfdServerManager {
                 val path = requestLine.split(" ").getOrNull(1) ?: "/"
                 val out = client.getOutputStream()
 
-                if (path.startsWith("/api/cart")) {
+                if (path.startsWith("/api/image")) {
+                    val idStr = path.substringAfter("id=", "").substringBefore("&").trim()
+                    val prodId = idStr.toLongOrNull() ?: 0L
+                    val imgPath = productImageMap[prodId]
+                        ?: currentState.items.find { it.productId == prodId }?.imagePath
+                        ?: ""
+                    val imgBytes = getCompressedThumbnailBytes(imgPath)
+                    if (imgBytes != null && imgBytes.isNotEmpty()) {
+                        val headers = (
+                            "HTTP/1.1 200 OK\r\n" +
+                            "Content-Type: image/jpeg\r\n" +
+                            "Cache-Control: max-age=3600\r\n" +
+                            "Content-Length: ${imgBytes.size}\r\n" +
+                            "Connection: close\r\n\r\n"
+                        ).toByteArray(Charsets.UTF_8)
+                        out.write(headers)
+                        out.write(imgBytes)
+                    } else {
+                        val notFound = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                            .toByteArray(Charsets.UTF_8)
+                        out.write(notFound)
+                    }
+                } else if (path.startsWith("/api/cart")) {
                     lastClientPingTime = System.currentTimeMillis()
                     val jsonBytes = buildStateJson(currentState).toByteArray(Charsets.UTF_8)
                     val headers = (
@@ -413,6 +512,7 @@ object LocalCfdServerManager {
         val arr = JSONArray()
         state.items.forEach { item ->
             val obj = JSONObject()
+            obj.put("productId", item.productId)
             obj.put("name", item.name)
             obj.put("variation", item.variation)
             obj.put("quantity", item.quantity)
@@ -421,6 +521,7 @@ object LocalCfdServerManager {
             obj.put("subtotal", formatRp(item.subtotal))
             obj.put("subtotalRaw", item.subtotal)
             obj.put("notes", item.notes)
+            obj.put("hasImage", item.imagePath.isNotBlank() && File(item.imagePath).exists())
             arr.put(obj)
         }
         root.put("items", arr)
@@ -711,14 +812,42 @@ fun LocalWirelessCfdDialog(
     )
 }
 
+@Composable
+private fun CfdProductThumbnail(
+    hostUrl: String,
+    productId: Long,
+    productName: String,
+    hasImage: Boolean,
+    sizeDp: Int = 46
+) {
+    Box(
+        modifier = Modifier
+            .size(sizeDp.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (hasImage && productId > 0L) {
+            AsyncImage(
+                model = "$hostUrl/api/image?id=$productId",
+                contentDescription = productName,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Text(
+                text = productName.trim().take(2).uppercase().ifBlank { "ZK" },
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = (sizeDp / 3).sp,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
+        }
+    }
+}
+
 // ==============================================================================
 // LAYAR FULL-SCREEN NATIVE & KIOSK LOCK UNTUK PERANGKAT PENERIMA CFD
-// - Otomatis menampilkan 3 fase interaktif sesuai aktivitas kasir:
-//   1. CART      : Rincian belanja & total real-time
-//   2. PAYMENT   : Layar Pembayaran Pelanggan (QRIS scannable / Nomor Rekening
-//                  Transfer / Total Tagihan Tunai yang harus dibayar)
-//   3. COMPLETED : Layar Ucapan Terima Kasih Kustom dari Owner + info kembalian
-//                  selama beberapa detik setelah transaksi lunas!
 // ==============================================================================
 @Composable
 fun FullScreenKioskCfdReceiverScreen(
@@ -733,7 +862,6 @@ fun FullScreenKioskCfdReceiverScreen(
     var disconnectedStreak by remember { mutableStateOf(0) }
     var showEmergencyPinDialog by remember { mutableStateOf(false) }
 
-    // Simpan timestamp transaksi selesai terakhir agar layar ucapan terima kasih tampil 7 detik
     var lastShownCompletedTs by remember { mutableStateOf(0L) }
     var showThankYouOverlay by remember { mutableStateOf(false) }
 
@@ -784,14 +912,17 @@ fun FullScreenKioskCfdReceiverScreen(
                             val parsedItems = mutableListOf<CfdDisplayItem>()
                             for (i in 0 until itemsArr.length()) {
                                 val obj = itemsArr.getJSONObject(i)
+                                val hasImg = obj.optBoolean("hasImage", false)
                                 parsedItems.add(
                                     CfdDisplayItem(
+                                        productId = obj.optLong("productId", 0L),
                                         name = obj.optString("name"),
                                         variation = obj.optString("variation"),
                                         quantity = obj.optInt("quantity"),
                                         unitPrice = obj.optLong("unitPriceRaw"),
                                         subtotal = obj.optLong("subtotalRaw"),
-                                        notes = obj.optString("notes")
+                                        notes = obj.optString("notes"),
+                                        imagePath = if (hasImg) "remote" else ""
                                     )
                                 )
                             }
@@ -848,7 +979,7 @@ fun FullScreenKioskCfdReceiverScreen(
                 isConnected = false
                 disconnectedStreak++
             }
-            delay(550)
+            delay(500)
         }
     }
 
@@ -946,7 +1077,7 @@ fun FullScreenKioskCfdReceiverScreen(
                 }
             }
 
-            // KONTEN DINAMIS BERDASARKAN TAHAP TRANSAKSI (COMPLETED -> PAYMENT -> CART)
+            // KONTEN DINAMIS: COMPLETED -> PAYMENT -> CART
             if (showThankYouOverlay || liveState.displayStage == "COMPLETED") {
                 Box(
                     modifier = Modifier
@@ -956,7 +1087,7 @@ fun FullScreenKioskCfdReceiverScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Card(
-                        modifier = Modifier.fillMaxWidth(0.85f),
+                        modifier = Modifier.fillMaxWidth(0.88f),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(24.dp)
@@ -964,12 +1095,12 @@ fun FullScreenKioskCfdReceiverScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(32.dp),
+                                .padding(28.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(84.dp)
+                                    .size(76.dp)
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -977,47 +1108,62 @@ fun FullScreenKioskCfdReceiverScreen(
                                     Icons.Default.CheckCircle,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(54.dp)
+                                    modifier = Modifier.size(48.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
                             Text(
                                 text = "PEMBAYARAN BERHASIL",
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                                 letterSpacing = 1.5.sp
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = liveState.thankYouMessage,
-                                fontSize = 26.sp,
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center,
-                                lineHeight = 34.sp
+                                lineHeight = 32.sp
                             )
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(18.dp))
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             Spacer(modifier = Modifier.height(14.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(0.7f),
-                                horizontalArrangement = Arrangement.SpaceBetween
+
+                            Column(
+                                modifier = Modifier.fillMaxWidth(0.75f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("Total Dibayar (${liveState.paymentMethod}):", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(formatRupiah(liveState.amountToPay), fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            }
-                            if (liveState.changeAmount > 0L) {
-                                Spacer(modifier = Modifier.height(6.dp))
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(0.7f),
+                                    modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("Kembalian:", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Total Tagihan:", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(formatRupiah(liveState.amountToPay), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Bayar (${liveState.paymentMethod}):", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        formatRupiah(if (liveState.cashReceived > 0L) liveState.cashReceived else liveState.amountToPay),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Kembalian:", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                     Text(
                                         formatRupiah(liveState.changeAmount),
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Black,
                                         color = MaterialTheme.colorScheme.tertiary
                                     )
                                 }
@@ -1026,7 +1172,6 @@ fun FullScreenKioskCfdReceiverScreen(
                     }
                 }
             } else if (liveState.displayStage == "PAYMENT") {
-                // LAYAR MODE PEMBAYARAN DI PERANGKAT PELANGGAN
                 val payAmount = if (liveState.amountToPay > 0L) liveState.amountToPay else liveState.totalPrice
                 Row(
                     modifier = Modifier
@@ -1035,7 +1180,7 @@ fun FullScreenKioskCfdReceiverScreen(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // KIRI: RINGKASAN PESANAN SINGKAT
+                    // KIRI: RINCIAN PESANAN DENGAN THUMBNAIL PRODUK DI SEBELAH KIRI
                     Card(
                         modifier = Modifier.weight(1.1f).fillMaxHeight(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -1051,19 +1196,35 @@ fun FullScreenKioskCfdReceiverScreen(
                             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
                             LazyColumn(
                                 modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(liveState.items) { item ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = if (item.variation.isNotBlank()) "${item.quantity}x ${item.name} (${item.variation})" else "${item.quantity}x ${item.name}",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.weight(1f)
+                                        CfdProductThumbnail(
+                                            hostUrl = hostUrl,
+                                            productId = item.productId,
+                                            productName = item.name,
+                                            hasImage = item.imagePath.isNotBlank(),
+                                            sizeDp = 40
                                         )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = if (item.variation.isNotBlank()) "${item.name} (${item.variation})" else item.name,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "${item.quantity} x ${formatRupiah(item.unitPrice)}",
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(formatRupiah(item.subtotal), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
@@ -1077,7 +1238,7 @@ fun FullScreenKioskCfdReceiverScreen(
                         }
                     }
 
-                    // KANAN: INSTRUKSI PEMBAYARAN INTERAKTIF (QRIS / TRANSFER / TUNAI)
+                    // KANAN: INSTRUKSI PEMBAYARAN + BAYAR & KEMBALIAN REAL-TIME
                     Card(
                         modifier = Modifier.weight(1.2f).fillMaxHeight(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -1103,14 +1264,14 @@ fun FullScreenKioskCfdReceiverScreen(
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = formatRupiah(payAmount),
-                                fontSize = 36.sp,
+                                fontSize = 34.sp,
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             if (liveState.paymentMethod.equals("QRIS", ignoreCase = true) && liveState.qrisPayload.isNotBlank()) {
                                 val qrisBitmap = remember(liveState.qrisPayload) {
@@ -1125,13 +1286,13 @@ fun FullScreenKioskCfdReceiverScreen(
                                         Image(
                                             bitmap = qrisBitmap.asImageBitmap(),
                                             contentDescription = "QRIS Pelanggan",
-                                            modifier = Modifier.size(210.dp).padding(10.dp)
+                                            modifier = Modifier.size(200.dp).padding(10.dp)
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         "Silakan scan QRIS di atas dengan aplikasi Bank / E-Wallet Anda",
-                                        fontSize = 13.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
@@ -1141,37 +1302,62 @@ fun FullScreenKioskCfdReceiverScreen(
                                 Surface(
                                     color = MaterialTheme.colorScheme.surface,
                                     shape = RoundedCornerShape(14.dp),
-                                    modifier = Modifier.fillMaxWidth(0.88f)
+                                    modifier = Modifier.fillMaxWidth(0.9f)
                                 ) {
                                     Column(
-                                        modifier = Modifier.padding(18.dp),
+                                        modifier = Modifier.padding(16.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Text("Silakan Transfer ke Rekening:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(liveState.bankName.ifBlank { "-" }, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                        Text("Silakan Transfer ke Rekening:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(liveState.bankName.ifBlank { "-" }, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                                         Text(
                                             liveState.bankAccountNumber.ifBlank { "-" },
-                                            fontSize = 26.sp,
+                                            fontSize = 24.sp,
                                             fontWeight = FontWeight.Black,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        Text("a/n ${liveState.bankAccountName.ifBlank { "-" }}", fontSize = 14.sp)
+                                        Text("a/n ${liveState.bankAccountName.ifBlank { "-" }}", fontSize = 13.sp)
                                     }
                                 }
                             } else {
-                                Icon(
-                                    Icons.Default.Payments,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.size(56.dp)
-                                )
+                                // CASH PAYMENT: Tampilkan live Bayar & Kembalian saat kasir menginput uang diterima!
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth(0.9f)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Uang Diterima:", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(
+                                                formatRupiah(liveState.cashReceived),
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Kembalian:", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                formatRupiah(liveState.changeAmount),
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
                                     "Silakan lakukan pembayaran tunai kepada kasir",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -1179,7 +1365,7 @@ fun FullScreenKioskCfdReceiverScreen(
                     }
                 }
             } else {
-                // LAYAR KERANJANG BELANJA REAL-TIME (CART STAGE)
+                // LAYAR KERANJANG BELANJA REAL-TIME (CART STAGE) DENGAN THUMBNAIL PRODUK DI SEBELAH KIRI
                 Row(
                     modifier = Modifier
                         .weight(1f)
@@ -1256,13 +1442,26 @@ fun FullScreenKioskCfdReceiverScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                            // GAMBAR KECIL PRODUK DI SEBELAH KIRI SENDIRI
+                                            CfdProductThumbnail(
+                                                hostUrl = hostUrl,
+                                                productId = item.productId,
+                                                productName = item.name,
+                                                hasImage = item.imagePath.isNotBlank(),
+                                                sizeDp = 48
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
                                                         text = item.name,
                                                         fontSize = 17.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onSurface
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f, fill = false)
                                                     )
                                                     if (item.variation.isNotBlank()) {
                                                         Spacer(modifier = Modifier.width(6.dp))
@@ -1287,6 +1486,7 @@ fun FullScreenKioskCfdReceiverScreen(
                                                     )
                                                 }
                                             }
+                                            Spacer(modifier = Modifier.width(8.dp))
                                             Text(
                                                 text = formatRupiah(item.subtotal),
                                                 fontSize = 17.sp,

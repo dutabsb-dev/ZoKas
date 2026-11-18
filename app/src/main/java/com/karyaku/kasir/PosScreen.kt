@@ -382,12 +382,14 @@ fun PosScreen(
                 else -> viewModel.getPriceForVariant(item.product, item.selectedVariation)
             }
             CfdDisplayItem(
+                productId = item.product.id,
                 name = item.product.name,
                 variation = item.selectedVariation,
                 quantity = item.quantity,
                 unitPrice = uPrice,
                 subtotal = uPrice * item.quantity,
-                notes = item.notes
+                notes = item.notes,
+                imagePath = item.product.imagePath
             )
         }
         val orderTypeInfo = if (settingsManager.isTableModeEnabled && selectedOrderType == "Dine-In") {
@@ -524,10 +526,13 @@ fun PosScreen(
                         if (isSplitBillMode) isSplitBillMode = false
 
                         val customThanks = LocalCfdServerManager.getCustomThankYouMessage(context)
+                        val paidTotal = if (newTransaction.totalPrice > 0L) newTransaction.totalPrice else totalToPay
+                        val receivedVal = if (cashReceived > 0L) cashReceived else paidTotal
+                        val changeVal = (receivedVal - paidTotal).coerceAtLeast(0L)
                         LocalCfdServerManager.triggerCompletedStage(
-                            totalPaid = newTransaction.totalPrice,
-                            cashReceived = newTransaction.cashReceived,
-                            changeAmount = newTransaction.changeAmount,
+                            totalPaid = paidTotal,
+                            cashReceived = receivedVal,
+                            changeAmount = changeVal,
                             method = method,
                             thankYouMessage = customThanks
                         )
