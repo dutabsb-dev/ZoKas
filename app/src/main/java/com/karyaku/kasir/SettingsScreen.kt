@@ -2,7 +2,10 @@ package com.karyaku.kasir
 
 import android.Manifest
 import android.bluetooth.BluetoothDevice
+import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -697,7 +700,8 @@ fun SettingsScreen(
         item {
             SettingsAuditLogCard(
                 auditLogs = auditLogs,
-                dateFormat = dateFormat
+                dateFormat = dateFormat,
+                storeName = storeName ?: "ZoKas Store"
             )
         }
 
@@ -726,11 +730,135 @@ fun SettingsScreen(
 @Composable
 private fun SettingsAuditLogCard(
     auditLogs: List<AuditLogEntity>,
-    dateFormat: SimpleDateFormat
+    dateFormat: SimpleDateFormat,
+    storeName: String = "ZoKas Store"
 ) {
+    val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
-    val displayedLogs = remember(auditLogs, isExpanded) {
-        if (isExpanded) auditLogs.take(30) else emptyList()
+    var showFullHistoryDialog by remember { mutableStateOf(false) }
+    var historySearchQuery by remember { mutableStateOf("") }
+
+    // Batasi maksimal 1.000 log aktif (selebihnya dipangkas otomatis)
+    val cappedLogs = remember(auditLogs) {
+        auditLogs.sortedByDescending { it.timestamp }.take(1000)
+    }
+    val displayedLogs = remember(cappedLogs, isExpanded) {
+        if (isExpanded) cappedLogs.take(30) else emptyList()
+    }
+
+    val pdfAuditLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            exportAuditLogsToPdf(context, uri, cappedLogs, storeName)
+        }
+    }
+
+    if (showFullHistoryDialog) {
+        val filteredHistory = remember(cappedLogs, historySearchQuery) {
+            if (historySearchQuery.isBlank()) cappedLogs
+            else cappedLogs.filter {
+                it.userName.contains(historySearchQuery, ignoreCase = true) ||
+                    it.action.contains(historySearchQuery, ignoreCase = true)
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showFullHistoryDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Riwayat Lengkap Log Audit", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Text(
+                            "Menampilkan ${filteredHistory.size} dari maks. 1.000 log terbaru",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            pdfAuditLauncher.launch("ZoKas_Audit_Log_${System.currentTimeMillis()}.pdf")
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Unduh PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
+                    OutlinedTextField(
+                        value = historySearchQuery,
+                        onValueChange = { historySearchQuery = it },
+                        placeholder = { Text("Cari nama user atau aktivitas...", fontSize = 12.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            if (historySearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { historySearchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Hapus", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(filteredHistory) { log ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = log.userName,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = dateFormat.format(Date(log.timestamp)),
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = log.action,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showFullHistoryDialog = false },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Tutup", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 
     Card(
@@ -752,8 +880,8 @@ private fun SettingsAuditLogCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        if (auditLogs.isEmpty()) "Belum ada aktivitas."
-                        else "${auditLogs.size} aktivitas tercatat",
+                        if (cappedLogs.isEmpty()) "Belum ada aktivitas."
+                        else "${cappedLogs.size} aktivitas tercatat (Maks. 1.000 log)",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -768,6 +896,45 @@ private fun SettingsAuditLogCard(
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                    if (cappedLogs.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showFullHistoryDialog = true },
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (cappedLogs.size > 30) "History (31+ / ${cappedLogs.size})" else "Lihat Semua (${cappedLogs.size})",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    pdfAuditLauncher.launch("ZoKas_Audit_Log_${System.currentTimeMillis()}.pdf")
+                                },
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Unduh PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+                        }
+                    }
 
                     if (displayedLogs.isEmpty()) {
                         Text(
@@ -805,11 +972,11 @@ private fun SettingsAuditLogCard(
                                 }
                             }
                         }
-                        if (auditLogs.size > 30) {
-                            Spacer(modifier = Modifier.height(4.dp))
+                        if (cappedLogs.size > 30) {
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                "Menampilkan 30 dari ${auditLogs.size} aktivitas terbaru.",
-                                fontSize = 9.sp,
+                                "Menampilkan 30 terbaru. Ketuk tombol 'History (31+)' di atas untuk melihat hingga ${cappedLogs.size} log.",
+                                fontSize = 10.sp,
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.fillMaxWidth(),
@@ -820,6 +987,108 @@ private fun SettingsAuditLogCard(
                 }
             }
         }
+    }
+}
+
+private fun exportAuditLogsToPdf(
+    context: Context,
+    uri: Uri,
+    logs: List<AuditLogEntity>,
+    storeName: String
+) {
+    try {
+        val pdf = PdfDocument()
+        val fullDateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+        val titlePaint = Paint().apply {
+            textSize = 16f
+            isFakeBoldText = true
+            color = android.graphics.Color.BLACK
+            textAlign = Paint.Align.CENTER
+        }
+        val subPaint = Paint().apply {
+            textSize = 10f
+            color = android.graphics.Color.DKGRAY
+            textAlign = Paint.Align.CENTER
+        }
+        val headerPaint = Paint().apply {
+            textSize = 10f
+            isFakeBoldText = true
+            color = android.graphics.Color.BLACK
+        }
+        val cellPaint = Paint().apply {
+            textSize = 9.5f
+            color = android.graphics.Color.BLACK
+        }
+        val linePaint = Paint().apply {
+            color = android.graphics.Color.GRAY
+            strokeWidth = 1f
+        }
+
+        var pageNum = 1
+        var page = pdf.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNum).create())
+        var canvas = page.canvas
+        var y = 42f
+
+        canvas.drawText("LAPORAN LOG AKTIVITAS (AUDIT) - ${storeName.uppercase()}", 297.5f, y, titlePaint)
+        y += 16f
+        canvas.drawText(
+            "Dicetak pada: ${fullDateFormat.format(Date())} • Total: ${logs.size} aktivitas (Maks. 1.000 log terakhir)",
+            297.5f,
+            y,
+            subPaint
+        )
+        y += 16f
+        canvas.drawLine(36f, y, 559f, y, linePaint)
+        y += 16f
+
+        // Header Kolom
+        canvas.drawText("No", 38f, y, headerPaint)
+        canvas.drawText("Waktu", 65f, y, headerPaint)
+        canvas.drawText("Pengguna", 175f, y, headerPaint)
+        canvas.drawText("Aktivitas / Keterangan", 265f, y, headerPaint)
+        y += 8f
+        canvas.drawLine(36f, y, 559f, y, linePaint)
+        y += 14f
+
+        logs.forEachIndexed { idx, log ->
+            if (y > 795f) {
+                pdf.finishPage(page)
+                pageNum++
+                page = pdf.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNum).create())
+                canvas = page.canvas
+                y = 42f
+                canvas.drawText("LAPORAN LOG AKTIVITAS (Lanjutan - Hal. $pageNum)", 297.5f, y, headerPaint)
+                y += 12f
+                canvas.drawLine(36f, y, 559f, y, linePaint)
+                y += 16f
+            }
+
+            val numStr = "${idx + 1}"
+            val timeStr = fullDateFormat.format(Date(log.timestamp))
+            val userStr = log.userName.take(15)
+            val actionLines = log.action.chunked(56)
+
+            canvas.drawText(numStr, 38f, y, cellPaint)
+            canvas.drawText(timeStr, 65f, y, cellPaint)
+            canvas.drawText(userStr, 175f, y, cellPaint)
+            canvas.drawText(actionLines.firstOrNull() ?: "", 265f, y, cellPaint)
+            y += 13f
+
+            for (extraLine in actionLines.drop(1)) {
+                if (y > 800f) break
+                canvas.drawText(extraLine, 265f, y, cellPaint)
+                y += 12f
+            }
+            canvas.drawLine(36f, y - 4f, 559f, y - 4f, linePaint.apply { alpha = 70 })
+            y += 4f
+        }
+
+        pdf.finishPage(page)
+        context.contentResolver.openOutputStream(uri)?.use { pdf.writeTo(it) }
+        pdf.close()
+        Toast.makeText(context, "PDF Log Audit berhasil disimpan!", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Gagal membuat PDF Log Audit: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }
 

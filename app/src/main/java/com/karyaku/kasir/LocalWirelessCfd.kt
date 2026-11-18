@@ -1,16 +1,23 @@
 package com.karyaku.kasir
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -21,21 +28,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.karyaku.kasir.data.local.UserEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.URL
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
@@ -68,11 +91,14 @@ data class CfdLiveState(
     val paymentMethod: String = "",
     val qrisPayload: String = "",
     val bankInfo: String = "",
+    val isCfdActive: Boolean = true,
     val updatedAt: Long = System.currentTimeMillis()
 )
 
 object LocalCfdServerManager {
     private const val DEFAULT_PORT = 8765
+    private const val PREFS_CFD = "zokas_wireless_cfd_prefs"
+
     private val isRunningFlag = AtomicBoolean(false)
     private var serverSocket: ServerSocket? = null
     private var serverThread: Thread? = null
@@ -90,8 +116,54 @@ object LocalCfdServerManager {
     var lastClientPingTime by mutableStateOf(0L)
         private set
 
+    // Status mode kiosk layar pelanggan pada perangkat klien (Tablet/Layar Kedua)
+    var isKioskReceiverLocked by mutableStateOf(false)
+        private set
+
+    var connectedHostUrl by mutableStateOf("")
+        private set
+
+    fun restoreReceiverLockState(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_CFD, Context.MODE_PRIVATE)
+        val locked = prefs.getBoolean("kiosk_receiver_locked", false)
+        val url = prefs.getString("connected_host_url", "") ?: ""
+        if (locked && url.isNotBlank()) {
+            connectedHostUrl = url
+            isKioskReceiverLocked = true
+        }
+    }
+
+    fun lockAsKioskReceiver(context: Context, hostUrl: String) {
+        val cleanUrl = hostUrl.trim().trimEnd('/')
+        val normalizedUrl = if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+            cleanUrl
+        } else {
+            "http://$cleanUrl"
+        }
+        val prefs = context.getSharedPreferences(PREFS_CFD, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("kiosk_receiver_locked", true)
+            .putString("connected_host_url", normalizedUrl)
+            .apply()
+        connectedHostUrl = normalizedUrl
+        isKioskReceiverLocked = true
+    }
+
+    fun unlockKioskReceiver(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_CFD, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("kiosk_receiver_locked", false)
+            .remove("connected_host_url")
+            .apply()
+        isKioskReceiverLocked = false
+        connectedHostUrl = ""
+    }
+
     fun updateState(newState: CfdLiveState) {
-        currentState = newState.copy(updatedAt = System.currentTimeMillis())
+        currentState = newState.copy(
+            isCfdActive = isRunningFlag.get(),
+            updatedAt = System.currentTimeMillis()
+        )
     }
 
     fun getLocalIpAddress(): String {
@@ -115,7 +187,7 @@ object LocalCfdServerManager {
                 }
             }
             return fallbackIp ?: "127.0.0.1"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return "127.0.0.1"
         }
     }
@@ -143,6 +215,7 @@ object LocalCfdServerManager {
             activePort = chosenPort
             isRunningFlag.set(true)
             isServerRunning = true
+            currentState = currentState.copy(isCfdActive = true, updatedAt = System.currentTimeMillis())
 
             serverThread = Thread {
                 while (isRunningFlag.get() && !socket.isClosed) {
@@ -166,6 +239,8 @@ object LocalCfdServerManager {
 
     @Synchronized
     fun stopServer() {
+        // Tandai isCfdActive = false agar perangkat penerima yang sedang terkunci otomatis keluar dari mode CFD
+        currentState = currentState.copy(isCfdActive = false, updatedAt = System.currentTimeMillis())
         isRunningFlag.set(false)
         isServerRunning = false
         try {
@@ -233,6 +308,7 @@ object LocalCfdServerManager {
 
     private fun buildStateJson(state: CfdLiveState): String {
         val root = JSONObject()
+        root.put("isCfdActive", state.isCfdActive)
         root.put("storeName", state.storeName)
         root.put("storeAddress", state.storeAddress)
         root.put("storeFooter", state.storeFooter)
@@ -240,6 +316,7 @@ object LocalCfdServerManager {
         root.put("customerName", state.customerName)
         root.put("orderType", state.orderType)
         root.put("subtotal", formatRp(state.subtotal))
+        root.put("subtotalRaw", state.subtotal)
         root.put("discount", formatRp(state.discount))
         root.put("discountRaw", state.discount)
         root.put("voucherDiscount", formatRp(state.voucherDiscount))
@@ -263,7 +340,9 @@ object LocalCfdServerManager {
             obj.put("variation", item.variation)
             obj.put("quantity", item.quantity)
             obj.put("unitPrice", formatRp(item.unitPrice))
+            obj.put("unitPriceRaw", item.unitPrice)
             obj.put("subtotal", formatRp(item.subtotal))
+            obj.put("subtotalRaw", item.subtotal)
             obj.put("notes", item.notes)
             arr.put(obj)
         }
@@ -456,6 +535,12 @@ pollCart();
     }
 }
 
+// ==============================================================================
+// DIALOG KONTROL TRANSMITTER CFD (DI PERANGKAT KASIR UTAMA)
+// - Tanpa menyebut merek perangkat apapun (profesional & netral)
+// - Jika ingin mematikan / mengeluarkan perangkat penerima CFD, wajib verifikasi
+//   PIN Owner atau Sidik Jari (Biometrik) di perangkat kasir ini!
+// ==============================================================================
 @Composable
 fun LocalWirelessCfdDialog(
     viewModel: PosViewModel,
@@ -463,7 +548,11 @@ fun LocalWirelessCfdDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = LocalActivity.current as? FragmentActivity
+    val users by viewModel.users.collectAsStateWithLifecycle()
+
     var showLocalScreenPreview by remember { mutableStateOf(false) }
+    var showStopAuthDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (!LocalCfdServerManager.isServerRunning) {
@@ -479,6 +568,22 @@ fun LocalWirelessCfdDialog(
         if (isRunning) generateQrCodeBitmap(serverUrl) else null
     }
     val isClientConnected = (System.currentTimeMillis() - LocalCfdServerManager.lastClientPingTime) < 5000L
+
+    // Dialog Verifikasi PIN Owner / Biometrik untuk mematikan / mengeluarkan CFD
+    if (showStopAuthDialog) {
+        OwnerSecurityAuthDialog(
+            title = "Otorisasi Matikan Layar Pelanggan",
+            subtitle = "Masukkan PIN Owner atau gunakan Sidik Jari untuk menghentikan transmisi & membuka kunci perangkat penerima CFD.",
+            users = users,
+            activity = activity,
+            onSuccess = {
+                LocalCfdServerManager.stopServer()
+                showStopAuthDialog = false
+                Toast.makeText(context, "Transmisi Layar Pelanggan dihentikan.", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showStopAuthDialog = false }
+        )
+    }
 
     if (showLocalScreenPreview) {
         Dialog(
@@ -531,16 +636,16 @@ fun LocalWirelessCfdDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isRunning) "Server Local CFD Aktif" else "Server Local CFD Nonaktif",
+                                text = if (isRunning) "Transmisi CFD Aktif" else "Transmisi CFD Nonaktif",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (isClientConnected)
-                                    "Tablet / Layar Pelanggan sedang terhubung!"
+                                    "Perangkat Layar Pelanggan terhubung & terkunci!"
                                 else
-                                    "Hubungkan HP Kasir & Tablet ke 1 Wi-Fi / Hotspot",
+                                    "Hubungkan perangkat kasir & layar pelanggan ke 1 Wi-Fi / Hotspot",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -548,8 +653,12 @@ fun LocalWirelessCfdDialog(
                         Switch(
                             checked = isRunning,
                             onCheckedChange = { enable ->
-                                if (enable) LocalCfdServerManager.startServer()
-                                else LocalCfdServerManager.stopServer()
+                                if (enable) {
+                                    LocalCfdServerManager.startServer()
+                                } else {
+                                    // Wajib verifikasi PIN Owner / Biometrik sebelum mematikan CFD
+                                    showStopAuthDialog = true
+                                }
                             },
                             colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
                         )
@@ -559,14 +668,14 @@ fun LocalWirelessCfdDialog(
                 if (isRunning) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "1. Pastikan Tablet (misal Galaxy Tab A11+) terhubung ke Wi-Fi / Hotspot yang sama dengan HP ini.",
+                        text = "1. Pastikan perangkat kedua (layar pelanggan) terhubung ke jaringan Wi-Fi / Hotspot yang sama.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "2. Scan QR Code di bawah dengan Kamera Tablet, atau buka alamat IP di Browser Tablet:",
+                        text = "2. Buka aplikasi ZoKas di perangkat kedua lalu pilih 'Mode Layar Pelanggan (CFD)' untuk memindai QR Code di bawah (otomatis Full-Screen & terkunci PIN Owner):",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -611,7 +720,7 @@ fun LocalWirelessCfdDialog(
                                 onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                     clipboard.setPrimaryClip(ClipData.newPlainText("ZoKas CFD URL", serverUrl))
-                                    Toast.makeText(context, "Alamat CFD disalin!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Alamat koneksi CFD disalin!", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
@@ -624,9 +733,22 @@ fun LocalWirelessCfdDialog(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { showStopAuthDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Keluarkan & Hentikan Layar CFD (PIN Owner)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = { showLocalScreenPreview = true },
                     modifier = Modifier.fillMaxWidth(),
@@ -647,7 +769,632 @@ fun LocalWirelessCfdDialog(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Selesai", fontWeight = FontWeight.Bold)
+                Text("Tutup", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+// ==============================================================================
+// LAYAR FULL-SCREEN NATIVE & KIOSK LOCK UNTUK PERANGKAT PENERIMA CFD (DI TABLET)
+// - Menyembunyikan Status Bar & Navigation Bar secara penuh (Immersive Sticky)
+// - Memblokir tombol Back Android sepenuhnya
+// - Tanpa tombol Exit di layar penerima! Keluar HANYA terjadi otomatis ketika
+//   perangkat kasir utama menghentikan transmisi CFD (dengan PIN Owner / Fingerprint),
+//   atau melalui otorisasi darurat PIN Owner lokal jika koneksi terputus permanen.
+// ==============================================================================
+@Composable
+fun FullScreenKioskCfdReceiverScreen(
+    hostUrl: String,
+    users: List<UserEntity>,
+    onUnlockedAndExit: () -> Unit
+) {
+    val context = LocalContext.current
+    val view = LocalView.current
+    var liveState by remember { mutableStateOf(CfdLiveState(isCfdActive = true)) }
+    var isConnected by remember { mutableStateOf(false) }
+    var disconnectedStreak by remember { mutableStateOf(0) }
+    var showEmergencyPinDialog by remember { mutableStateOf(false) }
+
+    // Blokir total tombol Back Android selama mode CFD terkunci
+    BackHandler(enabled = true) {
+        Toast.makeText(
+            context,
+            "Layar Pelanggan terkunci. Hentikan transmisi dari perangkat kasir utama.",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    // Aktifkan Mode Immersive Full-Screen (sembunyikan status bar & nav bar)
+    DisposableEffect(view) {
+        val window = (view.context as? Activity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller?.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    // Polling real-time ke server kasir utama
+    LaunchedEffect(hostUrl) {
+        while (true) {
+            val fetched = withContext(Dispatchers.IO) {
+                try {
+                    val conn = (URL("$hostUrl/api/cart?t=${System.currentTimeMillis()}").openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 1500
+                        readTimeout = 1500
+                        requestMethod = "GET"
+                    }
+                    if (conn.responseCode == 200) {
+                        val raw = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                        val json = JSONObject(raw)
+                        val active = json.optBoolean("isCfdActive", true)
+                        if (!active) {
+                            Pair(null, false)
+                        } else {
+                            val itemsArr = json.optJSONArray("items") ?: JSONArray()
+                            val parsedItems = mutableListOf<CfdDisplayItem>()
+                            for (i in 0 until itemsArr.length()) {
+                                val obj = itemsArr.getJSONObject(i)
+                                parsedItems.add(
+                                    CfdDisplayItem(
+                                        name = obj.optString("name"),
+                                        variation = obj.optString("variation"),
+                                        quantity = obj.optInt("quantity"),
+                                        unitPrice = obj.optLong("unitPriceRaw"),
+                                        subtotal = obj.optLong("subtotalRaw"),
+                                        notes = obj.optString("notes")
+                                    )
+                                )
+                            }
+                            val parsedState = CfdLiveState(
+                                storeName = json.optString("storeName", "ZoKas Store"),
+                                storeAddress = json.optString("storeAddress", ""),
+                                storeFooter = json.optString("storeFooter", "Terima Kasih atas Kunjungan Anda"),
+                                cashierName = json.optString("cashierName", ""),
+                                customerName = json.optString("customerName", "Pelanggan Umum"),
+                                orderType = json.optString("orderType", "Dine-In"),
+                                items = parsedItems,
+                                subtotal = json.optLong("subtotalRaw"),
+                                discount = json.optLong("discountRaw"),
+                                voucherDiscount = json.optLong("voucherDiscountRaw"),
+                                taxAmount = json.optLong("taxAmountRaw"),
+                                serviceCharge = json.optLong("serviceChargeRaw"),
+                                roundingDiff = json.optLong("roundingDiffRaw"),
+                                totalPrice = json.optLong("totalPriceRaw"),
+                                isTaxInclusive = json.optBoolean("isTaxInclusive"),
+                                bankInfo = json.optString("bankInfo", ""),
+                                isCfdActive = true
+                            )
+                            Pair(parsedState, true)
+                        }
+                    } else {
+                        Pair(null, true)
+                    }
+                } catch (_: Exception) {
+                    Pair(null, true)
+                }
+            }
+
+            val (newState, stillActive) = fetched
+            if (!stillActive) {
+                // Perangkat kasir pengirim telah menghentikan transmisi CFD!
+                LocalCfdServerManager.unlockKioskReceiver(context)
+                onUnlockedAndExit()
+                break
+            } else if (newState != null) {
+                liveState = newState
+                isConnected = true
+                disconnectedStreak = 0
+            } else {
+                isConnected = false
+                disconnectedStreak++
+            }
+            delay(650)
+        }
+    }
+
+    if (showEmergencyPinDialog) {
+        OwnerSecurityAuthDialog(
+            title = "Buka Kunci Layar Pelanggan",
+            subtitle = "Masukkan PIN Owner untuk keluar dari mode tampilan pelanggan secara manual.",
+            users = users,
+            activity = LocalActivity.current as? FragmentActivity,
+            onSuccess = {
+                LocalCfdServerManager.unlockKioskReceiver(context)
+                showEmergencyPinDialog = false
+                onUnlockedAndExit()
+            },
+            onDismiss = { showEmergencyPinDialog = false }
+        )
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // HEADER
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = liveState.storeName,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (liveState.storeAddress.isNotBlank()) {
+                            Text(
+                                text = liveState.storeAddress,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = if (isConnected)
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            else
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                            CircleShape
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isConnected) "TERHUBUNG KE KASIR" else "MENYAMBUNGKAN...",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                        // Ikon gembok kecil hanya aktif jika koneksi terputus > 10 detik (darurat PIN Owner)
+                        if (disconnectedStreak >= 15) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(
+                                onClick = { showEmergencyPinDialog = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.LockOpen,
+                                    contentDescription = "Buka Kunci Darurat",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // KONTEN UTAMA 2 KOLOM (DAFTAR PESANAN & RINGKASAN TAGIHAN)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // KOLOM KIRI: DAFTAR ITEM BELANJA
+                Card(
+                    modifier = Modifier
+                        .weight(1.45f)
+                        .fillMaxHeight(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "DAFTAR PESANAN",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "${liveState.customerName} • ${liveState.orderType}",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        if (liveState.items.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        Icons.Default.Storefront,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        "Selamat Datang!",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "Silakan periksa rincian pesanan Anda di layar ini.",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(liveState.items) { item ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = item.name,
+                                                    fontSize = 17.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                                if (item.variation.isNotBlank()) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "(${item.variation})",
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                text = "${item.quantity} x ${formatRupiah(item.unitPrice)}",
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            if (item.notes.isNotBlank()) {
+                                                Text(
+                                                    text = "Catatan: ${item.notes}",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = formatRupiah(item.subtotal),
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(top = 8.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // KOLOM KANAN: RINGKASAN TOTAL PEMBAYARAN
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                "RINGKASAN TAGIHAN",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Subtotal", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(formatRupiah(liveState.subtotal), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                            if (liveState.discount > 0L) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Diskon", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("- ${formatRupiah(liveState.discount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                            if (liveState.voucherDiscount > 0L) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Voucher", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("- ${formatRupiah(liveState.voucherDiscount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            if (liveState.taxAmount > 0L) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(if (liveState.isTaxInclusive) "Pajak (Termasuk)" else "Pajak", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(if (liveState.isTaxInclusive) "(${formatRupiah(liveState.taxAmount)})" else "+ ${formatRupiah(liveState.taxAmount)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (liveState.serviceCharge > 0L) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Service Charge", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("+ ${formatRupiah(liveState.serviceCharge)}", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            if (liveState.roundingDiff != 0L) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Pembulatan", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(formatRupiah(liveState.roundingDiff), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Column {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(18.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        "TOTAL PEMBAYARAN",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = formatRupiah(liveState.totalPrice),
+                                        fontSize = 34.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            if (liveState.bankInfo.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = liveState.bankInfo,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // FOOTER
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = liveState.storeFooter,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(10.dp)
+                )
+            }
+        }
+    }
+}
+
+// ==============================================================================
+// DIALOG OTORISASI PIN OWNER / FINGERPRINT UNTUK AKSI SENSITIF
+// (Dipakai bersama oleh: Exit CFD, Hapus Massal Produk, Reset Total Omzet)
+// ==============================================================================
+@Composable
+fun OwnerSecurityAuthDialog(
+    title: String,
+    subtitle: String,
+    users: List<UserEntity>,
+    activity: FragmentActivity?,
+    onSuccess: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var pinInput by remember { mutableStateOf("") }
+    var errorText by remember { mutableStateOf("") }
+
+    val canUseBiometric = remember {
+        val bm = BiometricManager.from(context)
+        bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    val triggerBiometric: () -> Unit = {
+        if (activity != null && canUseBiometric) {
+            val executor = ContextCompat.getMainExecutor(context)
+            val prompt = BiometricPrompt(
+                activity,
+                executor,
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        onSuccess()
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                        errorText = errString.toString()
+                    }
+                }
+            )
+            val info = BiometricPrompt.PromptInfo.Builder()
+                .setTitle(title)
+                .setSubtitle("Verifikasi identitas Owner dengan sidik jari")
+                .setNegativeButtonText("Gunakan PIN")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                .build()
+            prompt.authenticate(info)
+        } else {
+            Toast.makeText(context, "Sensor biometrik tidak tersedia, gunakan PIN Owner.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Default.VerifiedUser,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(title, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = pinInput,
+                    onValueChange = { raw ->
+                        if (raw.length <= 6 && raw.all { it.isDigit() }) {
+                            pinInput = raw
+                            errorText = ""
+                        }
+                    },
+                    label = { Text("PIN Owner") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    isError = errorText.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                if (errorText.isNotEmpty()) {
+                    Text(
+                        text = errorText,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
+                if (canUseBiometric && activity != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = triggerBiometric,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(
+                            Icons.Default.Fingerprint,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Verifikasi dengan Sidik Jari",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val hashed = hashPin(pinInput)
+                    val isOwnerValid = users.any { it.role == "OWNER" && it.pin == hashed }
+                    if (isOwnerValid) {
+                        onSuccess()
+                    } else {
+                        errorText = "PIN Owner salah! Akses ditolak."
+                    }
+                },
+                enabled = pinInput.length >= 4,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("KONFIRMASI", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )

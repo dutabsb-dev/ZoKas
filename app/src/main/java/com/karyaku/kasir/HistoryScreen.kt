@@ -23,7 +23,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Warning
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -95,6 +97,12 @@ fun HistoryScreen(
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var dateFilter by remember { mutableStateOf("TODAY") }
     var showFinanceReport by remember { mutableStateOf(false) }
+    var showResetOmzetAuth by remember { mutableStateOf(false) }
+
+    val resetPrefs = remember { context.getSharedPreferences("zokas_finance_reset", Context.MODE_PRIVATE) }
+    var revenueResetTimestamp by remember {
+        mutableStateOf(resetPrefs.getLong("revenue_reset_timestamp", 0L))
+    }
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
 
@@ -147,33 +155,39 @@ fun HistoryScreen(
     }.timeInMillis
 
     val filteredTransactions = transactions.filter { tx ->
-        when (dateFilter) {
+        val afterReset = tx.timestamp >= revenueResetTimestamp
+        val inDateRange = when (dateFilter) {
             "TODAY" -> tx.timestamp >= startOfToday
             "THIS_MONTH" -> tx.timestamp >= startOfMonth
             "7_DAYS" -> tx.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
             "30_DAYS" -> tx.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
             else -> true
         }
+        afterReset && inDateRange
     }
 
     val filteredCashFlows = cashFlows.filter { cf ->
-        when (dateFilter) {
+        val afterReset = cf.timestamp >= revenueResetTimestamp
+        val inDateRange = when (dateFilter) {
             "TODAY" -> cf.timestamp >= startOfToday
             "THIS_MONTH" -> cf.timestamp >= startOfMonth
             "7_DAYS" -> cf.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
             "30_DAYS" -> cf.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
             else -> true
         }
+        afterReset && inDateRange
     }
 
     val filteredExpenses = expenses.filter { exp ->
-        when (dateFilter) {
+        val afterReset = exp.timestamp >= revenueResetTimestamp
+        val inDateRange = when (dateFilter) {
             "TODAY" -> exp.timestamp >= startOfToday
             "THIS_MONTH" -> exp.timestamp >= startOfMonth
             "7_DAYS" -> exp.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
             "30_DAYS" -> exp.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
             else -> true
         }
+        afterReset && inDateRange
     }
 
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
@@ -205,6 +219,24 @@ fun HistoryScreen(
     val chartBarColor = MaterialTheme.colorScheme.primary
     val chartAxisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val chartTextColorArgb = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+
+    if (showResetOmzetAuth) {
+        OwnerSecurityAuthDialog(
+            title = "Reset Total Omzet ke Rp 0",
+            subtitle = "Semua ringkasan omzet, laba kotor, dan laba bersih akan dimulai ulang dari Rp 0. Verifikasi PIN Owner atau Sidik Jari:",
+            users = users,
+            activity = LocalActivity.current as? FragmentActivity,
+            onSuccess = {
+                val nowMillis = System.currentTimeMillis()
+                revenueResetTimestamp = nowMillis
+                resetPrefs.edit().putLong("revenue_reset_timestamp", nowMillis).apply()
+                viewModel.addCashFlow("IN", 0L, "RESET LAPORAN OMZET KE RP 0 oleh ${currentUser.name}", currentUser)
+                showResetOmzetAuth = false
+                Toast.makeText(context, "Total Omzet & Laporan Keuangan berhasil direset ke Rp 0!", Toast.LENGTH_LONG).show()
+            },
+            onDismiss = { showResetOmzetAuth = false }
+        )
+    }
 
     if (selectedTransaction != null) {
         TransactionDetailDialog(
@@ -558,20 +590,44 @@ fun HistoryScreen(
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
-                    Button(
-                        onClick = { showFinanceReport = true },
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            LanguageManager.tr("view_detail_report", lang),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Button(
+                            onClick = { showFinanceReport = true },
+                            modifier = Modifier.weight(1.4f).height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                LanguageManager.tr("view_detail_report", lang),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (currentUser.role == "OWNER") {
+                            OutlinedButton(
+                                onClick = { showResetOmzetAuth = true },
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Reset Rp 0",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                 }
             }

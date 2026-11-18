@@ -18,11 +18,16 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -133,11 +138,27 @@ fun MainContent(
     onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit, onToggleLanguage: () -> Unit
 ) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        LocalCfdServerManager.restoreReceiverLockState(context)
+    }
+
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         val posViewModel: PosViewModel = viewModel(factory = PosViewModelFactory(database))
+        val allUsers by posViewModel.users.collectAsStateWithLifecycle()
 
         var staffUserToLogout by remember { mutableStateOf<UserEntity?>(null) }
         var staffMessage by remember { mutableStateOf("") }
+        var showConnectCfdDialog by remember { mutableStateOf(false) }
+        var cfdHostInput by remember { mutableStateOf("") }
+
+        val cfdScanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+            if (result.contents != null && result.contents.startsWith("http")) {
+                LocalCfdServerManager.lockAsKioskReceiver(context, result.contents)
+                showConnectCfdDialog = false
+            } else if (result.contents != null) {
+                Toast.makeText(context, "QR Code bukan alamat Layar Pelanggan ZoKas.", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         LaunchedEffect(currentUser?.id) {
             if (currentUser != null) {
@@ -145,7 +166,92 @@ fun MainContent(
             }
         }
 
-        if (!settingsManager.isSetupCompleted) {
+        if (showConnectCfdDialog) {
+            AlertDialog(
+                onDismissRequest = { showConnectCfdDialog = false },
+                icon = {
+                    Icon(
+                        Icons.Default.CastConnected,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                title = {
+                    Text("Hubungkan Sebagai Layar Pelanggan (CFD)", fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            "Jadikan perangkat ini sebagai layar pelanggan Full-Screen (otomatis terkunci PIN Owner setelah terhubung):",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                val options = ScanOptions().apply {
+                                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                    setPrompt("Scan QR Layar Pelanggan dari Perangkat Kasir")
+                                    setCameraId(0)
+                                    setBeepEnabled(false)
+                                    setOrientationLocked(true)
+                                }
+                                cfdScanLauncher.launch(options)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Scan QR dari Perangkat Kasir", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = cfdHostInput,
+                            onValueChange = { cfdHostInput = it },
+                            label = { Text("Atau ketik IP Kasir (cth: 192.168.1.5:8765)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (cfdHostInput.isNotBlank()) {
+                                LocalCfdServerManager.lockAsKioskReceiver(context, cfdHostInput)
+                                showConnectCfdDialog = false
+                            }
+                        },
+                        enabled = cfdHostInput.isNotBlank(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Hubungkan & Kunci", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConnectCfdDialog = false }) {
+                        Text("Batal")
+                    }
+                }
+            )
+        }
+
+        // JIKA PERANGKAT INI SEDANG TERKUNCI SEBAGAI LAYAR PELANGGAN (CFD KIOSK MODE)
+        if (LocalCfdServerManager.isKioskReceiverLocked) {
+            FullScreenKioskCfdReceiverScreen(
+                hostUrl = LocalCfdServerManager.connectedHostUrl,
+                users = allUsers,
+                onUnlockedAndExit = {
+                    Toast.makeText(context, "Mode Layar Pelanggan telah dihentikan.", Toast.LENGTH_SHORT).show()
+                }
+            )
+        } else if (!settingsManager.isSetupCompleted) {
             SetupWizardScreen(settingsManager, posViewModel, onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) })
         } else if (staffUserToLogout != null) {
             val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
@@ -220,7 +326,8 @@ fun MainContent(
                 }
             }
         } else if (currentUser == null) {
-            LoginScreen(viewModel = posViewModel, settingsManager = settingsManager, onLoginSuccess = { user ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                LoginScreen(viewModel = posViewModel, settingsManager = settingsManager, onLoginSuccess = { user ->
                 val cleanAndEnterApp: (String?) -> Unit = { attendanceMsg ->
                     posViewModel.cart.value.toList().forEach { posViewModel.deleteItem(it.product, it.selectedVariation) }
                     posViewModel.setDiscount(0L)
@@ -249,6 +356,29 @@ fun MainContent(
                     cleanAndEnterApp(null)
                 }
             })
+                OutlinedButton(
+                    onClick = { showConnectCfdDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                ) {
+                    Icon(
+                        Icons.Default.CastConnected,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Mode Layar Pelanggan (CFD)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         } else {
             MainNavigation(
                 viewModel = posViewModel, settingsManager = settingsManager, currentUser = currentUser,
@@ -776,6 +906,34 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
     var showRawMaterialDialog by remember { mutableStateOf(false) }
 
+    // State Hapus Massal / Batch Produk
+    val users by viewModel.users.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current as? FragmentActivity
+    var isBatchDeleteMode by remember { mutableStateOf(false) }
+    val selectedBatchIds = remember { mutableStateListOf<Long>() }
+    var showBatchDeleteAuth by remember { mutableStateOf(false) }
+
+    if (showBatchDeleteAuth && selectedBatchIds.isNotEmpty()) {
+        OwnerSecurityAuthDialog(
+            title = "Hapus Massal ${selectedBatchIds.size} Produk?",
+            subtitle = "Semua produk yang dipilih akan dihapus permanen. Verifikasi PIN Owner atau Sidik Jari untuk melanjutkan.",
+            users = users,
+            activity = activity,
+            onSuccess = {
+                val idsToDelete = selectedBatchIds.toSet()
+                val targets = allProducts.filter { it.id in idsToDelete }
+                targets.forEach { prod ->
+                    viewModel.deleteProduct(prod, currentUser.id, currentUser.name)
+                }
+                Toast.makeText(context, "${targets.size} produk berhasil dihapus massal.", Toast.LENGTH_SHORT).show()
+                selectedBatchIds.clear()
+                isBatchDeleteMode = false
+                showBatchDeleteAuth = false
+            },
+            onDismiss = { showBatchDeleteAuth = false }
+        )
+    }
+
     if (showProactiveGuide) {
         ProactiveGuideDialog(
             featureKey = ProactiveGuideManager.KEY_PRODUCT_BOM,
@@ -831,46 +989,217 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            OutlinedTextField(
-                value = searchQuery, onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Cari nama, Kode Unik (SKU), atau barcode...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Hapus")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery, onValueChange = { viewModel.setSearchQuery(it) },
+                    placeholder = { Text("Cari nama, Kode Unik (SKU), atau barcode...", fontSize = 12.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Hapus")
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+                if (filteredProducts.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = {
+                            isBatchDeleteMode = !isBatchDeleteMode
+                            selectedBatchIds.clear()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error.copy(alpha = 0.12f) else Color.Transparent,
+                            contentColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 14.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isBatchDeleteMode) Icons.Default.Close else Icons.Default.Checklist,
+                            contentDescription = "Hapus Massal",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isBatchDeleteMode) "Batal" else "Hapus Massal",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            if (isBatchDeleteMode) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${selectedBatchIds.size} dari ${filteredProducts.size} produk dipilih",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        TextButton(
+                            onClick = {
+                                if (selectedBatchIds.size == filteredProducts.size) {
+                                    selectedBatchIds.clear()
+                                } else {
+                                    selectedBatchIds.clear()
+                                    selectedBatchIds.addAll(filteredProducts.map { it.id })
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text(
+                                text = if (selectedBatchIds.size == filteredProducts.size) "Batal Semua" else "Pilih Semua",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp), singleLine = true
-            )
-            // FIX BUG FILTER KATEGORI DI TAB PRODUK: Gunakan selectedCategory dari ViewModel (bukan hardcode "Semua")
-            PosProductSection(
-                products = filteredProducts,
-                categories = categories,
-                selectedCategory = selectedCategory,
-                onCategorySelect = { viewModel.setCategory(it) },
-                searchQuery = searchQuery,
-                onSearchChange = { viewModel.setSearchQuery(it) },
-                onProductClick = { prod -> productToEdit = prod; showProductForm = true },
-                onProductLongClick = { prod -> showActionDialogFor = prod },
-                onBarcodeScan = { },
-                onCameraScanClick = { },
-                searchFocusRequester = remember { FocusRequester() }
-            )
+                }
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(filteredProducts, key = { it.id }) { prod ->
+                        val isChecked = selectedBatchIds.contains(prod.id)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (isChecked) selectedBatchIds.remove(prod.id)
+                                    else selectedBatchIds.add(prod.id)
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isChecked)
+                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isChecked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { checked ->
+                                        if (checked) {
+                                            if (!selectedBatchIds.contains(prod.id)) selectedBatchIds.add(prod.id)
+                                        } else {
+                                            selectedBatchIds.remove(prod.id)
+                                        }
+                                    },
+                                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.error)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = prod.name,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    val sku = extractProductSku(prod.barcode)
+                                    Text(
+                                        text = buildString {
+                                            if (sku.isNotEmpty()) append("[$sku] ")
+                                            append("${prod.category} • Stok: ${prod.stock}")
+                                        },
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = formatRupiah(prod.price),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                PosProductSection(
+                    products = filteredProducts,
+                    categories = categories,
+                    selectedCategory = selectedCategory,
+                    onCategorySelect = { viewModel.setCategory(it) },
+                    searchQuery = searchQuery,
+                    onSearchChange = { viewModel.setSearchQuery(it) },
+                    onProductClick = { prod -> productToEdit = prod; showProductForm = true },
+                    onProductLongClick = { prod -> showActionDialogFor = prod },
+                    onBarcodeScan = { },
+                    onCameraScanClick = { },
+                    searchFocusRequester = remember { FocusRequester() }
+                )
+            }
         }
 
-        ExtendedFloatingActionButton(
-            onClick = { productToEdit = null; showProductForm = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Tambah Produk")
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Tambah Produk", fontWeight = FontWeight.Bold)
+        if (isBatchDeleteMode) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    if (selectedBatchIds.isEmpty()) {
+                        Toast.makeText(context, "Pilih minimal 1 produk terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showBatchDeleteAuth = true
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Terpilih")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Hapus Terpilih (${selectedBatchIds.size})", fontWeight = FontWeight.Bold)
+            }
+        } else {
+            ExtendedFloatingActionButton(
+                onClick = { productToEdit = null; showProductForm = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Tambah Produk")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Tambah Produk", fontWeight = FontWeight.Bold)
+            }
         }
 
         if (showProductForm) {
