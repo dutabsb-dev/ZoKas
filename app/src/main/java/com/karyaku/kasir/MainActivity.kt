@@ -244,6 +244,9 @@ fun MainNavigation(
     LaunchedEffect(currentUser.role, selectedTab) {
         if (currentUser.role == "CASHIER" && selectedTab != 0) selectedTab = 0
         if (currentUser.role == "STAFF" && isKuliner && selectedTab != 4 && selectedTab != 0) selectedTab = 4
+        if (selectedTab == 0 || selectedTab == 1) {
+            viewModel.setCategory("Semua")
+        }
     }
 
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
@@ -463,49 +466,6 @@ fun MainNavigation(
                         }
                     )
                     Spacer(modifier = Modifier.weight(1f))
-                    // REKOMENDASI #6: Badge Ringkasan Cepat Omzet Hari Ini di Header
-                    val todayStartMillis = remember {
-                        java.util.Calendar.getInstance().apply {
-                            set(java.util.Calendar.HOUR_OF_DAY, 0)
-                            set(java.util.Calendar.MINUTE, 0)
-                            set(java.util.Calendar.SECOND, 0)
-                            set(java.util.Calendar.MILLISECOND, 0)
-                        }.timeInMillis
-                    }
-                    val todayTxList = remember(transactions, todayStartMillis) {
-                        transactions.filter { it.timestamp >= todayStartMillis }
-                    }
-                    val todayOmzet = remember(todayTxList) {
-                        todayTxList.sumOf { it.totalPrice }
-                    }
-                    if (currentUser.role == "OWNER") {
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.TrendingUp,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${todayTxList.size} Tx • ${formatRupiah(todayOmzet)}",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
                     val shift = activeShift
                     if (shift != null) {
                         Surface(

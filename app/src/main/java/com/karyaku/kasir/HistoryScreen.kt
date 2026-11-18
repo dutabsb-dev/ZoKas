@@ -7,7 +7,9 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,6 +51,16 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+// ====================================================================
+// UPDATE HistoryScreen.kt:
+//   - Memperbaiki Kartu Total Omzet yang sebelumnya menyilaukan di Mode
+//     Gelap (karena memakai containerColor = primary penuh dengan teks
+//     kuning/tertiary di atas hijau terang).
+//   - Kini menggunakan container surfaceVariant dengan aksen border primary
+//     dan tipografi kontras tinggi (WCAG AA) yang nyaman di mata baik pada
+//     Mode Gelap maupun Mode Terang.
+// ====================================================================
+
 @Composable
 fun HistoryScreen(
     transactions: List<TransactionEntity>,
@@ -71,7 +83,7 @@ fun HistoryScreen(
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
 
     val lowStockProducts = remember(products) {
-        products.filter { it.stock <= 5 && it.stock >= 0 }
+        products.filter { !it.isService && it.stock <= 5 && it.stock >= 0 }
     }
 
     val expiringProducts = remember(products) {
@@ -164,8 +176,6 @@ fun HistoryScreen(
     val penjualanNonTunai = validTransactions.filter { it.paymentMethod != "CASH" }.sumOf { it.totalPrice }
     val labaBersih = labaKotor - totalCashOut
 
-    // FIX #6 — Tangkap warna chart SEBELUM masuk Canvas
-    // agar Paint native bisa pakai warna tema
     val chartBarColor = MaterialTheme.colorScheme.primary
     val chartAxisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val chartTextColorArgb = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
@@ -320,14 +330,16 @@ fun HistoryScreen(
         }
 
         // =====================================================
-        // KARTU OMZET UTAMA — pakai primary/onPrimary (adaptif)
+        // KARTU OMZET UTAMA — Nyaman di Mata & Kontras Tinggi di Dark Mode
         // =====================================================
         item {
             Card(
-                modifier = Modifier.fillMaxWidth().shadow(6.dp, RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 )
             ) {
                 Column(
@@ -336,45 +348,56 @@ fun HistoryScreen(
                 ) {
                     Text(
                         LanguageManager.tr("total_revenue", lang),
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-                        fontSize = 14.sp
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = formatRupiah(totalOmzet),
-                        color = MaterialTheme.colorScheme.tertiary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "${validTransactions.size} ${LanguageManager.tr("success_trx", lang)}",
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 12.sp
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "${validTransactions.size} ${LanguageManager.tr("success_trx", lang)}",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             "${LanguageManager.tr("cash_payment", lang)}:",
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                         Text(
                             formatRupiah(penjualanTunai),
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             "${LanguageManager.tr("non_cash_payment", lang)}:",
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                         Text(
@@ -386,58 +409,63 @@ fun HistoryScreen(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             "${LanguageManager.tr("gross_profit", lang)}:",
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 14.sp
                         )
                         Text(
                             formatRupiah(labaKotor),
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             "${LanguageManager.tr("net_profit", lang)}:",
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         Text(
                             formatRupiah(labaBersih),
-                            color = MaterialTheme.colorScheme.tertiary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            color = if (labaBersih >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
                             "${LanguageManager.tr("total_cogs", lang)}:",
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                         Text(
                             formatRupiah(totalHpp),
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Button(
                         onClick = { showFinanceReport = true },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -823,7 +851,6 @@ fun HistoryScreen(
                 val isVoided = tx.status == "VOIDED"
                 val isUnpaid = tx.status == "UNPAID"
 
-                // VOIDED = errorContainer, UNPAID = tertiary overlay, normal = surfaceVariant
                 val cardContainerColor = when {
                     isVoided -> MaterialTheme.colorScheme.errorContainer
                     isUnpaid -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)
@@ -870,7 +897,7 @@ fun HistoryScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = when {
                                     isVoided -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    else -> MaterialTheme.colorScheme.tertiary
+                                    else -> MaterialTheme.colorScheme.primary
                                 },
                                 textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
                             )
@@ -1128,6 +1155,7 @@ fun TransactionDetailDialog(
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
                         items(txItems) { item ->
+                            val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1140,7 +1168,7 @@ fun TransactionDetailDialog(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        "${item.quantity} x ${formatRupiah(item.price)}",
+                                        "${item.quantity} x ${formatRupiah(unitPrice)}",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -1178,7 +1206,7 @@ fun TransactionDetailDialog(
                         color = if (transaction.status == "VOIDED")
                             MaterialTheme.colorScheme.onSurfaceVariant
                         else
-                            MaterialTheme.colorScheme.tertiary
+                            MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -1232,7 +1260,6 @@ private suspend fun exportTransactionsToPdfDetailed(
     viewModel: PosViewModel,
     settingsManager: SettingsManager
 ) {
-    // Fungsi ini tidak diubah warna — PDF tetap pakai warna dokumen (hitam/putih)
     try {
         val pdfDocument = PdfDocument()
         val textPaint = Paint().apply { textSize = 10f; color = android.graphics.Color.BLACK }
@@ -1291,7 +1318,8 @@ private suspend fun exportTransactionsToPdfDetailed(
                         canvas = page.canvas
                         y = 40f
                     }
-                    val itemText = "  ${item.quantity}x ${item.productName} @ ${formatRupiah(item.price)}"
+                    val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
+                    val itemText = "  ${item.quantity}x ${item.productName} @ ${formatRupiah(unitPrice)}"
                     val subtotalText = formatRupiah(item.subtotal)
                     canvas.drawText(itemText, 40f, y, textPaint)
                     val textWidth = textPaint.measureText(subtotalText)

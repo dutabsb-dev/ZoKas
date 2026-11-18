@@ -566,19 +566,32 @@ fun PosScreen(
             )
         }
 
-        // WasteRecordDialog mendukung pengurangan stok per varian
+        // WasteRecordDialog mendukung validasi & pengurangan stok per varian spesifik
         if (productToWaste != null) {
+            val targetProd = productToWaste!!
+            val maxAvailableStock = remember(targetProd, variantToProcess) {
+                if (variantToProcess.isNotBlank() && targetProd.variations.isNotBlank() && !targetProd.variations.contains("|")) {
+                    val part = targetProd.variations.split(",").find {
+                        it.split(":").firstOrNull()?.trim().equals(variantToProcess, ignoreCase = true)
+                    }
+                    val pieces = part?.split(":")
+                    val vStockStr = pieces?.getOrNull(3)?.trim()
+                    if (!vStockStr.isNullOrEmpty()) vStockStr.toIntOrNull() ?: targetProd.stock else targetProd.stock
+                } else {
+                    targetProd.stock
+                }
+            }
             WasteRecordDialog(
-                product = productToWaste!!,
+                product = if (variantToProcess.isNotBlank()) targetProd.copy(name = "${targetProd.name} ($variantToProcess)", stock = maxAvailableStock) else targetProd,
                 onDismiss = { productToWaste = null; variantToProcess = "" },
                 onSave = { qty: Int ->
-                    if (qty > 0 && qty <= productToWaste!!.stock) {
-                        viewModel.recordWaste(productToWaste!!, variantToProcess, qty, currentUser)
+                    if (qty > 0 && qty <= maxAvailableStock) {
+                        viewModel.recordWaste(targetProd, variantToProcess, qty, currentUser)
                         Toast.makeText(context, "Barang rusak tercatat (-$qty)", Toast.LENGTH_SHORT).show()
                         productToWaste = null
                         variantToProcess = ""
                     } else {
-                        Toast.makeText(context, "Jumlah melebihi stok tersedia!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Jumlah melebihi stok varian tersedia ($maxAvailableStock)!", Toast.LENGTH_SHORT).show()
                     }
                 }
             )

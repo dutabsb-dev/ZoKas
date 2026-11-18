@@ -146,7 +146,13 @@ private fun buildFormattedReceipt32(
     sb.appendLine(leftRightLine("Kasir", transaction.cashierName ?: "Kasir"))
     val customerLabel = transaction.customerName?.takeIf { it.isNotBlank() } ?: "Umum"
     sb.appendLine(leftRightLine("Pelanggan", customerLabel))
-    val orderLabel = transaction.orderType?.takeIf { it.isNotBlank() } ?: "Dine-In"
+    val orderLabel = buildString {
+        val oType = transaction.orderType?.takeIf { it.isNotBlank() } ?: "Dine-In"
+        append(oType)
+        if (transaction.tableName.isNotBlank() && oType == "Dine-In") {
+            append(" (${transaction.tableName})")
+        }
+    }
     sb.appendLine(leftRightLine("Tipe", orderLabel))
     sb.appendLine(dashLine)
 
