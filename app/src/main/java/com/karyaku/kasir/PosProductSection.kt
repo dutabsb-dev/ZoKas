@@ -45,10 +45,15 @@ import java.io.File
 
 // ====================================================================
 // UPDATE PosProductSection.kt:
-//   1. Menampilkan Badge Kode Unik Produk (SKU) pada kartu Grid dan
-//      baris List Padat jika produk memiliki Kode Unik.
-//   2. Running Text (Marquee) otomatis untuk seluruh rincian stok varian.
-//   3. Tinggi baris Mode List dikunci agar stabil saat di-scroll cepat.
+//   1. RUNNING TEXT (MARQUEE) DETAIL STOK VARIAN:
+//      - Menggunakan Modifier.basicMarquee() pada teks detail stok di
+//        ProductGridCard dan ProductCompactListRow agar seluruh rincian
+//        stok varian yang panjang berjalan otomatis (running text) dan
+//        terbaca utuh tanpa terpotong titik-titik (...).
+//   2. FIX BUG LAYOUT MODE LIST MELEBAR VERTIKAL:
+//      - Mengunci tinggi maksimum dan struktur Row pada ProductCompactListRow
+//        serta mengganti tumpukan chip varian dengan baris running text yang
+//        stabil sehingga tidak pernah melebar memenuhi layar saat di-scroll.
 // ====================================================================
 
 private data class ParsedVariantStock(
@@ -101,6 +106,7 @@ fun PosProductSection(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // Baris Kategori + Tombol Toggle Grid / List Padat
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -142,6 +148,7 @@ fun PosProductSection(
                 }
             }
 
+            // Tombol Toggle Mode Grid vs Mode List Padat
             Surface(
                 modifier = Modifier
                     .height(34.dp)
@@ -176,6 +183,7 @@ fun PosProductSection(
             }
         }
 
+        // Empty State Ilustratif
         if (products.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -203,7 +211,7 @@ fun PosProductSection(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = if (searchQuery.isNotBlank())
-                            "Produk atau Kode '$searchQuery' tidak ditemukan"
+                            "Produk '$searchQuery' tidak ditemukan"
                         else
                             "Belum ada produk di kategori ini",
                         fontWeight = FontWeight.Bold,
@@ -214,7 +222,7 @@ fun PosProductSection(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (searchQuery.isNotBlank())
-                            "Coba cari menggunakan Kode Unik (SKU), nama produk, atau tekan Reset."
+                            "Coba kata kunci lain atau tekan Reset pencarian."
                         else
                             "Tambahkan produk melalui tab Produk atau pilih kategori 'Semua'.",
                         fontSize = 12.sp,
@@ -239,6 +247,7 @@ fun PosProductSection(
                 }
             }
         } else if (isCompactListMode) {
+            // MODE LIST PADAT (Anti-Stretch & dilengkapi Running Text Stok Varian)
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 84.dp, start = 12.dp, end = 12.dp, top = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -253,6 +262,7 @@ fun PosProductSection(
                 }
             }
         } else {
+            // MODE GRID RINGKAS & CERAH (dengan Running Text Stok Varian)
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 115.dp),
                 contentPadding = PaddingValues(bottom = 84.dp, start = 12.dp, end = 12.dp, top = 4.dp),
@@ -376,7 +386,7 @@ private fun ProductGridCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        color = Color.Black.copy(alpha = 0.45f),
+                        color = Color.Black.copy(alpha = 0.42f),
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
@@ -448,6 +458,7 @@ private fun ProductGridCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
+                    // RUNNING TEXT (MARQUEE) UNTUK RINCIAN STOK VARIAN & TOTAL
                     val stockRunningText = remember(product.isService, product.stock, variantStocks) {
                         if (product.isService) {
                             "Jasa / Layanan"
@@ -521,7 +532,7 @@ private fun ProductCompactListRow(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .heightIn(min = 64.dp, max = 78.dp)
+            .heightIn(min = 64.dp, max = 78.dp) // Kunci tinggi maksimum agar tidak pernah stretch satu layar
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = onClick,
@@ -621,6 +632,7 @@ private fun ProductCompactListRow(
 
                 Spacer(modifier = Modifier.height(3.dp))
 
+                // Running Text (Marquee) untuk detail stok di Mode List
                 Text(
                     text = stockRunningText,
                     fontSize = 11.sp,

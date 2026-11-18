@@ -41,6 +41,22 @@ import java.util.Locale
 import java.util.UUID
 
 // =====================================================================
+// SESI 1b, SESI 2a, & SESI 4 (POIN #1, #2, #5, #6):
+//   1. ProductFormBottomSheet:
+//      - Menambahkan tombol akses langsung "Atur Resep (BOM) & Bahan Baku"
+//        saat mengedit produk (onManageBom), sehingga user bisa langsung
+//        mengatur resep dan stok bahan baku dari form Edit Produk.
+//      - Semua warna keras (SlateGrey, EmeraldGreen, AmberAccent, ErrorRed)
+//        diganti ke MaterialTheme.colorScheme.* adaptif.
+//   2. PaymentBottomSheet (Sesi 2a):
+//      - Menghilangkan spinner "Menunggu notifikasi transfer masuk..." (VA)
+//      - Mengganti link kecil konfirmasi manual dengan Checkbox jelas
+//        "Saya sudah menerima transfer sesuai nominal" yang mengaktifkan
+//        tombol SELESAIKAN PEMBAYARAN.
+//      - Semua warna keras diganti ke MaterialTheme.colorScheme.* adaptif.
+// =====================================================================
+
+// =====================================================================
 // DATA CLASS UNTUK VARIAN DINAMIS
 // =====================================================================
 data class VariantInput(
@@ -52,7 +68,7 @@ data class VariantInput(
 )
 
 // =====================================================================
-// 1. PRODUCT FORM BOTTOM SHEET (DENGAN FITUR KODE UNIK / SKU PRODUK)
+// 1. PRODUCT FORM BOTTOM SHEET
 // =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,14 +87,10 @@ fun ProductFormBottomSheet(
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // STATE FORM (Memisahkan Kode Unik / SKU dan Barcode Fisik secara otomatis)
+    // STATE FORM
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
-    var productSku by remember {
-        mutableStateOf(productToEdit?.let { extractProductSku(it.barcode) } ?: "")
-    }
-    var barcode by remember {
-        mutableStateOf(productToEdit?.let { extractActualBarcode(it.barcode) } ?: "")
-    }
+    var productSku by remember { mutableStateOf(productToEdit?.let { extractProductSku(it.barcode) } ?: "") }
+    var barcode by remember { mutableStateOf(productToEdit?.let { extractActualBarcode(it.barcode) } ?: "") }
     var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") }
     var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
 
@@ -100,6 +112,7 @@ fun ProductFormBottomSheet(
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
+    // Parse data varian saat pertama kali dibuka
     LaunchedEffect(productToEdit) {
         if (productToEdit != null && productToEdit.variations.isNotBlank()) {
             hasVariants = true
@@ -191,7 +204,7 @@ fun ProductFormBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- AKSES CEPAT RESEP (BOM) & BAHAN BAKU DI FORM PRODUK ---
+            // --- SESI 4 (POIN #2): AKSES CEPAT RESEP (BOM) & BAHAN BAKU DI FORM PRODUK ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -320,51 +333,42 @@ fun ProductFormBottomSheet(
                 shape = RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
-
-            // --- FIELD BARU: KODE UNIK PRODUK (SKU) & BARCODE ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = productSku,
-                    onValueChange = { productSku = it.uppercase() },
-                    label = { Text("Kode Unik / SKU (cth: KOP-01)") },
-                    placeholder = { Text("Bisa dicari di Kasir") },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                    trailingIcon = {
-                        IconButton(
-                            onClick = {
-                                val catPrefix = category.trim().take(3).uppercase().ifBlank { "PRD" }
-                                val namePrefix = name.trim().split(Regex("\\s+"))
-                                    .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                                    .joinToString("")
-                                    .take(3)
-                                    .ifBlank { "X" }
-                                val randNum = (10..99).random()
-                                productSku = "$catPrefix-$namePrefix$randNum"
-                            }
-                        ) {
-                            Icon(
-                                Icons.Default.AutoAwesome,
-                                contentDescription = "Buat Kode Otomatis",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+            OutlinedTextField(
+                value = productSku,
+                onValueChange = { productSku = it.uppercase() },
+                label = { Text("Kode Unik / SKU (cth: KOP-01)") },
+                placeholder = { Text("Bisa dicari di Kasir") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            val catPrefix = category.trim().take(3).uppercase().ifBlank { "PRD" }
+                            val namePrefix = name.trim().split(Regex("\\s+"))
+                                .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                                .joinToString("")
+                                .take(3)
+                                .ifBlank { "X" }
+                            val randNum = (10..99).random()
+                            productSku = "$catPrefix-$namePrefix$randNum"
                         }
-                    },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
+                    ) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = "Buat Kode Otomatis",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
             Text(
-                text = "Tips: Ketuk ikon bintang di kanan kolom Kode Unik untuk membuat kode otomatis, atau ketik kode sendiri agar cepat dicari di kasir.",
+                text = "Tips: Ketuk ikon bintang untuk membuat Kode Unik otomatis, atau ketik kode sendiri.",
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 6.dp)
             )
-
             OutlinedTextField(
                 value = barcode,
                 onValueChange = { barcode = it },
@@ -619,6 +623,7 @@ fun ProductFormBottomSheet(
                             return@Button
                         }
 
+                        // Rakit string: Nama:HargaJual:HargaBeli:Stok
                         val variationParts = variantList.map {
                             val p = it.price.toLongOrNull() ?: 0L
                             val c = it.costPrice.toLongOrNull() ?: 0L
@@ -644,7 +649,6 @@ fun ProductFormBottomSheet(
                     }
 
                     val combinedCode = packSkuAndBarcode(productSku, barcode)
-
                     onSave(
                         name.trim(), finalPrice, finalStock, category.trim().ifBlank { "Umum" }, finalCost,
                         combinedCode, finalVariations, commission.toLongOrNull() ?: 0L, expiry,
@@ -698,7 +702,7 @@ private fun parseVariationString(variations: String, mainStock: Int): List<Varia
 }
 
 // =====================================================================
-// 2. PAYMENT BOTTOM SHEET (DENGAN PERINGATAN JIKA REKENING BELUM DIISI)
+// 2. PAYMENT BOTTOM SHEET (SESI 2a: VA DISEMBUNYIKAN + TRANSFER MANUAL RAPI)
 // =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -919,7 +923,6 @@ fun PaymentBottomSheet(
                     Text("Memuat QRIS...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else if (paymentMethod == "Bank Transfer") {
-                val bankConfigured = !settingsManager.bankAccountNumber.isNullOrBlank()
                 if (isTransferPaid) {
                     Surface(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -961,9 +964,9 @@ fun PaymentBottomSheet(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            if (!bankConfigured) {
+                            if (settingsManager.bankAccountNumber.isNullOrBlank()) {
                                 Text(
-                                    "Rekening Bank belum diatur oleh Owner di menu Pengaturan -> Metode Pembayaran.",
+                                    "Rekening Bank belum diatur oleh Owner di Pengaturan -> Metode Pembayaran.",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.SemiBold,
@@ -1009,6 +1012,7 @@ fun PaymentBottomSheet(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Checkbox Konfirmasi Transfer Manual (Pengganti VA Auto-Detect)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()

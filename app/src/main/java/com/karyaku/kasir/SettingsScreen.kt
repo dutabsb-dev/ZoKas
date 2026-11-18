@@ -148,6 +148,13 @@ fun SettingsScreen(
     var showPayrollDialog by remember { mutableStateOf(false) }
     var showBiometricDialog by remember { mutableStateOf(false) }
     var showTutorialDialog by remember { mutableStateOf(false) }
+    var activeProactiveGuide by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        if (!ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_SETTINGS_SCREEN)) {
+            activeProactiveGuide = ProactiveGuideManager.KEY_SETTINGS_SCREEN
+        }
+    }
 
     val users by viewModel.users.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
@@ -395,6 +402,12 @@ fun SettingsScreen(
             onDismiss = { showTutorialDialog = false }
         )
     }
+    if (activeProactiveGuide != null) {
+        ProactiveGuideDialog(
+            featureKey = activeProactiveGuide!!,
+            onDismiss = { activeProactiveGuide = null }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp).imePadding(),
@@ -510,11 +523,17 @@ fun SettingsScreen(
                 onHrModuleToggle = {
                     enableHrModule = it
                     settingsManager.enableHrModule = it
+                    if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_HR_MODULE)) {
+                        activeProactiveGuide = ProactiveGuideManager.KEY_HR_MODULE
+                    }
                 },
                 enableCrmModule = enableCrmModule,
                 onCrmModuleToggle = {
                     enableCrmModule = it
                     settingsManager.enableCrmModule = it
+                    if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_CRM_MODULE)) {
+                        activeProactiveGuide = ProactiveGuideManager.KEY_CRM_MODULE
+                    }
                 },
                 language = language
             )

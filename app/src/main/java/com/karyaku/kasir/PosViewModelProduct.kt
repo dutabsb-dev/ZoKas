@@ -225,7 +225,6 @@ fun PosViewModel.processStockOpname(opnameItems: List<StockOpnameItemEntity>, us
     }
 }
 
-// Mendukung pencarian langsung via Barcode Fisik MAUPUN Kode Unik Produk (SKU)
 fun PosViewModel.processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
@@ -237,7 +236,6 @@ fun PosViewModel.processBarcodeScan(barcode: String, onResult: (Boolean, String)
             val activeBranchId = _currentBranchId.value
             val allBranchProducts = _products.value.filter { it.branchId == activeBranchId }
 
-            // Cari kecocokan persis pada Barcode Fisik, Kode Unik (SKU), atau field gabungan
             val matches = allBranchProducts.filter { prod ->
                 val sku = extractProductSku(prod.barcode)
                 val actualBc = extractActualBarcode(prod.barcode)

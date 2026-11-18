@@ -41,17 +41,25 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 // ====================================================================
-// UPDATE PosScreen.kt (MULTI-USER SECURITY & PENCARIAN KODE UNIK SKU):
-//   1. FIX CELAH OTORISASI DISKON PIN: Menghapus `|| user.id == currentUser.id`
-//      agar CASHIER tidak bisa memakai PIN-nya sendiri untuk menyetujui diskon.
-//   2. PENCARIAN KODE UNIK (SKU) PRIORITAS UTAMA: Menyaring daftar produk
-//      berdasarkan Kode Unik (SKU), Nama, Kategori, atau Barcode dan
-//      mengurutkan kecocokan Kode Unik di urutan paling atas.
-//   3. HAK AKSES SUPERVISOR: Mengizinkan SUPERVISOR melakukan Restock &
-//      catat Barang Rusak (Waste), sementara Edit/Hapus Produk tetap
-//      khusus OWNER.
-//   4. PERINGATAN SHIFT BEDA KASIR: Memberi informasi jelas jika shift
-//      aktif yang sedang berjalan dibuka oleh kasir lain.
+// UPDATE PosScreen-v4.kt:
+//   1. FIX BUG #1 (Selalu Minta Modal Awal Saat Buka Ulang Aplikasi):
+//      - Penyebab 1 (Race Condition Room Flow): Saat aplikasi baru dibuka,
+//        activeShift dan shifts masih bernilai awal (null / empty) selama
+//        beberapa milidetik selagi Room membaca database di background.
+//        LaunchedEffect(activeShift) sebelumnya langsung mendeteksi null
+//        di milidetik ke-0 dan memaksa showOpenShiftDialog = true.
+//      - Penyebab 2 (Sinkronisasi Shift): Mengecek baik dari activeShift
+//        maupun dari daftar shifts di database yang endTime == null.
+//      - Solusi: Menambahkan penantian inisialisasi DB (delay 450ms) +
+//        auto-close otomatis jika di tengah tunggu ternyata shift aktif
+//        ditemukan di database (hasOpenShift).
+//   2. FIX BUG #2 (Tombol Back Saat Membuka Keranjang di Layar HP):
+//      - Menambahkan BackHandler(enabled = showCartOnPhone) agar saat kasir
+//        membuka layar keranjang penuh di HP dan menekan tombol Back Android,
+//        layar kembali ke Katalog Produk (bukan keluar aplikasi).
+//   3. Mempertahankan seluruh perbaikan Simulasi sebelumnya (Restock di Kasir,
+//      Waste per varian, Diskon Happy Hour & Ultah, serta Edit Catatan/SN/Staf
+//      per CartItem).
 // ====================================================================
 
 private fun isCurrentTimeInHappyHour(startStr: String, endStr: String): Boolean {
@@ -137,7 +145,6 @@ fun PosScreen(
 
     val isCrmEnabled = settingsManager.enableCrmModule
 
-    // Pencarian pintar yang mendukung Kode Unik (SKU), Nama, Kategori, & Barcode
     val filteredProducts = remember(allProducts, vmFilteredProducts, currentBranchId, selectedCategory, searchQuery) {
         if (searchQuery.isBlank()) {
             vmFilteredProducts
@@ -167,6 +174,7 @@ fun PosScreen(
 
     var showCartOnPhone by rememberSaveable { mutableStateOf(false) }
 
+    // FIX BUG #2: Jika sedang membuka tampilan Keranjang penuh di layar HP, tombol Back kembali ke Katalog Produk
     BackHandler(enabled = showCartOnPhone && !isLandscape && isPhone) {
         showCartOnPhone = false
     }
@@ -192,6 +200,7 @@ fun PosScreen(
     var completedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
 
     var showOpenShiftDialog by remember { mutableStateOf(false) }
+    var showProactiveGuide by remember { mutableStateOf(false) }
     var showCloseShiftDialog by remember { mutableStateOf(false) }
     var showCashFlowDialog by remember { mutableStateOf(false) }
     var showDiscountDialog by remember { mutableStateOf(false) }
@@ -207,6 +216,8 @@ fun PosScreen(
     var showVoucherDialog by remember { mutableStateOf(false) }
     var isSplitBillMode by remember { mutableStateOf(false) }
 
+    // FIX BUG #1: Deteksi Shift Aktif yang Tahan Race Condition saat Aplikasi Baru Dibuka
+    // Cari apakah ada shift yang belum ditutup (endTime == null) baik dari activeShift maupun tabel shifts
     val currentOpenShift = remember(activeShift, shifts, currentBranchId) {
         activeShift ?: shifts.firstOrNull {
             it.endTime == null && (it.branchId == currentBranchId || it.branchId == 0L)
@@ -216,6 +227,9 @@ fun PosScreen(
     LaunchedEffect(currentOpenShift, showShiftReport, currentBranchId) {
         if (currentOpenShift != null) {
             showOpenShiftDialog = false
+            if (!ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_POS_SCREEN)) {
+                showProactiveGuide = true
+            }
         } else if (showShiftReport == null) {
             delay(450)
             val stillOpen = viewModel.activeShift.value ?: viewModel.shifts.value.firstOrNull { it.endTime == null }
@@ -244,6 +258,7 @@ fun PosScreen(
         else viewModel.getPriceForVariant(item.product, item.selectedVariation) * item.quantity
     }
 
+    // Kalkulasi aktif untuk Happy Hour & Diskon Ulang Tahun di UI Keranjang
     val happyHourDiscountAmount = if (settingsManager.happyHourDiscount > 0.0 &&
         isCurrentTimeInHappyHour(settingsManager.happyHourStart, settingsManager.happyHourEnd)
     ) {
@@ -274,8 +289,10 @@ fun PosScreen(
     val taxAmount = if (taxPercent <= 0.0) {
         0L
     } else if (isTaxInclusive) {
+        // Pajak Inklusif: Pajak sudah terkandung di dalam harga jual menu (DPP + Pajak = Harga Menu)
         (netAfterDiscount - (netAfterDiscount / (1.0 + (taxPercent / 100.0)))).toLong()
     } else {
+        // Pajak Eksklusif: Pajak ditambahkan di atas subtotal bersih
         (netAfterDiscount * (taxPercent / 100.0)).toLong()
     }
     val totalPrice = if (isTaxInclusive) {
@@ -301,6 +318,7 @@ fun PosScreen(
         }
     }
 
+    // Dialog Pemilih Varian untuk Restock / Waste / Simpan Barcode di Layar Kasir
     if (productForVariantAction != null) {
         AlertDialog(
             onDismissRequest = { productForVariantAction = null },
@@ -411,6 +429,13 @@ fun PosScreen(
             )
         }
 
+        if (showProactiveGuide && !showOpenShiftDialog) {
+            ProactiveGuideDialog(
+                featureKey = ProactiveGuideManager.KEY_POS_SCREEN,
+                onDismiss = { showProactiveGuide = false }
+            )
+        }
+
         if (showActionDialogFor != null) {
             val isOwner = currentUser.role == "OWNER"
             PosActionMenuBottomSheet(
@@ -447,25 +472,14 @@ fun PosScreen(
                         productToWaste = target
                     }
                 },
-                onBom = {
-                    if (isOwner) productToManageBom = showActionDialogFor
-                    else Toast.makeText(context, "Hanya OWNER yang dapat mengubah resep BOM.", Toast.LENGTH_SHORT).show()
-                    showActionDialogFor = null
-                },
-                onRawMaterial = {
-                    showRawMaterialDialog = true
-                    showActionDialogFor = null
-                },
+                onBom = { productToManageBom = showActionDialogFor; showActionDialogFor = null },
+                onRawMaterial = { showRawMaterialDialog = true; showActionDialogFor = null },
                 onSaveBarcode = {
                     val product = showActionDialogFor!!
                     showActionDialogFor = null
                     saveBarcodeToGallery(context, product)
                 },
-                onDelete = {
-                    if (isOwner) productToDelete = showActionDialogFor
-                    else Toast.makeText(context, "Hanya OWNER yang dapat menghapus produk.", Toast.LENGTH_SHORT).show()
-                    showActionDialogFor = null
-                }
+                onDelete = { productToDelete = showActionDialogFor; showActionDialogFor = null }
             )
         }
 
@@ -492,6 +506,7 @@ fun PosScreen(
             )
         }
 
+        // Edit Serial Number berdasarkan CartItem spesifik (aman untuk multi-varian)
         if (cartItemToEditSerial != null) {
             val targetItem = cartItemToEditSerial!!
             SerialNumberDialog(
@@ -505,6 +520,7 @@ fun PosScreen(
             )
         }
 
+        // Assign Staff berdasarkan CartItem spesifik (aman untuk multi-varian)
         if (cartItemToAssignStaff != null) {
             val targetItem = cartItemToAssignStaff!!
             AssignStaffDialog(
@@ -539,8 +555,6 @@ fun PosScreen(
             ShiftReportDialog(shift = showShiftReport!!, onLogout = { showShiftReport = null; onLogout() })
         }
 
-        // FIX CELAH KEAMANAN MULTI-USER #1:
-        // Otorisasi PIN Diskon HANYA menerima PIN milik OWNER atau SUPERVISOR (bukan PIN milik CASHIER sendiri)
         if (showPinForDiscount) {
             PinDiscountDialog(
                 onVerify = { pin: String ->
@@ -583,6 +597,7 @@ fun PosScreen(
             )
         }
 
+        // Render StockOpnameDialog saat productToRestock dipilih di Layar Kasir
         if (productToRestock != null) {
             StockOpnameDialog(
                 product = productToRestock!!,
@@ -598,6 +613,7 @@ fun PosScreen(
             )
         }
 
+        // WasteRecordDialog mendukung validasi & pengurangan stok per varian spesifik
         if (productToWaste != null) {
             val targetProd = productToWaste!!
             val maxAvailableStock = remember(targetProd, variantToProcess) {
@@ -628,6 +644,7 @@ fun PosScreen(
             )
         }
 
+        // Edit Notes berdasarkan CartItem spesifik (aman untuk multi-varian)
         if (cartItemToEditNotes != null) {
             val targetItem = cartItemToEditNotes!!
             OrderNotesDialog(
@@ -656,12 +673,7 @@ fun PosScreen(
                     shift = shiftToClose, transactions = transactions, cashFlows = cashFlows,
                     onDismiss = { showCloseShiftDialog = false },
                     onConfirm = { uangFisik: Long, note: String ->
-                        val shiftNote = if (shiftToClose.userId != currentUser.id) {
-                            "${note.trim()} [Ditutup oleh ${currentUser.name}, dibuka oleh ${shiftToClose.userName}]".trim()
-                        } else {
-                            note
-                        }
-                        viewModel.closeShift(currentUser, uangFisik, shiftNote) { closedShift ->
+                        viewModel.closeShift(currentUser, uangFisik, note) { closedShift ->
                             showCloseShiftDialog = false
                             showShiftReport = closedShift
                         }
@@ -747,7 +759,6 @@ fun PosScreen(
         val canOpenProductMenu = currentUser.role == "OWNER" || currentUser.role == "SUPERVISOR"
 
         Column(modifier = Modifier.fillMaxSize().imePadding()) {
-            // Banner peringatan jika shift aktif dibuka oleh kasir yang berbeda
             if (currentOpenShift != null && currentOpenShift.userId != currentUser.id) {
                 Surface(
                     color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
@@ -759,7 +770,7 @@ fun PosScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login saat ini: ${currentUser.name})",
+                            text = "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary,
@@ -775,7 +786,6 @@ fun PosScreen(
                     }
                 }
             }
-
             BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 val isWideScreen = maxWidth > 600.dp || isLandscape
                 if (isWideScreen) {

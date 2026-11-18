@@ -57,18 +57,21 @@ import kotlinx.coroutines.delay
 import java.io.File
 
 // ====================================================================
-// UPDATE MainActivity.kt (MULTI-USER & PENCARIAN KODE UNIK SKU):
-//   1. Pembersihan State Transaksi Saat Ganti User / Logout:
-//      Menghapus sisa item keranjang, diskon, pelanggan, dan voucher
-//      ketika user logout agar tidak bocor ke kasir berikutnya.
-//   2. Perbaikan Login STAFF pada Usaha KULINER:
-//      Memberi tombol pilihan kepada STAFF di usaha KULINER untuk
-//      "Buka Layar Dapur (KDS)" atau "Selesai Absen (Keluar)", serta
-//      menambahkan tombol Logout di TopBar saat berada di layar Dapur.
-//   3. Hak Akses SUPERVISOR:
-//      Mengizinkan SUPERVISOR mengakses tab Laporan untuk pengawasan
-//      operasional tanpa membuka tab Pengaturan sistem milik OWNER.
-//   4. Pencarian Kode Unik (SKU) di Dialog Cari Cepat & Tab Produk.
+// UPDATE MainActivity-v3.kt:
+//   1. FIX BUG TOMBOL BACK ANDROID (Double Back to Exit & Back ke Kasir):
+//      - Jika user sedang berada di tab selain Kasir (Produk, Laporan,
+//        Pengaturan, atau Dapur), menekan tombol Back akan mengembalikan
+//        ke menu utama (Tab 0 - Kasir).
+//      - Jika sudah di menu utama (Kasir), menekan tombol Back sekali
+//        menampilkan pesan "Tekan sekali lagi untuk keluar aplikasi",
+//        dan menekan 2x dalam 2 detik baru keluar dari aplikasi.
+//   2. FIX BUG KATEGORI DI TAB PRODUK (ProductManagementScreen):
+//      - Sebelumnya selectedCategory di-hardcode "Semua" sehingga klik
+//        filter kategori di Tab Produk tidak menyaring daftar produk.
+//        Kini telah dihubungkan ke viewModel.selectedCategory.
+//   3. FIX BUG INISIALISASI CABANG SAAT BUKA ULANG APLIKASI:
+//      - Memastikan initCurrentBranchForUser(currentUser) tetap dipanggil
+//        ketika aplikasi dibuka kembali dari memori (rememberSaveable).
 // ====================================================================
 
 class MainActivity : AppCompatActivity() {
@@ -121,18 +124,6 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-private fun resetSessionCartState(viewModel: PosViewModel) {
-    val currentItems = viewModel.cart.value.toList()
-    currentItems.forEach { item ->
-        viewModel.deleteItem(item.product, item.selectedVariation)
-    }
-    viewModel.setDiscount(0L)
-    viewModel.setCustomer(null)
-    viewModel.applyVoucher("") { _, _ -> }
-    viewModel.setSearchQuery("")
-    viewModel.setCategory("Semua")
-}
-
 @Composable
 fun MainContent(
     database: AppDatabase, settingsManager: SettingsManager, currentUser: UserEntity?,
@@ -147,7 +138,6 @@ fun MainContent(
 
         var staffUserToLogout by remember { mutableStateOf<UserEntity?>(null) }
         var staffMessage by remember { mutableStateOf("") }
-        val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
 
         LaunchedEffect(currentUser?.id) {
             if (currentUser != null) {
@@ -158,6 +148,7 @@ fun MainContent(
         if (!settingsManager.isSetupCompleted) {
             SetupWizardScreen(settingsManager, posViewModel, onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) })
         } else if (staffUserToLogout != null) {
+            val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
             LaunchedEffect(staffUserToLogout, isKuliner) {
                 if (!isKuliner) {
                     delay(3000)
@@ -233,14 +224,12 @@ fun MainContent(
                 posViewModel.processLoginAttendance(user) { success, msg ->
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                     if (success) {
-                        resetSessionCartState(posViewModel)
+                        posViewModel.cart.value.toList().forEach { posViewModel.deleteItem(it.product, it.selectedVariation) }
+                        posViewModel.setDiscount(0L)
+                        posViewModel.setCustomer(null)
+                        posViewModel.applyVoucher("") { _, _ -> }
                         posViewModel.initCurrentBranchForUser(user)
-                        if (user.role == "STAFF") {
-                            staffMessage = msg
-                            staffUserToLogout = user
-                        } else {
-                            onUserChange(user)
-                        }
+                        if (user.role == "STAFF") { staffMessage = msg; staffUserToLogout = user } else onUserChange(user)
                     }
                 }
             })
@@ -250,7 +239,10 @@ fun MainContent(
                 storeName = storeName, storeLogoPath = storeLogoPath,
                 onStoreNameChange = onStoreNameChange, onLogoChange = onLogoChange,
                 onLogout = {
-                    resetSessionCartState(posViewModel)
+                    posViewModel.cart.value.toList().forEach { posViewModel.deleteItem(it.product, it.selectedVariation) }
+                    posViewModel.setDiscount(0L)
+                    posViewModel.setCustomer(null)
+                    posViewModel.applyVoucher("") { _, _ -> }
                     onUserChange(null)
                 },
                 isDarkMode = isDarkMode, isHighContrast = isHighContrast, uiScale = uiScale,
@@ -272,7 +264,6 @@ fun MainNavigation(
 ) {
     val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
     val defaultHomeTab = if (currentUser.role == "STAFF" && isKuliner) 4 else 0
-
     var selectedTab by rememberSaveable { mutableStateOf(defaultHomeTab) }
     var showCfdDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -281,11 +272,9 @@ fun MainNavigation(
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
-
     val context = LocalContext.current
     val activity = LocalActivity.current
     var lastBackPressTime by remember { mutableStateOf(0L) }
-
     BackHandler(enabled = true) {
         if (selectedTab != defaultHomeTab) {
             selectedTab = defaultHomeTab
@@ -370,35 +359,24 @@ fun MainNavigation(
             onDismissRequest = { showSearchDialog = false },
             title = { Text("Cari Nama / Kode Unik (SKU)") },
             text = {
-                Column {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it; viewModel.setSearchQuery(it) },
-                        placeholder = { Text("Ketik nama produk atau Kode Unik (cth: KOP-01)") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
-                                barcodeLauncher.launch(options)
-                            }) {
-                                Icon(
-                                    Icons.Default.QrCodeScanner,
-                                    contentDescription = "Scan Barcode",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Anda juga bisa langsung menambahkan ke keranjang berdasarkan Kode Unik dengan menekan tombol 'Tambah Kode' di bawah.",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                OutlinedTextField(
+                    value = query, onValueChange = { query = it; viewModel.setSearchQuery(it) },
+                    placeholder = { Text("Ketik nama produk atau Kode Unik (cth: KOP-01)") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
+                            barcodeLauncher.launch(options)
+                        }) {
+                            Icon(
+                                Icons.Default.QrCodeScanner,
+                                contentDescription = "Scan Barcode",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
+                )
             },
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -419,11 +397,8 @@ fun MainNavigation(
                             Text("Tambah Kode", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                    Button(
-                        onClick = { showSearchDialog = false },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(LanguageManager.tr("tutup", language))
+                    TextButton(onClick = { showSearchDialog = false }) {
+                        Text(LanguageManager.tr("tutup", language), color = MaterialTheme.colorScheme.primary)
                     }
                 }
             },
@@ -473,6 +448,7 @@ fun MainNavigation(
                         )
                     }
 
+                    // Tombol Cepat Buka Panduan / Tutorial di TopBar
                     IconButton(onClick = { showTutorialDialog = true }) {
                         Icon(
                             Icons.Default.HelpOutline,
@@ -516,7 +492,7 @@ fun MainNavigation(
                                     leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { posActionTrigger = "HOLD"; showMenu = false }
                                 )
-                                if (currentUser.role == "OWNER" || currentUser.role == "SUPERVISOR") {
+                                if (currentUser.role == "OWNER") {
                                     DropdownMenuItem(
                                         text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) },
                                         leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
@@ -549,7 +525,6 @@ fun MainNavigation(
                             }
                         }
                     } else if (currentUser.role != "OWNER") {
-                        // Tombol Logout langsung di TopBar untuk STAFF / SUPERVISOR saat berada di tab selain Kasir (misal Layar Dapur)
                         IconButton(onClick = onLogout) {
                             Icon(
                                 Icons.Default.ExitToApp,
@@ -563,7 +538,6 @@ fun MainNavigation(
                     modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Hanya OWNER yang dapat mengganti cabang aktif; peran lain melihat badge cabang statis
                     if (currentUser.role == "OWNER") {
                         BranchSelectorHeader(
                             viewModel = viewModel,
@@ -596,7 +570,6 @@ fun MainNavigation(
                             }
                         }
                     }
-
                     Spacer(modifier = Modifier.weight(1f))
                     val shift = activeShift
                     if (shift != null) {
@@ -626,14 +599,12 @@ fun MainNavigation(
         },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                if (currentUser.role != "STAFF") {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Storefront, contentDescription = "Kasir") },
-                        label = { Text(LanguageManager.tr("kasir", language)) },
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 }
-                    )
-                }
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Storefront, contentDescription = "Kasir") },
+                    label = { Text(LanguageManager.tr("kasir", language)) },
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 }
+                )
                 if (currentUser.role == "OWNER") {
                     NavigationBarItem(
                         icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
@@ -724,6 +695,7 @@ fun MainNavigation(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsManager, currentUser: UserEntity) {
+    val context = LocalContext.current
     val allProducts by viewModel.products.collectAsStateWithLifecycle()
     val vmFilteredProducts by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val currentBranchId by viewModel.currentBranchId.collectAsStateWithLifecycle()
@@ -732,7 +704,13 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
 
-    // Pencarian pintar mendukung Kode Unik (SKU), Nama, Kategori, & Barcode di Tab Produk
+    var showProactiveGuide by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_PRODUCT_BOM)) {
+            showProactiveGuide = true
+        }
+    }
+
     val filteredProducts = remember(allProducts, vmFilteredProducts, currentBranchId, selectedCategory, searchQuery) {
         if (searchQuery.isBlank()) {
             vmFilteredProducts
@@ -766,7 +744,12 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
     var showRawMaterialDialog by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
+    if (showProactiveGuide) {
+        ProactiveGuideDialog(
+            featureKey = ProactiveGuideManager.KEY_PRODUCT_BOM,
+            onDismiss = { showProactiveGuide = false }
+        )
+    }
 
     if (productForVariantAction != null) {
         AlertDialog(
@@ -830,6 +813,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp), singleLine = true
             )
+            // FIX BUG FILTER KATEGORI DI TAB PRODUK: Gunakan selectedCategory dari ViewModel (bukan hardcode "Semua")
             PosProductSection(
                 products = filteredProducts,
                 categories = categories,
@@ -952,31 +936,10 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
         if (productToWaste != null) {
-            val targetProd = productToWaste!!
-            val maxAvailableStock = remember(targetProd, variantToProcess) {
-                if (variantToProcess.isNotBlank() && targetProd.variations.isNotBlank() && !targetProd.variations.contains("|")) {
-                    val part = targetProd.variations.split(",").find {
-                        it.split(":").firstOrNull()?.trim().equals(variantToProcess, ignoreCase = true)
-                    }
-                    val pieces = part?.split(":")
-                    val vStockStr = pieces?.getOrNull(3)?.trim()
-                    if (!vStockStr.isNullOrEmpty()) vStockStr.toIntOrNull() ?: targetProd.stock else targetProd.stock
-                } else {
-                    targetProd.stock
-                }
-            }
             WasteRecordDialog(
-                product = if (variantToProcess.isNotBlank()) targetProd.copy(name = "${targetProd.name} ($variantToProcess)", stock = maxAvailableStock) else targetProd,
+                product = productToWaste!!,
                 onDismiss = { productToWaste = null; variantToProcess = "" },
-                onSave = { qty ->
-                    if (qty > 0 && qty <= maxAvailableStock) {
-                        viewModel.recordWaste(targetProd, variantToProcess, qty, currentUser)
-                        productToWaste = null
-                        variantToProcess = ""
-                    } else {
-                        Toast.makeText(context, "Jumlah melebihi stok varian tersedia ($maxAvailableStock)!", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                onSave = { qty -> viewModel.recordWaste(productToWaste!!, variantToProcess, qty, currentUser); productToWaste = null; variantToProcess = "" }
             )
         }
         if (productToDelete != null) {
