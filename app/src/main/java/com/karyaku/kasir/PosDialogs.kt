@@ -686,24 +686,109 @@ fun OrderNotesDialog(
 fun OpenShiftDialog(
     modalAwal: String,
     onModalChange: (String) -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    onDismiss: (() -> Unit)? = null
 ) {
+    val parsedAmount = modalAwal.filter { it.isDigit() }.toLongOrNull() ?: 0L
+    val presets = listOf(
+        0L to "Rp 0",
+        100_000L to "100rb",
+        200_000L to "200rb",
+        500_000L to "500rb"
+    )
+
     AlertDialog(
-        onDismissRequest = { },
-        icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text("Buka Kasir") },
+        onDismissRequest = { onDismiss?.invoke() },
+        icon = { Icon(Icons.Default.LockOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        title = {
+            Text(
+                "Buka Kasir (Shift Baru)",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
         text = {
-            Column {
-                Text("Masukkan modal awal:", color = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.height(12.dp))
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Masukkan jumlah uang tunai (modal awal kembalian) yang ada di laci kasir saat ini:",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    presets.forEach { (valAmount, label) ->
+                        val isSelected = parsedAmount == valAmount && modalAwal.isNotEmpty()
+                        OutlinedButton(
+                            onClick = { onModalChange(valAmount.toString()) },
+                            modifier = Modifier.weight(1f).height(34.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                                contentColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = modalAwal,
-                    onValueChange = onModalChange,
+                    onValueChange = { raw ->
+                        val digitsOnly = raw.filter { it.isDigit() }
+                        if (digitsOnly.length <= 10) onModalChange(digitsOnly)
+                    },
                     label = { Text("Modal Awal (Rp)") },
+                    placeholder = { Text("0") },
+                    trailingIcon = {
+                        if (modalAwal.isNotEmpty()) {
+                            IconButton(onClick = { onModalChange("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Reset", modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Konfirmasi Modal Awal:",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatRupiah(parsedAmount),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -714,8 +799,17 @@ fun OpenShiftDialog(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(12.dp)
-            ) { Text("MULAI") }
-        }
+            ) {
+                Text("MULAI SHIFT", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = if (onDismiss != null) {
+            {
+                TextButton(onClick = onDismiss) {
+                    Text("Tutup", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else null
     )
 }
 

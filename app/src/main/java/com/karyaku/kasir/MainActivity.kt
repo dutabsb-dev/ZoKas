@@ -571,7 +571,10 @@ fun MainNavigation(
                         }
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    val shift = activeShift
+                    val shiftPrefs = remember { context.getSharedPreferences("zokas_shift_session", Context.MODE_PRIVATE) }
+                    val isShiftClosedFlag = shiftPrefs.getBoolean("is_shift_closed", false)
+                    val lastClosedId = shiftPrefs.getLong("last_closed_shift_id", -1L)
+                    val shift = activeShift?.takeIf { it.endTime == null && !isShiftClosedFlag && it.id != lastClosedId }
                     if (shift != null) {
                         Surface(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -592,6 +595,19 @@ fun MainNavigation(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "Kasir Belum Dibuka",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
                         }
                     }
                 }

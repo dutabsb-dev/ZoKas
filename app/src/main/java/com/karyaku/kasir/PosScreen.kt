@@ -216,29 +216,65 @@ fun PosScreen(
     var showVoucherDialog by remember { mutableStateOf(false) }
     var isSplitBillMode by remember { mutableStateOf(false) }
 
-    // FIX BUG #1 & SHIFT ISOLATION: Deteksi Shift Aktif khusus cabang ini secara ketat
-    val currentOpenShift = remember(activeShift, shifts, currentBranchId) {
-        val branchOpenFromList = shifts
-            .filter { it.endTime == null && (it.branchId == currentBranchId || it.branchId == 0L) }
-            .maxByOrNull { it.startTime }
-        if (activeShift != null && activeShift!!.endTime == null) {
-            activeShift
+    // =========================================================================
+    // FIX TOTAL SIKLUS SHIFT (BUKA KASIR & TUTUP KASIR):
+    //   1. Menyimpan penanda sesi shift lokal (`zokas_shift_session`) agar setelah
+    //      Close Kasir dijalankan, shift lama yang belum ter-update di list Room
+    //      tidak pernah dianggap masih aktif saat aplikasi dibuka kembali.
+    //   2. Jika status shift adalah tertutup (`isShiftClosed == true`), dialog
+    //      Modal Awal langsung muncul seketika tanpa delay dan tanpa mewarisi
+    //      transaksi dari shift sebelumnya.
+    // =========================================================================
+    val shiftPrefs = remember { context.getSharedPreferences("zokas_shift_session", Context.MODE_PRIVATE) }
+    var isShiftExplicitlyClosed by remember {
+        mutableStateOf(shiftPrefs.getBoolean("is_shift_closed", false))
+    }
+    var lastClosedShiftId by remember {
+        mutableStateOf(shiftPrefs.getLong("last_closed_shift_id", -1L))
+    }
+    var trackedShiftStart by remember {
+        mutableStateOf(shiftPrefs.getLong("active_shift_start_time", 0L))
+    }
+    var trackedOpeningCash by remember {
+        mutableStateOf(shiftPrefs.getLong("active_opening_cash", -1L))
+    }
+
+    val currentOpenShift = remember(activeShift, shifts, currentBranchId, isShiftExplicitlyClosed, lastClosedShiftId) {
+        if (isShiftExplicitlyClosed) {
+            null
         } else {
-            branchOpenFromList
+            val candidateFromActive = activeShift?.takeIf {
+                it.endTime == null && it.id != lastClosedShiftId
+            }
+            val candidateFromList = shifts
+                .filter {
+                    it.endTime == null &&
+                        it.id != lastClosedShiftId &&
+                        (it.branchId == currentBranchId || it.branchId == 0L)
+                }
+                .maxByOrNull { it.startTime }
+            candidateFromActive ?: candidateFromList
         }
     }
 
-    LaunchedEffect(currentOpenShift, showShiftReport, currentBranchId) {
+    LaunchedEffect(currentOpenShift, showShiftReport, currentBranchId, isShiftExplicitlyClosed) {
         if (currentOpenShift != null) {
             showOpenShiftDialog = false
             if (!ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_POS_SCREEN)) {
                 showProactiveGuide = true
             }
         } else if (showShiftReport == null) {
-            delay(450)
-            val stillOpen = viewModel.activeShift.value ?: viewModel.shifts.value.firstOrNull { it.endTime == null }
-            if (stillOpen == null && showShiftReport == null) {
+            if (isShiftExplicitlyClosed) {
+                // Shift sebelumnya sudah ditutup -> langsung tampilkan form Modal Awal tanpa menunggu!
                 showOpenShiftDialog = true
+            } else {
+                // Aplikasi baru dibuka pertama kali: beri jeda singkat untuk memuat Room DB
+                delay(350)
+                val stillOpen = viewModel.activeShift.value?.takeIf { it.endTime == null && it.id != lastClosedShiftId }
+                    ?: viewModel.shifts.value.firstOrNull { it.endTime == null && it.id != lastClosedShiftId }
+                if (stillOpen == null && showShiftReport == null) {
+                    showOpenShiftDialog = true
+                }
             }
         }
     }
@@ -672,8 +708,17 @@ fun PosScreen(
                 modalAwal = modalAwal,
                 onModalChange = { input: String -> if (input.length <= 10) modalAwal = input },
                 onConfirm = {
-                    val openingAmount = modalAwal.toLongOrNull() ?: 0L
+                    val openingAmount = modalAwal.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                    val nowMillis = System.currentTimeMillis()
                     modalAwal = ""
+                    isShiftExplicitlyClosed = false
+                    trackedShiftStart = nowMillis
+                    trackedOpeningCash = openingAmount
+                    shiftPrefs.edit()
+                        .putBoolean("is_shift_closed", false)
+                        .putLong("active_shift_start_time", nowMillis)
+                        .putLong("active_opening_cash", openingAmount)
+                        .apply()
                     viewModel.openShift(currentUser, openingAmount)
                     showOpenShiftDialog = false
                 }
@@ -683,29 +728,66 @@ fun PosScreen(
         if (showCloseShiftDialog) {
             val shiftToClose = currentOpenShift
             if (shiftToClose != null) {
-                // Isolasi ketat transaksi & kas masuk/keluar HANYA sejak shiftToClose.startTime dibuka!
-                val shiftTransactions = remember(transactions, shiftToClose.startTime, currentBranchId) {
+                val effectiveStartTime = maxOf(shiftToClose.startTime, trackedShiftStart)
+                val effectiveOpeningCash = if (trackedOpeningCash >= 0L) trackedOpeningCash else shiftToClose.openingCash
+                val normalizedShift = shiftToClose.copy(
+                    startTime = effectiveStartTime,
+                    openingCash = effectiveOpeningCash
+                )
+
+                // Isolasi ketat transaksi & kas masuk/keluar HANYA sejak shift ini dibuka!
+                val shiftTransactions = remember(transactions, effectiveStartTime, currentBranchId) {
                     transactions.filter { tx ->
-                        tx.timestamp >= shiftToClose.startTime &&
+                        tx.timestamp >= effectiveStartTime &&
                             (tx.branchId == currentBranchId || tx.branchId == 0L)
                     }
                 }
-                val shiftCashFlows = remember(cashFlows, shiftToClose.startTime, currentBranchId) {
+                val shiftCashFlows = remember(cashFlows, effectiveStartTime, currentBranchId) {
                     cashFlows.filter { cf ->
-                        cf.timestamp >= shiftToClose.startTime &&
+                        cf.timestamp >= effectiveStartTime &&
                             (cf.branchId == currentBranchId || cf.branchId == 0L)
                     }
                 }
+
                 CloseShiftWizardDialog(
-                    shift = shiftToClose,
+                    shift = normalizedShift,
                     transactions = shiftTransactions,
                     cashFlows = shiftCashFlows,
                     onDismiss = { showCloseShiftDialog = false },
                     onConfirm = { uangFisik: Long, note: String ->
+                        val cashSalesInShift = shiftTransactions
+                            .filter { it.status == "SUCCESS" && it.paymentMethod == "CASH" }
+                            .sumOf { it.totalPrice }
+                        val cashInShift = shiftCashFlows
+                            .filter { it.type == "IN" }
+                            .sumOf { it.amount }
+                        val cashOutShift = shiftCashFlows
+                            .filter { it.type == "OUT" }
+                            .sumOf { it.amount }
+                        val exactExpectedCash = (effectiveOpeningCash + cashSalesInShift + cashInShift - cashOutShift).coerceAtLeast(0L)
+
                         viewModel.closeShift(currentUser, uangFisik, note) { closedShift ->
                             showCloseShiftDialog = false
                             modalAwal = ""
-                            showShiftReport = closedShift
+                            isShiftExplicitlyClosed = true
+                            lastClosedShiftId = shiftToClose.id
+                            trackedOpeningCash = -1L
+                            trackedShiftStart = 0L
+                            shiftPrefs.edit()
+                                .putBoolean("is_shift_closed", true)
+                                .putLong("last_closed_shift_id", shiftToClose.id)
+                                .remove("active_shift_start_time")
+                                .remove("active_opening_cash")
+                                .apply()
+
+                            val accurateReportShift = closedShift.copy(
+                                startTime = effectiveStartTime,
+                                openingCash = effectiveOpeningCash,
+                                expectedCash = exactExpectedCash,
+                                closingCash = uangFisik,
+                                discrepancy = uangFisik - exactExpectedCash
+                            )
+                            showShiftReport = accurateReportShift
                         }
                     }
                 )
