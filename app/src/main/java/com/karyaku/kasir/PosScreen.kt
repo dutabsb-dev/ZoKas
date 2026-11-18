@@ -216,12 +216,16 @@ fun PosScreen(
     var showVoucherDialog by remember { mutableStateOf(false) }
     var isSplitBillMode by remember { mutableStateOf(false) }
 
-    // FIX BUG #1: Deteksi Shift Aktif yang Tahan Race Condition saat Aplikasi Baru Dibuka
-    // Cari apakah ada shift yang belum ditutup (endTime == null) baik dari activeShift maupun tabel shifts
+    // FIX BUG #1 & SHIFT ISOLATION: Deteksi Shift Aktif khusus cabang ini secara ketat
     val currentOpenShift = remember(activeShift, shifts, currentBranchId) {
-        activeShift ?: shifts.firstOrNull {
-            it.endTime == null && (it.branchId == currentBranchId || it.branchId == 0L)
-        } ?: shifts.firstOrNull { it.endTime == null }
+        val branchOpenFromList = shifts
+            .filter { it.endTime == null && (it.branchId == currentBranchId || it.branchId == 0L) }
+            .maxByOrNull { it.startTime }
+        if (activeShift != null && activeShift!!.endTime == null) {
+            activeShift
+        } else {
+            branchOpenFromList
+        }
     }
 
     LaunchedEffect(currentOpenShift, showShiftReport, currentBranchId) {
@@ -667,19 +671,40 @@ fun PosScreen(
             OpenShiftDialog(
                 modalAwal = modalAwal,
                 onModalChange = { input: String -> if (input.length <= 10) modalAwal = input },
-                onConfirm = { viewModel.openShift(currentUser, modalAwal.toLongOrNull() ?: 0L); showOpenShiftDialog = false }
+                onConfirm = {
+                    val openingAmount = modalAwal.toLongOrNull() ?: 0L
+                    modalAwal = ""
+                    viewModel.openShift(currentUser, openingAmount)
+                    showOpenShiftDialog = false
+                }
             )
         }
 
         if (showCloseShiftDialog) {
             val shiftToClose = currentOpenShift
             if (shiftToClose != null) {
+                // Isolasi ketat transaksi & kas masuk/keluar HANYA sejak shiftToClose.startTime dibuka!
+                val shiftTransactions = remember(transactions, shiftToClose.startTime, currentBranchId) {
+                    transactions.filter { tx ->
+                        tx.timestamp >= shiftToClose.startTime &&
+                            (tx.branchId == currentBranchId || tx.branchId == 0L)
+                    }
+                }
+                val shiftCashFlows = remember(cashFlows, shiftToClose.startTime, currentBranchId) {
+                    cashFlows.filter { cf ->
+                        cf.timestamp >= shiftToClose.startTime &&
+                            (cf.branchId == currentBranchId || cf.branchId == 0L)
+                    }
+                }
                 CloseShiftWizardDialog(
-                    shift = shiftToClose, transactions = transactions, cashFlows = cashFlows,
+                    shift = shiftToClose,
+                    transactions = shiftTransactions,
+                    cashFlows = shiftCashFlows,
                     onDismiss = { showCloseShiftDialog = false },
                     onConfirm = { uangFisik: Long, note: String ->
                         viewModel.closeShift(currentUser, uangFisik, note) { closedShift ->
                             showCloseShiftDialog = false
+                            modalAwal = ""
                             showShiftReport = closedShift
                         }
                     }
