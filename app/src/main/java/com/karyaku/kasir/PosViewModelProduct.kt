@@ -10,39 +10,92 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// ================================================================
+// HELPER KODE UNIK (SKU) & BARCODE (KOMPATIBEL TANPA MIGRASI DB)
+// Format penyimpanan di kolom barcode:
+// - Jika ada SKU & Barcode: "SKU||BARCODE"
+// - Jika hanya SKU: "SKU||"
+// - Jika hanya Barcode (atau format lama): "BARCODE"
+// ================================================================
+fun extractProductSku(rawBarcodeField: String): String {
+    if (!rawBarcodeField.contains("||")) return ""
+    return rawBarcodeField.substringBefore("||").trim()
+}
+
+fun extractActualBarcode(rawBarcodeField: String): String {
+    if (!rawBarcodeField.contains("||")) return rawBarcodeField.trim()
+    return rawBarcodeField.substringAfter("||").trim()
+}
+
+fun packSkuAndBarcode(sku: String, barcode: String): String {
+    val cleanSku = sku.trim().replace("|", "")
+    val cleanBarcode = barcode.trim().replace("|", "")
+    return if (cleanSku.isEmpty()) {
+        cleanBarcode
+    } else {
+        "$cleanSku||$cleanBarcode"
+    }
+}
+
+fun matchesProductSearch(product: ProductEntity, query: String): Boolean {
+    if (query.isBlank()) return true
+    val q = query.trim()
+    val sku = extractProductSku(product.barcode)
+    val rawBc = extractActualBarcode(product.barcode)
+    return sku.contains(q, ignoreCase = true) ||
+        rawBc.contains(q, ignoreCase = true) ||
+        product.name.contains(q, ignoreCase = true) ||
+        product.category.contains(q, ignoreCase = true)
+}
+
 fun PosViewModel.deductVariantStock(variationsStr: String, targetVariantName: String, deductQty: Int): String {
     if (variationsStr.isBlank()) return ""
     val parts = variationsStr.split(",")
     val newParts = parts.map { part ->
         val pieces = part.split(":")
         if (pieces.size >= 2 && pieces[0].trim().equals(targetVariantName, ignoreCase = true)) {
-            val price = pieces[1].trim(); val cost = pieces.getOrNull(2)?.trim() ?: "0"
-            val currentStock = if (pieces.size >= 4) pieces[3].trim().toIntOrNull() ?: 0 else 999999 
+            val price = pieces[1].trim()
+            val cost = pieces.getOrNull(2)?.trim() ?: "0"
+            val currentStock = if (pieces.size >= 4) pieces[3].trim().toIntOrNull() ?: 0 else 999999
             "${pieces[0]}:$price:$cost:${(currentStock - deductQty).coerceAtLeast(0)}"
-        } else { part }
+        } else {
+            part
+        }
     }
     return newParts.joinToString(",")
 }
 
 fun PosViewModel.addProduct(
-    name: String, price: Long, stock: Int, category: String, costPrice: Long, 
-    barcode: String, variations: String, commission: Long, expiry: Long, 
-    isService: Boolean, isCombo: Boolean, imagePath: String, 
+    name: String, price: Long, stock: Int, category: String, costPrice: Long,
+    barcode: String, variations: String, commission: Long, expiry: Long,
+    isService: Boolean, isCombo: Boolean, imagePath: String,
     wholesalePrice: Long, wholesaleMinQty: Int,
     userId: Long, userName: String
 ) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val activeBranchId = _currentBranchId.value
-            productDao.insertProduct(ProductEntity(
-                name = name, price = price, stock = stock, category = category, costPrice = costPrice, 
-                barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
-                isService = isService, isCombo = isCombo, imagePath = imagePath, 
-                wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
-                branchId = activeBranchId, isSynced = false, updatedAt = System.currentTimeMillis()
-            ))
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "TAMBAH PRODUK (Cabang #$activeBranchId): $name", actionType = "INVENTORY"))
-        } catch (e: Exception) { e.printStackTrace() }
+            val skuInfo = extractProductSku(barcode).let { if (it.isNotEmpty()) " [Kode: $it]" else "" }
+            productDao.insertProduct(
+                ProductEntity(
+                    name = name, price = price, stock = stock, category = category, costPrice = costPrice,
+                    barcode = barcode, variations = variations, commissionPerItem = commission, expiryDate = expiry,
+                    isService = isService, isCombo = isCombo, imagePath = imagePath,
+                    wholesalePrice = wholesalePrice, wholesaleMinQty = wholesaleMinQty,
+                    branchId = activeBranchId, isSynced = false, updatedAt = System.currentTimeMillis()
+                )
+            )
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = userId,
+                    userName = userName,
+                    action = "TAMBAH PRODUK (Cabang #$activeBranchId): $name$skuInfo",
+                    actionType = "INVENTORY"
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -52,14 +105,24 @@ fun PosViewModel.updateProduct(product: ProductEntity, userId: Long, userName: S
             if (product.branchId != _currentBranchId.value) return@launch
             val oldProduct = _products.value.find { it.id == product.id }
             productDao.saveProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
-            
+
+            val skuInfo = extractProductSku(product.barcode).let { if (it.isNotEmpty()) " [Kode: $it]" else "" }
             val action = if (oldProduct != null && oldProduct.price != product.price) {
-                "UBAH HARGA: ${product.name} dari ${formatRupiah(oldProduct.price)} menjadi ${formatRupiah(product.price)}"
+                "UBAH HARGA: ${product.name}$skuInfo dari ${formatRupiah(oldProduct.price)} menjadi ${formatRupiah(product.price)}"
             } else {
-                "EDIT PRODUK: ${product.name}"
+                "EDIT PRODUK: ${product.name}$skuInfo"
             }
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = action, actionType = "INVENTORY"))
-        } catch (e: Exception) { e.printStackTrace() }
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = userId,
+                    userName = userName,
+                    action = action,
+                    actionType = "INVENTORY"
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -68,8 +131,17 @@ fun PosViewModel.deleteProduct(product: ProductEntity, userId: Long, userName: S
         try {
             if (product.branchId != _currentBranchId.value) return@launch
             productDao.deleteProduct(product)
-            userDao.insertAuditLog(AuditLogEntity(userId = userId, userName = userName, action = "HAPUS PRODUK: ${product.name}", actionType = "INVENTORY"))
-        } catch (e: Exception) { e.printStackTrace() }
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = userId,
+                    userName = userName,
+                    action = "HAPUS PRODUK: ${product.name}",
+                    actionType = "INVENTORY"
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -80,8 +152,17 @@ fun PosViewModel.addStock(product: ProductEntity, variation: String, qty: Int, u
             val newStock = fresh.stock + qty
             val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, qty) else fresh.variations
             productDao.updateProduct(fresh.copy(stock = newStock, variations = newVar, updatedAt = System.currentTimeMillis()))
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "RESTOCK: ${fresh.name} ($variation) +$qty", actionType = "INVENTORY"))
-        } catch (e: Exception) { e.printStackTrace() }
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = user.id,
+                    userName = user.name,
+                    action = "RESTOCK: ${fresh.name} ($variation) +$qty",
+                    actionType = "INVENTORY"
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -92,8 +173,17 @@ fun PosViewModel.recordWaste(product: ProductEntity, variation: String, qty: Int
             val newStock = (fresh.stock - qty).coerceAtLeast(0)
             val newVar = if (variation.isNotBlank()) modifyVariantStock(fresh.variations, variation, -qty) else fresh.variations
             productDao.updateProduct(fresh.copy(stock = newStock, variations = newVar, updatedAt = System.currentTimeMillis()))
-            userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "WASTE: ${fresh.name} ($variation) -$qty", actionType = "INVENTORY"))
-        } catch (e: Exception) { e.printStackTrace() }
+            userDao.insertAuditLog(
+                AuditLogEntity(
+                    userId = user.id,
+                    userName = user.name,
+                    action = "WASTE: ${fresh.name} ($variation) -$qty",
+                    actionType = "INVENTORY"
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -119,59 +209,95 @@ fun PosViewModel.processStockOpname(opnameItems: List<StockOpnameItemEntity>, us
                 )
                 val opnameId = stockOpnameDao.insertOpname(opname)
                 stockOpnameDao.insertOpnameItems(opnameItems.map { it.copy(opnameId = opnameId) })
-                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "STOCK OPNAME: ${opnameItems.size} item diaudit.", actionType = "INVENTORY"))
+                userDao.insertAuditLog(
+                    AuditLogEntity(
+                        userId = user.id,
+                        userName = user.name,
+                        action = "STOCK OPNAME: ${opnameItems.size} item diaudit.",
+                        actionType = "INVENTORY"
+                    )
+                )
             }
             withContext(Dispatchers.Main) { onSuccess() }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
+// Mendukung pencarian langsung via Barcode Fisik MAUPUN Kode Unik Produk (SKU)
 fun PosViewModel.processBarcodeScan(barcode: String, onResult: (Boolean, String) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            var cleanBarcode = barcode
+            var cleanCode = barcode.trim()
             val gs1Regex = Regex("""\(01\)(\d+)\(17\)(\d{6})\(10\)([A-Za-z0-9]+)""")
-            val match = gs1Regex.find(barcode)
-            if (match != null) cleanBarcode = match.groupValues[1]
+            val match = gs1Regex.find(cleanCode)
+            if (match != null) cleanCode = match.groupValues[1]
 
-            val matches = productDao.getProductsByBarcodeList(cleanBarcode)
+            val activeBranchId = _currentBranchId.value
+            val allBranchProducts = _products.value.filter { it.branchId == activeBranchId }
+
+            // Cari kecocokan persis pada Barcode Fisik, Kode Unik (SKU), atau field gabungan
+            val matches = allBranchProducts.filter { prod ->
+                val sku = extractProductSku(prod.barcode)
+                val actualBc = extractActualBarcode(prod.barcode)
+                prod.barcode.equals(cleanCode, ignoreCase = true) ||
+                    (actualBc.isNotEmpty() && actualBc.equals(cleanCode, ignoreCase = true)) ||
+                    (sku.isNotEmpty() && sku.equals(cleanCode, ignoreCase = true))
+            }.ifEmpty {
+                productDao.getProductsByBarcodeList(cleanCode)
+            }
+
             when {
-                matches.isEmpty() -> withContext(Dispatchers.Main) { onResult(false, "Barcode tidak ditemukan: $cleanBarcode") }
+                matches.isEmpty() -> withContext(Dispatchers.Main) {
+                    onResult(false, "Kode/Barcode tidak ditemukan: $cleanCode")
+                }
                 matches.size == 1 -> {
                     val product = matches.first()
-                    if (product.branchId != _currentBranchId.value) {
-                        withContext(Dispatchers.Main) { onResult(false, "Produk '${product.name}' milik cabang lain.") }
+                    if (product.branchId != activeBranchId) {
+                        withContext(Dispatchers.Main) {
+                            onResult(false, "Produk '${product.name}' milik cabang lain.")
+                        }
                         return@launch
                     }
                     if (product.isService || product.stock > 0) {
                         withContext(Dispatchers.Main) { addToCart(product) }
-                        withContext(Dispatchers.Main) { onResult(true, "Berhasil tambah: ${product.name}") }
+                        withContext(Dispatchers.Main) {
+                            onResult(true, "Berhasil tambah: ${product.name}")
+                        }
                     } else {
-                        withContext(Dispatchers.Main) { onResult(false, "Stok ${product.name} habis!") }
+                        withContext(Dispatchers.Main) {
+                            onResult(false, "Stok ${product.name} habis!")
+                        }
                     }
                 }
-                else -> withContext(Dispatchers.Main) { onResult(false, "Barcode duplikat terdeteksi.") }
+                else -> withContext(Dispatchers.Main) {
+                    onResult(false, "Kode/Barcode duplikat terdeteksi ($cleanCode).")
+                }
             }
         } catch (e: Exception) {
-            withContext(Dispatchers.Main) { onResult(false, "Gagal scan: ${e.message}") }
+            withContext(Dispatchers.Main) { onResult(false, "Gagal memproses kode: ${e.message}") }
         }
     }
 }
 
 fun PosViewModel.addBom(productId: Long, rawMaterialId: Long, qty: Double) {
     viewModelScope.launch(Dispatchers.IO) {
-        try { productDao.insertProductBom(ProductBomEntity(productId = productId, rawMaterialId = rawMaterialId, quantityUsed = qty)) } catch (e: Exception) { e.printStackTrace() }
+        try {
+            productDao.insertProductBom(ProductBomEntity(productId = productId, rawMaterialId = rawMaterialId, quantityUsed = qty))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
-// ================================================================
-// FUNGSI BAHAN BAKU (RAW MATERIAL) BARU
-// ================================================================
 fun PosViewModel.addRawMaterial(name: String, stock: Double, unit: String, costPerUnit: Long) {
     viewModelScope.launch(Dispatchers.IO) {
-        try { 
-            productDao.insertRawMaterial(RawMaterialEntity(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit)) 
-        } catch (e: Exception) { e.printStackTrace() }
+        try {
+            productDao.insertRawMaterial(RawMaterialEntity(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -183,7 +309,9 @@ fun PosViewModel.updateRawMaterial(id: Long, name: String, stock: Double, unit: 
                 productDao.insertRawMaterial(material.copy(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit))
                 withContext(Dispatchers.Main) { onSuccess() }
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -192,7 +320,9 @@ fun PosViewModel.deleteRawMaterial(id: Long, onSuccess: () -> Unit) {
         try {
             productDao.deleteRawMaterial(id)
             withContext(Dispatchers.Main) { onSuccess() }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -203,7 +333,9 @@ fun PosViewModel.restockRawMaterial(id: Long, qty: Double, note: String) {
             if (material != null) {
                 productDao.updateRawMaterialStock(id, material.stock + qty)
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -215,7 +347,9 @@ fun PosViewModel.wasteRawMaterial(id: Long, qty: Double, note: String) {
                 val newStock = (material.stock - qty).coerceAtLeast(0.0)
                 productDao.updateRawMaterialStock(id, newStock)
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 
@@ -237,15 +371,29 @@ fun PosViewModel.importProductsFromExcel(context: Context, uri: Uri, onResult: (
                 val activeBranchId = _currentBranchId.value
                 importedProducts.forEach { newProduct ->
                     try {
-                        val existing = freshProducts.find { (newProduct.barcode.isNotEmpty() && it.barcode == newProduct.barcode) || it.name.equals(newProduct.name, ignoreCase = true) }
+                        val existing = freshProducts.find {
+                            (newProduct.barcode.isNotEmpty() && it.barcode == newProduct.barcode) ||
+                                it.name.equals(newProduct.name, ignoreCase = true)
+                        }
                         if (existing != null) {
-                            productDao.saveProduct(existing.copy(name = newProduct.name, price = newProduct.price, costPrice = newProduct.costPrice, stock = newProduct.stock, category = newProduct.category, barcode = newProduct.barcode, variations = newProduct.variations, commissionPerItem = newProduct.commissionPerItem, expiryDate = newProduct.expiryDate, isService = newProduct.isService, wholesalePrice = newProduct.wholesalePrice, wholesaleMinQty = newProduct.wholesaleMinQty, isSynced = false, updatedAt = System.currentTimeMillis()))
+                            productDao.saveProduct(
+                                existing.copy(
+                                    name = newProduct.name, price = newProduct.price, costPrice = newProduct.costPrice,
+                                    stock = newProduct.stock, category = newProduct.category, barcode = newProduct.barcode,
+                                    variations = newProduct.variations, commissionPerItem = newProduct.commissionPerItem,
+                                    expiryDate = newProduct.expiryDate, isService = newProduct.isService,
+                                    wholesalePrice = newProduct.wholesalePrice, wholesaleMinQty = newProduct.wholesaleMinQty,
+                                    isSynced = false, updatedAt = System.currentTimeMillis()
+                                )
+                            )
                             updateCount++
                         } else {
                             productDao.saveProduct(newProduct.copy(branchId = activeBranchId, isSynced = false, updatedAt = System.currentTimeMillis()))
                             insertCount++
                         }
-                    } catch (itemEx: Exception) { itemEx.printStackTrace() }
+                    } catch (itemEx: Exception) {
+                        itemEx.printStackTrace()
+                    }
                 }
             }
             withContext(Dispatchers.Main) { onResult(insertCount, updateCount) }

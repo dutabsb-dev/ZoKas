@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -40,22 +41,6 @@ import java.util.Locale
 import java.util.UUID
 
 // =====================================================================
-// SESI 1b, SESI 2a, & SESI 4 (POIN #1, #2, #5, #6):
-//   1. ProductFormBottomSheet:
-//      - Menambahkan tombol akses langsung "Atur Resep (BOM) & Bahan Baku"
-//        saat mengedit produk (onManageBom), sehingga user bisa langsung
-//        mengatur resep dan stok bahan baku dari form Edit Produk.
-//      - Semua warna keras (SlateGrey, EmeraldGreen, AmberAccent, ErrorRed)
-//        diganti ke MaterialTheme.colorScheme.* adaptif.
-//   2. PaymentBottomSheet (Sesi 2a):
-//      - Menghilangkan spinner "Menunggu notifikasi transfer masuk..." (VA)
-//      - Mengganti link kecil konfirmasi manual dengan Checkbox jelas
-//        "Saya sudah menerima transfer sesuai nominal" yang mengaktifkan
-//        tombol SELESAIKAN PEMBAYARAN.
-//      - Semua warna keras diganti ke MaterialTheme.colorScheme.* adaptif.
-// =====================================================================
-
-// =====================================================================
 // DATA CLASS UNTUK VARIAN DINAMIS
 // =====================================================================
 data class VariantInput(
@@ -67,7 +52,7 @@ data class VariantInput(
 )
 
 // =====================================================================
-// 1. PRODUCT FORM BOTTOM SHEET
+// 1. PRODUCT FORM BOTTOM SHEET (DENGAN FITUR KODE UNIK / SKU PRODUK)
 // =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,9 +71,14 @@ fun ProductFormBottomSheet(
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // STATE FORM
+    // STATE FORM (Memisahkan Kode Unik / SKU dan Barcode Fisik secara otomatis)
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
-    var barcode by remember { mutableStateOf(productToEdit?.barcode ?: "") }
+    var productSku by remember {
+        mutableStateOf(productToEdit?.let { extractProductSku(it.barcode) } ?: "")
+    }
+    var barcode by remember {
+        mutableStateOf(productToEdit?.let { extractActualBarcode(it.barcode) } ?: "")
+    }
     var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") }
     var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
 
@@ -110,7 +100,6 @@ fun ProductFormBottomSheet(
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // Parse data varian saat pertama kali dibuka
     LaunchedEffect(productToEdit) {
         if (productToEdit != null && productToEdit.variations.isNotBlank()) {
             hasVariants = true
@@ -202,7 +191,7 @@ fun ProductFormBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- SESI 4 (POIN #2): AKSES CEPAT RESEP (BOM) & BAHAN BAKU DI FORM PRODUK ---
+            // --- AKSES CEPAT RESEP (BOM) & BAHAN BAKU DI FORM PRODUK ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -331,10 +320,55 @@ fun ProductFormBottomSheet(
                 shape = RoundedCornerShape(12.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
+
+            // --- FIELD BARU: KODE UNIK PRODUK (SKU) & BARCODE ---
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = productSku,
+                    onValueChange = { productSku = it.uppercase() },
+                    label = { Text("Kode Unik / SKU (cth: KOP-01)") },
+                    placeholder = { Text("Bisa dicari di Kasir") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                val catPrefix = category.trim().take(3).uppercase().ifBlank { "PRD" }
+                                val namePrefix = name.trim().split(Regex("\\s+"))
+                                    .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+                                    .joinToString("")
+                                    .take(3)
+                                    .ifBlank { "X" }
+                                val randNum = (10..99).random()
+                                productSku = "$catPrefix-$namePrefix$randNum"
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = "Buat Kode Otomatis",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+            Text(
+                text = "Tips: Ketuk ikon bintang di kanan kolom Kode Unik untuk membuat kode otomatis, atau ketik kode sendiri agar cepat dicari di kasir.",
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 6.dp)
+            )
+
             OutlinedTextField(
                 value = barcode,
                 onValueChange = { barcode = it },
-                label = { Text("Barcode (Opsional)") },
+                label = { Text("Barcode Kemasan (Opsional)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
@@ -585,7 +619,6 @@ fun ProductFormBottomSheet(
                             return@Button
                         }
 
-                        // Rakit string: Nama:HargaJual:HargaBeli:Stok
                         val variationParts = variantList.map {
                             val p = it.price.toLongOrNull() ?: 0L
                             val c = it.costPrice.toLongOrNull() ?: 0L
@@ -610,9 +643,11 @@ fun ProductFormBottomSheet(
                         return@Button
                     }
 
+                    val combinedCode = packSkuAndBarcode(productSku, barcode)
+
                     onSave(
-                        name, finalPrice, finalStock, category, finalCost, barcode,
-                        finalVariations, commission.toLongOrNull() ?: 0L, expiry,
+                        name.trim(), finalPrice, finalStock, category.trim().ifBlank { "Umum" }, finalCost,
+                        combinedCode, finalVariations, commission.toLongOrNull() ?: 0L, expiry,
                         isService, isCombo, imagePath,
                         wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
                     )
@@ -663,7 +698,7 @@ private fun parseVariationString(variations: String, mainStock: Int): List<Varia
 }
 
 // =====================================================================
-// 2. PAYMENT BOTTOM SHEET (SESI 2a: VA DISEMBUNYIKAN + TRANSFER MANUAL RAPI)
+// 2. PAYMENT BOTTOM SHEET (DENGAN PERINGATAN JIKA REKENING BELUM DIISI)
 // =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -884,6 +919,7 @@ fun PaymentBottomSheet(
                     Text("Memuat QRIS...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else if (paymentMethod == "Bank Transfer") {
+                val bankConfigured = !settingsManager.bankAccountNumber.isNullOrBlank()
                 if (isTransferPaid) {
                     Surface(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -925,23 +961,33 @@ fun PaymentBottomSheet(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                settingsManager.bankName?.ifBlank { "-" } ?: "-",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                settingsManager.bankAccountNumber?.ifBlank { "-" } ?: "-",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 24.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                "a/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            if (!bankConfigured) {
+                                Text(
+                                    "Rekening Bank belum diatur oleh Owner di menu Pengaturan -> Metode Pembayaran.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign = TextAlign.Center
+                                )
+                            } else {
+                                Text(
+                                    settingsManager.bankName?.ifBlank { "-" } ?: "-",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    settingsManager.bankAccountNumber?.ifBlank { "-" } ?: "-",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 24.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    "a/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
 
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 12.dp),
@@ -963,7 +1009,6 @@ fun PaymentBottomSheet(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Checkbox Konfirmasi Transfer Manual (Pengganti VA Auto-Detect)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
