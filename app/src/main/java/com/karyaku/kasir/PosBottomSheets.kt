@@ -64,7 +64,8 @@ data class VariantInput(
     var name: String = "",
     var costPrice: String = "",
     var price: String = "",
-    var stock: String = ""
+    var stock: String = "",
+    var packMultiplier: String = "1"
 )
 
 // =====================================================================
@@ -92,6 +93,8 @@ fun ProductFormBottomSheet(
     var productSku by remember { mutableStateOf(productToEdit?.let { extractProductSku(it.barcode) } ?: "") }
     var barcode by remember { mutableStateOf(productToEdit?.let { extractActualBarcode(it.barcode) } ?: "") }
     var category by remember { mutableStateOf(productToEdit?.category ?: "Umum") }
+    var baseUnit by remember { mutableStateOf(productToEdit?.let { extractProductBaseUnit(it) } ?: "pcs") }
+    var unitDropdownExpanded by remember { mutableStateOf(false) }
     var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
 
     // State Varian
@@ -429,24 +432,95 @@ fun ProductFormBottomSheet(
                 }
                 if (!isService) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = singleStock,
-                        onValueChange = { singleStock = it },
-                        label = { Text("Stok Awal") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = singleStock,
+                            onValueChange = { singleStock = it },
+                            label = { Text("Stok Awal") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1.4f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedButton(
+                                onClick = { unitDropdownExpanded = true },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Satuan: $baseUnit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                            }
+                            DropdownMenu(
+                                expanded = unitDropdownExpanded,
+                                onDismissRequest = { unitDropdownExpanded = false },
+                                modifier = Modifier.heightIn(max = 260.dp)
+                            ) {
+                                AVAILABLE_STOCK_UNITS.forEach { u ->
+                                    DropdownMenuItem(
+                                        text = { Text(u, fontWeight = if (u == baseUnit) FontWeight.Bold else FontWeight.Normal) },
+                                        onClick = { baseUnit = u; unitDropdownExpanded = false }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
-                // --- JIKA DENGAN VARIAN (BARIS DINAMIS) ---
-                Text(
-                    "Daftar Varian",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                // --- JIKA DENGAN VARIAN (BARIS DINAMIS + SATUAN & KONVERSI KEMASAN) ---
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Daftar Varian & Satuan Terkecil",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        val previewTotalSmallest = variantList.sumOf {
+                            val q = it.stock.toIntOrNull() ?: 0
+                            val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                            q * m
+                        }
+                        if (!isService) {
+                            Text(
+                                text = "Total Stok Gabungan: $previewTotalSmallest $baseUnit",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+                    Box {
+                        OutlinedButton(
+                            onClick = { unitDropdownExpanded = true },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("Satuan: $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                        DropdownMenu(
+                            expanded = unitDropdownExpanded,
+                            onDismissRequest = { unitDropdownExpanded = false },
+                            modifier = Modifier.heightIn(max = 260.dp)
+                        ) {
+                            AVAILABLE_STOCK_UNITS.forEach { u ->
+                                DropdownMenuItem(
+                                    text = { Text(u) },
+                                    onClick = { baseUnit = u; unitDropdownExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                }
 
                 variantList.forEachIndexed { index, variant ->
                     Card(
@@ -511,19 +585,47 @@ fun ProductFormBottomSheet(
                             }
                             if (!isService) {
                                 Spacer(modifier = Modifier.height(8.dp))
-                                OutlinedTextField(
-                                    value = variant.stock,
-                                    onValueChange = {
-                                        val newList = variantList.toMutableList()
-                                        newList[index] = variant.copy(stock = it)
-                                        variantList = newList
-                                    },
-                                    label = { Text("Stok Varian Ini") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(
+                                        value = variant.stock,
+                                        onValueChange = {
+                                            val newList = variantList.toMutableList()
+                                            newList[index] = variant.copy(stock = it)
+                                            variantList = newList
+                                        },
+                                        label = { Text("Jumlah Stok") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    OutlinedTextField(
+                                        value = variant.packMultiplier,
+                                        onValueChange = {
+                                            val digits = it.filter { c -> c.isDigit() }
+                                            val newList = variantList.toMutableList()
+                                            newList[index] = variant.copy(packMultiplier = digits)
+                                            variantList = newList
+                                        },
+                                        label = { Text("Isi / Kemasan ($baseUnit)") },
+                                        placeholder = { Text("1") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                }
+                                val vQty = variant.stock.toIntOrNull() ?: 0
+                                val vMult = (variant.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                                if (vMult > 1) {
+                                    Text(
+                                        text = "Konversi satuan terkecil: $vQty x $vMult = ${vQty * vMult} $baseUnit",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -623,16 +725,21 @@ fun ProductFormBottomSheet(
                             return@Button
                         }
 
-                        // Rakit string: Nama:HargaJual:HargaBeli:Stok
+                        // Rakit string: Nama:HargaJual:HargaBeli:Stok:IsiPerKemasan
                         val variationParts = variantList.map {
                             val p = it.price.toLongOrNull() ?: 0L
                             val c = it.costPrice.toLongOrNull() ?: 0L
                             val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
-                            "${it.name.trim()}:$p:$c:$s"
+                            val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                            "${it.name.trim()}:$p:$c:$s:$m"
                         }
                         finalVariations = variationParts.joinToString(",")
 
-                        finalStock = if (isService) 0 else variantList.sumOf { it.stock.toIntOrNull() ?: 0 }
+                        finalStock = if (isService) 0 else variantList.sumOf {
+                            val s = it.stock.toIntOrNull() ?: 0
+                            val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                            s * m
+                        }
                         finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
                         finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
 
@@ -648,7 +755,7 @@ fun ProductFormBottomSheet(
                         return@Button
                     }
 
-                    val combinedCode = packSkuAndBarcode(productSku, barcode)
+                    val combinedCode = packSkuAndBarcode(productSku, barcode, baseUnit)
                     onSave(
                         name.trim(), finalPrice, finalStock, category.trim().ifBlank { "Umum" }, finalCost,
                         combinedCode, finalVariations, commission.toLongOrNull() ?: 0L, expiry,
@@ -688,12 +795,14 @@ private fun parseVariationString(variations: String, mainStock: Int): List<Varia
                 if (index == 0) mainStock else 0
             }
 
+            val multStr = pieces.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() } ?: "1"
             list.add(
                 VariantInput(
                     name = pieces[0].trim(),
                     price = pieces[1].trim(),
                     costPrice = pieces.getOrNull(2)?.trim() ?: "0",
-                    stock = finalStock.toString()
+                    stock = finalStock.toString(),
+                    packMultiplier = multStr
                 )
             )
         }

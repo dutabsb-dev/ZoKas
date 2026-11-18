@@ -6,6 +6,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.BorderStroke
@@ -554,6 +557,16 @@ fun LocalWirelessCfdDialog(
     var showLocalScreenPreview by remember { mutableStateOf(false) }
     var showStopAuthDialog by remember { mutableStateOf(false) }
 
+    val qrConnectLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null && result.contents.startsWith("http")) {
+            LocalCfdServerManager.stopServer()
+            LocalCfdServerManager.lockAsKioskReceiver(context, result.contents)
+            onDismiss()
+        } else if (result.contents != null) {
+            Toast.makeText(context, "QR Code bukan alamat Layar Pelanggan ZoKas.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     LaunchedEffect(Unit) {
         if (!LocalCfdServerManager.isServerRunning) {
             LocalCfdServerManager.startServer()
@@ -746,6 +759,30 @@ fun LocalWirelessCfdDialog(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Keluarkan & Hentikan Layar CFD (PIN Owner)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        val options = ScanOptions().apply {
+                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            setPrompt("Pindai QR Layar Pelanggan dari Kasir Utama")
+                            setCameraId(0)
+                            setBeepEnabled(false)
+                            setOrientationLocked(true)
+                        }
+                        qrConnectLauncher.launch(options)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Pindai / Scan QR Code (Jadikan Layar CFD)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

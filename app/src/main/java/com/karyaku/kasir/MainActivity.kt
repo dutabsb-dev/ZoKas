@@ -912,6 +912,16 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var isBatchDeleteMode by remember { mutableStateOf(false) }
     val selectedBatchIds = remember { mutableStateListOf<Long>() }
     var showBatchDeleteAuth by remember { mutableStateOf(false) }
+    var showStockAuditDialog by remember { mutableStateOf(false) }
+
+    if (showStockAuditDialog) {
+        StockAuditDialog(
+            products = allProducts.filter { it.branchId == currentBranchId },
+            viewModel = viewModel,
+            currentUser = currentUser,
+            onDismiss = { showStockAuditDialog = false }
+        )
+    }
 
     if (showBatchDeleteAuth && selectedBatchIds.isNotEmpty()) {
         OwnerSecurityAuthDialog(
@@ -1012,6 +1022,25 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     singleLine = true
                 )
                 if (filteredProducts.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = { showStockAuditDialog = true },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 14.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FactCheck,
+                            contentDescription = "Audit Stok",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Audit",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     OutlinedButton(
                         onClick = {
                             isBatchDeleteMode = !isBatchDeleteMode

@@ -481,17 +481,7 @@ fun SettingsScreen(
             )
         }
 
-        if (currentUser.role == "OWNER") {
-            item {
-                SettingsBranchManagementCard(
-                    currentBranch = currentBranch,
-                    totalBranches = allBranches.size,
-                    onManageClick = { showBranchManagementDialog = true },
-                    onTransferClick = { showStockTransferDialog = true },
-                    canTransfer = allBranches.size > 1
-                )
-            }
-        }
+
 
         item {
             SettingsModuleCard(
@@ -539,6 +529,19 @@ fun SettingsScreen(
                         activeProactiveGuide = ProactiveGuideManager.KEY_CRM_MODULE
                     }
                 },
+                isOwner = currentUser.role == "OWNER",
+                currentBranchName = currentBranch?.name ?: "Cabang Utama",
+                totalBranches = allBranches.size,
+                onManageBranchesClick = { showBranchManagementDialog = true },
+                onTransferStockClick = { showStockTransferDialog = true },
+                hhStart = hhStart,
+                onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
+                hhEnd = hhEnd,
+                onHhEndChange = { hhEnd = it; settingsManager.happyHourEnd = it },
+                hhDiscount = hhDiscount,
+                onHhDiscountChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 },
+                maxDiscountCap = maxDiscountCap,
+                onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
                 language = language
             )
         }
@@ -677,15 +680,7 @@ fun SettingsScreen(
             )
         }
 
-        item {
-            SettingsDiscountCard(
-                hhStart = hhStart, onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
-                hhEnd = hhEnd, onHhEndChange = { hhEnd = it; settingsManager.happyHourEnd = it },
-                hhDiscount = hhDiscount, onHhDiscountChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 },
-                maxDiscountCap = maxDiscountCap, onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
-                language = language
-            )
-        }
+
 
         item {
             SettingsBackupCard(
@@ -872,19 +867,23 @@ private fun SettingsAuditLogCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Log Aktivitas (Audit)",
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    SettingsSectionLeadingIcon(Icons.Default.HistoryEdu, MaterialTheme.colorScheme.tertiary)
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Log Aktivitas (Audit)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        if (cappedLogs.isEmpty()) "Belum ada aktivitas."
-                        else "${cappedLogs.size} aktivitas tercatat (Maks. 1.000 log)",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        Text(
+                            if (cappedLogs.isEmpty()) "Belum ada aktivitas."
+                            else "${cappedLogs.size} aktivitas tercatat (Maks. 1.000 log)",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,

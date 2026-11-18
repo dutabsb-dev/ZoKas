@@ -63,6 +63,7 @@ import java.util.Locale
 //     Mode Gelap maupun Mode Terang.
 // ====================================================================
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     transactions: List<TransactionEntity>,
@@ -96,6 +97,8 @@ fun HistoryScreen(
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var dateFilter by remember { mutableStateOf("TODAY") }
+    var customPickedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showCustomDatePicker by remember { mutableStateOf(false) }
     var showFinanceReport by remember { mutableStateOf(false) }
     var showResetOmzetAuth by remember { mutableStateOf(false) }
 
@@ -150,45 +153,39 @@ fun HistoryScreen(
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
+    val startOfWeek = Calendar.getInstance().apply {
+        firstDayOfWeek = Calendar.MONDAY
+        set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        if (timeInMillis > System.currentTimeMillis()) {
+            add(Calendar.DAY_OF_YEAR, -7)
+        }
+    }.timeInMillis
+
     val startOfMonth = Calendar.getInstance().apply {
         set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
-    val filteredTransactions = transactions.filter { tx ->
-        val afterReset = tx.timestamp >= revenueResetTimestamp
-        val inDateRange = when (dateFilter) {
-            "TODAY" -> tx.timestamp >= startOfToday
-            "THIS_MONTH" -> tx.timestamp >= startOfMonth
-            "7_DAYS" -> tx.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
-            "30_DAYS" -> tx.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
+    val customDayStart = Calendar.getInstance().apply {
+        timeInMillis = customPickedDateMillis
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val customDayEnd = customDayStart + 86400000L - 1L
+
+    fun matchesSelectedPeriod(ts: Long): Boolean {
+        if (ts < revenueResetTimestamp) return false
+        return when (dateFilter) {
+            "TODAY" -> ts >= startOfToday
+            "THIS_WEEK" -> ts >= startOfWeek
+            "THIS_MONTH" -> ts >= startOfMonth
+            "CUSTOM_DATE" -> ts in customDayStart..customDayEnd
             else -> true
         }
-        afterReset && inDateRange
     }
 
-    val filteredCashFlows = cashFlows.filter { cf ->
-        val afterReset = cf.timestamp >= revenueResetTimestamp
-        val inDateRange = when (dateFilter) {
-            "TODAY" -> cf.timestamp >= startOfToday
-            "THIS_MONTH" -> cf.timestamp >= startOfMonth
-            "7_DAYS" -> cf.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
-            "30_DAYS" -> cf.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
-            else -> true
-        }
-        afterReset && inDateRange
-    }
-
-    val filteredExpenses = expenses.filter { exp ->
-        val afterReset = exp.timestamp >= revenueResetTimestamp
-        val inDateRange = when (dateFilter) {
-            "TODAY" -> exp.timestamp >= startOfToday
-            "THIS_MONTH" -> exp.timestamp >= startOfMonth
-            "7_DAYS" -> exp.timestamp >= (startOfToday - (7 * 24 * 60 * 60 * 1000L))
-            "30_DAYS" -> exp.timestamp >= (startOfToday - (30 * 24 * 60 * 60 * 1000L))
-            else -> true
-        }
-        afterReset && inDateRange
-    }
+    val filteredTransactions = transactions.filter { matchesSelectedPeriod(it.timestamp) }
+    val filteredCashFlows = cashFlows.filter { matchesSelectedPeriod(it.timestamp) }
+    val filteredExpenses = expenses.filter { matchesSelectedPeriod(it.timestamp) }
 
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
     val isTaxInclusive = remember { taxPrefs.getBoolean("is_tax_inclusive", false) }
@@ -219,6 +216,29 @@ fun HistoryScreen(
     val chartBarColor = MaterialTheme.colorScheme.primary
     val chartAxisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val chartTextColorArgb = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+
+    if (showCustomDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = customPickedDateMillis)
+        DatePickerDialog(
+            onDismissRequest = { showCustomDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    customPickedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+                    dateFilter = "CUSTOM_DATE"
+                    showCustomDatePicker = false
+                }) {
+                    Text("Pilih", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomDatePicker = false }) {
+                    Text("Batal")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     if (showResetOmzetAuth) {
         OwnerSecurityAuthDialog(
@@ -398,22 +418,36 @@ fun HistoryScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+            val customDateLabel = remember(customPickedDateMillis, dateFilter) {
+                if (dateFilter == "CUSTOM_DATE") {
+                    SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(customPickedDateMillis))
+                } else {
+                    "Pilih Tanggal"
+                }
+            }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val filters = listOf(
-                    "TODAY" to LanguageManager.tr("today", lang),
-                    "THIS_MONTH" to LanguageManager.tr("this_month", lang),
-                    "7_DAYS" to LanguageManager.tr("days_7", lang),
-                    "30_DAYS" to LanguageManager.tr("days_30", lang),
-                    "ALL" to LanguageManager.tr("all", lang)
+                    "TODAY" to "Hari Ini",
+                    "THIS_WEEK" to "Minggu Ini",
+                    "THIS_MONTH" to "Bulan Ini",
+                    "CUSTOM_DATE" to customDateLabel
                 )
                 items(filters.size) { index ->
                     val (key, label) = filters[index]
                     FilterChip(
                         selected = dateFilter == key,
-                        onClick = { dateFilter = key },
+                        onClick = {
+                            if (key == "CUSTOM_DATE") {
+                                showCustomDatePicker = true
+                            } else {
+                                dateFilter = key
+                            }
+                        },
                         label = {
                             Text(
                                 label,
+                                fontSize = 12.sp,
+                                fontWeight = if (dateFilter == key) FontWeight.Bold else FontWeight.Normal,
                                 color = if (dateFilter == key)
                                     MaterialTheme.colorScheme.onPrimary
                                 else
@@ -596,7 +630,8 @@ fun HistoryScreen(
                     ) {
                         Button(
                             onClick = { showFinanceReport = true },
-                            modifier = Modifier.weight(1.4f).height(44.dp),
+                            modifier = Modifier.weight(1.35f).defaultMinSize(minHeight = 44.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -604,27 +639,30 @@ fun HistoryScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                LanguageManager.tr("view_detail_report", lang),
+                                text = "Detail Laporan",
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                         if (currentUser.role == "OWNER") {
                             OutlinedButton(
                                 onClick = { showResetOmzetAuth = true },
-                                modifier = Modifier.weight(1f).height(44.dp),
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                                contentPadding = PaddingValues(horizontal = 6.dp)
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                             ) {
                                 Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = "Reset Rp 0",
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -823,37 +861,7 @@ fun HistoryScreen(
             }
         }
 
-        if (lowStockProducts.isNotEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                LanguageManager.tr("low_stock_warning", lang),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Text(
-                                "${LanguageManager.tr("low_stock_desc", lang)} (${lowStockProducts.size})",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        // Peringatan stok menipis kini ditampilkan langsung pada kartu produk berwarna merah di Kasir & Produk
 
         item {
             Text(

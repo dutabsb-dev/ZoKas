@@ -43,22 +43,10 @@ import coil.compose.AsyncImage
 import com.karyaku.kasir.data.local.ProductEntity
 import java.io.File
 
-// ====================================================================
-// UPDATE PosProductSection.kt:
-//   1. RUNNING TEXT (MARQUEE) DETAIL STOK VARIAN:
-//      - Menggunakan Modifier.basicMarquee() pada teks detail stok di
-//        ProductGridCard dan ProductCompactListRow agar seluruh rincian
-//        stok varian yang panjang berjalan otomatis (running text) dan
-//        terbaca utuh tanpa terpotong titik-titik (...).
-//   2. FIX BUG LAYOUT MODE LIST MELEBAR VERTIKAL:
-//      - Mengunci tinggi maksimum dan struktur Row pada ProductCompactListRow
-//        serta mengganti tumpukan chip varian dengan baris running text yang
-//        stabil sehingga tidak pernah melebar memenuhi layar saat di-scroll.
-// ====================================================================
-
 private data class ParsedVariantStock(
     val name: String,
-    val stock: Int
+    val stock: Int,
+    val multiplier: Int = 1
 )
 
 private fun extractVariantStocks(product: ProductEntity): List<ParsedVariantStock> {
@@ -76,8 +64,9 @@ private fun extractVariantStocks(product: ProductEntity): List<ParsedVariantStoc
             } else {
                 if (index == 0) product.stock else 0
             }
+            val mult = (pieces.getOrNull(4)?.trim()?.toIntOrNull() ?: 1).coerceAtLeast(1)
             if (vName.isNotEmpty()) {
-                result.add(ParsedVariantStock(vName, vStock))
+                result.add(ParsedVariantStock(vName, vStock, mult))
             }
         }
     }
@@ -105,12 +94,50 @@ fun PosProductSection(
         mutableStateOf(layoutPrefs.getBoolean("compact_product_list", false))
     }
 
+    // State Sortir (Stok, Expired, Harga) & Filter Satuan
+    var sortOption by remember { mutableStateOf("DEFAULT") }
+    var showSortMenu by remember { mutableStateOf(false) }
+    var selectedUnitFilter by remember { mutableStateOf("SEMUA") }
+    var showUnitMenu by remember { mutableStateOf(false) }
+
+    val availableUnitsInProducts = remember(products) {
+        val units = products.map { extractProductBaseUnit(it) }.distinct().sorted()
+        listOf("SEMUA") + units
+    }
+
+    val sortedAndFilteredProducts = remember(products, sortOption, selectedUnitFilter) {
+        val unitFiltered = if (selectedUnitFilter == "SEMUA") {
+            products
+        } else {
+            products.filter { extractProductBaseUnit(it).equals(selectedUnitFilter, ignoreCase = true) }
+        }
+        when (sortOption) {
+            "STOCK_ASC" -> unitFiltered.sortedWith(compareBy<ProductEntity> { it.isService }.thenBy { it.stock })
+            "STOCK_DESC" -> unitFiltered.sortedWith(compareBy<ProductEntity> { it.isService }.thenByDescending { it.stock })
+            "EXPIRY_ASC" -> unitFiltered.sortedWith(
+                compareBy<ProductEntity> { it.expiryDate <= 0L }.thenBy { it.expiryDate }
+            )
+            "PRICE_ASC" -> unitFiltered.sortedBy { it.price }
+            "PRICE_DESC" -> unitFiltered.sortedByDescending { it.price }
+            else -> unitFiltered
+        }
+    }
+
+    val sortLabel = when (sortOption) {
+        "STOCK_ASC" -> "Stok Sedikit"
+        "STOCK_DESC" -> "Stok Banyak"
+        "EXPIRY_ASC" -> "Expired Terdekat"
+        "PRICE_ASC" -> "Harga Termurah"
+        "PRICE_DESC" -> "Harga Termahal"
+        else -> "Urutkan"
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // Baris Kategori + Tombol Toggle Grid / List Padat
+        // Baris 1: Kategori + Tombol Toggle Grid / List
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 6.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             LazyRow(
@@ -148,7 +175,6 @@ fun PosProductSection(
                 }
             }
 
-            // Tombol Toggle Mode Grid vs Mode List Padat
             Surface(
                 modifier = Modifier
                     .height(34.dp)
@@ -183,8 +209,124 @@ fun PosProductSection(
             }
         }
 
-        // Empty State Ilustratif
-        if (products.isEmpty()) {
+        // Baris 2: Sortir (Stok, Expired, Harga) & Filter Satuan
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { showSortMenu = true },
+                    modifier = Modifier.fillMaxWidth().height(34.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (sortOption != "DEFAULT") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (sortOption != "DEFAULT") MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+                        contentColor = if (sortOption != "DEFAULT") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Icon(Icons.Default.Sort, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = sortLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false }
+                ) {
+                    val sortItems = listOf(
+                        "DEFAULT" to "Urutan Default",
+                        "STOCK_ASC" to "Stok Paling Sedikit (Menipis)",
+                        "STOCK_DESC" to "Stok Paling Banyak",
+                        "EXPIRY_ASC" to "Tanggal Expired Terdekat",
+                        "PRICE_ASC" to "Harga Termurah",
+                        "PRICE_DESC" to "Harga Termahal"
+                    )
+                    sortItems.forEach { (key, label) ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    label,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (sortOption == key) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (sortOption == key) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                sortOption = key
+                                showSortMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { showUnitMenu = true },
+                    modifier = Modifier.fillMaxWidth().height(34.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (selectedUnitFilter != "SEMUA") MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (selectedUnitFilter != "SEMUA") MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f) else Color.Transparent,
+                        contentColor = if (selectedUnitFilter != "SEMUA") MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Icon(Icons.Default.Straighten, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (selectedUnitFilter == "SEMUA") "Semua Satuan" else "Satuan: $selectedUnitFilter",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+                DropdownMenu(
+                    expanded = showUnitMenu,
+                    onDismissRequest = { showUnitMenu = false },
+                    modifier = Modifier.heightIn(max = 260.dp)
+                ) {
+                    availableUnitsInProducts.forEach { unitKey ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (unitKey == "SEMUA") "Semua Satuan" else unitKey,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selectedUnitFilter == unitKey) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            onClick = {
+                                selectedUnitFilter = unitKey
+                                showUnitMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (sortedAndFilteredProducts.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -213,7 +355,7 @@ fun PosProductSection(
                         text = if (searchQuery.isNotBlank())
                             "Produk '$searchQuery' tidak ditemukan"
                         else
-                            "Belum ada produk di kategori ini",
+                            "Belum ada produk sesuai filter ini",
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -221,39 +363,37 @@ fun PosProductSection(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (searchQuery.isNotBlank())
-                            "Coba kata kunci lain atau tekan Reset pencarian."
-                        else
-                            "Tambahkan produk melalui tab Produk atau pilih kategori 'Semua'.",
+                        text = "Coba reset pencarian, kategori, atau filter satuan.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
-                    if (searchQuery.isNotBlank() || selectedCategory != "Semua") {
+                    if (searchQuery.isNotBlank() || selectedCategory != "Semua" || selectedUnitFilter != "SEMUA") {
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(
                             onClick = {
                                 if (searchQuery.isNotBlank()) onSearchChange("")
                                 if (selectedCategory != "Semua") onCategorySelect("Semua")
+                                selectedUnitFilter = "SEMUA"
+                                sortOption = "DEFAULT"
                             },
                             shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Tampilkan Semua Produk", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Reset Semua Filter", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         } else if (isCompactListMode) {
-            // MODE LIST PADAT (Anti-Stretch & dilengkapi Running Text Stok Varian)
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 84.dp, start = 12.dp, end = 12.dp, top = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ) {
-                items(items = products, key = { it.id }) { product ->
+                items(items = sortedAndFilteredProducts, key = { it.id }) { product ->
                     ProductCompactListRow(
                         product = product,
                         onClick = { onProductClick(product) },
@@ -262,7 +402,6 @@ fun PosProductSection(
                 }
             }
         } else {
-            // MODE GRID RINGKAS & CERAH (dengan Running Text Stok Varian)
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 115.dp),
                 contentPadding = PaddingValues(bottom = 84.dp, start = 12.dp, end = 12.dp, top = 4.dp),
@@ -270,7 +409,7 @@ fun PosProductSection(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ) {
-                items(items = products, key = { it.id }) { product ->
+                items(items = sortedAndFilteredProducts, key = { it.id }) { product ->
                     ProductGridCard(
                         product = product,
                         onClick = { onProductClick(product) },
@@ -300,10 +439,12 @@ private fun ProductGridCard(
     val isExpiringSoon = product.expiryDate > 0 &&
         (product.expiryDate - System.currentTimeMillis()) < (7L * 24 * 60 * 60 * 1000)
     val isOutOfStock = !product.isService && product.stock <= 0
+    val isLowStock = !product.isService && product.stock in 1..5
     val variantStocks = remember(product.variations, product.stock) {
         extractVariantStocks(product)
     }
     val productSku = remember(product.barcode) { extractProductSku(product.barcode) }
+    val baseUnit = remember(product.barcode) { extractProductBaseUnit(product) }
 
     val imageFile = remember(product.imagePath) {
         if (product.imagePath.isNotEmpty()) File(product.imagePath) else null
@@ -326,9 +467,9 @@ private fun ProductGridCard(
                 onLongClick = onLongClick
             ),
         border = BorderStroke(
-            width = 1.dp,
+            width = if (isLowStock || isOutOfStock) 1.5.dp else 1.dp,
             color = when {
-                isOutOfStock -> errorColor.copy(alpha = 0.6f)
+                isOutOfStock || isLowStock -> errorColor
                 isExpiringSoon -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)
                 else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             }
@@ -346,11 +487,15 @@ private fun ProductGridCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(0.62f)
+                        .fillMaxHeight(0.65f)
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(
+                                colors = if (isLowStock || isOutOfStock) listOf(
+                                    Color.Transparent,
+                                    Color(0xFF991B1B).copy(alpha = 0.78f),
+                                    Color(0xFF7F1D1D).copy(alpha = 0.94f)
+                                ) else listOf(
                                     Color.Transparent,
                                     Color.Black.copy(alpha = 0.55f),
                                     Color.Black.copy(alpha = 0.85f)
@@ -365,7 +510,8 @@ private fun ProductGridCard(
                         .background(
                             Brush.linearGradient(
                                 colors = when {
-                                    isOutOfStock -> listOf(Color(0xFF475569), Color(0xFF1E293B))
+                                    isOutOfStock -> listOf(Color(0xFF7F1D1D), Color(0xFF450A0A))
+                                    isLowStock -> listOf(Color(0xFFDC2626), Color(0xFF991B1B))
                                     isExpiringSoon -> listOf(Color(0xFFD97706), Color(0xFF92400E))
                                     else -> listOf(Color(0xFF10B981), Color(0xFF047857))
                                 }
@@ -387,7 +533,8 @@ private fun ProductGridCard(
                 ) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.42f),
-                        shape = RoundedCornerShape(6.dp)
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Text(
                             text = if (productSku.isNotEmpty()) "$productSku • ${product.category}" else product.category,
@@ -399,20 +546,8 @@ private fun ProductGridCard(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
-                    if (product.promoType != "NONE") {
-                        Surface(
-                            color = Color(0xFFF59E0B),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = if (product.promoType == "BOGO") "BOGO" else "-${product.promoValue}%",
-                                fontSize = 9.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    } else if (isOutOfStock) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    if (isOutOfStock) {
                         Surface(
                             color = Color(0xFFEF4444),
                             shape = RoundedCornerShape(6.dp)
@@ -423,6 +558,32 @@ private fun ProductGridCard(
                                 color = Color.White,
                                 fontWeight = FontWeight.ExtraBold,
                                 modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else if (isLowStock) {
+                        Surface(
+                            color = Color(0xFFFEE2E2),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "TIPIS",
+                                fontSize = 8.sp,
+                                color = Color(0xFF991B1B),
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else if (product.promoType != "NONE") {
+                        Surface(
+                            color = Color(0xFFF59E0B),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = if (product.promoType == "BOGO") "BOGO" else "-${product.promoValue}%",
+                                fontSize = 9.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -458,14 +619,17 @@ private fun ProductGridCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    // RUNNING TEXT (MARQUEE) UNTUK RINCIAN STOK VARIAN & TOTAL
-                    val stockRunningText = remember(product.isService, product.stock, variantStocks) {
+                    val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit) {
                         if (product.isService) {
                             "Jasa / Layanan"
                         } else if (variantStocks.isNotEmpty()) {
-                            "Stok Total: ${product.stock}  •  " + variantStocks.joinToString("  •  ") { "${it.name}: ${it.stock}" }
+                            val details = variantStocks.joinToString("  •  ") {
+                                if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
+                                else "${it.name}: ${it.stock} $baseUnit"
+                            }
+                            "Total: ${product.stock} $baseUnit  •  $details"
                         } else {
-                            "Stok: ${product.stock}"
+                            "Stok: ${product.stock} $baseUnit"
                         }
                     }
                     val hasEmptyVariant = variantStocks.any { it.stock <= 0 }
@@ -477,7 +641,7 @@ private fun ProductGridCard(
                         Icon(
                             imageVector = if (product.isService) Icons.Default.Build else Icons.Default.Inventory,
                             contentDescription = null,
-                            tint = if (isOutOfStock || hasEmptyVariant) Color(0xFFFCA5A5) else Color.White.copy(alpha = 0.88f),
+                            tint = if (isOutOfStock || isLowStock || hasEmptyVariant) Color(0xFFFECACA) else Color.White.copy(alpha = 0.88f),
                             modifier = Modifier.size(10.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -485,7 +649,7 @@ private fun ProductGridCard(
                             text = stockRunningText,
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isOutOfStock || hasEmptyVariant) Color(0xFFFCA5A5) else Color.White.copy(alpha = 0.92f),
+                            color = if (isOutOfStock || isLowStock || hasEmptyVariant) Color(0xFFFECACA) else Color.White.copy(alpha = 0.92f),
                             maxLines = 1,
                             modifier = Modifier
                                 .weight(1f)
@@ -506,25 +670,33 @@ private fun ProductCompactListRow(
     onLongClick: () -> Unit
 ) {
     val isOutOfStock = !product.isService && product.stock <= 0
+    val isLowStock = !product.isService && product.stock in 1..5
     val variantStocks = remember(product.variations, product.stock) {
         extractVariantStocks(product)
     }
     val productSku = remember(product.barcode) { extractProductSku(product.barcode) }
+    val baseUnit = remember(product.barcode) { extractProductBaseUnit(product) }
     val imageFile = remember(product.imagePath) {
         if (product.imagePath.isNotEmpty()) File(product.imagePath) else null
     }
     val hasValidImage = imageFile != null && imageFile.exists()
     val hasEmptyVariant = variantStocks.any { it.stock <= 0 }
 
-    val stockRunningText = remember(product.isService, product.stock, variantStocks) {
+    val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit) {
         if (product.isService) {
             "Layanan Jasa (Tanpa Stok)"
         } else if (variantStocks.isNotEmpty()) {
-            "Total: ${product.stock}  •  " + variantStocks.joinToString("  •  ") { "${it.name}: ${it.stock}" }
+            val details = variantStocks.joinToString("  •  ") {
+                if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
+                else "${it.name}: ${it.stock} $baseUnit"
+            }
+            "Total: ${product.stock} $baseUnit  •  $details"
         } else if (isOutOfStock) {
-            "Stok Habis (0)"
+            "Stok Habis (0 $baseUnit)"
+        } else if (isLowStock) {
+            "STOK MENIPIS: ${product.stock} $baseUnit"
         } else {
-            "Stok Tersedia: ${product.stock}"
+            "Stok Tersedia: ${product.stock} $baseUnit"
         }
     }
 
@@ -532,19 +704,24 @@ private fun ProductCompactListRow(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .heightIn(min = 64.dp, max = 78.dp) // Kunci tinggi maksimum agar tidak pernah stretch satu layar
+            .heightIn(min = 64.dp, max = 78.dp)
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+            containerColor = if (isLowStock || isOutOfStock)
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
         ),
         border = BorderStroke(
-            1.dp,
-            if (isOutOfStock) MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+            width = if (isLowStock || isOutOfStock) 1.5.dp else 1.dp,
+            color = if (isLowStock || isOutOfStock)
+                MaterialTheme.colorScheme.error
+            else
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -558,7 +735,12 @@ private fun ProductCompactListRow(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    .background(
+                        if (isLowStock || isOutOfStock)
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                        else
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 if (hasValidImage) {
@@ -573,7 +755,7 @@ private fun ProductCompactListRow(
                         text = if (productSku.isNotEmpty()) productSku.take(4) else product.name.take(2).uppercase(),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = if (isLowStock || isOutOfStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         maxLines = 1
                     )
                 }
@@ -609,7 +791,7 @@ private fun ProductCompactListRow(
                         text = product.name,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = if (isLowStock || isOutOfStock) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -632,12 +814,11 @@ private fun ProductCompactListRow(
 
                 Spacer(modifier = Modifier.height(3.dp))
 
-                // Running Text (Marquee) untuk detail stok di Mode List
                 Text(
                     text = stockRunningText,
                     fontSize = 11.sp,
-                    fontWeight = if (isOutOfStock || variantStocks.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isOutOfStock || hasEmptyVariant)
+                    fontWeight = if (isOutOfStock || isLowStock || variantStocks.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isOutOfStock || isLowStock || hasEmptyVariant)
                         MaterialTheme.colorScheme.error
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant,
@@ -658,7 +839,7 @@ private fun ProductCompactListRow(
                     text = formatRupiah(product.price),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = if (isLowStock || isOutOfStock) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary,
                     maxLines = 1
                 )
                 if (product.wholesaleMinQty > 0 && product.wholesalePrice > 0) {

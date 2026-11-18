@@ -10,30 +10,49 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ================================================================
-// HELPER KODE UNIK (SKU) & BARCODE (KOMPATIBEL TANPA MIGRASI DB)
-// Format penyimpanan di kolom barcode:
-// - Jika ada SKU & Barcode: "SKU||BARCODE"
-// - Jika hanya SKU: "SKU||"
-// - Jika hanya Barcode (atau format lama): "BARCODE"
-// ================================================================
+val AVAILABLE_STOCK_UNITS = listOf(
+    "pcs", "dus", "zak", "bal", "pack", "box", "lusin", "kodi",
+    "kg", "g", "l", "ml", "meter", "roll", "botol", "kaleng"
+)
+
+fun extractProductBaseUnit(product: ProductEntity): String {
+    val raw = product.barcode
+    if (raw.contains("@@UNIT:")) {
+        val u = raw.substringAfter("@@UNIT:").trim()
+        if (u.isNotEmpty()) return u
+    }
+    return "pcs"
+}
+
+private fun stripUnitTag(rawBarcodeField: String): String {
+    return if (rawBarcodeField.contains("@@UNIT:")) {
+        rawBarcodeField.substringBefore("@@UNIT:").trim()
+    } else {
+        rawBarcodeField.trim()
+    }
+}
+
 fun extractProductSku(rawBarcodeField: String): String {
-    if (!rawBarcodeField.contains("||")) return ""
-    return rawBarcodeField.substringBefore("||").trim()
+    val clean = stripUnitTag(rawBarcodeField)
+    if (!clean.contains("||")) return ""
+    return clean.substringBefore("||").trim()
 }
 
 fun extractActualBarcode(rawBarcodeField: String): String {
-    if (!rawBarcodeField.contains("||")) return rawBarcodeField.trim()
-    return rawBarcodeField.substringAfter("||").trim()
+    val clean = stripUnitTag(rawBarcodeField)
+    if (!clean.contains("||")) return clean
+    return clean.substringAfter("||").trim()
 }
 
-fun packSkuAndBarcode(sku: String, barcode: String): String {
-    val cleanSku = sku.trim().replace("|", "")
-    val cleanBarcode = barcode.trim().replace("|", "")
-    return if (cleanSku.isEmpty()) {
-        cleanBarcode
+fun packSkuAndBarcode(sku: String, barcode: String, baseUnit: String = "pcs"): String {
+    val cleanSku = sku.trim().replace("|", "").replace("@", "")
+    val cleanBarcode = barcode.trim().replace("|", "").replace("@", "")
+    val cleanUnit = baseUnit.trim().ifBlank { "pcs" }
+    val core = if (cleanSku.isEmpty()) cleanBarcode else "$cleanSku||$cleanBarcode"
+    return if (cleanUnit.equals("pcs", ignoreCase = true)) {
+        core
     } else {
-        "$cleanSku||$cleanBarcode"
+        "$core@@UNIT:$cleanUnit"
     }
 }
 
@@ -48,6 +67,28 @@ fun matchesProductSearch(product: ProductEntity, query: String): Boolean {
         product.category.contains(q, ignoreCase = true)
 }
 
+fun resolveVariantDisplayNameForReceipt(
+    product: ProductEntity?,
+    itemProductName: String,
+    unitPrice: Long
+): String {
+    if (product == null || product.variations.isBlank()) return itemProductName
+    if (itemProductName.contains("(") && itemProductName.endsWith(")")) return itemProductName
+
+    val parts = product.variations.replace("|", ",").split(",")
+    for (part in parts) {
+        val pieces = part.split(":")
+        if (pieces.size >= 2) {
+            val vName = pieces[0].trim()
+            val vPrice = pieces[1].trim().toLongOrNull() ?: 0L
+            if (vName.isNotEmpty() && vPrice == unitPrice) {
+                return "$itemProductName ($vName)"
+            }
+        }
+    }
+    return itemProductName
+}
+
 fun PosViewModel.deductVariantStock(variationsStr: String, targetVariantName: String, deductQty: Int): String {
     if (variationsStr.isBlank()) return ""
     val parts = variationsStr.split(",")
@@ -57,7 +98,13 @@ fun PosViewModel.deductVariantStock(variationsStr: String, targetVariantName: St
             val price = pieces[1].trim()
             val cost = pieces.getOrNull(2)?.trim() ?: "0"
             val currentStock = if (pieces.size >= 4) pieces[3].trim().toIntOrNull() ?: 0 else 999999
-            "${pieces[0]}:$price:$cost:${(currentStock - deductQty).coerceAtLeast(0)}"
+            val mult = pieces.getOrNull(4)?.trim()
+            val newStock = (currentStock - deductQty).coerceAtLeast(0)
+            if (!mult.isNullOrEmpty()) {
+                "${pieces[0]}:$price:$cost:$newStock:$mult"
+            } else {
+                "${pieces[0]}:$price:$cost:$newStock"
+            }
         } else {
             part
         }
@@ -213,7 +260,7 @@ fun PosViewModel.processStockOpname(opnameItems: List<StockOpnameItemEntity>, us
                     AuditLogEntity(
                         userId = user.id,
                         userName = user.name,
-                        action = "STOCK OPNAME: ${opnameItems.size} item diaudit.",
+                        action = "AUDIT STOK: ${opnameItems.size} item diaudit.",
                         actionType = "INVENTORY"
                     )
                 )
@@ -239,7 +286,7 @@ fun PosViewModel.processBarcodeScan(barcode: String, onResult: (Boolean, String)
             val matches = allBranchProducts.filter { prod ->
                 val sku = extractProductSku(prod.barcode)
                 val actualBc = extractActualBarcode(prod.barcode)
-                prod.barcode.equals(cleanCode, ignoreCase = true) ||
+                stripUnitTag(prod.barcode).equals(cleanCode, ignoreCase = true) ||
                     (actualBc.isNotEmpty() && actualBc.equals(cleanCode, ignoreCase = true)) ||
                     (sku.isNotEmpty() && sku.equals(cleanCode, ignoreCase = true))
             }.ifEmpty {

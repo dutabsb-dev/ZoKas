@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.karyaku.kasir.data.local.ProductEntity
 import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.TransactionItemEntity
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +120,7 @@ private fun buildFormattedReceipt32(
     storeFooter: String,
     transaction: TransactionEntity,
     items: List<TransactionItemEntity>,
+    products: List<ProductEntity>,
     dateStr: String,
     taxPercent: Double,
     serviceChargePercent: Double,
@@ -161,7 +163,9 @@ private fun buildFormattedReceipt32(
     items.forEach { item ->
         subtotalItems += item.subtotal
         val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
-        wrapTextLines(item.productName, RECEIPT_WIDTH).forEach { nameLine ->
+        val matchedProduct = products.find { it.id == item.productId }
+        val resolvedItemName = resolveVariantDisplayNameForReceipt(matchedProduct, item.productName, unitPrice)
+        wrapTextLines(resolvedItemName, RECEIPT_WIDTH).forEach { nameLine ->
             sb.appendLine(nameLine)
         }
         if (item.notes.isNotBlank()) {
@@ -261,6 +265,7 @@ fun ReceiptDialog(
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
     val isTaxInclusive = remember { taxPrefs.getBoolean("is_tax_inclusive", false) }
 
+    val allProducts by viewModel.products.collectAsStateWithLifecycle()
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
     val itemsNullable by itemsFlow.collectAsStateWithLifecycle(
         initialValue = null as List<TransactionItemEntity>?
@@ -281,6 +286,7 @@ fun ReceiptDialog(
     val strukText = remember(
         transaction,
         items,
+        allProducts,
         storeName,
         storeAddress,
         storePhone,
@@ -294,6 +300,7 @@ fun ReceiptDialog(
             storeFooter = storeFooter,
             transaction = transaction,
             items = items,
+            products = allProducts,
             dateStr = dateFormat.format(Date(transaction.timestamp)),
             taxPercent = settingsManager.taxPercent,
             serviceChargePercent = settingsManager.serviceChargePercent,
