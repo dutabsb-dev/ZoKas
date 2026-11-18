@@ -82,6 +82,14 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+// --- TAMBAHKAN KODE INI UNTUK MENYEMBUNYIKAN STATUS BAR & NAV BAR ---
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        // Sembunyikan status bar dan navigation bar
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        // Mengatur perilaku agar status bar bisa muncul sementara jika di-swipe dari atas (opsional)
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        // -----------------------------------------------------------------
         val isTablet = resources.configuration.smallestScreenWidthDp >= 600
         if (isTablet) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED else requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
