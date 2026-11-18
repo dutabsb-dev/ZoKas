@@ -193,38 +193,25 @@ object LocalCfdServerManager {
                 if (path.startsWith("/api/cart")) {
                     lastClientPingTime = System.currentTimeMillis()
                     val jsonBytes = buildStateJson(currentState).toByteArray(Charsets.UTF_8)
-                    val headers = buildString {
-                        append("HTTP/1.1 200 OK
-")
-                        append("Content-Type: application/json; charset=utf-8
-")
-                        append("Cache-Control: no-store, no-cache, must-revalidate
-")
-                        append("Access-Control-Allow-Origin: *
-")
-                        append("Content-Length: ${jsonBytes.size}
-")
-                        append("Connection: close
-
-")
-                    }.toByteArray(Charsets.UTF_8)
+                    val headers = (
+                        "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: application/json; charset=utf-8\r\n" +
+                        "Cache-Control: no-store, no-cache, must-revalidate\r\n" +
+                        "Access-Control-Allow-Origin: *\r\n" +
+                        "Content-Length: ${jsonBytes.size}\r\n" +
+                        "Connection: close\r\n\r\n"
+                    ).toByteArray(Charsets.UTF_8)
                     out.write(headers)
                     out.write(jsonBytes)
                 } else {
                     val htmlBytes = buildCfdHtmlPage().toByteArray(Charsets.UTF_8)
-                    val headers = buildString {
-                        append("HTTP/1.1 200 OK
-")
-                        append("Content-Type: text/html; charset=utf-8
-")
-                        append("Cache-Control: no-store
-")
-                        append("Content-Length: ${htmlBytes.size}
-")
-                        append("Connection: close
-
-")
-                    }.toByteArray(Charsets.UTF_8)
+                    val headers = (
+                        "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: text/html; charset=utf-8\r\n" +
+                        "Cache-Control: no-store\r\n" +
+                        "Content-Length: ${htmlBytes.size}\r\n" +
+                        "Connection: close\r\n\r\n"
+                    ).toByteArray(Charsets.UTF_8)
                     out.write(headers)
                     out.write(htmlBytes)
                 }
