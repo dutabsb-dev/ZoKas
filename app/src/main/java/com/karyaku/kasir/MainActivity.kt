@@ -192,7 +192,8 @@ fun MainContent(
                                 LocalCfdServerManager.lockAsKioskReceiver(context, LocalCfdServerManager.P2P_NEARBY_URI)
                                 showConnectCfdDialog = false
                             },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -201,7 +202,14 @@ fun MainContent(
                         ) {
                             Icon(Icons.Default.WifiTethering, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Hubungkan Langsung (Tanpa Server / Wi-Fi Sama)", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            Text(
+                                "Hubungkan Langsung (Tanpa Server / Wi-Fi Sama)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedButton(
@@ -215,13 +223,20 @@ fun MainContent(
                                 }
                                 cfdScanLauncher.launch(options)
                             },
-                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Scan QR IP Lokal (1 Wi-Fi / Hotspot)", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            Text(
+                                "Scan QR IP Lokal (1 Wi-Fi / Hotspot)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                maxLines = 2
+                            )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedTextField(
@@ -256,7 +271,6 @@ fun MainContent(
             )
         }
 
-        // JIKA PERANGKAT INI SEDANG TERKUNCI SEBAGAI LAYAR PELANGGAN (CFD KIOSK MODE)
         if (LocalCfdServerManager.isKioskReceiverLocked) {
             FullScreenKioskCfdReceiverScreen(
                 hostUrl = LocalCfdServerManager.connectedHostUrl,
@@ -276,7 +290,7 @@ fun MainContent(
                     staffMessage = ""
                 }
             }
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                     Icon(
                         Icons.Default.CheckCircle,
@@ -340,7 +354,7 @@ fun MainContent(
                 }
             }
         } else if (currentUser == null) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 LoginScreen(viewModel = posViewModel, settingsManager = settingsManager, onLoginSuccess = { user ->
                 val cleanAndEnterApp: (String?) -> Unit = { attendanceMsg ->
                     posViewModel.cart.value.toList().forEach { posViewModel.deleteItem(it.product, it.selectedVariation) }
@@ -356,7 +370,6 @@ fun MainContent(
                     }
                 }
 
-                // FIX #2: Hanya jalankan absensi & tampilkan notifikasi absen jika Modul HR aktif (atau role STAFF)
                 if (settingsManager.enableHrModule || user.role == "STAFF") {
                     posViewModel.processLoginAttendance(user) { success, msg ->
                         if (settingsManager.enableHrModule && msg.isNotBlank()) {
@@ -576,7 +589,12 @@ fun MainNavigation(
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .statusBarsPadding()
+            ) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
@@ -608,7 +626,6 @@ fun MainNavigation(
                         )
                     }
 
-                    // Tombol Cepat Buka Panduan / Tutorial di TopBar
                     IconButton(onClick = { showTutorialDialog = true }) {
                         Icon(
                             Icons.Default.HelpOutline,
@@ -774,7 +791,11 @@ fun MainNavigation(
             }
         },
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp,
+                modifier = Modifier.navigationBarsPadding()
+            ) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Storefront, contentDescription = "Kasir") },
                     label = { Text(LanguageManager.tr("kasir", language)) },
@@ -920,7 +941,6 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
     var productToManageBom by remember { mutableStateOf<ProductEntity?>(null) }
     var showRawMaterialDialog by remember { mutableStateOf(false) }
 
-    // State Hapus Massal / Batch Produk
     val users by viewModel.users.collectAsStateWithLifecycle()
     val activity = LocalActivity.current as? FragmentActivity
     var isBatchDeleteMode by remember { mutableStateOf(false) }

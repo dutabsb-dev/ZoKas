@@ -89,7 +89,6 @@ fun SettingsScreen(
 
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
-    // STATE METODE PEMBAYARAN, QRIS, & BANK TRANSFER
     var currentPaymentMethods by remember { mutableStateOf(settingsManager.paymentMethods) }
     var qrisPayload by remember { mutableStateOf(settingsManager.qrisStaticPayload ?: "") }
     var enableQrisAutoDetect by remember { mutableStateOf(settingsManager.enableQrisAutoDetect) }
@@ -99,7 +98,6 @@ fun SettingsScreen(
     var bankAccountNumber by remember { mutableStateOf(settingsManager.bankAccountNumber ?: "") }
     var bankAccountName by remember { mutableStateOf(settingsManager.bankAccountName ?: "") }
 
-    // Pastikan VA (auto-detect transfer) selalu nonaktif
     LaunchedEffect(Unit) {
         if (settingsManager.enableTransferAutoDetect) {
             settingsManager.enableTransferAutoDetect = false
@@ -124,7 +122,6 @@ fun SettingsScreen(
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
 
-    // STATE UNTUK MODUL HR DAN CRM
     var enableHrModule by remember { mutableStateOf(settingsManager.enableHrModule) }
     var enableCrmModule by remember { mutableStateOf(settingsManager.enableCrmModule) }
 
@@ -311,7 +308,6 @@ fun SettingsScreen(
         SupplierDebtDialog(viewModel = viewModel, currentUser = currentUser, onDismiss = { showPayableDialog = false })
     }
 
-    // DIALOG METODE PEMBAYARAN TERKONSOLIDASI (SESI 2c)
     if (showPaymentMethodsDialog) {
         PaymentMethodManagementDialog(
             currentMethods = currentPaymentMethods,
@@ -333,7 +329,6 @@ fun SettingsScreen(
                 settingsManager.bankAccountNumber = bNumber
                 bankAccountName = bAccName
                 settingsManager.bankAccountName = bAccName
-                // VA tetap dinonaktifkan paksa
                 settingsManager.enableTransferAutoDetect = false
                 showPaymentMethodsDialog = false
             },
@@ -415,7 +410,12 @@ fun SettingsScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp).imePadding(),
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(16.dp)
+            .imePadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -430,7 +430,6 @@ fun SettingsScreen(
             }
         }
 
-        // SESI 5 & 6 (#3): KARTU PINTASAN BUKU PANDUAN & TUTORIAL LENGKAP
         item {
             SettingsTutorialCard(
                 onOpenTutorial = { showTutorialDialog = true },
@@ -481,8 +480,6 @@ fun SettingsScreen(
                 language = language
             )
         }
-
-
 
         item {
             SettingsModuleCard(
@@ -547,7 +544,6 @@ fun SettingsScreen(
             )
         }
 
-        // TAMPILKAN KARTU HR JIKA SAKLAR DINYALAKAN
         if (currentUser.role == "OWNER" && enableHrModule) {
             item {
                 Card(
@@ -602,7 +598,6 @@ fun SettingsScreen(
             }
         }
 
-        // SESI 3 (#4): TAMPILKAN KARTU CRM HANYA JIKA SAKLAR MODUL CRM DINYALAKAN
         if (currentUser.role == "OWNER" && enableCrmModule) {
             item {
                 SettingsCrmCard(
@@ -622,17 +617,14 @@ fun SettingsScreen(
             }
         }
 
-        // KARTU PANTAUAN HP OWNER (ZERO-SERVER VIA TELEGRAM BOT MILIK OWNER)
         item {
             SettingsOwnerMonitorCard()
         }
 
-        // KARTU SINKRONISASI ANTREAN TRANSAKSI MULTI-PERANGKAT + TUTORIAL
         item {
             SettingsMultiDeviceSyncCard(viewModel = viewModel)
         }
 
-        // KARTU METODE PEMBAYARAN TERKONSOLIDASI (QRIS & BANK TRANSFER DI DALAM DIALOG)
         item {
             SettingsPaymentMethodCard(
                 currentMethods = currentPaymentMethods,
@@ -696,8 +688,6 @@ fun SettingsScreen(
             )
         }
 
-
-
         item {
             SettingsBackupCard(
                 onBackupClick = { createBackupLauncher.launch("Zokas_Backup_${System.currentTimeMillis()}.db") },
@@ -734,9 +724,50 @@ fun SettingsScreen(
     }
 }
 
-// ====================================================================
-// FUNGSI KARTU INTERNAL DI SettingsScreen.kt (SUDAH ADAPTIF MATERIAL 3)
-// ====================================================================
+@Composable
+private fun SettingsTutorialCard(
+    onOpenTutorial: () -> Unit,
+    language: String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenTutorial),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                SettingsSectionLeadingIcon(Icons.Default.MenuBook, MaterialTheme.colorScheme.tertiary)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (language == "in") "Pusat Panduan & Tutorial" else "Guide & Tutorial Center",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (language == "in") "Panduan penggunaan kasir, printer, stok, & sinkronisasi" else "Cashier, printer, inventory, & sync walkthroughs",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
 @Composable
 private fun SettingsAuditLogCard(
@@ -749,7 +780,6 @@ private fun SettingsAuditLogCard(
     var showFullHistoryDialog by remember { mutableStateOf(false) }
     var historySearchQuery by remember { mutableStateOf("") }
 
-    // Batasi maksimal 1.000 log aktif (selebihnya dipangkas otomatis)
     val cappedLogs = remember(auditLogs) {
         auditLogs.sortedByDescending { it.timestamp }.take(1000)
     }
@@ -889,10 +919,10 @@ private fun SettingsAuditLogCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Log Aktivitas (Audit)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         Text(
                             if (cappedLogs.isEmpty()) "Belum ada aktivitas."
                             else "${cappedLogs.size} aktivitas tercatat (Maks. 1.000 log)",
@@ -1056,7 +1086,6 @@ private fun exportAuditLogsToPdf(
         canvas.drawLine(36f, y, 559f, y, linePaint)
         y += 16f
 
-        // Header Kolom
         canvas.drawText("No", 38f, y, headerPaint)
         canvas.drawText("Waktu", 65f, y, headerPaint)
         canvas.drawText("Pengguna", 175f, y, headerPaint)

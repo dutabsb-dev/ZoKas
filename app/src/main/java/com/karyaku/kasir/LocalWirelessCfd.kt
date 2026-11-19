@@ -794,7 +794,8 @@ fun LocalWirelessCfdDialog(
                         }
                         qrConnectLauncher.launch(options)
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.tertiary,
                         contentColor = MaterialTheme.colorScheme.onTertiary

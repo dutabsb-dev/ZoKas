@@ -1,11 +1,10 @@
 package com.karyaku.kasir
 
 import android.widget.Toast
-import androidx.biometric.BiometricManager
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -26,7 +25,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -63,7 +61,13 @@ fun LoginScreen(
     var isPinVisible by remember { mutableStateOf(false) }
 
     if (isInitializing) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
         return
@@ -72,13 +76,18 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .imePadding()
             .verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(24.dp).fillMaxWidth().widthIn(max = 600.dp)
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 36.dp)
+                .fillMaxWidth()
+                .widthIn(max = 600.dp)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.logo_zokas),
@@ -86,10 +95,19 @@ fun LoginScreen(
                 modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp))
             )
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             if (selectedUser == null) {
-                Text("Pilih Akun Anda", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Text("Ketuk profil untuk masuk", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "Pilih Akun Anda",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Ketuk profil untuk masuk",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(modifier = Modifier.height(32.dp))
 
                 if (users.isEmpty()) {
@@ -106,7 +124,7 @@ fun LoginScreen(
                                 user = user,
                                 onClick = {
                                     errorMessage = ""
-                                    isPinVisible = false 
+                                    isPinVisible = false
                                     if (user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
                                         viewModel.loginWithBiometric(activity, user) { success, msg ->
                                             if (success) {
@@ -126,9 +144,9 @@ fun LoginScreen(
                 }
             } else {
                 val user = selectedUser!!
-                
+
                 TextButton(
-                    onClick = { 
+                    onClick = {
                         selectedUser = null
                         pin = ""
                         errorMessage = ""
@@ -136,13 +154,20 @@ fun LoginScreen(
                     },
                     modifier = Modifier.align(Alignment.Start)
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Default.ArrowBack,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Kembali", color = MaterialTheme.colorScheme.primary)
                 }
 
                 Box(
-                    modifier = Modifier.size(80.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -153,20 +178,25 @@ fun LoginScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(user.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    user.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(user.role, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedTextField(
                     value = pin,
-                    onValueChange = { 
+                    onValueChange = {
                         if (it.length <= 6 && it.all { char -> char.isDigit() }) {
-                            pin = it 
+                            pin = it
                             errorMessage = ""
                         }
                     },
-                    label = { Text("PIN 6-Digit") },
+                    label = { Text("PIN (4-6 Digit)") },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = { isPinVisible = !isPinVisible }) {
@@ -185,16 +215,21 @@ fun LoginScreen(
                     enabled = !isLoading,
                     shape = RoundedCornerShape(12.dp)
                 )
-                
+
                 if (errorMessage.isNotEmpty()) {
-                    Text(errorMessage, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp).align(Alignment.Start))
+                    Text(
+                        errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 8.dp).align(Alignment.Start)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
                     onClick = {
-                        if (pin.length == 6) {
+                        if (pin.length in 4..6) {
                             isLoading = true
                             scope.launch {
                                 val loggedInUser = viewModel.login(pin)
@@ -203,11 +238,11 @@ fun LoginScreen(
                                     onLoginSuccess(loggedInUser)
                                 } else {
                                     errorMessage = "PIN salah untuk akun ini."
-                                    pin = "" 
+                                    pin = ""
                                 }
                             }
                         } else {
-                            errorMessage = "PIN harus 6 digit."
+                            errorMessage = "PIN harus 4 sampai 6 digit."
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -219,7 +254,11 @@ fun LoginScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
                     } else {
                         Text("MASUK", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
                     }

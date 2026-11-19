@@ -63,6 +63,8 @@ fun CfdContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -92,7 +94,6 @@ fun CfdContent(
 
             Spacer(modifier = Modifier.height(4.dp))
             if (selectedTable != "Take-Away") {
-                // ADAPTIF: tertiery menggantikan AmberAccent/AmberAccentDark
                 Surface(
                     color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(8.dp)
@@ -117,7 +118,6 @@ fun CfdContent(
                 text = formatRupiah(totalPrice),
                 style = MaterialTheme.typography.displayMedium.copy(fontSize = 48.sp),
                 fontWeight = FontWeight.Black,
-                // ADAPTIF: primary (EmeraldGreenLight di dark mode, kontras tinggi)
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center
             )
@@ -185,7 +185,7 @@ fun CfdContent(
                         contentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth(0.6f).height(44.dp)
+                    modifier = Modifier.fillMaxWidth(0.6f).defaultMinSize(minHeight = 46.dp)
                 ) {
                     Text("Tutup Layar Pelanggan", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
@@ -253,7 +253,6 @@ private fun CfdItemRow(cartItem: CartItem) {
                     Text(
                         "Varian: ${cartItem.selectedVariation}",
                         fontSize = 12.sp,
-                        // ADAPTIF: primary menggantikan EmeraldGreen
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
                     )
