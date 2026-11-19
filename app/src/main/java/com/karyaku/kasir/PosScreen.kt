@@ -114,6 +114,7 @@ fun PosScreen(
     val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
     val currentBranchId by viewModel.currentBranchId.collectAsStateWithLifecycle()
+    val currentBranch by viewModel.currentBranch.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val discount by viewModel.discount.collectAsStateWithLifecycle()
     val customers by viewModel.customers.collectAsStateWithLifecycle()
@@ -906,6 +907,9 @@ fun PosScreen(
                             )
                             val branchLabel = currentBranch?.name ?: "Cabang #${currentBranchId}"
                             MultiDeviceTransactionSyncManager.recordLocalShiftToQueue(context, accurateReportShift, branchLabel)
+                            if (MultiDeviceTransactionSyncManager.isAutoExportOnCloseShiftEnabled(context)) {
+                                MultiDeviceTransactionSyncManager.writeAutoSnapshotToCache(context)
+                            }
                             scope.launch {
                                 OwnerRemoteMonitorManager.notifyShiftClosed(
                                     context = context,

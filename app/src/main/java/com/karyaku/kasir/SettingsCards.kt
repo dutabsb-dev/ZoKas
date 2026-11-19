@@ -4,6 +4,7 @@ import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -2831,7 +2833,57 @@ fun SettingsOwnerMonitorCard() {
                         Text("Kirim peringatan jika ada Void / Refund transaksi", fontSize = 12.sp)
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val nextVal = !autoExportOnCloseShift
+                                autoExportOnCloseShift = nextVal
+                                MultiDeviceTransactionSyncManager.setAutoExportOnCloseShift(context, nextVal)
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = autoExportOnCloseShift,
+                            onCheckedChange = { checked ->
+                                autoExportOnCloseShift = checked
+                                MultiDeviceTransactionSyncManager.setAutoExportOnCloseShift(context, checked)
+                            },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                        )
+                        Text(
+                            "Siapkan paket antrean otomatis saat Tutup Kasir",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            val (ok, info) = MultiDeviceTransactionSyncManager.shareLatestSyncBundle(context)
+                            Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
+                            if (!ok) {
+                                Toast.makeText(context, info, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        enabled = !isBusy,
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Kirim Paket Terbaru ke HP Owner", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2902,6 +2954,9 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
     }
 
     var deviceLabel by remember { mutableStateOf(MultiDeviceTransactionSyncManager.getDeviceLabel(context)) }
+    var autoExportOnCloseShift by remember {
+        mutableStateOf(MultiDeviceTransactionSyncManager.isAutoExportOnCloseShiftEnabled(context))
+    }
     val registeredEmail = remember { MultiDeviceTransactionSyncManager.getRegisteredEmail(context) }
     var isBusy by remember { mutableStateOf(false) }
 
@@ -3083,7 +3138,57 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                         shape = RoundedCornerShape(12.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val nextVal = !autoExportOnCloseShift
+                                autoExportOnCloseShift = nextVal
+                                MultiDeviceTransactionSyncManager.setAutoExportOnCloseShift(context, nextVal)
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = autoExportOnCloseShift,
+                            onCheckedChange = { checked ->
+                                autoExportOnCloseShift = checked
+                                MultiDeviceTransactionSyncManager.setAutoExportOnCloseShift(context, checked)
+                            },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                        )
+                        Text(
+                            "Siapkan paket antrean otomatis saat Tutup Kasir",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            val (ok, info) = MultiDeviceTransactionSyncManager.shareLatestSyncBundle(context)
+                            Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
+                            if (!ok) {
+                                Toast.makeText(context, info, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        enabled = !isBusy,
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Kirim Paket Terbaru ke HP Owner", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),

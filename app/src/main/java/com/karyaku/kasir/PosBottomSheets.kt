@@ -828,6 +828,7 @@ fun PaymentBottomSheet(
     onDismiss: () -> Unit,
     onConfirmPayment: (Long, String) -> Unit
 ) {
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var cashInput by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("CASH") }
