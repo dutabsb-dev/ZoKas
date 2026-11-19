@@ -88,8 +88,11 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             CompositionLocalProvider(LocalActivity provides this@MainActivity, LocalActivityResultRegistryOwner provides this@MainActivity) {
+                var isImmersiveMode by rememberSaveable { mutableStateOf(false) }
+                SystemImmersiveModeEffect(immersive = isImmersiveMode)
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
@@ -650,6 +653,19 @@ fun MainNavigation(
                                     text = { Text("Panduan & Tutorial", fontWeight = FontWeight.SemiBold) },
                                     leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                                     onClick = { showTutorialDialog = true; showMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (LocalCfdServerManager.isKioskReceiverLocked) "Mode Imersif Aktif" else "Layar Penuh (Immersive)") },
+                                    leadingIcon = { Icon(Icons.Default.Fullscreen, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = {
+                                        val act = activity as? android.app.Activity
+                                        val win = act?.window
+                                        val dv = win?.decorView
+                                        val ctrl = if (win != null && dv != null) androidx.core.view.WindowCompat.getInsetsController(win, dv) else null
+                                        ctrl?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                                        ctrl?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                                        showMenu = false
+                                    }
                                 )
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 if (isKuliner) {
@@ -1456,6 +1472,31 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 onDelete = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null },
                 onDismiss = { productToDelete = null }
             )
+        }
+    }
+}
+
+
+@Composable
+fun SystemImmersiveModeEffect(immersive: Boolean) {
+    val context = LocalContext.current
+    DisposableEffect(immersive) {
+        val activity = context as? android.app.Activity
+        val window = activity?.window
+        val decorView = window?.decorView
+        val controller = if (window != null && decorView != null) {
+            WindowCompat.getInsetsController(window, decorView)
+        } else null
+
+        if (immersive) {
+            controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 }
