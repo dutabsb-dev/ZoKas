@@ -2,6 +2,7 @@ package com.karyaku.kasir
 
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.view.Display
@@ -65,33 +66,46 @@ import kotlinx.coroutines.delay
 import java.io.File
 
 // ====================================================================
-// UPDATE MainActivity-v3.kt:
-//   1. FIX BUG TOMBOL BACK ANDROID (Double Back to Exit & Back ke Kasir):
-//      - Jika user sedang berada di tab selain Kasir (Produk, Laporan,
-//        Pengaturan, atau Dapur), menekan tombol Back akan mengembalikan
-//        ke menu utama (Tab 0 - Kasir).
-//      - Jika sudah di menu utama (Kasir), menekan tombol Back sekali
-//        menampilkan pesan "Tekan sekali lagi untuk keluar aplikasi",
-//        dan menekan 2x dalam 2 detik baru keluar dari aplikasi.
-//   2. FIX BUG KATEGORI DI TAB PRODUK (ProductManagementScreen):
-//      - Sebelumnya selectedCategory di-hardcode "Semua" sehingga klik
-//        filter kategori di Tab Produk tidak menyaring daftar produk.
-//        Kini telah dihubungkan ke viewModel.selectedCategory.
-//   3. FIX BUG INISIALISASI CABANG SAAT BUKA ULANG APLIKASI:
-//      - Memastikan initCurrentBranchForUser(currentUser) tetap dipanggil
-//        ketika aplikasi dibuka kembali dari memori (rememberSaveable).
+// UPDATE MainActivity-v4.kt:
+//   1. ADAPTIF ORIENTASI LAYAR (HP Portrait, Tablet Mengikuti):
+//      - Mengecek smallestScreenWidthDp >= 600 saat onCreate() &
+//        onConfigurationChanged().
+//      - Pada ponsel (< 600dp), orientasi dikunci ke PORTRAIT.
+//      - Pada tablet (>= 600dp), orientasi menggunakan FULL_SENSOR /
+//        UNSPECIFIED agar bebas mengikuti rotasi layar.
+//      - Scanner barcode (ScanOptions) juga disesuaikan secara dinamis:
+//        setOrientationLocked(!isTabletDevice(context)).
+//   2. MEMPERTAHANKAN FUNGSI IMMERSIVE MODE SECARA PENUH:
+//      - SystemImmersiveModeEffect() tetap dipertahankan utuh beserta
+//        WindowFocusChangeListener dan opsi Layar Penuh di menu Kasir.
+//   3. PERBAIKAN GOOGLE PLAY CONSOLE (android.hardware.screen.portrait):
+//      - Menghapus deklarasi wajib portrait di AndroidManifest.xml
+//        (termasuk CaptureActivity ZXing) agar kompatibel dengan semua
+//        perangkat (Ponsel, Tablet, Desktop, Android XR).
 // ====================================================================
 
+fun Context.isTabletDevice(): Boolean {
+    return resources.configuration.smallestScreenWidthDp >= 600
+}
+
 class MainActivity : AppCompatActivity() {
+
+    private fun applyAdaptiveOrientation() {
+        requestedOrientation = if (isTabletDevice()) {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val isTablet = resources.configuration.smallestScreenWidthDp >= 600
-        if (isTablet) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED else requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        applyAdaptiveOrientation()
 
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             CompositionLocalProvider(LocalActivity provides this@MainActivity, LocalActivityResultRegistryOwner provides this@MainActivity) {
                 var isImmersiveMode by rememberSaveable { mutableStateOf(true) }
@@ -132,6 +146,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyAdaptiveOrientation()
     }
 }
 
@@ -225,7 +244,7 @@ fun MainContent(
                                     setPrompt("Scan QR Layar Pelanggan dari Perangkat Kasir")
                                     setCameraId(0)
                                     setBeepEnabled(false)
-                                    setOrientationLocked(true)
+                                    setOrientationLocked(!context.isTabletDevice())
                                 }
                                 cfdScanLauncher.launch(options)
                             },
@@ -439,7 +458,7 @@ fun MainNavigation(
     storeName: String?, storeLogoPath: String?, onStoreNameChange: (String) -> Unit, onLogoChange: (String) -> Unit,
     onLogout: () -> Unit, isDarkMode: Boolean, isHighContrast: Boolean, uiScale: Float,
     onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit,
-    language: String, onToggleLanguage: () -> Unit
+    language: String, onToggleLanguage: () Unit
 ) {
     val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
     val defaultHomeTab = if (currentUser.role == "STAFF" && isKuliner) 4 else 0
@@ -544,7 +563,14 @@ fun MainNavigation(
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = {
-                            val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
+                            val options = ScanOptions().apply {
+                                setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                setPrompt("Scan Barcode Produk")
+                                setCameraId(0)
+                                setBeepEnabled(false)
+                                setBarcodeImageEnabled(true)
+                                setOrientationLocked(!context.isTabletDevice())
+                            }
                             barcodeLauncher.launch(options)
                         }) {
                             Icon(
@@ -664,9 +690,9 @@ fun MainNavigation(
                                         val act = activity as? android.app.Activity
                                         val win = act?.window
                                         val dv = win?.decorView
-                                        val ctrl = if (win != null && dv != null) androidx.core.view.WindowCompat.getInsetsController(win, dv) else null
-                                        ctrl?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                                        ctrl?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                                        val ctrl = if (win != null && dv != null) WindowCompat.getInsetsController(win, dv) else null
+                                        ctrl?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                                        ctrl?.hide(WindowInsetsCompat.Type.systemBars())
                                         showMenu = false
                                     }
                                 )
@@ -1088,7 +1114,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                         setPrompt("Scan Barcode Produk")
                                         setCameraId(0)
                                         setBeepEnabled(false)
-                                        setOrientationLocked(true)
+                                        setOrientationLocked(!context.isTabletDevice())
                                     }
                                     productBarcodeLauncher.launch(options)
                                 }
