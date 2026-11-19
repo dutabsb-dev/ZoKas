@@ -2770,28 +2770,198 @@ fun SettingsOwnerMonitorCard() {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    var showTelegramGuideDialog by remember { mutableStateOf(false) }
+
+                    fun openTelegramLink(url: String) {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "Aplikasi Telegram tidak ditemukan. Buka $url di browser.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+
+                    if (showTelegramGuideDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showTelegramGuideDialog = false },
+                            icon = {
+                                Icon(
+                                    Icons.Default.MenuBook,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            title = {
+                                Text(
+                                    "Panduan Setup Bot Telegram Owner",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            text = {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(rememberScrollState()),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        "Langkah 1 — Buat Bot Baru & Ambil Bot Token:",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        "1. Ketuk tombol 'Buka @BotFather' di bawah.
+" +
+                                        "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot
+" +
+                                        "3. Masukkan nama bot (contoh: Kasir Toko Berkah).
+" +
+                                        "4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).
+" +
+                                        "5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.",
+                                        fontSize = 12.sp,
+                                        lineHeight = 17.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    OutlinedButton(
+                                        onClick = { openTelegramLink("https://t.me/BotFather") },
+                                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Buka @BotFather di Telegram", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                                    Text(
+                                        "Langkah 2 — Ambil Chat ID HP Owner:",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        "1. Ketuk tombol 'Buka @userinfobot' di bawah.
+" +
+                                        "2. Tekan START di chat bot tersebut.
+" +
+                                        "3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.",
+                                        fontSize = 12.sp,
+                                        lineHeight = 17.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    OutlinedButton(
+                                        onClick = { openTelegramLink("https://t.me/userinfobot") },
+                                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+                                    ) {
+                                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Buka @userinfobot di Telegram", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                                    Text(
+                                        "Langkah 3 — Aktivasi Chat Bot (Wajib):",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        "Buka link username bot yang baru Anda buat di Langkah 1, lalu tekan tombol START sekali agar bot diizinkan mengirim pesan ke HP Owner. Setelah itu kembali ke ZoKas dan tekan 'Tes Kirim'.",
+                                        fontSize = 12.sp,
+                                        lineHeight = 17.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = { showTelegramGuideDialog = false },
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("MENGERTI", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = { showTelegramGuideDialog = true },
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Tutorial Lengkap Cara Ambil Token & Chat ID",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     OutlinedTextField(
                         value = botToken,
                         onValueChange = { botToken = it },
-                        label = { Text("Bot Token Telegram (dari @BotFather)") },
+                        label = { Text("Bot Token Telegram *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("123456789:ABCdef...") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = { openTelegramLink("https://t.me/BotFather") },
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                    ) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Buka @BotFather (Buat Bot & Ambil Token)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     OutlinedTextField(
                         value = chatId,
                         onValueChange = { chatId = it },
-                        label = { Text("Chat ID Penerima (HP Owner)") },
+                        label = { Text("Chat ID HP Owner *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("Contoh: 987654321") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    OutlinedButton(
+                        onClick = { openTelegramLink("https://t.me/userinfobot") },
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Buka @userinfobot (Cek Chat ID Owner)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -2945,7 +3115,7 @@ private fun settingsStoreNameOrDefault(context: Context): String {
 }
 
 
-// --- 12. CARD SINKRONISASI ANTREAN TRANSAKSI MULTI-PERANGKAT + TUTORIAL ---
+// --- 12. CARD SINKRONISASI ANTREAN TRANSAKSI MULTI-PERANGKAT (TAMPILAN PROFESIONAL) ---
 @Composable
 fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
     val context = LocalContext.current
@@ -2957,12 +3127,22 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
         MultiDeviceTransactionSyncManager.refreshQueueCount(context)
     }
 
-    var deviceLabel by remember { mutableStateOf(MultiDeviceTransactionSyncManager.getDeviceLabel(context)) }
+    val rawSavedLabel = remember {
+        val prefs = context.getSharedPreferences("zokas_multidevice_sync_prefs", Context.MODE_PRIVATE)
+        prefs.getString("device_label", "") ?: ""
+    }
+    var deviceLabel by remember {
+        mutableStateOf(
+            if (rawSavedLabel.isNotBlank()) rawSavedLabel
+            else SettingsManager(context).storeName?.takeIf { it.isNotBlank() }?.let { "Kasir $it" } ?: "Kasir Utama"
+        )
+    }
     var autoExportOnCloseShift by remember {
         mutableStateOf(MultiDeviceTransactionSyncManager.isAutoExportOnCloseShiftEnabled(context))
     }
     val registeredEmail = remember { MultiDeviceTransactionSyncManager.getRegisteredEmail(context) }
     var isBusy by remember { mutableStateOf(false) }
+    val queueCount = MultiDeviceTransactionSyncManager.pendingQueueCount
 
     val exportSyncLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -3011,28 +3191,28 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        "Skenario: HP Owner (Perangkat A) memantau dan menggabungkan transaksi dari Perangkat Kasir B, C, dan D di lokasi berbeda tanpa server berbayar.",
+                        "Skenario: HP Owner memantau dan menggabungkan laporan transaksi dari beberapa perangkat kasir di cabang/meja berbeda secara offline-first tanpa biaya server.",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Langkah 1 — Gunakan Email yang Sama:\nPastikan seluruh perangkat (A, B, C, D) mendaftarkan email yang sama pada tahap awal instalasi agar saling dikenali sebagai satu akun pemilik.",
+                        "1. Gunakan Email Pemilik yang Sama:\nPastikan seluruh perangkat mendaftarkan alamat email pemilik yang sama saat aktivasi awal.",
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "Langkah 2 — Beri Nama Perangkat/Toko:\nIsi nama perangkat (misal: 'Kasir Toko Cabang B') di kolom di bawah agar setiap transaksi & tutup kasir tercatat asal tokonya.",
+                        "2. Tentukan Identitas Terminal Kasir:\nIsi nama perangkat (misal: 'Kasir Cabang Timur') agar setiap catatan transaksi dan tutup shift memiliki asal cabang yang jelas.",
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "Langkah 3 — Ekspor Antrean di Perangkat Kasir (B, C, D):\nSetiap transaksi dan tutup shift otomatis masuk antrean berwaktu (timestamp). Ketuk 'Ekspor Antrean' lalu simpan/kirim file paket (.json) ke penyimpanan cloud pribadi Anda (misal Google Drive) atau bagikan ke HP Owner.",
+                        "3. Kirim / Ekspor Paket Data (.json):\nSetiap transaksi & tutup shift otomatis masuk antrean kronologis. Tekan 'Kirim Paket Laporan ke HP Owner' (via WhatsApp/Email/Drive) atau 'Ekspor File'.",
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "Langkah 4 — Gabungkan di HP Owner (Perangkat A):\nDi HP Owner, ketuk 'Impor & Gabungkan' lalu pilih file paket dari Toko B, C, atau D. Sistem akan mengurutkan data berdasarkan waktu (timestamp) dan menggabungkannya tanpa menghapus transaksi lokal yang sudah ada.",
+                        "4. Gabungkan di Perangkat Owner:\nBuka menu ini di HP Owner lalu pilih 'Impor & Gabung'. Sistem menyusun ulang data berdasarkan waktu transaksi tanpa menimpa data lokal.",
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -3068,19 +3248,22 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    SettingsSectionLeadingIcon(Icons.Default.Sync, MaterialTheme.colorScheme.tertiary)
+                    SettingsSectionLeadingIcon(Icons.Default.Sync, MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Sinkronisasi Multi-Perangkat (Antrean)",
+                            text = "Sinkronisasi Multi-Perangkat",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Antrean: ${MultiDeviceTransactionSyncManager.pendingQueueCount} data • Tanpa server",
+                            text = if (queueCount > 0)
+                                "$queueCount catatan siap disinkronkan • Lokal & Cloud"
+                            else
+                                "Tersinkron • Antrean catatan lokal kosong",
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (queueCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -3092,143 +3275,196 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    // PANEL STATUS & IDENTITAS AKUN TERVERIFIKASI
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            if (registeredEmail.isNotBlank()) {
-                                Text(
-                                    text = "Akun: $registeredEmail",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(
+                                        Icons.Default.VerifiedUser,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = registeredEmail.ifBlank { "Akun Lokal Terdaftar" },
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Surface(
+                                    color = if (queueCount > 0)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "$queueCount Data Antrean",
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (queueCount > 0)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
                             Text(
                                 text = MultiDeviceTransactionSyncManager.lastSyncStatusMessage,
-                                fontSize = 10.5.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 15.sp
                             )
-                        }
-                        TextButton(
-                            onClick = { showGuideDialog = true },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Tutorial", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = { showGuideDialog = true },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Cara Kerja & Panduan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                    // IDENTITAS TERMINAL KASIR (NAMA RAMAH PENGGUNA, BUKAN KODE MODEL HARDWARE)
                     OutlinedTextField(
                         value = deviceLabel,
                         onValueChange = {
                             deviceLabel = it
                             MultiDeviceTransactionSyncManager.setDeviceLabel(context, it)
                         },
-                        label = { Text("Label Perangkat / Toko (cth: Kasir Cabang B)") },
+                        label = { Text("Nama Terminal / Cabang Kasir", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { Icon(Icons.Default.PointOfSale, contentDescription = null) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
                                 val nextVal = !autoExportOnCloseShift
                                 autoExportOnCloseShift = nextVal
                                 MultiDeviceTransactionSyncManager.setAutoExportOnCloseShift(context, nextVal)
                             }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Checkbox(
-                            checked = autoExportOnCloseShift,
-                            onCheckedChange = { checked ->
-                                autoExportOnCloseShift = checked
-                                MultiDeviceTransactionSyncManager.setAutoExportOnCloseShift(context, checked)
-                            },
-                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
-                        )
-                        Text(
-                            "Siapkan paket antrean otomatis saat Tutup Kasir",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = autoExportOnCloseShift,
+                                onCheckedChange = { checked ->
+                                    autoExportOnCloseShift = checked
+                                    MultiDeviceTransactionSyncManager.setAutoExportOnCloseShift(context, checked)
+                                },
+                                colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Otomatis siapkan file rekap saat Tutup Kasir",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Memudahkan pengiriman laporan shift ke HP Owner.",
+                                    fontSize = 10.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    OutlinedButton(
+                    // AKSI UTAMA: BAGIKAN LANGSUNG KE OWNER
+                    Button(
                         onClick = {
+                            MultiDeviceTransactionSyncManager.setDeviceLabel(context, deviceLabel)
                             val (ok, info) = MultiDeviceTransactionSyncManager.shareLatestSyncBundle(context)
-                            Toast.makeText(context, info.toString(), Toast.LENGTH_SHORT).show()
-                            if (!ok) {
-                                Toast.makeText(context, info.toString(), Toast.LENGTH_LONG).show()
-                            }
+                            Toast.makeText(context, info, if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
                         },
                         enabled = !isBusy,
-                        modifier = Modifier.fillMaxWidth().height(42.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Kirim Paket Terbaru ke HP Owner", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Kirim Paket Laporan ke HP Owner", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                    // AKSI SEKUNDER: EKSPOR & IMPOR FILE JSON
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        OutlinedButton(
                             onClick = {
+                                MultiDeviceTransactionSyncManager.setDeviceLabel(context, deviceLabel)
                                 val cleanLabel = deviceLabel.trim().replace(Regex("[^A-Za-z0-9_-]"), "_")
-                                val fname = "ZoKas_Sync_${cleanLabel.ifBlank { "Device" }}_${System.currentTimeMillis()}.json"
+                                val fname = "ZoKas_Sync_${cleanLabel.ifBlank { "Kasir" }}_${System.currentTimeMillis()}.json"
                                 exportSyncLauncher.launch(fname)
                             },
                             enabled = !isBusy,
-                            modifier = Modifier.weight(1f).height(46.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
                             shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Ekspor Antrean", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text("Ekspor File", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
 
                         OutlinedButton(
                             onClick = { importSyncLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
                             enabled = !isBusy,
-                            modifier = Modifier.weight(1f).height(46.dp),
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
                             shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.DownloadForOffline, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Impor & Gabungkan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text("Impor & Gabung", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
                 }
