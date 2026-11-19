@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             CompositionLocalProvider(LocalActivity provides this@MainActivity, LocalActivityResultRegistryOwner provides this@MainActivity) {
-                var isImmersiveMode by rememberSaveable { mutableStateOf(false) }
+                var isImmersiveMode by rememberSaveable { mutableStateOf(true) }
                 SystemImmersiveModeEffect(immersive = isImmersiveMode)
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
@@ -1483,7 +1483,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 @Composable
 fun SystemImmersiveModeEffect(immersive: Boolean) {
     val context = LocalContext.current
-    DisposableEffect(immersive) {
+    DisposableEffect(immersive, context) {
         val activity = context as? android.app.Activity
         val window = activity?.window
         val decorView = window?.decorView
@@ -1491,14 +1491,26 @@ fun SystemImmersiveModeEffect(immersive: Boolean) {
             WindowCompat.getInsetsController(window, decorView)
         } else null
 
-        if (immersive) {
-            controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller?.hide(WindowInsetsCompat.Type.systemBars())
-        } else {
-            controller?.show(WindowInsetsCompat.Type.systemBars())
+        fun applyImmersive() {
+            if (immersive) {
+                controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                controller?.hide(WindowInsetsCompat.Type.systemBars())
+            } else {
+                controller?.show(WindowInsetsCompat.Type.systemBars())
+            }
         }
 
+        applyImmersive()
+
+        val focusListener = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+            if (hasFocus && immersive) {
+                applyImmersive()
+            }
+        }
+        decorView?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
+
         onDispose {
+            decorView?.viewTreeObserver?.removeOnWindowFocusChangeListener(focusListener)
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
