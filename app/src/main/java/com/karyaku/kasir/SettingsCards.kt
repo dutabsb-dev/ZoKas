@@ -2813,14 +2813,10 @@ fun SettingsOwnerMonitorCard() {
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        "1. Ketuk tombol 'Buka @BotFather' di bawah.
-" +
-                                        "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot
-" +
-                                        "3. Masukkan nama bot (contoh: Kasir Toko Berkah).
-" +
-                                        "4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).
-" +
+                                        "1. Ketuk tombol 'Buka @BotFather' di bawah.\n" +
+                                        "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot\n" +
+                                        "3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n" +
+                                        "4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n" +
                                         "5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.",
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
@@ -2846,10 +2842,8 @@ fun SettingsOwnerMonitorCard() {
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        "1. Ketuk tombol 'Buka @userinfobot' di bawah.
-" +
-                                        "2. Tekan START di chat bot tersebut.
-" +
+                                        "1. Ketuk tombol 'Buka @userinfobot' di bawah.\n" +
+                                        "2. Tekan START di chat bot tersebut.\n" +
                                         "3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.",
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
