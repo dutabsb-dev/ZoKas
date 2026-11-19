@@ -70,7 +70,23 @@ fun EmailPrivacyOnboardingScreen(
                     OutlinedTextField(
                         value = email,
                         onValueChange = onEmailChange,
-                        label = { Text("Email *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                        label = {
+                            Text(
+                                text = "Email *",
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        placeholder = {
+                            Text(
+                                text = "nama@email.com",
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        },
                         leadingIcon = { Icon(Icons.Default.AlternateEmail, contentDescription = null) },
                         trailingIcon = {
                             if (email.isNotEmpty()) {
@@ -264,6 +280,7 @@ fun BusinessTypeSetupScreen(
                 }
             }
 
+            // Susunan vertikal dari atas ke bawah: Nama Pemilik -> PIN / Password -> Ulangi PIN / Pengecekan Password
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),

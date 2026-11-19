@@ -23,7 +23,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -207,6 +209,8 @@ fun SetupWizardScreen(
     var ownerName by remember { mutableStateOf("") }
     var ownerPin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
+    var pinVisible by remember { mutableStateOf(false) }
+    var confirmPinVisible by remember { mutableStateOf(false) }
 
     val activePreset = remember(selectedBusinessType) {
         businessTypePresets.find { it.key == selectedBusinessType } ?: businessTypePresets.first()
@@ -291,6 +295,8 @@ fun SetupWizardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp)
                 .imePadding(),
@@ -346,8 +352,25 @@ fun SetupWizardScreen(
                             loginEmail = it
                             emailError = ""
                         },
-                        label = { Text("Email (cth: nama@gmail.com / nama@yahoo.com) *") },
-                        placeholder = { Text("contoh@gmail.com") },
+                        label = {
+                            Text(
+                                text = "Email *",
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        placeholder = {
+                            if (loginEmail.isEmpty()) {
+                                Text(
+                                    text = "nama@email.com",
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                                )
+                            }
+                        },
                         leadingIcon = { Icon(Icons.Default.AlternateEmail, contentDescription = null) },
                         trailingIcon = {
                             if (loginEmail.isNotEmpty()) {
@@ -372,7 +395,7 @@ fun SetupWizardScreen(
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Mendukung Gmail, Yahoo Mail, Outlook, iCloud, maupun email usaha lainnya.",
+                        text = "Contoh: nama@gmail.com / nama@yahoo.com • Mendukung Gmail, Yahoo Mail, Outlook, iCloud, maupun email usaha lainnya.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -515,6 +538,8 @@ fun SetupWizardScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(20.dp)
             .imePadding(),
@@ -609,7 +634,7 @@ fun SetupWizardScreen(
                 OutlinedTextField(
                     value = storeName,
                     onValueChange = { storeName = it },
-                    label = { Text("Nama Toko / Usaha *") },
+                    label = { Text("Nama Toko / Usaha *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                     placeholder = { Text("Contoh: Toko Berkah Jaya") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -619,7 +644,7 @@ fun SetupWizardScreen(
                 OutlinedTextField(
                     value = storeAddress,
                     onValueChange = { storeAddress = it },
-                    label = { Text("Alamat Singkat (Opsional)") },
+                    label = { Text("Alamat Singkat (Opsional)", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -769,54 +794,66 @@ fun SetupWizardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // STEP 3: AKUN PEMILIK (OWNER)
+        // STEP 3: AKUN PEMILIK (OWNER) - URUTAN ATAS KE BAWAH SEJAJAR
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text(
                     text = "3. Akun Pemilik Toko (Owner)",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(10.dp))
                 OutlinedTextField(
                     value = ownerName,
                     onValueChange = { ownerName = it },
-                    label = { Text("Nama Pemilik *") },
+                    label = { Text("Nama Pemilik *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
+                OutlinedTextField(
+                    value = ownerPin,
+                    onValueChange = { raw -> if (raw.length <= 6 && raw.all { it.isDigit() }) ownerPin = raw },
+                    label = { Text("PIN (4-6 Angka) *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                    trailingIcon = {
+                        IconButton(onClick = { pinVisible = !pinVisible }) {
+                            Icon(
+                                imageVector = if (pinVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (pinVisible) "Sembunyikan PIN" else "Tampilkan PIN"
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = if (pinVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = ownerPin,
-                        onValueChange = { raw -> if (raw.length <= 6 && raw.all { it.isDigit() }) ownerPin = raw },
-                        label = { Text("PIN (4-6 Angka) *") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    OutlinedTextField(
-                        value = confirmPin,
-                        onValueChange = { raw -> if (raw.length <= 6 && raw.all { it.isDigit() }) confirmPin = raw },
-                        label = { Text("Ulangi PIN *") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = confirmPin,
+                    onValueChange = { raw -> if (raw.length <= 6 && raw.all { it.isDigit() }) confirmPin = raw },
+                    label = { Text("Ulangi PIN *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                    trailingIcon = {
+                        IconButton(onClick = { confirmPinVisible = !confirmPinVisible }) {
+                            Icon(
+                                imageVector = if (confirmPinVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (confirmPinVisible) "Sembunyikan Ulangi PIN" else "Tampilkan Ulangi PIN"
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = if (confirmPinVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
             }
         }
 
