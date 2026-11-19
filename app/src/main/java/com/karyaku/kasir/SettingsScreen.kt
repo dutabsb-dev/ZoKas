@@ -725,51 +725,6 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsTutorialCard(
-    onOpenTutorial: () -> Unit,
-    language: String
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpenTutorial),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                SettingsSectionLeadingIcon(Icons.Default.MenuBook, MaterialTheme.colorScheme.tertiary)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (language == "in") "Pusat Panduan & Tutorial" else "Guide & Tutorial Center",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = if (language == "in") "Panduan penggunaan kasir, printer, stok, & sinkronisasi" else "Cashier, printer, inventory, & sync walkthroughs",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
 private fun SettingsAuditLogCard(
     auditLogs: List<AuditLogEntity>,
     dateFormat: SimpleDateFormat,
