@@ -458,7 +458,7 @@ fun MainNavigation(
     storeName: String?, storeLogoPath: String?, onStoreNameChange: (String) -> Unit, onLogoChange: (String) -> Unit,
     onLogout: () -> Unit, isDarkMode: Boolean, isHighContrast: Boolean, uiScale: Float,
     onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit,
-    language: String, onToggleLanguage: () Unit
+    language: String, onToggleLanguage: () -> Unit // <--- PERBAIKAN DI SINI (Sebelumnya: () Unit)
 ) {
     val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
     val defaultHomeTab = if (currentUser.role == "STAFF" && isKuliner) 4 else 0
