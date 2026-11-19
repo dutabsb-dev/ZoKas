@@ -2642,3 +2642,488 @@ fun PaymentMethodManagementDialog(
         }
     )
 }
+
+
+// --- 11. CARD PANTAUAN HP OWNER (ZERO-SERVER VIA TELEGRAM BOT MILIK OWNER) ---
+@Composable
+fun SettingsOwnerMonitorCard() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val initialCfg = remember { OwnerRemoteMonitorManager.getConfig(context) }
+    var isEnabled by remember { mutableStateOf(initialCfg.isEnabled) }
+    var botToken by remember { mutableStateOf(initialCfg.botToken) }
+    var chatId by remember { mutableStateOf(initialCfg.chatId) }
+    var notifyTrx by remember { mutableStateOf(initialCfg.notifyOnEachTransaction) }
+    var notifyShift by remember { mutableStateOf(initialCfg.notifyOnCloseShift) }
+    var notifyVoid by remember { mutableStateOf(initialCfg.notifyOnVoidRefund) }
+    var isTesting by remember { mutableStateOf(false) }
+
+    val ownerEmail = remember { OwnerRemoteMonitorManager.getRegisteredOwnerEmail(context) }
+
+    fun persistMonitorConfig(nextEnabled: Boolean = isEnabled) {
+        OwnerRemoteMonitorManager.saveConfig(
+            context,
+            OwnerMonitorConfig(
+                isEnabled = nextEnabled,
+                botToken = botToken,
+                chatId = chatId,
+                notifyOnEachTransaction = notifyTrx,
+                notifyOnCloseShift = notifyShift,
+                notifyOnVoidRefund = notifyVoid
+            )
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    SettingsSectionLeadingIcon(Icons.Default.NotificationsActive, MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Pantauan HP Owner (Tanpa Server)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isEnabled)
+                                "Aktif • Kirim laporan transaksi & tutup kasir ke HP Owner"
+                            else
+                                "Nonaktif • Pantau transaksi & tutup shift jarak jauh",
+                            fontSize = 11.sp,
+                            color = if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    if (ownerEmail.isNotBlank()) {
+                        Text(
+                            text = "Akun Terdaftar: $ownerEmail",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Aktifkan Pantauan Jarak Jauh",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Tanpa server berbayar developer. Menggunakan Bot Telegram milik Owner sendiri.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isEnabled,
+                            onCheckedChange = { checked ->
+                                isEnabled = checked
+                                persistMonitorConfig(checked)
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = botToken,
+                        onValueChange = { botToken = it },
+                        label = { Text("Bot Token Telegram (dari @BotFather)") },
+                        placeholder = { Text("123456789:ABCdef...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = chatId,
+                        onValueChange = { chatId = it },
+                        label = { Text("Chat ID Penerima (HP Owner)") },
+                        placeholder = { Text("Contoh: 987654321") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { notifyTrx = !notifyTrx },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = notifyTrx,
+                            onCheckedChange = { notifyTrx = it },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                        )
+                        Text("Kirim notifikasi setiap transaksi selesai", fontSize = 12.sp)
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { notifyShift = !notifyShift },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = notifyShift,
+                            onCheckedChange = { notifyShift = it },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                        )
+                        Text("Kirim rekap saat Tutup Kasir (Close Shift)", fontSize = 12.sp)
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { notifyVoid = !notifyVoid },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = notifyVoid,
+                            onCheckedChange = { notifyVoid = it },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                        )
+                        Text("Kirim peringatan jika ada Void / Refund transaksi", fontSize = 12.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                persistMonitorConfig(isEnabled)
+                                isTesting = true
+                                scope.launch {
+                                    val (ok, infoMsg) = OwnerRemoteMonitorManager.sendTestNotification(
+                                        context,
+                                        settingsStoreNameOrDefault(context)
+                                    )
+                                    isTesting = false
+                                    Toast.makeText(context, infoMsg, Toast.LENGTH_LONG).show()
+                                    if (!ok) {
+                                        Toast.makeText(context, "Pengaturan tetap disimpan. Antrean akan dikirim saat terhubung.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            enabled = !isTesting,
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(if (isTesting) "Mengirim..." else "Tes Kirim", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (botToken.isNotBlank() && chatId.isNotBlank()) {
+                                    isEnabled = true
+                                }
+                                persistMonitorConfig(isEnabled)
+                                Toast.makeText(context, "Pengaturan Pantauan HP Owner disimpan!", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("SIMPAN", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun settingsStoreNameOrDefault(context: Context): String {
+    return SettingsManager(context).storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store"
+}
+
+
+// --- 12. CARD SINKRONISASI ANTREAN TRANSAKSI MULTI-PERANGKAT + TUTORIAL ---
+@Composable
+fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isExpanded by remember { mutableStateOf(false) }
+    var showGuideDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        MultiDeviceTransactionSyncManager.refreshQueueCount(context)
+    }
+
+    var deviceLabel by remember { mutableStateOf(MultiDeviceTransactionSyncManager.getDeviceLabel(context)) }
+    val registeredEmail = remember { MultiDeviceTransactionSyncManager.getRegisteredEmail(context) }
+    var isBusy by remember { mutableStateOf(false) }
+
+    val exportSyncLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            isBusy = true
+            scope.launch {
+                val (_, msg) = MultiDeviceTransactionSyncManager.exportSyncBundleToUri(context, uri)
+                isBusy = false
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val importSyncLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            isBusy = true
+            scope.launch {
+                val (_, msg) = MultiDeviceTransactionSyncManager.importAndMergeSyncBundleFromUri(context, viewModel, uri)
+                isBusy = false
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    if (showGuideDialog) {
+        AlertDialog(
+            onDismissRequest = { showGuideDialog = false },
+            icon = {
+                Icon(
+                    Icons.Default.MenuBook,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = {
+                Text("Panduan Sinkronisasi Multi-Perangkat", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Skenario: HP Owner (Perangkat A) memantau dan menggabungkan transaksi dari Perangkat Kasir B, C, dan D di lokasi berbeda tanpa server berbayar.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Langkah 1 — Gunakan Email yang Sama:\nPastikan seluruh perangkat (A, B, C, D) mendaftarkan email yang sama pada tahap awal instalasi agar saling dikenali sebagai satu akun pemilik.",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Langkah 2 — Beri Nama Perangkat/Toko:\nIsi nama perangkat (misal: 'Kasir Toko Cabang B') di kolom di bawah agar setiap transaksi & tutup kasir tercatat asal tokonya.",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Langkah 3 — Ekspor Antrean di Perangkat Kasir (B, C, D):\nSetiap transaksi dan tutup shift otomatis masuk antrean berwaktu (timestamp). Ketuk 'Ekspor Antrean' lalu simpan/kirim file paket (.json) ke penyimpanan cloud pribadi Anda (misal Google Drive) atau bagikan ke HP Owner.",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Langkah 4 — Gabungkan di HP Owner (Perangkat A):\nDi HP Owner, ketuk 'Impor & Gabungkan' lalu pilih file paket dari Toko B, C, atau D. Sistem akan mengurutkan data berdasarkan waktu (timestamp) dan menggabungkannya tanpa menghapus transaksi lokal yang sudah ada.",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showGuideDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("MENGERTI", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    SettingsSectionLeadingIcon(Icons.Default.Sync, MaterialTheme.colorScheme.tertiary)
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sinkronisasi Multi-Perangkat (Antrean)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Antrean: ${MultiDeviceTransactionSyncManager.pendingQueueCount} data • Tanpa server",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = "Toggle",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            if (registeredEmail.isNotBlank()) {
+                                Text(
+                                    text = "Akun: $registeredEmail",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Text(
+                                text = MultiDeviceTransactionSyncManager.lastSyncStatusMessage,
+                                fontSize = 10.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(
+                            onClick = { showGuideDialog = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Tutorial", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = deviceLabel,
+                        onValueChange = {
+                            deviceLabel = it
+                            MultiDeviceTransactionSyncManager.setDeviceLabel(context, it)
+                        },
+                        label = { Text("Label Perangkat / Toko (cth: Kasir Cabang B)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val cleanLabel = deviceLabel.trim().replace(Regex("[^A-Za-z0-9_-]"), "_")
+                                val fname = "ZoKas_Sync_${cleanLabel.ifBlank { "Device" }}_${System.currentTimeMillis()}.json"
+                                exportSyncLauncher.launch(fname)
+                            },
+                            enabled = !isBusy,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Ekspor Antrean", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+
+                        OutlinedButton(
+                            onClick = { importSyncLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
+                            enabled = !isBusy,
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Impor & Gabungkan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

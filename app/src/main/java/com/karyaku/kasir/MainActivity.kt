@@ -11,9 +11,6 @@ import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -85,14 +82,6 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-// --- TAMBAHKAN KODE INI UNTUK MENYEMBUNYIKAN STATUS BAR & NAV BAR ---
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        // Sembunyikan status bar dan navigation bar
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
-        // Mengatur perilaku agar status bar bisa muncul sementara jika di-swipe dari atas (opsional)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        // -----------------------------------------------------------------
         val isTablet = resources.configuration.smallestScreenWidthDp >= 600
         if (isTablet) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED else requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
@@ -200,6 +189,23 @@ fun MainContent(
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = {
+                                LocalCfdServerManager.lockAsKioskReceiver(context, LocalCfdServerManager.P2P_NEARBY_URI)
+                                showConnectCfdDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.WifiTethering, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Hubungkan Langsung (Tanpa Server / Wi-Fi Sama)", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
                                 val options = ScanOptions().apply {
                                     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                                     setPrompt("Scan QR Layar Pelanggan dari Perangkat Kasir")
@@ -209,16 +215,13 @@ fun MainContent(
                                 }
                                 cfdScanLauncher.launch(options)
                             },
-                            modifier = Modifier.fillMaxWidth().height(46.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Scan QR dari Perangkat Kasir", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Scan QR IP Lokal (1 Wi-Fi / Hotspot)", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedTextField(

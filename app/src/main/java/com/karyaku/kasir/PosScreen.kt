@@ -423,6 +423,7 @@ fun PosScreen(
                 thankYouMessage = LocalCfdServerManager.getCustomThankYouMessage(context)
             )
         )
+        P2pCfdManager.broadcastCurrentState(context)
     }
 
     if (showCfd) {
@@ -509,6 +510,7 @@ fun PosScreen(
                     viewModel.resetQrisPayment()
                     viewModel.resetTransferPayment()
                     LocalCfdServerManager.updatePaymentStage(isPaymentOpen = false)
+                    P2pCfdManager.broadcastCurrentState(context, force = true)
                 },
                 onConfirmPayment = { cashReceived: Long, method: String ->
                     val currentCartSnapshot = if (isSplitBillMode) cart.filter { it.isSelectedForSplit } else cart
@@ -538,7 +540,24 @@ fun PosScreen(
                             method = method,
                             thankYouMessage = customThanks
                         )
+                        P2pCfdManager.broadcastCurrentState(context, force = true)
 
+                        val branchLabel = currentBranch?.name ?: "Cabang #${currentBranchId}"
+                        val totalItemsSold = currentCartSnapshot.sumOf { it.quantity }
+                        MultiDeviceTransactionSyncManager.recordLocalTransactionToQueue(context, newTransaction, branchLabel)
+                        scope.launch {
+                            OwnerRemoteMonitorManager.notifyTransactionCompleted(
+                                context = context,
+                                storeName = settingsManager.storeName ?: "ZoKas Store",
+                                branchName = branchLabel,
+                                transactionId = newTransaction.id,
+                                timestamp = newTransaction.timestamp,
+                                cashierName = currentUser.name,
+                                paymentMethod = method,
+                                totalPrice = paidTotal,
+                                itemCount = totalItemsSold
+                            )
+                        }
                         viewModel.printReceipt(context, newTransaction, settingsManager, currentCartSnapshot)
                     }
                 }
@@ -885,6 +904,23 @@ fun PosScreen(
                                 closingCash = uangFisik,
                                 discrepancy = uangFisik - exactExpectedCash
                             )
+                            val branchLabel = currentBranch?.name ?: "Cabang #${currentBranchId}"
+                            MultiDeviceTransactionSyncManager.recordLocalShiftToQueue(context, accurateReportShift, branchLabel)
+                            scope.launch {
+                                OwnerRemoteMonitorManager.notifyShiftClosed(
+                                    context = context,
+                                    storeName = settingsManager.storeName ?: "ZoKas Store",
+                                    branchName = branchLabel,
+                                    shiftId = shiftToClose.id,
+                                    timestamp = System.currentTimeMillis(),
+                                    cashierName = currentUser.name,
+                                    openingCash = effectiveOpeningCash,
+                                    expectedCash = exactExpectedCash,
+                                    closingCash = uangFisik,
+                                    discrepancy = uangFisik - exactExpectedCash,
+                                    note = note
+                                )
+                            }
                             showShiftReport = accurateReportShift
                         }
                     }

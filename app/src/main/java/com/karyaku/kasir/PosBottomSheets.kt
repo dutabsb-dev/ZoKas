@@ -862,6 +862,7 @@ fun PaymentBottomSheet(
             bankAccountNumber = settingsManager.bankAccountNumber ?: "",
             bankAccountName = settingsManager.bankAccountName ?: ""
         )
+        P2pCfdManager.broadcastCurrentState(context, force = true)
     }
 
     ModalBottomSheet(

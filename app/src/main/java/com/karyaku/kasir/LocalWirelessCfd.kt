@@ -121,6 +121,7 @@ data class CfdLiveState(
 object LocalCfdServerManager {
     private const val DEFAULT_PORT = 8765
     private const val PREFS_CFD = "zokas_wireless_cfd_prefs"
+    const val P2P_NEARBY_URI = "p2p://zokas-nearby"
 
     private val isRunningFlag = AtomicBoolean(false)
     private var serverSocket: ServerSocket? = null
@@ -225,6 +226,15 @@ object LocalCfdServerManager {
         }
         if (newState.items.isNotEmpty()) {
             completedHoldUntil = 0L
+            // Jika kasir menambah produk baru (menyiapkan transaksi berikutnya), paksa kembali ke stage CART seketika!
+            if (currentState.displayStage == "COMPLETED") {
+                currentState = newState.copy(
+                    displayStage = "CART",
+                    isCfdActive = isRunningFlag.get(),
+                    updatedAt = now
+                )
+                return
+            }
         }
         currentState = newState.copy(
             isCfdActive = isRunningFlag.get(),
@@ -273,7 +283,7 @@ object LocalCfdServerManager {
         thankYouMessage: String
     ) {
         val now = System.currentTimeMillis()
-        completedHoldUntil = now + 7500L
+        completedHoldUntil = now + 5000L
         currentState = currentState.copy(
             displayStage = "COMPLETED",
             amountToPay = totalPaid,
@@ -559,9 +569,20 @@ fun LocalWirelessCfdDialog(
     var showLocalScreenPreview by remember { mutableStateOf(false) }
     var showStopAuthDialog by remember { mutableStateOf(false) }
 
+    val p2pPermissionLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        if (perms.values.all { it }) {
+            P2pCfdManager.startAdvertisingHost(context, settingsManager.storeName ?: "ZoKas")
+        } else {
+            Toast.makeText(context, "Izin Bluetooth/Wi-Fi Direct diperlukan untuk mode P2P langsung.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     val qrConnectLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null && result.contents.startsWith("http")) {
+        if (result.contents != null && (result.contents.startsWith("http") || result.contents == LocalCfdServerManager.P2P_NEARBY_URI)) {
             LocalCfdServerManager.stopServer()
+            P2pCfdManager.stopAdvertisingHost(context)
             LocalCfdServerManager.lockAsKioskReceiver(context, result.contents)
             onDismiss()
         } else if (result.contents != null) {
@@ -573,16 +594,19 @@ fun LocalWirelessCfdDialog(
         if (!LocalCfdServerManager.isServerRunning) {
             LocalCfdServerManager.startServer()
         }
+        if (P2pCfdManager.hasAllPermissions(context) && !P2pCfdManager.isAdvertising && P2pCfdManager.connectedEndpointId == null) {
+            P2pCfdManager.startAdvertisingHost(context, settingsManager.storeName ?: "ZoKas")
+        }
     }
 
-    val isRunning = LocalCfdServerManager.isServerRunning
+    val isRunning = LocalCfdServerManager.isServerRunning || P2pCfdManager.isAdvertising || P2pCfdManager.connectedEndpointId != null
     val serverUrl = remember(isRunning, LocalCfdServerManager.activePort) {
         LocalCfdServerManager.getServerUrl()
     }
     val qrBitmap = remember(serverUrl, isRunning) {
         if (isRunning) generateQrCodeBitmap(serverUrl) else null
     }
-    val isClientConnected = (System.currentTimeMillis() - LocalCfdServerManager.lastClientPingTime) < 5000L
+    val isClientConnected = ((System.currentTimeMillis() - LocalCfdServerManager.lastClientPingTime) < 5000L) || (P2pCfdManager.connectedEndpointId != null)
 
     if (showStopAuthDialog) {
         OwnerSecurityAuthDialog(
@@ -592,6 +616,7 @@ fun LocalWirelessCfdDialog(
             activity = activity,
             onSuccess = {
                 LocalCfdServerManager.stopServer()
+                P2pCfdManager.stopAdvertisingHost(context)
                 showStopAuthDialog = false
                 Toast.makeText(context, "Transmisi Layar Pelanggan dihentikan.", Toast.LENGTH_SHORT).show()
             },
@@ -669,6 +694,11 @@ fun LocalWirelessCfdDialog(
                             onCheckedChange = { enable ->
                                 if (enable) {
                                     LocalCfdServerManager.startServer()
+                                    if (P2pCfdManager.hasAllPermissions(context)) {
+                                        P2pCfdManager.startAdvertisingHost(context, settingsManager.storeName ?: "ZoKas")
+                                    } else {
+                                        p2pPermissionLauncher.launch(P2pCfdManager.getRequiredPermissions())
+                                    }
                                 } else {
                                     showStopAuthDialog = true
                                 }
@@ -820,6 +850,9 @@ private fun CfdProductThumbnail(
     hasImage: Boolean,
     sizeDp: Int = 46
 ) {
+    val p2pBitmap = remember(productId, hasImage) {
+        if (productId > 0L) P2pCfdManager.receivedProductBitmaps[productId] else null
+    }
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
@@ -827,7 +860,14 @@ private fun CfdProductThumbnail(
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center
     ) {
-        if (hasImage && productId > 0L) {
+        if (p2pBitmap != null) {
+            Image(
+                bitmap = p2pBitmap.asImageBitmap(),
+                contentDescription = productName,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (hasImage && productId > 0L && hostUrl.startsWith("http")) {
             AsyncImage(
                 model = "$hostUrl/api/image?id=$productId",
                 contentDescription = productName,
@@ -887,12 +927,58 @@ fun FullScreenKioskCfdReceiverScreen(
         if (liveState.completedTimestamp > 0L && liveState.completedTimestamp != lastShownCompletedTs) {
             lastShownCompletedTs = liveState.completedTimestamp
             showThankYouOverlay = true
-            delay(7000L)
+            delay(5000L)
             showThankYouOverlay = false
         }
     }
 
+    val isP2pMode = hostUrl == LocalCfdServerManager.P2P_NEARBY_URI
+    val p2pPermLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        if (perms.values.all { it }) {
+            P2pCfdManager.startDiscoveryReceiver(context) {
+                isConnected = false
+            }
+        }
+    }
+
+    DisposableEffect(isP2pMode) {
+        if (isP2pMode) {
+            if (P2pCfdManager.hasAllPermissions(context)) {
+                P2pCfdManager.startDiscoveryReceiver(context) {
+                    isConnected = false
+                }
+            } else {
+                p2pPermLauncher.launch(P2pCfdManager.getRequiredPermissions())
+            }
+        }
+        onDispose {
+            if (isP2pMode) {
+                P2pCfdManager.stopDiscoveryReceiver(context)
+            }
+        }
+    }
+
+    LaunchedEffect(isP2pMode, P2pCfdManager.latestReceivedState, P2pCfdManager.connectedEndpointId) {
+        if (isP2pMode) {
+            isConnected = P2pCfdManager.connectedEndpointId != null
+            if (!isConnected) disconnectedStreak++ else disconnectedStreak = 0
+            val incoming = P2pCfdManager.latestReceivedState
+            if (incoming != null) {
+                if (!incoming.isCfdActive) {
+                    P2pCfdManager.stopDiscoveryReceiver(context)
+                    LocalCfdServerManager.unlockKioskReceiver(context)
+                    onUnlockedAndExit()
+                } else {
+                    liveState = incoming
+                }
+            }
+        }
+    }
+
     LaunchedEffect(hostUrl) {
+        if (hostUrl == LocalCfdServerManager.P2P_NEARBY_URI) return@LaunchedEffect
         while (true) {
             val fetched = withContext(Dispatchers.IO) {
                 try {
@@ -990,6 +1076,7 @@ fun FullScreenKioskCfdReceiverScreen(
             users = users,
             activity = LocalActivity.current as? FragmentActivity,
             onSuccess = {
+                P2pCfdManager.stopDiscoveryReceiver(context)
                 LocalCfdServerManager.unlockKioskReceiver(context)
                 showEmergencyPinDialog = false
                 onUnlockedAndExit()

@@ -622,6 +622,16 @@ fun SettingsScreen(
             }
         }
 
+        // KARTU PANTAUAN HP OWNER (ZERO-SERVER VIA TELEGRAM BOT MILIK OWNER)
+        item {
+            SettingsOwnerMonitorCard()
+        }
+
+        // KARTU SINKRONISASI ANTREAN TRANSAKSI MULTI-PERANGKAT + TUTORIAL
+        item {
+            SettingsMultiDeviceSyncCard(viewModel = viewModel)
+        }
+
         // KARTU METODE PEMBAYARAN TERKONSOLIDASI (QRIS & BANK TRANSFER DI DALAM DIALOG)
         item {
             SettingsPaymentMethodCard(
