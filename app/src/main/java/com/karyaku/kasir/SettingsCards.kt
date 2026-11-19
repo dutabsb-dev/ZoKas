@@ -2660,6 +2660,10 @@ fun SettingsOwnerMonitorCard() {
     var notifyTrx by remember { mutableStateOf(initialCfg.notifyOnEachTransaction) }
     var notifyShift by remember { mutableStateOf(initialCfg.notifyOnCloseShift) }
     var notifyVoid by remember { mutableStateOf(initialCfg.notifyOnVoidRefund) }
+    var autoExportOnCloseShift by remember {
+        mutableStateOf(MultiDeviceTransactionSyncManager.isAutoExportOnCloseShiftEnabled(context))
+    }
+    var isBusy by remember { mutableStateOf(false) }
     var isTesting by remember { mutableStateOf(false) }
 
     val ownerEmail = remember { OwnerRemoteMonitorManager.getRegisteredOwnerEmail(context) }
@@ -2867,9 +2871,9 @@ fun SettingsOwnerMonitorCard() {
                     OutlinedButton(
                         onClick = {
                             val (ok, info) = MultiDeviceTransactionSyncManager.shareLatestSyncBundle(context)
-                            Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, info.toString(), Toast.LENGTH_SHORT).show()
                             if (!ok) {
-                                Toast.makeText(context, info, Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, info.toString(), Toast.LENGTH_LONG).show()
                             }
                         },
                         enabled = !isBusy,
@@ -2899,7 +2903,7 @@ fun SettingsOwnerMonitorCard() {
                                         settingsStoreNameOrDefault(context)
                                     )
                                     isTesting = false
-                                    Toast.makeText(context, infoMsg, Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, infoMsg.toString(), Toast.LENGTH_LONG).show()
                                     if (!ok) {
                                         Toast.makeText(context, "Pengaturan tetap disimpan. Antrean akan dikirim saat terhubung.", Toast.LENGTH_SHORT).show()
                                     }
@@ -3172,9 +3176,9 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                     OutlinedButton(
                         onClick = {
                             val (ok, info) = MultiDeviceTransactionSyncManager.shareLatestSyncBundle(context)
-                            Toast.makeText(context, info, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, info.toString(), Toast.LENGTH_SHORT).show()
                             if (!ok) {
-                                Toast.makeText(context, info, Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, info.toString(), Toast.LENGTH_LONG).show()
                             }
                         },
                         enabled = !isBusy,

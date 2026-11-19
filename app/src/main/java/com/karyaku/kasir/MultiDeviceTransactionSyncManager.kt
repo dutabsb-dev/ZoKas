@@ -147,6 +147,7 @@ object MultiDeviceTransactionSyncManager {
             } else arr
             prefs.edit().putString("trx_queue", trimmed.toString()).apply()
             refreshQueueCount(context)
+            writeAutoSnapshotToCache(context)
             lastSyncStatusMessage = "Antrean transaksi #${tx.id} dicatat (${formatTime(tx.timestamp)})"
         } catch (_: Exception) {
         }
@@ -191,6 +192,7 @@ object MultiDeviceTransactionSyncManager {
             arr.put(obj)
             prefs.edit().putString("shift_queue", arr.toString()).apply()
             refreshQueueCount(context)
+            writeAutoSnapshotToCache(context)
         } catch (_: Exception) {
         }
     }
@@ -392,6 +394,56 @@ object MultiDeviceTransactionSyncManager {
             } catch (e: Exception) {
                 Pair(false, "Gagal memproses paket sinkronisasi: ${e.message}")
             }
+        }
+    }
+
+
+    fun isAutoExportOnCloseShiftEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_SYNC, Context.MODE_PRIVATE)
+        return prefs.getBoolean("auto_export_close_shift", true)
+    }
+
+    fun setAutoExportOnCloseShift(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_SYNC, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("auto_export_close_shift", enabled).apply()
+    }
+
+    fun writeAutoSnapshotToCache(context: Context): java.io.File? {
+        return try {
+            val bundleJson = buildSyncBundleJson(context)
+            val dir = java.io.File(context.cacheDir, "sync_bundles")
+            dir.mkdirs()
+            val cleanLabel = getDeviceLabel(context).trim().replace(Regex("[^A-Za-z0-9_-]"), "_")
+            val outFile = java.io.File(dir, "ZoKas_Sync_${cleanLabel.ifBlank { "Device" }}_latest.json")
+            outFile.writeText(bundleJson, Charsets.UTF_8)
+            outFile
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun shareLatestSyncBundle(context: Context): Pair<Boolean, String> {
+        return try {
+            val file = writeAutoSnapshotToCache(context)
+                ?: return Pair(false, "Gagal menyiapkan file paket sinkronisasi.")
+            val authority = "${context.packageName}.fileprovider"
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(
+                    android.content.Intent.EXTRA_SUBJECT,
+                    "Paket Sinkronisasi Transaksi ZoKas (${getDeviceLabel(context)})"
+                )
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val chooser = android.content.Intent.createChooser(intent, "Kirim Paket Sinkronisasi ke HP Owner")
+            chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+            Pair(true, "Membuka menu kirim paket sinkronisasi...")
+        } catch (e: Exception) {
+            Pair(false, "Gagal membagikan file: ${e.message}")
         }
     }
 

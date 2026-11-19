@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -127,7 +126,6 @@ object LocalCfdServerManager {
     private var serverSocket: ServerSocket? = null
     private var serverThread: Thread? = null
 
-    // Peta productId -> local image file path di perangkat kasir untuk streaming thumbnail ke CFD
     private val productImageMap = ConcurrentHashMap<Long, String>()
     private val thumbnailCache = ConcurrentHashMap<String, ByteArray>()
 
@@ -211,8 +209,6 @@ object LocalCfdServerManager {
             }
         }
         val now = System.currentTimeMillis()
-        // Jika baru saja selesai pembayaran (dalam 7 detik terakhir) dan keranjang masih kosong,
-        // pertahankan layar COMPLETED (ucapan terima kasih + bayar & kembalian) agar tidak langsung tertimpa CART kosong!
         if (now < completedHoldUntil && newState.items.isEmpty() && newState.displayStage == "CART") {
             currentState = currentState.copy(
                 storeName = newState.storeName,
@@ -226,7 +222,6 @@ object LocalCfdServerManager {
         }
         if (newState.items.isNotEmpty()) {
             completedHoldUntil = 0L
-            // Jika kasir menambah produk baru (menyiapkan transaksi berikutnya), paksa kembali ke stage CART seketika!
             if (currentState.displayStage == "COMPLETED") {
                 currentState = newState.copy(
                     displayStage = "CART",
@@ -396,7 +391,7 @@ object LocalCfdServerManager {
             val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
             val bmp = BitmapFactory.decodeFile(file.absolutePath, decodeOpts) ?: return null
             val baos = ByteArrayOutputStream()
-            bmp.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, baos)
             val bytes = baos.toByteArray()
             thumbnailCache[path] = bytes
             bytes
@@ -573,16 +568,16 @@ fun LocalWirelessCfdDialog(
         androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
         if (perms.values.all { it }) {
-            P2pCfdManager.startAdvertisingHost(context, settingsManager.storeName ?: "ZoKas")
+            P2pCfdManager.startHosting(context, settingsManager.storeName ?: "ZoKas")
         } else {
-            Toast.makeText(context, "Izin Bluetooth/Wi-Fi Direct diperlukan untuk mode P2P langsung.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Izin jaringan lokal diperlukan untuk mode P2P langsung.", Toast.LENGTH_LONG).show()
         }
     }
 
     val qrConnectLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null && (result.contents.startsWith("http") || result.contents == LocalCfdServerManager.P2P_NEARBY_URI)) {
             LocalCfdServerManager.stopServer()
-            P2pCfdManager.stopAdvertisingHost(context)
+            P2pCfdManager.stopAll()
             LocalCfdServerManager.lockAsKioskReceiver(context, result.contents)
             onDismiss()
         } else if (result.contents != null) {
@@ -594,19 +589,19 @@ fun LocalWirelessCfdDialog(
         if (!LocalCfdServerManager.isServerRunning) {
             LocalCfdServerManager.startServer()
         }
-        if (P2pCfdManager.hasAllPermissions(context) && !P2pCfdManager.isAdvertising && P2pCfdManager.connectedEndpointId == null) {
-            P2pCfdManager.startAdvertisingHost(context, settingsManager.storeName ?: "ZoKas")
+        if (!P2pCfdManager.isHosting && P2pCfdManager.connectedDeviceName == null) {
+            P2pCfdManager.startHosting(context, settingsManager.storeName ?: "ZoKas")
         }
     }
 
-    val isRunning = LocalCfdServerManager.isServerRunning || P2pCfdManager.isAdvertising || P2pCfdManager.connectedEndpointId != null
+    val isRunning = LocalCfdServerManager.isServerRunning || P2pCfdManager.isHosting || P2pCfdManager.connectedDeviceName != null
     val serverUrl = remember(isRunning, LocalCfdServerManager.activePort) {
         LocalCfdServerManager.getServerUrl()
     }
     val qrBitmap = remember(serverUrl, isRunning) {
         if (isRunning) generateQrCodeBitmap(serverUrl) else null
     }
-    val isClientConnected = ((System.currentTimeMillis() - LocalCfdServerManager.lastClientPingTime) < 5000L) || (P2pCfdManager.connectedEndpointId != null)
+    val isClientConnected = ((System.currentTimeMillis() - LocalCfdServerManager.lastClientPingTime) < 5000L) || (P2pCfdManager.connectedDeviceName != null)
 
     if (showStopAuthDialog) {
         OwnerSecurityAuthDialog(
@@ -616,7 +611,7 @@ fun LocalWirelessCfdDialog(
             activity = activity,
             onSuccess = {
                 LocalCfdServerManager.stopServer()
-                P2pCfdManager.stopAdvertisingHost(context)
+                P2pCfdManager.stopAll()
                 showStopAuthDialog = false
                 Toast.makeText(context, "Transmisi Layar Pelanggan dihentikan.", Toast.LENGTH_SHORT).show()
             },
@@ -694,11 +689,7 @@ fun LocalWirelessCfdDialog(
                             onCheckedChange = { enable ->
                                 if (enable) {
                                     LocalCfdServerManager.startServer()
-                                    if (P2pCfdManager.hasAllPermissions(context)) {
-                                        P2pCfdManager.startAdvertisingHost(context, settingsManager.storeName ?: "ZoKas")
-                                    } else {
-                                        p2pPermissionLauncher.launch(P2pCfdManager.getRequiredPermissions())
-                                    }
+                                    P2pCfdManager.startHosting(context, settingsManager.storeName ?: "ZoKas")
                                 } else {
                                     showStopAuthDialog = true
                                 }
@@ -850,9 +841,6 @@ private fun CfdProductThumbnail(
     hasImage: Boolean,
     sizeDp: Int = 46
 ) {
-    val p2pBitmap = remember(productId, hasImage) {
-        if (productId > 0L) P2pCfdManager.receivedProductBitmaps[productId] else null
-    }
     Box(
         modifier = Modifier
             .size(sizeDp.dp)
@@ -860,14 +848,7 @@ private fun CfdProductThumbnail(
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center
     ) {
-        if (p2pBitmap != null) {
-            Image(
-                bitmap = p2pBitmap.asImageBitmap(),
-                contentDescription = productName,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else if (hasImage && productId > 0L && hostUrl.startsWith("http")) {
+        if (hasImage && productId > 0L && hostUrl.startsWith("http")) {
             AsyncImage(
                 model = "$hostUrl/api/image?id=$productId",
                 contentDescription = productName,
@@ -886,9 +867,6 @@ private fun CfdProductThumbnail(
     }
 }
 
-// ==============================================================================
-// LAYAR FULL-SCREEN NATIVE & KIOSK LOCK UNTUK PERANGKAT PENERIMA CFD
-// ==============================================================================
 @Composable
 fun FullScreenKioskCfdReceiverScreen(
     hostUrl: String,
@@ -929,51 +907,6 @@ fun FullScreenKioskCfdReceiverScreen(
             showThankYouOverlay = true
             delay(5000L)
             showThankYouOverlay = false
-        }
-    }
-
-    val isP2pMode = hostUrl == LocalCfdServerManager.P2P_NEARBY_URI
-    val p2pPermLauncher = rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
-    ) { perms ->
-        if (perms.values.all { it }) {
-            P2pCfdManager.startDiscoveryReceiver(context) {
-                isConnected = false
-            }
-        }
-    }
-
-    DisposableEffect(isP2pMode) {
-        if (isP2pMode) {
-            if (P2pCfdManager.hasAllPermissions(context)) {
-                P2pCfdManager.startDiscoveryReceiver(context) {
-                    isConnected = false
-                }
-            } else {
-                p2pPermLauncher.launch(P2pCfdManager.getRequiredPermissions())
-            }
-        }
-        onDispose {
-            if (isP2pMode) {
-                P2pCfdManager.stopDiscoveryReceiver(context)
-            }
-        }
-    }
-
-    LaunchedEffect(isP2pMode, P2pCfdManager.latestReceivedState, P2pCfdManager.connectedEndpointId) {
-        if (isP2pMode) {
-            isConnected = P2pCfdManager.connectedEndpointId != null
-            if (!isConnected) disconnectedStreak++ else disconnectedStreak = 0
-            val incoming = P2pCfdManager.latestReceivedState
-            if (incoming != null) {
-                if (!incoming.isCfdActive) {
-                    P2pCfdManager.stopDiscoveryReceiver(context)
-                    LocalCfdServerManager.unlockKioskReceiver(context)
-                    onUnlockedAndExit()
-                } else {
-                    liveState = incoming
-                }
-            }
         }
     }
 
@@ -1076,7 +1009,7 @@ fun FullScreenKioskCfdReceiverScreen(
             users = users,
             activity = LocalActivity.current as? FragmentActivity,
             onSuccess = {
-                P2pCfdManager.stopDiscoveryReceiver(context)
+                P2pCfdManager.stopAll()
                 LocalCfdServerManager.unlockKioskReceiver(context)
                 showEmergencyPinDialog = false
                 onUnlockedAndExit()
@@ -1090,7 +1023,6 @@ fun FullScreenKioskCfdReceiverScreen(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // HEADER
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.fillMaxWidth()
@@ -1164,7 +1096,6 @@ fun FullScreenKioskCfdReceiverScreen(
                 }
             }
 
-            // KONTEN DINAMIS: COMPLETED -> PAYMENT -> CART
             if (showThankYouOverlay || liveState.displayStage == "COMPLETED") {
                 Box(
                     modifier = Modifier
@@ -1267,7 +1198,6 @@ fun FullScreenKioskCfdReceiverScreen(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // KIRI: RINCIAN PESANAN DENGAN THUMBNAIL PRODUK DI SEBELAH KIRI
                     Card(
                         modifier = Modifier.weight(1.1f).fillMaxHeight(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -1325,7 +1255,6 @@ fun FullScreenKioskCfdReceiverScreen(
                         }
                     }
 
-                    // KANAN: INSTRUKSI PEMBAYARAN + BAYAR & KEMBALIAN REAL-TIME
                     Card(
                         modifier = Modifier.weight(1.2f).fillMaxHeight(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -1408,7 +1337,6 @@ fun FullScreenKioskCfdReceiverScreen(
                                     }
                                 }
                             } else {
-                                // CASH PAYMENT: Tampilkan live Bayar & Kembalian saat kasir menginput uang diterima!
                                 Surface(
                                     color = MaterialTheme.colorScheme.surface,
                                     shape = RoundedCornerShape(14.dp),
@@ -1452,7 +1380,6 @@ fun FullScreenKioskCfdReceiverScreen(
                     }
                 }
             } else {
-                // LAYAR KERANJANG BELANJA REAL-TIME (CART STAGE) DENGAN THUMBNAIL PRODUK DI SEBELAH KIRI
                 Row(
                     modifier = Modifier
                         .weight(1f)
@@ -1529,7 +1456,6 @@ fun FullScreenKioskCfdReceiverScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            // GAMBAR KECIL PRODUK DI SEBELAH KIRI SENDIRI
                                             CfdProductThumbnail(
                                                 hostUrl = hostUrl,
                                                 productId = item.productId,
@@ -1688,7 +1614,6 @@ fun FullScreenKioskCfdReceiverScreen(
                 }
             }
 
-            // FOOTER
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.fillMaxWidth()
