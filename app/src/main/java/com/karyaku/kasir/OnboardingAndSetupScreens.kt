@@ -67,21 +67,10 @@ fun EmailPrivacyOnboardingScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    // Label ringkas tanpa contoh panjang di dalam label & placeholder hanya tampil saat kosong
                     OutlinedTextField(
                         value = email,
                         onValueChange = onEmailChange,
-                        label = { Text("Alamat Email *", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        placeholder = {
-                            if (email.isEmpty()) {
-                                Text(
-                                    "nama@email.com",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
-                        },
+                        label = { Text("Email *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = { Icon(Icons.Default.AlternateEmail, contentDescription = null) },
                         trailingIcon = {
                             if (email.isNotEmpty()) {
@@ -96,7 +85,7 @@ fun EmailPrivacyOnboardingScreen(
                         shape = RoundedCornerShape(12.dp)
                     )
                     Text(
-                        text = "Contoh: nama@gmail.com atau nama@yahoo.com • Mendukung Gmail, Yahoo Mail, Outlook, iCloud, maupun email usaha.",
+                        text = "Contoh: nama@gmail.com / nama@yahoo.com • Mendukung Gmail, Yahoo Mail, Outlook, iCloud, maupun email usaha.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 17.sp
@@ -173,6 +162,7 @@ fun EmailPrivacyOnboardingScreen(
                 onClick = onContinue,
                 enabled = email.contains("@") && email.contains(".") && isPolicyAccepted
             )
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -274,7 +264,6 @@ fun BusinessTypeSetupScreen(
                 }
             }
 
-            // Urutan vertikal dari atas ke bawah: Nama Pemilik -> PIN / Password -> Ulangi PIN / Pengecekan Password
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
@@ -296,7 +285,7 @@ fun BusinessTypeSetupScreen(
                     OutlinedTextField(
                         value = ownerName,
                         onValueChange = onOwnerNameChange,
-                        label = { Text("Nama Pemilik *", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        label = { Text("Nama Pemilik *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -305,7 +294,7 @@ fun BusinessTypeSetupScreen(
                     OutlinedTextField(
                         value = pin,
                         onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) onPinChange(it) },
-                        label = { Text("PIN / Password (4-6 Angka) *", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        label = { Text("PIN / Password (4-6 Angka) *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         trailingIcon = {
                             IconButton(onClick = { pinVisible = !pinVisible }) {
                                 Icon(
@@ -324,7 +313,7 @@ fun BusinessTypeSetupScreen(
                     OutlinedTextField(
                         value = confirmPin,
                         onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) onConfirmPinChange(it) },
-                        label = { Text("Ulangi PIN / Pengecekan Password *", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        label = { Text("Ulangi PIN / Pengecekan Password *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         trailingIcon = {
                             IconButton(onClick = { confirmPinVisible = !confirmPinVisible }) {
                                 Icon(
@@ -347,6 +336,7 @@ fun BusinessTypeSetupScreen(
                 onClick = onSubmitSetup,
                 enabled = ownerName.isNotBlank() && pin.length >= 4 && pin == confirmPin
             )
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
