@@ -240,7 +240,7 @@ object UniversalBookkeepingExporter {
             val netProfit = grossProfit - totalCashOut - totalOpExpenses
             val drawerCashEstimate = (cashSales + totalCashIn - totalCashOut).coerceAtLeast(0L)
             val inventoryVal = products.sumOf { it.stock * it.costPrice }
-            val rawMatVal = rawMaterials.sumOf { (it.stock * it.costPerUnit).toLong() }
+            val rawMatVal = rawMaterials.sumOf { ((it.stock.toString().toDoubleOrNull() ?: 0.0) * (it.costPerUnit.toString().toDoubleOrNull() ?: 0.0)).toLong() }
 
             // =========================================================================
             // SHEET 1: RINGKASAN LABA RUGI & NERACA OPERASIONAL
@@ -428,12 +428,12 @@ object UniversalBookkeepingExporter {
             rawMaterials.forEach { rm ->
                 val row = sInv.createRow(rInv++).apply { heightInPoints = 18f }
                 val alt = invIdx++ % 2 == 1
-                val asset = (rm.stock * rm.costPerUnit).toLong()
+                val asset = ((rm.stock.toString().toDoubleOrNull() ?: 0.0) * (rm.costPerUnit.toString().toDoubleOrNull() ?: 0.0)).toLong()
                 row.createCell(0).apply { setCellValue("BAHAN BAKU"); cellStyle = createDataStyle(workbook, alt) }
                 row.createCell(1).apply { setCellValue(rm.name); cellStyle = createDataStyle(workbook, alt) }
                 row.createCell(2).apply { setCellValue(rm.unit); cellStyle = createDataStyle(workbook, alt) }
-                row.createCell(3).apply { setCellValue(rm.stock); cellStyle = createDataStyle(workbook, alt, isCurrency = true) }
-                row.createCell(4).apply { setCellValue(rm.costPerUnit); cellStyle = createDataStyle(workbook, alt, isCurrency = true) }
+                row.createCell(3).apply { setCellValue(rm.stock.toString().toDoubleOrNull() ?: 0.0); cellStyle = createDataStyle(workbook, alt, isCurrency = true) }
+                row.createCell(4).apply { setCellValue(rm.costPerUnit.toString().toDoubleOrNull() ?: 0.0); cellStyle = createDataStyle(workbook, alt, isCurrency = true) }
                 row.createCell(5).apply { setCellValue(0.0); cellStyle = createDataStyle(workbook, alt, isCurrency = true) }
                 row.createCell(6).apply { setCellValue(asset.toDouble()); cellStyle = createDataStyle(workbook, alt, isCurrency = true) }
             }
@@ -723,11 +723,11 @@ object UniversalBookkeepingExporter {
             }
             rawMaterials.forEach { rm ->
                 if (y > 785f) y = nextPage()
-                val asset = (rm.stock * rm.costPerUnit).toLong()
+                val asset = ((rm.stock.toString().toDoubleOrNull() ?: 0.0) * (rm.costPerUnit.toString().toDoubleOrNull() ?: 0.0)).toLong()
                 canvas.drawText("[Bahan] ${rm.name}".take(32), 42f, y + 13f, cellPaint)
                 canvas.drawText(rm.unit, 240f, y + 13f, cellPaint)
-                canvas.drawText("${rm.stock}", 335f, y + 13f, cellPaint)
-                canvas.drawText(rp(rm.costPerUnit.toLong()), 395f, y + 13f, cellPaint)
+                canvas.drawText(rm.stock.toString(), 335f, y + 13f, cellPaint)
+                canvas.drawText(rp((rm.costPerUnit.toString().toDoubleOrNull() ?: 0.0).toLong()), 395f, y + 13f, cellPaint)
                 val aStr = rp(asset)
                 canvas.drawText(aStr, 553f - cellBoldPaint.measureText(aStr), y + 13f, cellBoldPaint)
                 canvas.drawLine(36f, y + 18f, 559f, y + 18f, linePaint)
