@@ -1,7 +1,11 @@
 package com.karyaku.kasir
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
@@ -21,10 +25,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Money
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Warning
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,20 +55,11 @@ import com.karyaku.kasir.data.local.TransactionEntity
 import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-
-// ====================================================================
-// UPDATE HistoryScreen.kt:
-//   - Memperbaiki Kartu Total Omzet yang sebelumnya menyilaukan di Mode
-//     Gelap (karena memakai containerColor = primary penuh dengan teks
-//     kuning/tertiary di atas hijau terang).
-//   - Kini menggunakan container surfaceVariant dengan aksen border primary
-//     dan tipografi kontras tinggi (WCAG AA) yang nyaman di mata baik pada
-//     Mode Gelap maupun Mode Terang.
-// ====================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +81,9 @@ fun HistoryScreen(
     val users by viewModel.users.collectAsStateWithLifecycle()
     val cashFlows by viewModel.cashFlows.collectAsStateWithLifecycle()
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
-
+    val rawMaterials by viewModel.rawMaterials.collectAsStateWithLifecycle()
+    val purchases by viewModel.purchases.collectAsStateWithLifecycle()
+    val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
 
     val lowStockProducts = remember(products) {
@@ -108,6 +108,57 @@ fun HistoryScreen(
     }
 
     var transactionsToExport by remember { mutableStateOf<List<TransactionEntity>>(emptyList()) }
+
+    val startOfToday = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val startOfWeek = Calendar.getInstance().apply {
+        firstDayOfWeek = Calendar.MONDAY
+        set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        if (timeInMillis > System.currentTimeMillis()) {
+            add(Calendar.DAY_OF_YEAR, -7)
+        }
+    }.timeInMillis
+
+    val startOfMonth = Calendar.getInstance().apply {
+        set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val customDayStart = Calendar.getInstance().apply {
+        timeInMillis = customPickedDateMillis
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    val customDayEnd = customDayStart + 86400000L - 1L
+
+    fun matchesSelectedPeriod(ts: Long): Boolean {
+        if (ts < revenueResetTimestamp) return false
+        return when (dateFilter) {
+            "TODAY" -> ts >= startOfToday
+            "THIS_WEEK" -> ts >= startOfWeek
+            "THIS_MONTH" -> ts >= startOfMonth
+            "CUSTOM_DATE" -> ts in customDayStart..customDayEnd
+            else -> true
+        }
+    }
+
+    val filteredTransactions = transactions.filter { matchesSelectedPeriod(it.timestamp) }
+    val filteredCashFlows = cashFlows.filter { matchesSelectedPeriod(it.timestamp) }
+    val filteredExpenses = expenses.filter { matchesSelectedPeriod(it.timestamp) }
+    val filteredShifts = shifts.filter { matchesSelectedPeriod(it.startTime) }
+    val filteredPurchases = purchases.filter { matchesSelectedPeriod(it.timestamp) }
+    val filteredAuditLogs = auditLogs.filter { matchesSelectedPeriod(it.timestamp) }
+
+    val periodDisplayLabel = remember(dateFilter, customPickedDateMillis) {
+        when (dateFilter) {
+            "TODAY" -> "Hari Ini (${SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(Date())})"
+            "THIS_WEEK" -> "Minggu Ini"
+            "THIS_MONTH" -> "Bulan Ini (${SimpleDateFormat("MMMM yyyy", Locale("id", "ID")).format(Date())})"
+            "CUSTOM_DATE" -> SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(Date(customPickedDateMillis))
+            else -> "Semua Periode"
+        }
+    }
 
     val createExcelLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -149,43 +200,58 @@ fun HistoryScreen(
         }
     }
 
-    val startOfToday = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-
-    val startOfWeek = Calendar.getInstance().apply {
-        firstDayOfWeek = Calendar.MONDAY
-        set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        if (timeInMillis > System.currentTimeMillis()) {
-            add(Calendar.DAY_OF_YEAR, -7)
-        }
-    }.timeInMillis
-
-    val startOfMonth = Calendar.getInstance().apply {
-        set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-
-    val customDayStart = Calendar.getInstance().apply {
-        timeInMillis = customPickedDateMillis
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-    val customDayEnd = customDayStart + 86400000L - 1L
-
-    fun matchesSelectedPeriod(ts: Long): Boolean {
-        if (ts < revenueResetTimestamp) return false
-        return when (dateFilter) {
-            "TODAY" -> ts >= startOfToday
-            "THIS_WEEK" -> ts >= startOfWeek
-            "THIS_MONTH" -> ts >= startOfMonth
-            "CUSTOM_DATE" -> ts in customDayStart..customDayEnd
-            else -> true
+    val createUniversalExcelLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val ok = UniversalBookkeepingExporter.exportUniversalBookkeepingExcel(
+                    context = context,
+                    uri = uri,
+                    viewModel = viewModel,
+                    settingsManager = settingsManager,
+                    transactions = filteredTransactions,
+                    shifts = filteredShifts,
+                    cashFlows = filteredCashFlows,
+                    expenses = filteredExpenses,
+                    products = products,
+                    rawMaterials = rawMaterials,
+                    purchases = filteredPurchases,
+                    auditLogs = filteredAuditLogs,
+                    periodLabel = periodDisplayLabel
+                )
+                if (ok) {
+                    Toast.makeText(context, "Buku Pembukuan Lengkap (Excel) berhasil diekspor!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "Gagal mengekspor Buku Pembukuan Excel.", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
-    val filteredTransactions = transactions.filter { matchesSelectedPeriod(it.timestamp) }
-    val filteredCashFlows = cashFlows.filter { matchesSelectedPeriod(it.timestamp) }
-    val filteredExpenses = expenses.filter { matchesSelectedPeriod(it.timestamp) }
+    val createUniversalPdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                UniversalBookkeepingExporter.exportUniversalBookkeepingPdf(
+                    context = context,
+                    uri = uri,
+                    viewModel = viewModel,
+                    settingsManager = settingsManager,
+                    transactions = filteredTransactions,
+                    shifts = filteredShifts,
+                    cashFlows = filteredCashFlows,
+                    expenses = filteredExpenses,
+                    products = products,
+                    rawMaterials = rawMaterials,
+                    purchases = filteredPurchases,
+                    auditLogs = filteredAuditLogs,
+                    periodLabel = periodDisplayLabel
+                )
+            }
+        }
+    }
 
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
     val isTaxInclusive = remember { taxPrefs.getBoolean("is_tax_inclusive", false) }
@@ -195,7 +261,6 @@ fun HistoryScreen(
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
     val totalHpp = validTransactions.sumOf { it.totalCost }
 
-    // Pisahkan Titipan Pajak (PB1/PPN) agar tidak terhitung sebagai Laba Toko
     val totalPajakTerkumpul = remember(validTransactions, currentTaxRate, isTaxInclusive) {
         if (currentTaxRate <= 0.0) 0L
         else validTransactions.sumOf { tx ->
@@ -462,9 +527,6 @@ fun HistoryScreen(
             }
         }
 
-        // =====================================================
-        // KARTU OMZET UTAMA — Nyaman di Mata & Kontras Tinggi di Dark Mode
-        // =====================================================
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(16.dp)),
@@ -702,9 +764,6 @@ fun HistoryScreen(
             }
         }
 
-        // =====================================================
-        // GRAFIK 7 HARI — chart warna kini adaptif
-        // =====================================================
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -816,9 +875,6 @@ fun HistoryScreen(
             }
         }
 
-        // =====================================================
-        // EXPIRING — pakai errorContainer (adaptif)
-        // =====================================================
         if (expiringProducts.isNotEmpty()) {
             item {
                 Text(
@@ -860,8 +916,6 @@ fun HistoryScreen(
                 }
             }
         }
-
-        // Peringatan stok menipis kini ditampilkan langsung pada kartu produk berwarna merah di Kasir & Produk
 
         item {
             Text(
@@ -921,6 +975,74 @@ fun HistoryScreen(
                             if (index < validUsers.size - 1) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // KARTU BUKU PEMBUKUAN UNIVERSAL (E-BOOK PDF & EXCEL MULTI-SHEET)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Buku Pembukuan Lengkap (Universal)",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Satukan Laba Rugi, Kas, Shift, Transaksi, Stok, Bahan Baku, PO, dan Log Audit dalam satu dokumen berlogo & identitas toko.",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 16.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val storeSlug = (settingsManager.storeName ?: "ZoKas").replace(Regex("[^A-Za-z0-9]"), "_")
+                                createUniversalExcelLauncher.launch("Buku_Pembukuan_${storeSlug}_${System.currentTimeMillis()}.xlsx")
+                            },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = 46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("EXCEL LENGKAP", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
+
+                        Button(
+                            onClick = {
+                                val storeSlug = (settingsManager.storeName ?: "ZoKas").replace(Regex("[^A-Za-z0-9]"), "_")
+                                createUniversalPdfLauncher.launch("EBook_Pembukuan_${storeSlug}_${System.currentTimeMillis()}.pdf")
+                            },
+                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = 46.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary,
+                                contentColor = MaterialTheme.colorScheme.onTertiary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                        ) {
+                            Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("E-BOOK PDF", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
                 }
@@ -1438,13 +1560,31 @@ private suspend fun exportTransactionsToPdfDetailed(
         val storeName = settingsManager.storeName ?: "ZoKas"
         val storeAddr = settingsManager.storeAddress ?: ""
         val storePhone = settingsManager.storePhone ?: ""
+        val logoPath = settingsManager.storeLogoPath
+        val logoBmp: Bitmap? = try {
+            if (!logoPath.isNullOrBlank() && File(logoPath).exists()) {
+                BitmapFactory.decodeFile(logoPath)
+            } else {
+                ContextCompat.getDrawable(context, R.drawable.logo_zokas)?.let { d ->
+                    val b = Bitmap.createBitmap(120, 120, Bitmap.Config.ARGB_8888)
+                    val c = Canvas(b)
+                    d.setBounds(0, 0, 120, 120)
+                    d.draw(c)
+                    b
+                }
+            }
+        } catch (_: Exception) { null }
+
+        if (logoBmp != null) {
+            canvas.drawBitmap(logoBmp, null, RectF(40f, 24f, 88f, 72f), null)
+        }
 
         canvas.drawText(storeName.uppercase(), 297.5f, y, headerPaint); y += 20f
         if (storeAddr.isNotBlank()) { canvas.drawText(storeAddr, 297.5f, y, textPaint.apply { textAlign = Paint.Align.CENTER }); y += 14f }
         if (storePhone.isNotBlank()) { canvas.drawText("Telp: $storePhone", 297.5f, y, textPaint); y += 14f }
         textPaint.textAlign = Paint.Align.LEFT
 
-        y += 10f
+        y += 14f
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 10f
         canvas.drawLine(40f, y, 555f, y, linePaint); y += 20f
 
@@ -1461,7 +1601,7 @@ private suspend fun exportTransactionsToPdfDetailed(
                 page = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
                 canvas = page.canvas
                 y = 40f
-                canvas.drawText("Laporan Transaksi (Lanjutan)", 40f, y, headerPaint); y += 20f
+                canvas.drawText("${storeName.uppercase()} — Laporan Transaksi (Hal. $pageNumber)", 297.5f, y, headerPaint); y += 20f
                 canvas.drawLine(40f, y, 555f, y, linePaint); y += 16f
             }
 

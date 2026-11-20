@@ -28,7 +28,7 @@ object ExcelExporter {
 
             val headerRow = sheet.createRow(0)
             val headers = listOf(
-                "Nama", "HargaJual", "HargaModal", "Stok", "Kategori", "Barcode", 
+                "Nama", "HargaJual", "HargaModal", "Stok", "Kategori", "Barcode",
                 "Varian", "Komisi", "Expiry", "IsService", "HargaGrosir", "MinGrosir"
             )
             headers.forEachIndexed { index, title ->
@@ -47,16 +47,16 @@ object ExcelExporter {
                 row.createCell(3).setCellValue(product.stock.toDouble())
                 row.createCell(4).setCellValue(product.category)
                 row.createCell(5).setCellValue(product.barcode)
-                
+
                 val varianCell = row.createCell(6)
                 varianCell.setCellValue(product.variations)
                 varianCell.cellStyle = wrapTextStyle
-                
+
                 row.createCell(7).setCellValue(product.commissionPerItem.toDouble())
-                
+
                 val expiryStr = if (product.expiryDate > 0) dateFormat.format(Date(product.expiryDate)) else "-"
                 row.createCell(8).setCellValue(expiryStr)
-                
+
                 row.createCell(9).setCellValue(if (product.isService) "TRUE" else "FALSE")
                 row.createCell(10).setCellValue(product.wholesalePrice.toDouble())
                 row.createCell(11).setCellValue(product.wholesaleMinQty.toDouble())
@@ -92,7 +92,7 @@ object ExcelExporter {
 
             for (i in 1..sheet.lastRowNum) {
                 val row = sheet.getRow(i) ?: continue
-                
+
                 fun getCellValue(index: Int): String {
                     val cell = row.getCell(index, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL) ?: return ""
                     return dataFormatter.formatCellValue(cell)
@@ -108,7 +108,7 @@ object ExcelExporter {
                 val barcode = getCellValue(5)
                 val variations = getCellValue(6)
                 val commission = getCellValue(7).toDoubleOrNull()?.toLong() ?: 0L
-                
+
                 val expiryStr = getCellValue(8)
                 val expiryDate = try {
                     if (expiryStr.isNotBlank() && expiryStr != "-") {
@@ -128,7 +128,7 @@ object ExcelExporter {
                     isSynced = false, updatedAt = System.currentTimeMillis()
                 ))
             }
-            
+
             inputStream.close()
             workbook.close()
             products
@@ -142,11 +142,28 @@ object ExcelExporter {
         try {
             val workbook = XSSFWorkbook()
             val sheet = workbook.createSheet("Transactions")
+            val settingsManager = SettingsManager(context)
+            val startRow = UniversalBookkeepingExporter.attachExcelStoreHeader(
+                context = context,
+                workbook = workbook,
+                sheet = sheet,
+                settingsManager = settingsManager,
+                reportTitle = "LAPORAN TRANSAKSI PENJUALAN",
+                periodLabel = "${transactions.size} Transaksi",
+                totalCols = 9
+            )
 
-            val headerFont = workbook.createFont().apply { bold = true }
-            val headerCellStyle = workbook.createCellStyle().apply { setFont(headerFont) }
+            val headerFont = workbook.createFont().apply {
+                bold = true
+                color = IndexedColors.WHITE.index
+            }
+            val headerCellStyle = workbook.createCellStyle().apply {
+                setFont(headerFont)
+                fillForegroundColor = IndexedColors.DARK_TEAL.index
+                fillPattern = FillPatternType.SOLID_FOREGROUND
+            }
 
-            val headerRow = sheet.createRow(0)
+            val headerRow = sheet.createRow(startRow)
             val headers = listOf("ID", "Date", "Total Price", "Cash Received", "Change", "Customer", "Status", "Payment Method", "Cashier")
             headers.forEachIndexed { index, title ->
                 val cell = headerRow.createCell(index)
@@ -157,7 +174,7 @@ object ExcelExporter {
             val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault())
 
             transactions.forEachIndexed { rowIndex, trx ->
-                val row = sheet.createRow(rowIndex + 1)
+                val row = sheet.createRow(startRow + rowIndex + 1)
                 row.createCell(0).setCellValue(trx.id.toDouble())
                 row.createCell(1).setCellValue(dateFormat.format(Date(trx.timestamp)))
                 row.createCell(2).setCellValue(trx.totalPrice.toDouble())
@@ -171,7 +188,7 @@ object ExcelExporter {
 
             sheet.setColumnWidth(1, 6000)
             sheet.setColumnWidth(5, 6000)
-            
+
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {
                 workbook.write(outputStream)
@@ -185,26 +202,39 @@ object ExcelExporter {
         }
     }
 
-    // ================================================================
-    // FUNGSI EKSPOR LAPORAN SHIFT (TUTUP KASIR) - FIX CATATAN
-    // ================================================================
     suspend fun exportShiftsToExcel(context: Context, uri: Uri, shifts: List<ShiftEntity>): Boolean = withContext(Dispatchers.IO) {
         try {
             val workbook = XSSFWorkbook()
             val sheet = workbook.createSheet("Laporan Tutup Kasir")
+            val settingsManager = SettingsManager(context)
+            val startRow = UniversalBookkeepingExporter.attachExcelStoreHeader(
+                context = context,
+                workbook = workbook,
+                sheet = sheet,
+                settingsManager = settingsManager,
+                reportTitle = "LAPORAN SHIFT & TUTUP KASIR",
+                periodLabel = "${shifts.size} Sesi Shift",
+                totalCols = 10
+            )
 
-            val headerFont = workbook.createFont().apply { bold = true }
-            val headerCellStyle = workbook.createCellStyle().apply { setFont(headerFont) }
+            val headerFont = workbook.createFont().apply {
+                bold = true
+                color = IndexedColors.WHITE.index
+            }
+            val headerCellStyle = workbook.createCellStyle().apply {
+                setFont(headerFont)
+                fillForegroundColor = IndexedColors.DARK_TEAL.index
+                fillPattern = FillPatternType.SOLID_FOREGROUND
+            }
 
             val currencyFormat = workbook.createDataFormat().getFormat("#,##0")
             val currencyStyle = workbook.createCellStyle().apply { dataFormat = currencyFormat }
-            
+
             val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
 
-            val headerRow = sheet.createRow(0)
-            // FIX: Tambahkan "Catatan"
+            val headerRow = sheet.createRow(startRow)
             val headers = listOf(
-                "Tanggal Buka", "Kasir", "Waktu Buka", "Waktu Tutup", 
+                "Tanggal Buka", "Kasir", "Waktu Buka", "Waktu Tutup",
                 "Modal Awal", "Kas Sistem", "Kas Fisik", "Selisih", "Status", "Catatan"
             )
             headers.forEachIndexed { index, title ->
@@ -214,17 +244,17 @@ object ExcelExporter {
             }
 
             shifts.forEachIndexed { rowIndex, shift ->
-                val row = sheet.createRow(rowIndex + 1)
-                
+                val row = sheet.createRow(startRow + rowIndex + 1)
+
                 val dateOpen = dateFormat.format(Date(shift.startTime)).split(" ").firstOrNull() ?: "-"
                 row.createCell(0).setCellValue(dateOpen)
-                
+
                 row.createCell(1).setCellValue(shift.userName)
                 row.createCell(2).setCellValue(dateFormat.format(Date(shift.startTime)))
-                
+
                 val closeTimeStr = if (shift.endTime != null) dateFormat.format(Date(shift.endTime)) else "MASIH BUKA"
                 row.createCell(3).setCellValue(closeTimeStr)
-                
+
                 val modalCell = row.createCell(4)
                 modalCell.setCellValue(shift.openingCash.toDouble())
                 modalCell.cellStyle = currencyStyle
@@ -242,11 +272,9 @@ object ExcelExporter {
                 selisihCell.cellStyle = currencyStyle
 
                 row.createCell(8).setCellValue(shift.status)
-                // FIX: Tulis catatan ke Excel
                 row.createCell(9).setCellValue(shift.note)
             }
 
-            sheet.setColumnWidth(0, 4000)
             sheet.setColumnWidth(1, 5000)
             sheet.setColumnWidth(2, 6000)
             sheet.setColumnWidth(3, 6000)
@@ -255,7 +283,7 @@ object ExcelExporter {
             sheet.setColumnWidth(6, 5000)
             sheet.setColumnWidth(7, 4000)
             sheet.setColumnWidth(8, 4000)
-            sheet.setColumnWidth(9, 10000) // Lebar kolom catatan
+            sheet.setColumnWidth(9, 10000)
 
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {

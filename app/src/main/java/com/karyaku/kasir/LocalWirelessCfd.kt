@@ -209,7 +209,7 @@ object LocalCfdServerManager {
             }
         }
         val now = System.currentTimeMillis()
-        if (now < completedHoldUntil && newState.items.isEmpty() && newState.displayStage == "CART") {
+        if (now < completedHoldUntil && currentState.displayStage == "COMPLETED" && newState.items.isEmpty()) {
             currentState = currentState.copy(
                 storeName = newState.storeName,
                 storeAddress = newState.storeAddress,
@@ -278,13 +278,18 @@ object LocalCfdServerManager {
         thankYouMessage: String
     ) {
         val now = System.currentTimeMillis()
-        completedHoldUntil = now + 5000L
-        currentState = currentState.copy(
+        completedHoldUntil = now + 12000L
+        val prev = currentState
+        val resolvedPaid = if (totalPaid > 0L) totalPaid else prev.totalPrice
+        val resolvedReceived = if (cashReceived > 0L) cashReceived else resolvedPaid
+        val resolvedChange = if (changeAmount >= 0L) changeAmount else (resolvedReceived - resolvedPaid).coerceAtLeast(0L)
+        currentState = prev.copy(
             displayStage = "COMPLETED",
-            amountToPay = totalPaid,
-            cashReceived = cashReceived,
-            changeAmount = changeAmount,
-            paymentMethod = method,
+            totalPrice = if (prev.totalPrice > 0L) prev.totalPrice else resolvedPaid,
+            amountToPay = resolvedPaid,
+            cashReceived = resolvedReceived,
+            changeAmount = resolvedChange,
+            paymentMethod = method.ifBlank { prev.paymentMethod.ifBlank { "CASH" } },
             thankYouMessage = thankYouMessage.ifBlank { "Terima Kasih atas pembeliannya 🙏" },
             completedTimestamp = now,
             isCfdActive = isRunningFlag.get(),
@@ -1099,29 +1104,141 @@ fun FullScreenKioskCfdReceiverScreen(
                 }
             }
 
-            if (showThankYouOverlay || liveState.displayStage == "COMPLETED") {
-                Box(
+            if (liveState.displayStage == "COMPLETED" || showThankYouOverlay) {
+                val paidFinal = if (liveState.amountToPay > 0L) liveState.amountToPay else liveState.totalPrice
+                val receivedFinal = if (liveState.cashReceived > 0L) liveState.cashReceived else paidFinal
+                val changeFinal = if (liveState.changeAmount > 0L) liveState.changeAmount else (receivedFinal - paidFinal).coerceAtLeast(0L)
+                val completedTimeStr = remember(liveState.completedTimestamp) {
+                    val ts = if (liveState.completedTimestamp > 0L) liveState.completedTimestamp else System.currentTimeMillis()
+                    java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("id", "ID")).format(java.util.Date(ts))
+                }
+
+                Row(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Panel Kiri: Rincian Item Transaksi Selesai
                     Card(
-                        modifier = Modifier.fillMaxWidth(0.88f),
+                        modifier = Modifier
+                            .weight(1.25f)
+                            .fillMaxHeight(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize().padding(18.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "DETAIL ITEM TRANSAKSI (${liveState.items.sumOf { it.quantity }} ITEM)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    completedTimeStr,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                text = "${liveState.customerName} • ${liveState.orderType}" +
+                                    if (liveState.cashierName.isNotBlank()) " • Kasir: ${liveState.cashierName}" else "",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                            if (liveState.items.isEmpty()) {
+                                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        "Transaksi Lunas (${liveState.paymentMethod})",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(liveState.items) { item ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            CfdProductThumbnail(
+                                                hostUrl = hostUrl,
+                                                productId = item.productId,
+                                                productName = item.name,
+                                                hasImage = item.imagePath.isNotBlank(),
+                                                sizeDp = 42
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = if (item.variation.isNotBlank()) "${item.name} (${item.variation})" else item.name,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = "${item.quantity} x ${formatRupiah(item.unitPrice)}",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                if (item.notes.isNotBlank()) {
+                                                    Text(
+                                                        text = "Catatan: ${item.notes}",
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.error
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = formatRupiah(item.subtotal),
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Panel Kanan: Status Berhasil, Rincian Tagihan & Kembalian
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
-                        shape = RoundedCornerShape(24.dp)
+                        shape = RoundedCornerShape(18.dp)
                     ) {
                         Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(28.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(76.dp)
+                                    .size(64.dp)
                                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -1129,64 +1246,88 @@ fun FullScreenKioskCfdReceiverScreen(
                                     Icons.Default.CheckCircle,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(48.dp)
+                                    modifier = Modifier.size(40.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "PEMBAYARAN BERHASIL",
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
-                                letterSpacing = 1.5.sp
+                                letterSpacing = 1.2.sp
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = liveState.thankYouMessage,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center,
-                                lineHeight = 32.sp
+                                lineHeight = 24.sp
                             )
-                            Spacer(modifier = Modifier.height(18.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             Spacer(modifier = Modifier.height(14.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             Column(
-                                modifier = Modifier.fillMaxWidth(0.75f),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Total Tagihan:", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(formatRupiah(liveState.amountToPay), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                if (liveState.subtotal > 0L) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Subtotal", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(formatRupiah(liveState.subtotal), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    }
                                 }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Bayar (${liveState.paymentMethod}):", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(
-                                        formatRupiah(if (liveState.cashReceived > 0L) liveState.cashReceived else liveState.amountToPay),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                if (liveState.discount > 0L) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Diskon", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("- ${formatRupiah(liveState.discount)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Kembalian:", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                    Text(
-                                        formatRupiah(liveState.changeAmount),
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.tertiary
-                                    )
+                                if (liveState.voucherDiscount > 0L) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Voucher", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("- ${formatRupiah(liveState.voucherDiscount)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                if (liveState.taxAmount > 0L) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text(if (liveState.isTaxInclusive) "Pajak (Termasuk)" else "Pajak", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(
+                                            if (liveState.isTaxInclusive) "(${formatRupiah(liveState.taxAmount)})" else "+ ${formatRupiah(liveState.taxAmount)}",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                                if (liveState.serviceCharge > 0L) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Service Charge", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("+ ${formatRupiah(liveState.serviceCharge)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                                if (liveState.roundingDiff != 0L) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Pembulatan", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(formatRupiah(liveState.roundingDiff), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Total Tagihan:", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text(formatRupiah(paidFinal), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Bayar (${liveState.paymentMethod}):", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(formatRupiah(receivedFinal), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Kembalian:", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(formatRupiah(changeFinal), fontSize = 19.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.tertiary)
                                 }
                             }
                         }
