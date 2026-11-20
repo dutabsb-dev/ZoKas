@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import org.apache.poi.ss.usermodel.*
 import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor
+import org.apache.poi.xssf.usermodel.XSSFCellStyle
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -155,7 +156,7 @@ object UniversalBookkeepingExporter {
         return 5 // Baris awal tabel data
     }
 
-    private fun createTableHeaderStyle(workbook: XSSFWorkbook): CellStyle {
+    private fun createTableHeaderStyle(workbook: XSSFWorkbook): XSSFCellStyle {
         val font = workbook.createFont().apply {
             bold = true
             color = IndexedColors.WHITE.index
@@ -174,7 +175,7 @@ object UniversalBookkeepingExporter {
         }
     }
 
-    private fun createDataStyle(workbook: XSSFWorkbook, isAltRow: Boolean, isCurrency: Boolean = false, isBold: Boolean = false): CellStyle {
+    private fun createDataStyle(workbook: XSSFWorkbook, isAltRow: Boolean, isCurrency: Boolean = false, isBold: Boolean = false): XSSFCellStyle {
         val font = workbook.createFont().apply {
             bold = isBold
             fontHeightInPoints = 10
