@@ -896,7 +896,8 @@ fun FullScreenKioskCfdReceiverScreen(
         val window = (view.context as? Activity)?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller?.hide(WindowInsetsCompat.Type.systemBars())
+        controller?.show(WindowInsetsCompat.Type.statusBars())
+        controller?.hide(WindowInsetsCompat.Type.navigationBars())
         onDispose {
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
@@ -1031,6 +1032,7 @@ fun FullScreenKioskCfdReceiverScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
                         .padding(horizontal = 24.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically

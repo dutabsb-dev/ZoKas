@@ -2,7 +2,6 @@ package com.karyaku.kasir
 
 import android.content.Context
 import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.view.Display
@@ -66,49 +65,36 @@ import kotlinx.coroutines.delay
 import java.io.File
 
 // ====================================================================
-// UPDATE MainActivity-v4.kt:
-//   1. ADAPTIF ORIENTASI LAYAR (HP Portrait, Tablet Mengikuti):
-//      - Mengecek smallestScreenWidthDp >= 600 saat onCreate() &
-//        onConfigurationChanged().
-//      - Pada ponsel (< 600dp), orientasi dikunci ke PORTRAIT.
-//      - Pada tablet (>= 600dp), orientasi menggunakan FULL_SENSOR /
-//        UNSPECIFIED agar bebas mengikuti rotasi layar.
-//      - Scanner barcode (ScanOptions) juga disesuaikan secara dinamis:
-//        setOrientationLocked(!isTabletDevice(context)).
-//   2. MEMPERTAHANKAN FUNGSI IMMERSIVE MODE SECARA PENUH:
-//      - SystemImmersiveModeEffect() tetap dipertahankan utuh beserta
-//        WindowFocusChangeListener dan opsi Layar Penuh di menu Kasir.
-//   3. PERBAIKAN GOOGLE PLAY CONSOLE (android.hardware.screen.portrait):
-//      - Menghapus deklarasi wajib portrait di AndroidManifest.xml
-//        (termasuk CaptureActivity ZXing) agar kompatibel dengan semua
-//        perangkat (Ponsel, Tablet, Desktop, Android XR).
+// UPDATE MainActivity-v3.kt:
+//   1. FIX BUG TOMBOL BACK ANDROID (Double Back to Exit & Back ke Kasir):
+//      - Jika user sedang berada di tab selain Kasir (Produk, Laporan,
+//        Pengaturan, atau Dapur), menekan tombol Back akan mengembalikan
+//        ke menu utama (Tab 0 - Kasir).
+//      - Jika sudah di menu utama (Kasir), menekan tombol Back sekali
+//        menampilkan pesan "Tekan sekali lagi untuk keluar aplikasi",
+//        dan menekan 2x dalam 2 detik baru keluar dari aplikasi.
+//   2. FIX BUG KATEGORI DI TAB PRODUK (ProductManagementScreen):
+//      - Sebelumnya selectedCategory di-hardcode "Semua" sehingga klik
+//        filter kategori di Tab Produk tidak menyaring daftar produk.
+//        Kini telah dihubungkan ke viewModel.selectedCategory.
+//   3. FIX BUG INISIALISASI CABANG SAAT BUKA ULANG APLIKASI:
+//      - Memastikan initCurrentBranchForUser(currentUser) tetap dipanggil
+//        ketika aplikasi dibuka kembali dari memori (rememberSaveable).
 // ====================================================================
 
-fun Context.isTabletDevice(): Boolean {
-    return resources.configuration.smallestScreenWidthDp >= 600
-}
-
 class MainActivity : AppCompatActivity() {
-
-    private fun applyAdaptiveOrientation() {
-        requestedOrientation = if (isTabletDevice()) {
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        applyAdaptiveOrientation()
+        val isTablet = resources.configuration.smallestScreenWidthDp >= 600
+        if (isTablet) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED else requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
         setContent {
             CompositionLocalProvider(LocalActivity provides this@MainActivity, LocalActivityResultRegistryOwner provides this@MainActivity) {
-                var isImmersiveMode by rememberSaveable { mutableStateOf(true) }
+                var isImmersiveMode by rememberSaveable { mutableStateOf(false) }
                 SystemImmersiveModeEffect(immersive = isImmersiveMode)
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
@@ -146,11 +132,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        applyAdaptiveOrientation()
     }
 }
 
@@ -244,7 +225,7 @@ fun MainContent(
                                     setPrompt("Scan QR Layar Pelanggan dari Perangkat Kasir")
                                     setCameraId(0)
                                     setBeepEnabled(false)
-                                    setOrientationLocked(!context.isTabletDevice())
+                                    setOrientationLocked(true)
                                 }
                                 cfdScanLauncher.launch(options)
                             },
@@ -458,7 +439,7 @@ fun MainNavigation(
     storeName: String?, storeLogoPath: String?, onStoreNameChange: (String) -> Unit, onLogoChange: (String) -> Unit,
     onLogout: () -> Unit, isDarkMode: Boolean, isHighContrast: Boolean, uiScale: Float,
     onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit,
-    language: String, onToggleLanguage: () -> Unit // <--- PERBAIKAN DI SINI (Sebelumnya: () Unit)
+    language: String, onToggleLanguage: () -> Unit
 ) {
     val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
     val defaultHomeTab = if (currentUser.role == "STAFF" && isKuliner) 4 else 0
@@ -563,14 +544,7 @@ fun MainNavigation(
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = {
-                            val options = ScanOptions().apply {
-                                setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                                setPrompt("Scan Barcode Produk")
-                                setCameraId(0)
-                                setBeepEnabled(false)
-                                setBarcodeImageEnabled(true)
-                                setOrientationLocked(!context.isTabletDevice())
-                            }
+                            val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
                             barcodeLauncher.launch(options)
                         }) {
                             Icon(
@@ -684,15 +658,14 @@ fun MainNavigation(
                                     onClick = { showTutorialDialog = true; showMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(if (LocalCfdServerManager.isKioskReceiverLocked) "Mode Imersif Aktif" else "Layar Penuh (Immersive)") },
-                                    leadingIcon = { Icon(Icons.Default.Fullscreen, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                    text = { Text("Tampilkan Status Bar (Aman Kamera)") },
+                                    leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         val act = activity as? android.app.Activity
                                         val win = act?.window
                                         val dv = win?.decorView
-                                        val ctrl = if (win != null && dv != null) WindowCompat.getInsetsController(win, dv) else null
-                                        ctrl?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                                        ctrl?.hide(WindowInsetsCompat.Type.systemBars())
+                                        val ctrl = if (win != null && dv != null) androidx.core.view.WindowCompat.getInsetsController(win, dv) else null
+                                        ctrl?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
                                         showMenu = false
                                     }
                                 )
@@ -1114,7 +1087,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                         setPrompt("Scan Barcode Produk")
                                         setCameraId(0)
                                         setBeepEnabled(false)
-                                        setOrientationLocked(!context.isTabletDevice())
+                                        setOrientationLocked(true)
                                     }
                                     productBarcodeLauncher.launch(options)
                                 }
@@ -1517,20 +1490,23 @@ fun SystemImmersiveModeEffect(immersive: Boolean) {
             WindowCompat.getInsetsController(window, decorView)
         } else null
 
-        fun applyImmersive() {
+        fun enforceVisibleStatusBar() {
+            // Selalu tampilkan Status Bar agar area punch-hole kamera depan (tengah / pojok kiri atas)
+            // terlindungi oleh safe area sistem dan tidak menutupi ikon aplikasi.
+            controller?.show(WindowInsetsCompat.Type.statusBars())
             if (immersive) {
                 controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                controller?.hide(WindowInsetsCompat.Type.systemBars())
+                controller?.hide(WindowInsetsCompat.Type.navigationBars())
             } else {
-                controller?.show(WindowInsetsCompat.Type.systemBars())
+                controller?.show(WindowInsetsCompat.Type.navigationBars())
             }
         }
 
-        applyImmersive()
+        enforceVisibleStatusBar()
 
         val focusListener = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-            if (hasFocus && immersive) {
-                applyImmersive()
+            if (hasFocus) {
+                enforceVisibleStatusBar()
             }
         }
         decorView?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
