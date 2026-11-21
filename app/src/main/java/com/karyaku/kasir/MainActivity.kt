@@ -682,18 +682,6 @@ fun MainNavigation(
                                     leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                                     onClick = { showTutorialDialog = true; showMenu = false }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("Tampilkan Status Bar (Aman Kamera)") },
-                                    leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = {
-                                        val act = activity as? android.app.Activity
-                                        val win = act?.window
-                                        val dv = win?.decorView
-                                        val ctrl = if (win != null && dv != null) androidx.core.view.WindowCompat.getInsetsController(win, dv) else null
-                                        ctrl?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
-                                        showMenu = false
-                                    }
-                                )
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 if (isKuliner) {
                                     DropdownMenuItem(

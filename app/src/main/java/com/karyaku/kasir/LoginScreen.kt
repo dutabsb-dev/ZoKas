@@ -53,6 +53,7 @@ fun LoginScreen(
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
     val users by viewModel.users.collectAsStateWithLifecycle()
+    val biometricAllowed = settingsManager.isBiometricEnabled
 
     var selectedUser by remember { mutableStateOf<UserEntity?>(null) }
     var pin by remember { mutableStateOf("") }
@@ -122,10 +123,11 @@ fun LoginScreen(
                         items(users) { user ->
                             UserProfileCard(
                                 user = user,
+                                showBiometricBadge = biometricAllowed,
                                 onClick = {
                                     errorMessage = ""
                                     isPinVisible = false
-                                    if (user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
+                                    if (biometricAllowed && user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
                                         viewModel.loginWithBiometric(activity, user) { success, msg ->
                                             if (success) {
                                                 onLoginSuccess(user)
@@ -264,7 +266,7 @@ fun LoginScreen(
                     }
                 }
 
-                if (user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
+                if (biometricAllowed && user.role == "OWNER" && user.biometricKey.isNotBlank() && activity != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(
                         onClick = {
@@ -294,6 +296,7 @@ fun LoginScreen(
 @Composable
 fun UserProfileCard(
     user: UserEntity,
+    showBiometricBadge: Boolean = true,
     onClick: () -> Unit
 ) {
     Card(
@@ -335,7 +338,7 @@ fun UserProfileCard(
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (user.role == "OWNER" && user.biometricKey.isNotBlank()) {
+            if (showBiometricBadge && user.role == "OWNER" && user.biometricKey.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Icon(
                     Icons.Default.Fingerprint,
