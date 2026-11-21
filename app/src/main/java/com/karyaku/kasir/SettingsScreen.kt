@@ -121,6 +121,7 @@ fun SettingsScreen(
     var enableSupplier by remember { mutableStateOf(settingsManager.enableSupplier) }
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
+    var enableBomModule by remember { mutableStateOf(settingsManager.isBomModuleEnabled) }
 
     var enableHrModule by remember { mutableStateOf(settingsManager.enableHrModule) }
     var enableCrmModule by remember { mutableStateOf(settingsManager.enableCrmModule) }
@@ -482,6 +483,21 @@ fun SettingsScreen(
         }
 
         item {
+            BomModuleToggleCard(
+                settingsManager = settingsManager,
+                checked = enableBomModule,
+                onCheckedChange = { enabled ->
+                    enableBomModule = enabled
+                    Toast.makeText(
+                        context,
+                        if (enabled) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            )
+        }
+
+        item {
             SettingsModuleCard(
                 isTableModeEnabled = isTableModeEnabled,
                 onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
@@ -489,7 +505,13 @@ fun SettingsScreen(
                 onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
                 exchangeRateUsd = exchangeRateUsd,
                 onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
-                onRawMaterialClick = { showRawMaterialDialog = true },
+                onRawMaterialClick = {
+                    if (enableBomModule) {
+                        showRawMaterialDialog = true
+                    } else {
+                        Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 enableOrderTypes = enableOrderTypes,
                 onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
                 enableWholesale = enableWholesale,
