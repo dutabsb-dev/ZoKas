@@ -512,34 +512,6 @@ fun SettingsScreen(
                         }
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    BomModuleCombinedRow(
-                        enabled = enableBomModule,
-                        onToggleEnabled = { enabled ->
-                            enableBomModule = enabled
-                            Toast.makeText(
-                                context,
-                                if (enabled) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                        onManageRawMaterialClick = {
-                            if (enableBomModule) {
-                                showRawMaterialDialog = true
-                            } else {
-                                Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SettingsModuleCard(
                 isTableModeEnabled = isTableModeEnabled,
                 onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
@@ -547,13 +519,6 @@ fun SettingsScreen(
                 onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
                 exchangeRateUsd = exchangeRateUsd,
                 onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
-                onRawMaterialClick = {
-                    if (enableBomModule) {
-                        showRawMaterialDialog = true
-                    } else {
-                        Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
-                    }
-                },
                 enableOrderTypes = enableOrderTypes,
                 onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
                 enableWholesale = enableWholesale,
@@ -606,9 +571,6 @@ fun SettingsScreen(
                 onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
                 language = language
             )
-                }
-            }
-
                 }
             }
         }
