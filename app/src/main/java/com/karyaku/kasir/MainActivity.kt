@@ -91,10 +91,10 @@ class MainActivity : AppCompatActivity() {
         val database = AppDatabase.getDatabase(this)
         val settingsManager = SettingsManager(this)
 
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, !isTablet)
         setContent {
             CompositionLocalProvider(LocalActivity provides this@MainActivity, LocalActivityResultRegistryOwner provides this@MainActivity) {
-                var isImmersiveMode by rememberSaveable { mutableStateOf(false) }
+                var isImmersiveMode by rememberSaveable { mutableStateOf(isTablet) }
                 SystemImmersiveModeEffect(immersive = isImmersiveMode)
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
@@ -286,7 +286,22 @@ fun MainContent(
                 }
             )
         } else if (!settingsManager.isSetupCompleted) {
-            SetupWizardScreen(settingsManager, posViewModel, onSetupComplete = { newAdmin -> posViewModel.initCurrentBranchForUser(newAdmin); onUserChange(newAdmin) })
+            SetupWizardScreen(
+                settingsManager = settingsManager,
+                viewModel = posViewModel,
+                onSetupComplete = { newAdmin ->
+                    val registeredStore = settingsManager.storeName?.trim().orEmpty()
+                    if (registeredStore.isNotBlank()) {
+                        onStoreNameChange(registeredStore)
+                    }
+                    val registeredLogo = settingsManager.storeLogoPath.orEmpty()
+                    if (registeredLogo.isNotBlank()) {
+                        onLogoChange(registeredLogo)
+                    }
+                    posViewModel.initCurrentBranchForUser(newAdmin)
+                    onUserChange(newAdmin)
+                }
+            )
         } else if (staffUserToLogout != null) {
             val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
             LaunchedEffect(staffUserToLogout, isKuliner) {
@@ -606,7 +621,7 @@ fun MainNavigation(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDarkMode) MaterialTheme.colorScheme.surfaceVariant else Color.White),
+                            .background(Color.White),
                         contentAlignment = Alignment.Center
                     ) {
                         if (logoFile != null && logoFile.exists()) {
@@ -614,16 +629,26 @@ fun MainNavigation(
                         } else {
                             Image(
                                 painter = painterResource(id = R.drawable.logo_zokas),
-                                contentDescription = "Logo",
-                                modifier = Modifier.fillMaxSize(),
-                                colorFilter = if (isDarkMode) ColorFilter.tint(Color.White) else null
+                                contentDescription = "Logo ZoKas",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
+                    val activeStoreTitle = remember(storeName, settingsManager.storeName) {
+                        storeName?.takeIf { it.isNotBlank() }
+                            ?: settingsManager.storeName?.takeIf { it.isNotBlank() }
+                            ?: "ZoKas Store"
+                    }
+                    LaunchedEffect(activeStoreTitle) {
+                        if (storeName.isNullOrBlank() && activeStoreTitle != "ZoKas Store") {
+                            onStoreNameChange(activeStoreTitle)
+                        }
+                    }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = storeName?.takeIf { it.isNotBlank() } ?: "ZoKas Store",
+                            text = activeStoreTitle,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 18.sp,
                             color = MaterialTheme.colorScheme.primary,
@@ -1490,23 +1515,24 @@ fun SystemImmersiveModeEffect(immersive: Boolean) {
             WindowCompat.getInsetsController(window, decorView)
         } else null
 
-        fun enforceVisibleStatusBar() {
-            // Selalu tampilkan Status Bar agar area punch-hole kamera depan (tengah / pojok kiri atas)
-            // terlindungi oleh safe area sistem dan tidak menutupi ikon aplikasi.
-            controller?.show(WindowInsetsCompat.Type.statusBars())
+        fun applyBarPolicy() {
             if (immersive) {
+                // Mode Imersif penuh (aktif otomatis di Tablet): sembunyikan systemBars,
+                // bisa dimunculkan sementara dengan swipe dari tepi layar.
                 controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                controller?.hide(WindowInsetsCompat.Type.navigationBars())
+                controller?.hide(WindowInsetsCompat.Type.systemBars())
             } else {
+                // Mode aman kamera depan di HP: statusBars selalu tampil agar tidak tertutup kamera depan.
+                controller?.show(WindowInsetsCompat.Type.statusBars())
                 controller?.show(WindowInsetsCompat.Type.navigationBars())
             }
         }
 
-        enforceVisibleStatusBar()
+        applyBarPolicy()
 
         val focusListener = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
             if (hasFocus) {
-                enforceVisibleStatusBar()
+                applyBarPolicy()
             }
         }
         decorView?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)

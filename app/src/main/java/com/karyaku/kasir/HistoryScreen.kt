@@ -97,7 +97,21 @@ fun HistoryScreen(
 
     var selectedTransaction by remember { mutableStateOf<TransactionEntity?>(null) }
     var dateFilter by remember { mutableStateOf("TODAY") }
-    var customPickedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    val initialRangeEnd = remember {
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+        }.timeInMillis
+    }
+    val initialRangeStart = remember {
+        Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -7)
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+    var rangeStartMillis by remember { mutableStateOf(initialRangeStart) }
+    var rangeEndMillis by remember { mutableStateOf(initialRangeEnd) }
+    var showRangeDialog by remember { mutableStateOf(false) }
+    var pickingRangeTarget by remember { mutableStateOf("START") } // "START" | "END"
     var showCustomDatePicker by remember { mutableStateOf(false) }
     var showFinanceReport by remember { mutableStateOf(false) }
     var showResetOmzetAuth by remember { mutableStateOf(false) }
@@ -126,11 +140,20 @@ fun HistoryScreen(
         set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
-    val customDayStart = Calendar.getInstance().apply {
-        timeInMillis = customPickedDateMillis
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-    val customDayEnd = customDayStart + 86400000L - 1L
+    val normalizedRangeStart = remember(rangeStartMillis, rangeEndMillis) {
+        val minMillis = minOf(rangeStartMillis, rangeEndMillis)
+        Calendar.getInstance().apply {
+            timeInMillis = minMillis
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+    val normalizedRangeEnd = remember(rangeStartMillis, rangeEndMillis) {
+        val maxMillis = maxOf(rangeStartMillis, rangeEndMillis)
+        Calendar.getInstance().apply {
+            timeInMillis = maxMillis
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+        }.timeInMillis
+    }
 
     fun matchesSelectedPeriod(ts: Long): Boolean {
         if (ts < revenueResetTimestamp) return false
@@ -138,7 +161,7 @@ fun HistoryScreen(
             "TODAY" -> ts >= startOfToday
             "THIS_WEEK" -> ts >= startOfWeek
             "THIS_MONTH" -> ts >= startOfMonth
-            "CUSTOM_DATE" -> ts in customDayStart..customDayEnd
+            "DATE_RANGE", "CUSTOM_DATE" -> ts in normalizedRangeStart..normalizedRangeEnd
             else -> true
         }
     }
@@ -150,12 +173,13 @@ fun HistoryScreen(
     val filteredPurchases = purchases.filter { matchesSelectedPeriod(it.timestamp) }
     val filteredAuditLogs = auditLogs.filter { matchesSelectedPeriod(it.timestamp) }
 
-    val periodDisplayLabel = remember(dateFilter, customPickedDateMillis) {
+    val shortDateFmt = remember { SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")) }
+    val periodDisplayLabel = remember(dateFilter, normalizedRangeStart, normalizedRangeEnd) {
         when (dateFilter) {
-            "TODAY" -> "Hari Ini (${SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(Date())})"
+            "TODAY" -> "Hari Ini (${shortDateFmt.format(Date())})"
             "THIS_WEEK" -> "Minggu Ini"
             "THIS_MONTH" -> "Bulan Ini (${SimpleDateFormat("MMMM yyyy", Locale("id", "ID")).format(Date())})"
-            "CUSTOM_DATE" -> SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(Date(customPickedDateMillis))
+            "DATE_RANGE", "CUSTOM_DATE" -> "${shortDateFmt.format(Date(normalizedRangeStart))} s/d ${shortDateFmt.format(Date(normalizedRangeEnd))}"
             else -> "Semua Periode"
         }
     }
@@ -282,14 +306,74 @@ fun HistoryScreen(
     val chartAxisColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
     val chartTextColorArgb = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
 
+    if (showRangeDialog) {
+        AlertDialog(
+            onDismissRequest = { showRangeDialog = false },
+            title = { Text("Pilih Range Tanggal", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Tentukan tanggal awal dan akhir (misal 10 Nov s/d 20 Nov) untuk menyaring seluruh data pembukuan:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            pickingRangeTarget = "START"
+                            showCustomDatePicker = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Dari Tanggal: ${shortDateFmt.format(Date(normalizedRangeStart))}", fontWeight = FontWeight.SemiBold)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            pickingRangeTarget = "END"
+                            showCustomDatePicker = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Sampai Tanggal: ${shortDateFmt.format(Date(normalizedRangeEnd))}", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        dateFilter = "DATE_RANGE"
+                        showRangeDialog = false
+                    },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Terapkan Range", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRangeDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
     if (showCustomDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = customPickedDateMillis)
+        val initMillis = if (pickingRangeTarget == "START") normalizedRangeStart else normalizedRangeEnd
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initMillis)
         DatePickerDialog(
             onDismissRequest = { showCustomDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    customPickedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
-                    dateFilter = "CUSTOM_DATE"
+                    val picked = datePickerState.selectedDateMillis ?: initMillis
+                    if (pickingRangeTarget == "START") {
+                        rangeStartMillis = picked
+                        if (picked > rangeEndMillis) rangeEndMillis = picked
+                    } else {
+                        rangeEndMillis = picked
+                        if (picked < rangeStartMillis) rangeStartMillis = picked
+                    }
+                    dateFilter = "DATE_RANGE"
                     showCustomDatePicker = false
                 }) {
                     Text("Pilih", fontWeight = FontWeight.Bold)
@@ -483,11 +567,13 @@ fun HistoryScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            val customDateLabel = remember(customPickedDateMillis, dateFilter) {
-                if (dateFilter == "CUSTOM_DATE") {
-                    SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(customPickedDateMillis))
+            val rangeChipLabel = remember(normalizedRangeStart, normalizedRangeEnd, dateFilter) {
+                if (dateFilter == "DATE_RANGE" || dateFilter == "CUSTOM_DATE") {
+                    val d1 = SimpleDateFormat("dd MMM", Locale("id", "ID")).format(Date(normalizedRangeStart))
+                    val d2 = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")).format(Date(normalizedRangeEnd))
+                    "$d1 - $d2"
                 } else {
-                    "Pilih Tanggal"
+                    "Range Tanggal"
                 }
             }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -495,15 +581,15 @@ fun HistoryScreen(
                     "TODAY" to "Hari Ini",
                     "THIS_WEEK" to "Minggu Ini",
                     "THIS_MONTH" to "Bulan Ini",
-                    "CUSTOM_DATE" to customDateLabel
+                    "DATE_RANGE" to rangeChipLabel
                 )
                 items(filters.size) { index ->
                     val (key, label) = filters[index]
                     FilterChip(
-                        selected = dateFilter == key,
+                        selected = dateFilter == key || (key == "DATE_RANGE" && dateFilter == "CUSTOM_DATE"),
                         onClick = {
-                            if (key == "CUSTOM_DATE") {
-                                showCustomDatePicker = true
+                            if (key == "DATE_RANGE") {
+                                showRangeDialog = true
                             } else {
                                 dateFilter = key
                             }
