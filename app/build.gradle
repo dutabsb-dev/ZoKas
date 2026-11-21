@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace 'com.karyaku.kasir'
-    compileSdk 36
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.dbsbstudio.zokas"
         minSdk 26
-        targetSdk 36
+        targetSdk 34
         versionCode 5
         versionName "1.0.4"
 

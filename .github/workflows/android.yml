@@ -21,13 +21,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Ensure gradle.properties compatibility
-        run: |
-          touch gradle.properties
-          if ! grep -q "android.suppressUnsupportedCompileSdk" gradle.properties; then
-            printf "\nandroid.suppressUnsupportedCompileSdk=36\n" >> gradle.properties
-          fi
-
       - name: Decode Release Keystore (if configured)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
