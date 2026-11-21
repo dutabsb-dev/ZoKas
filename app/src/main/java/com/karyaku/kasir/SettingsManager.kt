@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("zokas_prefs", Context.MODE_PRIVATE)
+    private val modulePrefs: SharedPreferences = context.getSharedPreferences("zokas_modules", Context.MODE_PRIVATE)
 
     var isSetupCompleted: Boolean get() = prefs.getBoolean("is_setup_completed", false); set(value) = prefs.edit().putBoolean("is_setup_completed", value).apply()
     var isBiometricEnabled: Boolean get() = prefs.getBoolean("is_biometric_enabled", false); set(value) = prefs.edit().putBoolean("is_biometric_enabled", value).apply()
@@ -49,6 +50,12 @@ class SettingsManager(context: Context) {
     var enableSupplier: Boolean get() = prefs.getBoolean("enable_supplier", false); set(value) = prefs.edit().putBoolean("enable_supplier", value).apply()
     var enableReservation: Boolean get() = prefs.getBoolean("enable_reservation", true); set(value) = prefs.edit().putBoolean("enable_reservation", value).apply()
     var enableFinance: Boolean get() = prefs.getBoolean("enable_finance", true); set(value) = prefs.edit().putBoolean("enable_finance", value).apply()
+    var enableBomModule: Boolean
+        get() = modulePrefs.getBoolean("enable_bom_module", prefs.getBoolean("enable_bom_module", false))
+        set(value) {
+            modulePrefs.edit().putBoolean("enable_bom_module", value).commit()
+            prefs.edit().putBoolean("enable_bom_module", value).apply()
+        }
     
     // MODUL OPSIONAL BARU (Sesuai Review)
     var enableHrModule: Boolean get() = prefs.getBoolean("enable_hr_module", false); set(value) = prefs.edit().putBoolean("enable_hr_module", value).apply()

@@ -484,102 +484,82 @@ fun SettingsScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    BomModuleCombinedRow(
-                        enabled = enableBomModule,
-                        onToggleEnabled = { enabled ->
-                            enableBomModule = enabled
-                            Toast.makeText(
-                                context,
-                                if (enabled) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                        onManageRawMaterialClick = {
-                            if (enableBomModule) {
-                                showRawMaterialDialog = true
-                            } else {
-                                Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    SettingsModuleCard(
-                onRawMaterialClick = {
-                    if (enableBomModule) {
-                        showRawMaterialDialog = true
-                    } else {
-                        Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
-                    }
+            SettingsModuleCard(
+                enableBomModule = enableBomModule,
+                onBomModuleToggle = { checked ->
+                    enableBomModule = checked
+                    setBomEnabledInContext(context, checked)
+                    Toast.makeText(
+                        context,
+                        if (checked) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 },
-                isTableModeEnabled = isTableModeEnabled,
-                onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
-                enableMultiCurrency = enableMultiCurrency,
-                onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
-                exchangeRateUsd = exchangeRateUsd,
-                onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
-                enableOrderTypes = enableOrderTypes,
-                onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
-                enableWholesale = enableWholesale,
-                onWholesaleToggle = { enableWholesale = it; settingsManager.enableWholesale = it },
-                enablePreOrder = enablePreOrder,
-                onPreOrderToggle = { enablePreOrder = it; settingsManager.enablePreOrder = it },
-                enableMembership = enableMembership,
-                onMembershipToggle = { enableMembership = it; settingsManager.enableMembership = it },
-                onManageMembershipClick = { showMembershipDialog = true },
-                enableSupplier = enableSupplier,
-                onSupplierToggle = { enableSupplier = it; settingsManager.enableSupplier = it },
-                onManageSupplierClick = { showSupplierDialog = true },
-                onCreatePOClick = { showPODialog = true },
-                enableReservation = enableReservation,
-                onReservationToggle = { enableReservation = it; settingsManager.enableReservation = it },
-                onManageReservationClick = { showReservationDialog = true },
-                enableFinance = enableFinance,
-                onFinanceToggle = { enableFinance = it; settingsManager.enableFinance = it },
-                onManageReceivableClick = { showReceivableDialog = true },
-                onManagePayableClick = { showPayableDialog = true },
-                onManageExpenseClick = { showExpenseDialog = true },
-                enableHrModule = enableHrModule,
-                onHrModuleToggle = {
-                    enableHrModule = it
-                    settingsManager.enableHrModule = it
-                    if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_HR_MODULE)) {
-                        activeProactiveGuide = ProactiveGuideManager.KEY_HR_MODULE
-                    }
-                },
-                enableCrmModule = enableCrmModule,
-                onCrmModuleToggle = {
-                    enableCrmModule = it
-                    settingsManager.enableCrmModule = it
-                    if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_CRM_MODULE)) {
-                        activeProactiveGuide = ProactiveGuideManager.KEY_CRM_MODULE
-                    }
-                },
-                isOwner = currentUser.role == "OWNER",
-                currentBranchName = currentBranch?.name ?: "Cabang Utama",
-                totalBranches = allBranches.size,
-                onManageBranchesClick = { showBranchManagementDialog = true },
-                onTransferStockClick = { showStockTransferDialog = true },
-                hhStart = hhStart,
-                onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
-                hhEnd = hhEnd,
-                onHhEndChange = { hhEnd = it; settingsManager.happyHourEnd = it },
-                hhDiscount = hhDiscount,
-                onHhDiscountChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 },
-                maxDiscountCap = maxDiscountCap,
-                onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
-                language = language
-            )
-                }
+            onRawMaterialClick = {
+            if (enableBomModule) {
+            showRawMaterialDialog = true
+            } else {
+            Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
             }
+            },
+            isTableModeEnabled = isTableModeEnabled,
+            onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
+            enableMultiCurrency = enableMultiCurrency,
+            onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
+            exchangeRateUsd = exchangeRateUsd,
+            onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
+            enableOrderTypes = enableOrderTypes,
+            onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
+            enableWholesale = enableWholesale,
+            onWholesaleToggle = { enableWholesale = it; settingsManager.enableWholesale = it },
+            enablePreOrder = enablePreOrder,
+            onPreOrderToggle = { enablePreOrder = it; settingsManager.enablePreOrder = it },
+            enableMembership = enableMembership,
+            onMembershipToggle = { enableMembership = it; settingsManager.enableMembership = it },
+            onManageMembershipClick = { showMembershipDialog = true },
+            enableSupplier = enableSupplier,
+            onSupplierToggle = { enableSupplier = it; settingsManager.enableSupplier = it },
+            onManageSupplierClick = { showSupplierDialog = true },
+            onCreatePOClick = { showPODialog = true },
+            enableReservation = enableReservation,
+            onReservationToggle = { enableReservation = it; settingsManager.enableReservation = it },
+            onManageReservationClick = { showReservationDialog = true },
+            enableFinance = enableFinance,
+            onFinanceToggle = { enableFinance = it; settingsManager.enableFinance = it },
+            onManageReceivableClick = { showReceivableDialog = true },
+            onManagePayableClick = { showPayableDialog = true },
+            onManageExpenseClick = { showExpenseDialog = true },
+            enableHrModule = enableHrModule,
+            onHrModuleToggle = {
+            enableHrModule = it
+            settingsManager.enableHrModule = it
+            if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_HR_MODULE)) {
+            activeProactiveGuide = ProactiveGuideManager.KEY_HR_MODULE
+            }
+            },
+            enableCrmModule = enableCrmModule,
+            onCrmModuleToggle = {
+            enableCrmModule = it
+            settingsManager.enableCrmModule = it
+            if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_CRM_MODULE)) {
+            activeProactiveGuide = ProactiveGuideManager.KEY_CRM_MODULE
+            }
+            },
+            isOwner = currentUser.role == "OWNER",
+            currentBranchName = currentBranch?.name ?: "Cabang Utama",
+            totalBranches = allBranches.size,
+            onManageBranchesClick = { showBranchManagementDialog = true },
+            onTransferStockClick = { showStockTransferDialog = true },
+            hhStart = hhStart,
+            onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
+            hhEnd = hhEnd,
+            onHhEndChange = { hhEnd = it; settingsManager.happyHourEnd = it },
+            hhDiscount = hhDiscount,
+            onHhDiscountChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 },
+            maxDiscountCap = maxDiscountCap,
+            onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
+            language = language
+            )
         }
 
         if (currentUser.role == "OWNER" && enableHrModule) {
