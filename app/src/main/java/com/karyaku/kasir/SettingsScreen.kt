@@ -172,6 +172,8 @@ fun SettingsScreen(
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     val customers by viewModel.customers.collectAsStateWithLifecycle()
 
+    val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
+    val isBranchSwitchLocked by viewModel.isBranchSwitchLocked.collectAsStateWithLifecycle()
     val currentBranch by viewModel.currentBranch.collectAsStateWithLifecycle()
     val allBranches by viewModel.allBranches.collectAsStateWithLifecycle()
 
@@ -422,12 +424,23 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     LanguageManager.tr("pengaturan", lang),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
+                )
+                SettingsHeaderBadgesRow(
+                    showBranchBadge = allBranches.size > 1,
+                    branchName = currentBranch?.name ?: "Cabang Utama",
+                    isBranchLocked = isBranchSwitchLocked,
+                    showShiftBadge = enableHrModule && activeShift != null,
+                    shiftUserName = activeShift?.userName ?: currentUser.name
                 )
             }
         }
@@ -1002,6 +1015,86 @@ private fun SettingsAuditLogCard(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsHeaderBadgesRow(
+    showBranchBadge: Boolean,
+    branchName: String,
+    isBranchLocked: Boolean,
+    showShiftBadge: Boolean,
+    shiftUserName: String
+) {
+    if (!showBranchBadge && !showShiftBadge) return
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showBranchBadge) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Storefront,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = branchName,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (isBranchLocked) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showShiftBadge) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                    Text(
+                        text = "Shift: $shiftUserName",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

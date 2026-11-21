@@ -23,13 +23,28 @@ object ExcelExporter {
             val sheet = workbook.createSheet("Daftar Produk")
 
             val headerFont = workbook.createFont().apply { bold = true }
-            val headerCellStyle = workbook.createCellStyle().apply { setFont(headerFont) }
-            val wrapTextStyle = workbook.createCellStyle().apply { wrapText = true }
+            val headerCellStyle = workbook.createCellStyle().apply {
+                setFont(headerFont)
+                verticalAlignment = VerticalAlignment.CENTER
+            }
+            val wrapTextStyle = workbook.createCellStyle().apply {
+                wrapText = true
+                verticalAlignment = VerticalAlignment.TOP
+            }
+            val currencyFormat = workbook.createDataFormat().getFormat("#,##0")
+            val currencyStyle = workbook.createCellStyle().apply {
+                dataFormat = currencyFormat
+                verticalAlignment = VerticalAlignment.TOP
+            }
+            val topAlignStyle = workbook.createCellStyle().apply {
+                verticalAlignment = VerticalAlignment.TOP
+            }
 
             val headerRow = sheet.createRow(0)
+            headerRow.heightInPoints = 22f
             val headers = listOf(
                 "Nama", "HargaJual", "HargaModal", "Stok", "Kategori", "Barcode",
-                "Varian", "Komisi", "Expiry", "IsService", "HargaGrosir", "MinGrosir"
+                "Varian", "DetailVarian", "Komisi", "Expiry", "IsService", "HargaGrosir", "MinGrosir"
             )
             headers.forEachIndexed { index, title ->
                 val cell = headerRow.createCell(index)
@@ -41,31 +56,88 @@ object ExcelExporter {
 
             products.forEachIndexed { rowIndex, product ->
                 val row = sheet.createRow(rowIndex + 1)
-                row.createCell(0).setCellValue(product.name)
-                row.createCell(1).setCellValue(product.price.toDouble())
-                row.createCell(2).setCellValue(product.costPrice.toDouble())
-                row.createCell(3).setCellValue(product.stock.toDouble())
-                row.createCell(4).setCellValue(product.category)
-                row.createCell(5).setCellValue(product.barcode)
 
-                val varianCell = row.createCell(6)
-                varianCell.setCellValue(product.variations)
-                varianCell.cellStyle = wrapTextStyle
+                row.createCell(0).apply {
+                    setCellValue(product.name)
+                    cellStyle = topAlignStyle
+                }
+                row.createCell(1).apply {
+                    setCellValue(product.price.toDouble())
+                    cellStyle = currencyStyle
+                }
+                row.createCell(2).apply {
+                    setCellValue(product.costPrice.toDouble())
+                    cellStyle = currencyStyle
+                }
+                row.createCell(3).apply {
+                    setCellValue(product.stock.toDouble())
+                    cellStyle = topAlignStyle
+                }
+                row.createCell(4).apply {
+                    setCellValue(product.category)
+                    cellStyle = topAlignStyle
+                }
+                row.createCell(5).apply {
+                    setCellValue(product.barcode)
+                    cellStyle = topAlignStyle
+                }
 
-                row.createCell(7).setCellValue(product.commissionPerItem.toDouble())
+                // Kolom 6: Format mentah varian (aman untuk impor balik ke ZoKas)
+                row.createCell(6).apply {
+                    setCellValue(product.variations)
+                    cellStyle = wrapTextStyle
+                }
+
+                // Kolom 7: Detail varian berlabel & multi-baris agar mudah dibaca
+                val detailVarianText = ProductVariantExcelFormatter.formatVariantsMultiline(product)
+                val variantCount = ProductVariantExcelFormatter.parseDetailedVariants(product).size.coerceAtLeast(1)
+                row.createCell(7).apply {
+                    setCellValue(detailVarianText)
+                    cellStyle = wrapTextStyle
+                }
+
+                if (product.variations.isNotBlank()) {
+                    row.heightInPoints = (variantCount * 16f + 8f).coerceAtLeast(24f)
+                }
+
+                row.createCell(8).apply {
+                    setCellValue(product.commissionPerItem.toDouble())
+                    cellStyle = currencyStyle
+                }
 
                 val expiryStr = if (product.expiryDate > 0) dateFormat.format(Date(product.expiryDate)) else "-"
-                row.createCell(8).setCellValue(expiryStr)
+                row.createCell(9).apply {
+                    setCellValue(expiryStr)
+                    cellStyle = topAlignStyle
+                }
 
-                row.createCell(9).setCellValue(if (product.isService) "TRUE" else "FALSE")
-                row.createCell(10).setCellValue(product.wholesalePrice.toDouble())
-                row.createCell(11).setCellValue(product.wholesaleMinQty.toDouble())
+                row.createCell(10).apply {
+                    setCellValue(if (product.isService) "TRUE" else "FALSE")
+                    cellStyle = topAlignStyle
+                }
+                row.createCell(11).apply {
+                    setCellValue(product.wholesalePrice.toDouble())
+                    cellStyle = currencyStyle
+                }
+                row.createCell(12).apply {
+                    setCellValue(product.wholesaleMinQty.toDouble())
+                    cellStyle = topAlignStyle
+                }
             }
 
             sheet.setColumnWidth(0, 8000)
+            sheet.setColumnWidth(1, 4200)
+            sheet.setColumnWidth(2, 4200)
+            sheet.setColumnWidth(3, 3000)
             sheet.setColumnWidth(4, 5000)
-            sheet.setColumnWidth(5, 5000)
-            sheet.setColumnWidth(6, 10000)
+            sheet.setColumnWidth(5, 5500)
+            sheet.setColumnWidth(6, 9000)
+            sheet.setColumnWidth(7, 15500)
+            sheet.setColumnWidth(8, 3800)
+            sheet.setColumnWidth(9, 3800)
+            sheet.setColumnWidth(10, 3200)
+            sheet.setColumnWidth(11, 4200)
+            sheet.setColumnWidth(12, 3400)
 
             val outputStream: OutputStream? = context.contentResolver.openOutputStream(uri)
             if (outputStream != null) {
@@ -90,6 +162,12 @@ object ExcelExporter {
             val products = mutableListOf<ProductEntity>()
             val dataFormatter = DataFormatter()
 
+            val headerRow = sheet.getRow(0)
+            val hasDetailColumn = (0 until (headerRow?.lastCellNum ?: 0)).any { colIdx ->
+                val hVal = headerRow?.getCell(colIdx)?.let { dataFormatter.formatCellValue(it).trim() }.orEmpty()
+                hVal.equals("DetailVarian", ignoreCase = true)
+            }
+
             for (i in 1..sheet.lastRowNum) {
                 val row = sheet.getRow(i) ?: continue
 
@@ -101,15 +179,35 @@ object ExcelExporter {
                 val name = getCellValue(0).trim()
                 if (name.isBlank()) continue
 
-                val price = getCellValue(1).toDoubleOrNull()?.toLong() ?: 0L
-                val costPrice = getCellValue(2).toDoubleOrNull()?.toLong() ?: 0L
-                val stock = getCellValue(3).toDoubleOrNull()?.toInt() ?: 0
+                val price = getCellValue(1).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toLong() ?: 0L
+                val costPrice = getCellValue(2).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toLong() ?: 0L
+                val stock = getCellValue(3).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toInt() ?: 0
                 val category = getCellValue(4).ifBlank { "Umum" }
                 val barcode = getCellValue(5)
-                val variations = getCellValue(6)
-                val commission = getCellValue(7).toDoubleOrNull()?.toLong() ?: 0L
 
-                val expiryStr = getCellValue(8)
+                val variations: String
+                val commission: Long
+                val expiryStr: String
+                val isServiceRaw: String
+                val wholesalePrice: Long
+                val wholesaleMinQty: Int
+
+                if (hasDetailColumn) {
+                    variations = getCellValue(6)
+                    commission = getCellValue(8).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toLong() ?: 0L
+                    expiryStr = getCellValue(9)
+                    isServiceRaw = getCellValue(10)
+                    wholesalePrice = getCellValue(11).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toLong() ?: 0L
+                    wholesaleMinQty = getCellValue(12).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toInt() ?: 0
+                } else {
+                    variations = getCellValue(6)
+                    commission = getCellValue(7).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toLong() ?: 0L
+                    expiryStr = getCellValue(8)
+                    isServiceRaw = getCellValue(9)
+                    wholesalePrice = getCellValue(10).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toLong() ?: 0L
+                    wholesaleMinQty = getCellValue(11).replace(Regex("[^0-9.-]"), "").toDoubleOrNull()?.toInt() ?: 0
+                }
+
                 val expiryDate = try {
                     if (expiryStr.isNotBlank() && expiryStr != "-") {
                         val format = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
@@ -117,9 +215,7 @@ object ExcelExporter {
                     } else 0L
                 } catch (e: Exception) { 0L }
 
-                val isService = getCellValue(9).equals("TRUE", ignoreCase = true) || getCellValue(9) == "1"
-                val wholesalePrice = getCellValue(10).toDoubleOrNull()?.toLong() ?: 0L
-                val wholesaleMinQty = getCellValue(11).toDoubleOrNull()?.toInt() ?: 0
+                val isService = isServiceRaw.equals("TRUE", ignoreCase = true) || isServiceRaw == "1"
 
                 products.add(ProductEntity(
                     name = name, price = price, stock = stock, category = category, costPrice = costPrice,
