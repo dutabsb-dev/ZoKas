@@ -67,7 +67,8 @@ data class VariantInput(
     var costPrice: String = "",
     var price: String = "",
     var stock: String = "",
-    var packMultiplier: String = "1"
+    var packMultiplier: String = "1",
+    var barcode: String = ""
 )
 
 // =====================================================================
@@ -116,6 +117,18 @@ fun ProductFormBottomSheet(
     var isService by remember { mutableStateOf(productToEdit?.isService ?: false) }
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var scanningVariantIndex by remember { mutableStateOf<Int?>(null) }
+    val variantBarcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val scanned = result.contents?.trim()
+        val idx = scanningVariantIndex
+        scanningVariantIndex = null
+        if (!scanned.isNullOrEmpty() && idx != null && idx in variantList.indices) {
+            val newList = variantList.toMutableList()
+            newList[idx] = newList[idx].copy(barcode = scanned)
+            variantList = newList
+            Toast.makeText(context, "Barcode varian terbaca: $scanned", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Parse data varian saat pertama kali dibuka
     LaunchedEffect(productToEdit) {
@@ -673,6 +686,54 @@ fun ProductFormBottomSheet(
                                     )
                                 }
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = variant.barcode,
+                                onValueChange = { newCode ->
+                                    val newList = variantList.toMutableList()
+                                    newList[index] = variant.copy(barcode = newCode)
+                                    variantList = newList
+                                },
+                                label = { Text("Barcode Varian (Opsional)") },
+                                placeholder = { Text("Ketik atau scan barcode varian") },
+                                trailingIcon = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (variant.barcode.isNotEmpty()) {
+                                            IconButton(onClick = {
+                                                val newList = variantList.toMutableList()
+                                                newList[index] = variant.copy(barcode = "")
+                                                variantList = newList
+                                            }) {
+                                                Icon(Icons.Default.Clear, contentDescription = "Hapus Barcode Varian", modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                scanningVariantIndex = index
+                                                val options = ScanOptions().apply {
+                                                    setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                                    setPrompt("Scan Barcode Varian ${variant.name.ifBlank { "#${index + 1}" }}")
+                                                    setCameraId(0)
+                                                    setBeepEnabled(true)
+                                                    setBarcodeImageEnabled(true)
+                                                    setOrientationLocked(true)
+                                                }
+                                                variantBarcodeLauncher.launch(options)
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.QrCodeScanner,
+                                                contentDescription = "Scan Barcode Varian",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp)
+                            )
                         }
                     }
                 }
@@ -777,7 +838,8 @@ fun ProductFormBottomSheet(
                             val c = it.costPrice.toLongOrNull() ?: 0L
                             val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
                             val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                            "${it.name.trim()}:$p:$c:$s:$m"
+                            val vb = it.barcode.trim()
+                            if (vb.isNotBlank()) "${it.name.trim()}:$p:$c:$s:$m:$vb" else "${it.name.trim()}:$p:$c:$s:$m"
                         }
                         finalVariations = variationParts.joinToString(",")
 
@@ -842,13 +904,15 @@ private fun parseVariationString(variations: String, mainStock: Int): List<Varia
             }
 
             val multStr = pieces.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() } ?: "1"
+            val varBarcode = pieces.getOrNull(5)?.trim().orEmpty()
             list.add(
                 VariantInput(
                     name = pieces[0].trim(),
                     price = pieces[1].trim(),
                     costPrice = pieces.getOrNull(2)?.trim() ?: "0",
                     stock = finalStock.toString(),
-                    packMultiplier = multStr
+                    packMultiplier = multStr,
+                    barcode = varBarcode
                 )
             )
         }

@@ -386,20 +386,40 @@ class PosViewModel(
             return
         }
         val currentList = _products.value
+        var scannedVariantName = ""
         val matched = currentList.firstOrNull { prod ->
             val rawBarcode = prod.barcode.trim()
             val actualBarcode = if (rawBarcode.contains("|")) rawBarcode.substringAfter("|").trim() else rawBarcode
             val skuPart = if (rawBarcode.contains("|")) rawBarcode.substringBefore("|").trim() else rawBarcode
-            rawBarcode.equals(code, ignoreCase = true) ||
+            val matchesProductLevel = rawBarcode.equals(code, ignoreCase = true) ||
                 actualBarcode.equals(code, ignoreCase = true) ||
                 skuPart.equals(code, ignoreCase = true)
+            if (matchesProductLevel) {
+                true
+            } else if (prod.variations.isNotBlank() && !prod.variations.contains("|")) {
+                val matchedPart = prod.variations.split(",").firstOrNull { part ->
+                    val vPieces = part.split(":")
+                    val vCode = vPieces.getOrNull(5)?.trim().orEmpty()
+                    vCode.isNotEmpty() && vCode.equals(code, ignoreCase = true)
+                }
+                if (matchedPart != null) {
+                    scannedVariantName = matchedPart.split(":").firstOrNull()?.trim().orEmpty()
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         }
         if (matched == null) {
             onResult(false, "Produk dengan barcode \"$code\" tidak ditemukan.")
             return
         }
 
-        val defaultVariation = if (matched.variations.isNotBlank() && !matched.variations.contains("|")) {
+        val defaultVariation = if (scannedVariantName.isNotBlank()) {
+            scannedVariantName
+        } else if (matched.variations.isNotBlank() && !matched.variations.contains("|")) {
             matched.variations.split(",").firstOrNull()?.split(":")?.firstOrNull()?.trim().orEmpty()
         } else {
             ""

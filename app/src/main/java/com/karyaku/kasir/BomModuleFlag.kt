@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -40,7 +41,7 @@ fun setBomEnabledInContext(context: Context, enabled: Boolean) {
     context.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putBoolean(BOM_PREF_KEY, enabled)
-        .apply()
+        .commit()
 }
 
 val SettingsManager.isBomModuleEnabled: Boolean
@@ -62,6 +63,8 @@ fun BomModuleCombinedRow(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var checkedState by rememberSaveable(enabled) { mutableStateOf(enabled) }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -90,7 +93,7 @@ fun BomModuleCombinedRow(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (enabled) "Aktif • Kelola resep & bahan baku produk" else "Nonaktif • Aktifkan untuk memakai resep & bahan baku",
+                        text = if (checkedState) "Aktif • Kelola resep & bahan baku produk" else "Nonaktif • Aktifkan untuk memakai resep & bahan baku",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -98,15 +101,16 @@ fun BomModuleCombinedRow(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Switch(
-                checked = enabled,
+                checked = checkedState,
                 onCheckedChange = { newVal ->
+                    checkedState = newVal
                     setBomEnabledInContext(context, newVal)
                     onToggleEnabled(newVal)
                 }
             )
         }
 
-        if (enabled) {
+        if (checkedState) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
