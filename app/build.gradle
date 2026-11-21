@@ -19,6 +19,22 @@ android {
         vectorDrawables { useSupportLibrary true }
     }
 
+    // Flavor terpisah agar build AAB/Release Play Store dan APK Sideload Test bisa terpasang berdampingan di 1 device
+    flavorDimensions "dist"
+    productFlavors {
+        play {
+            dimension "dist"
+            applicationId "com.dbsbstudio.zokas"
+            resValue "string", "app_name", "ZoKas"
+        }
+        sideload {
+            dimension "dist"
+            applicationIdSuffix ".sideload"
+            versionNameSuffix "-SIDELOAD"
+            resValue "string", "app_name", "ZoKas Sideload"
+        }
+    }
+
     signingConfigs {
         release {
             // FIX: Hapus fallback password hardcoded. Wajib set Env Variables.
@@ -43,9 +59,9 @@ android {
     kotlinOptions { jvmTarget = '1.8' }
     buildFeatures { compose true }
     composeOptions { kotlinCompilerExtensionVersion '1.5.8' }
-    
-    packaging { 
-        resources { 
+
+    packaging {
+        resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
             excludes += "META-INF/DEPENDENCIES"
             excludes += "META-INF/LICENSE"
@@ -57,7 +73,7 @@ android {
             excludes += "META-INF/ASL2.0"
             excludes += "META-INF/*.kotlin_module"
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
-        } 
+        }
     }
 }
 
@@ -76,11 +92,11 @@ dependencies {
     implementation 'androidx.compose.ui:ui-tooling-preview'
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.compose.material:material-icons-extended'
-    
+
     // Lifecycle & ViewModel
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.7.0'
-    
+
     // Room Database
     def room_version = "2.6.1"
     implementation "androidx.room:room-runtime:$room_version"
@@ -88,7 +104,7 @@ dependencies {
     ksp "androidx.room:room-compiler:$room_version"
 
     // FITUR BARU
-    implementation 'androidx.biometric:biometric:1.1.0' 
-    implementation 'io.coil-kt:coil-compose:2.6.0' 
-    implementation 'org.apache.poi:poi-ooxml:5.2.3' 
+    implementation 'androidx.biometric:biometric:1.1.0'
+    implementation 'io.coil-kt:coil-compose:2.6.0'
+    implementation 'org.apache.poi:poi-ooxml:5.2.3'
 }
