@@ -24,7 +24,9 @@ jobs:
       - name: Ensure gradle.properties compatibility
         run: |
           touch gradle.properties
-          grep -q "android.suppressUnsupportedCompileSdk" gradle.properties || echo "android.suppressUnsupportedCompileSdk=36" >> gradle.properties
+          if ! grep -q "android.suppressUnsupportedCompileSdk" gradle.properties; then
+            printf "\nandroid.suppressUnsupportedCompileSdk=36\n" >> gradle.properties
+          fi
 
       - name: Decode Release Keystore (if configured)
         env:
