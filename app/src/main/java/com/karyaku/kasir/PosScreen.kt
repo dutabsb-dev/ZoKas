@@ -405,10 +405,15 @@ fun PosScreen(
                 imagePath = item.product.imagePath
             )
         }
-        val orderTypeInfo = if (settingsManager.isTableModeEnabled && selectedOrderType == "Dine-In") {
-            "$selectedOrderType ($selectedTable)"
+        val isCulinaryBusiness = settingsManager.businessType.equals("KULINER", ignoreCase = true)
+        val orderTypeInfo = if (isCulinaryBusiness) {
+            if (settingsManager.isTableModeEnabled && selectedOrderType == "Dine-In") {
+                "$selectedOrderType ($selectedTable)"
+            } else {
+                selectedOrderType
+            }
         } else {
-            selectedOrderType
+            settingsManager.businessType.ifBlank { "Retail" }
         }
         val bankDetails = if (!settingsManager.bankAccountNumber.isNullOrBlank()) {
             "Transfer: ${settingsManager.bankName ?: ""} ${settingsManager.bankAccountNumber} a/n ${settingsManager.bankAccountName ?: ""}"
@@ -698,7 +703,7 @@ fun PosScreen(
             )
         }
 
-        if (productToManageBom != null) {
+        if (settingsManager.enableBomModule && productToManageBom != null) {
             BomManagementDialog(
                 product = productToManageBom!!,
                 rawMaterials = rawMaterials,

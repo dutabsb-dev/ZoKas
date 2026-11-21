@@ -1510,11 +1510,25 @@ fun TransactionDetailDialog(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                val isCulinaryStore = settingsManager.businessType.equals("KULINER", ignoreCase = true)
+                val cleanTableInfo = if (isCulinaryStore && transaction.tableName.isNotBlank()) " | ${transaction.tableName}" else ""
                 Text(
-                    "${LanguageManager.tr("kasir", lang)}: ${transaction.cashierName} | ${transaction.tableName}",
+                    "${LanguageManager.tr("kasir", lang)}: ${transaction.cashierName}$cleanTableInfo",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Text(
+                    "Metode Bayar: ${transaction.paymentMethod} | Status: ${transaction.status}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (transaction.cashReceived > 0L) {
+                    Text(
+                        "Uang Diterima: ${formatRupiah(transaction.cashReceived)} | Kembali: ${formatRupiah(transaction.changeAmount)}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 if (txItems.isEmpty()) {

@@ -142,11 +142,25 @@ fun LiveBarcodeScannerWindow(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = onToggleEnabled,
-                    modifier = Modifier.height(24.dp)
-                )
+                TextButton(
+                    onClick = { onToggleEnabled(!enabled) },
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                    modifier = Modifier.height(26.dp)
+                ) {
+                    Icon(
+                        imageVector = if (enabled) Icons.Default.VisibilityOff else Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp),
+                        tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = if (enabled) "Matikan" else "Nyalakan",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             if (enabled) {
@@ -161,39 +175,6 @@ fun LiveBarcodeScannerWindow(
                         factory = { barcodeView },
                         modifier = Modifier.fillMaxSize()
                     )
-                }
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(34.dp)
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.VisibilityOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Kamera mati",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    TextButton(
-                        onClick = { onToggleEnabled(true) },
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Nyalakan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
                 }
             }
         }

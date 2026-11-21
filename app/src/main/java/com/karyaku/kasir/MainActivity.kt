@@ -756,6 +756,7 @@ fun MainNavigation(
                         }
                     }
                 }
+                if (selectedTab == 3) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -832,6 +833,7 @@ fun MainNavigation(
                             )
                         }
                     }
+                }
                 }
             }
             }
@@ -1404,9 +1406,16 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                         productToWaste = target
                     }
                 },
-                onBom = {
-                    productToManageBom = showActionDialogFor
-                    showActionDialogFor = null
+                onBom = if (settingsManager.enableBomModule) {
+                    {
+                        productToManageBom = showActionDialogFor
+                        showActionDialogFor = null
+                    }
+                } else {
+                    {
+                        Toast.makeText(context, "Aktifkan Modul Resep / BOM di Pengaturan terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                        showActionDialogFor = null
+                    }
                 },
                 onRawMaterial = {
                     showRawMaterialDialog = true
@@ -1429,7 +1438,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        if (productToManageBom != null) {
+        if (settingsManager.enableBomModule && productToManageBom != null) {
             BomManagementDialog(
                 product = productToManageBom!!,
                 rawMaterials = rawMaterials,
