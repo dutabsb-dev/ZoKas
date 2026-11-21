@@ -21,8 +21,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Ensure gradle.properties compatibility
+        run: |
+          touch gradle.properties
+          grep -q "android.suppressUnsupportedCompileSdk" gradle.properties || echo "android.suppressUnsupportedCompileSdk=36" >> gradle.properties
 
       - name: Decode Release Keystore (if configured)
         env:
@@ -35,7 +37,7 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "app/$TARGET_KS"
           fi
 
-      - name: Build Play AAB and Sideload APK
+      - name: Build Play Store Release AAB
         env:
           KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE || 'zokas-release.jks' }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -44,9 +46,23 @@ jobs:
         run: |
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
-            ./gradlew bundlePlayRelease assembleSideloadRelease --no-daemon
+            ./gradlew bundlePlayRelease --no-daemon
           else
-            gradle bundlePlayRelease assembleSideloadRelease --no-daemon
+            gradle bundlePlayRelease --no-daemon
+          fi
+
+      - name: Build Sideload Release APK
+        env:
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE || 'zokas-release.jks' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleSideloadRelease --no-daemon
+          else
+            gradle assembleSideloadRelease --no-daemon
           fi
 
       - name: Upload Play Store AAB Artifact
