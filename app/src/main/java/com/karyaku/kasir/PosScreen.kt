@@ -99,7 +99,8 @@ fun PosScreen(
     showCfd: Boolean,
     onDismissCfd: () -> Unit,
     actionTrigger: String? = null,
-    onActionHandled: () -> Unit = {}
+    onActionHandled: () -> Unit = {},
+    onCartScannerModeChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -176,8 +177,18 @@ fun PosScreen(
     var showCartOnPhone by rememberSaveable { mutableStateOf(false) }
     var isLiveScannerOpen by rememberSaveable { mutableStateOf(true) }
 
+    val isPhoneCartScannerActive = showCartOnPhone && !isLandscape && isPhone
+    LaunchedEffect(isPhoneCartScannerActive) {
+        onCartScannerModeChange(isPhoneCartScannerActive)
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            onCartScannerModeChange(false)
+        }
+    }
+
     // FIX BUG #2: Jika sedang membuka tampilan Keranjang penuh di layar HP, tombol Back kembali ke Katalog Produk
-    BackHandler(enabled = showCartOnPhone && !isLandscape && isPhone) {
+    BackHandler(enabled = isPhoneCartScannerActive) {
         showCartOnPhone = false
     }
 
@@ -1099,11 +1110,46 @@ fun PosScreen(
                     }
                 } else {
                     if (showCartOnPhone) {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            TextButton(onClick = { showCartOnPhone = false }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Kembali ke Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                TextButton(
+                                    onClick = { showCartOnPhone = false },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            if (cart.isNotEmpty()) {
+                                                viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan")
+                                                Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Parkir", fontSize = 11.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { showHoldDialog = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Lihat", fontSize = 11.sp)
+                                    }
+                                }
                             }
                             LiveBarcodeScannerWindow(
                                 enabled = isLiveScannerOpen,
@@ -1113,7 +1159,7 @@ fun PosScreen(
                                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
                             )
                             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                 PosCartSection(

@@ -141,7 +141,8 @@ fun MainContent(
     isDarkMode: Boolean, isHighContrast: Boolean, uiScale: Float, language: String,
     storeName: String?, storeLogoPath: String?,
     onStoreNameChange: (String) -> Unit, onLogoChange: (String) -> Unit, onUserChange: (UserEntity?) -> Unit,
-    onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit, onToggleLanguage: () -> Unit
+    onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit, onToggleLanguage: () -> Unit,
+    onHideTopHeaderChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) {
@@ -432,6 +433,7 @@ fun MainContent(
                 viewModel = posViewModel, settingsManager = settingsManager, currentUser = currentUser,
                 storeName = storeName, storeLogoPath = storeLogoPath,
                 onStoreNameChange = onStoreNameChange, onLogoChange = onLogoChange,
+                onHideTopHeaderChange = onHideTopHeaderChange,
                 onLogout = {
                     posViewModel.cart.value.toList().forEach { posViewModel.deleteItem(it.product, it.selectedVariation) }
                     posViewModel.setDiscount(0L)
@@ -454,7 +456,8 @@ fun MainNavigation(
     storeName: String?, storeLogoPath: String?, onStoreNameChange: (String) -> Unit, onLogoChange: (String) -> Unit,
     onLogout: () -> Unit, isDarkMode: Boolean, isHighContrast: Boolean, uiScale: Float,
     onToggleDarkMode: () -> Unit, onToggleHighContrast: () -> Unit, onChangeUiScale: (Float) -> Unit,
-    language: String, onToggleLanguage: () -> Unit
+    language: String, onToggleLanguage: () -> Unit,
+    onHideTopHeaderChange: (Boolean) -> Unit = {}
 ) {
     val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
     val defaultHomeTab = if (currentUser.role == "STAFF" && isKuliner) 4 else 0
@@ -611,8 +614,16 @@ fun MainNavigation(
 
     val logoFile = remember(storeLogoPath) { storeLogoPath?.let { File(it) } }
 
+    var hideTopHeader by remember { mutableStateOf(false) }
+    LaunchedEffect(selectedTab) {
+        if (selectedTab != 0) {
+            hideTopHeader = false
+            onHideTopHeaderChange(false)
+        }
+    }
     Scaffold(
         topBar = {
+            if (!hideTopHeader) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -823,6 +834,7 @@ fun MainNavigation(
                     }
                 }
             }
+            }
         },
         bottomBar = {
             NavigationBar(
@@ -898,7 +910,8 @@ fun MainNavigation(
                     0 -> PosScreen(
                         viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser,
                         onLogout = onLogout, showCfd = showCfdDialog, onDismissCfd = { showCfdDialog = false },
-                        actionTrigger = posActionTrigger, onActionHandled = { posActionTrigger = null }
+                        actionTrigger = posActionTrigger, onActionHandled = { posActionTrigger = null },
+                        onCartScannerModeChange = { active -> hideTopHeader = active; onHideTopHeaderChange(active) }
                     )
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
                     2 -> HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)

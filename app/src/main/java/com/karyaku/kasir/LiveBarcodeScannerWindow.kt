@@ -43,7 +43,7 @@ fun LiveBarcodeScannerWindow(
 
     var lastCode by remember { mutableStateOf("") }
     var lastScanMillis by remember { mutableLongStateOf(0L) }
-    var statusText by remember { mutableStateOf("Kamera siap • Arahkan barcode ke kotak") }
+    var statusText by remember { mutableStateOf("Kamera siap") }
 
     val onBarcodeDetectedState by rememberUpdatedState(onBarcodeDetected)
 
@@ -65,15 +65,15 @@ fun LiveBarcodeScannerWindow(
 
     LaunchedEffect(enabled) {
         if (enabled) {
-            statusText = "Kamera aktif • Arahkan barcode ke kotak"
+            statusText = "Scan aktif"
             barcodeView.resume()
             barcodeView.decodeContinuous(object : BarcodeCallback {
                 override fun barcodeResult(result: BarcodeResult?) {
                     val raw = result?.text?.trim().orEmpty()
                     if (raw.isEmpty()) return
                     val now = System.currentTimeMillis()
-                    if (raw == lastCode && (now - lastScanMillis) < 1300L) return
-                    if ((now - lastScanMillis) < 600L) return
+                    if (raw == lastCode && (now - lastScanMillis) < 1200L) return
+                    if ((now - lastScanMillis) < 550L) return
                     lastCode = raw
                     lastScanMillis = now
                     statusText = "Terbaca: $raw"
@@ -81,7 +81,7 @@ fun LiveBarcodeScannerWindow(
                 }
             })
         } else {
-            statusText = "Kamera dijeda"
+            statusText = "Dijeda"
             barcodeView.pause()
         }
     }
@@ -103,19 +103,19 @@ fun LiveBarcodeScannerWindow(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(
             1.dp,
-            if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+            if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
             else MaterialTheme.colorScheme.outlineVariant
         ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         )
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -130,101 +130,69 @@ fun LiveBarcodeScannerWindow(
                         imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Scan Kamera Keranjang",
+                        text = "Scan Kamera ($statusText)",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (enabled) "ON" else "OFF",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Switch(
-                        checked = enabled,
-                        onCheckedChange = onToggleEnabled,
-                        modifier = Modifier.height(28.dp)
-                    )
-                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onToggleEnabled,
+                    modifier = Modifier.height(24.dp)
+                )
             }
 
             if (enabled) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(136.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .height(82.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Color.Black)
                 ) {
                     AndroidView(
                         factory = { barcodeView },
                         modifier = Modifier.fillMaxSize()
                     )
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(6.dp),
-                        color = Color.Black.copy(alpha = 0.65f),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = statusText,
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
                 }
             } else {
-                Surface(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(10.dp)
+                        .height(34.dp)
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Kamera mati",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(
+                        onClick = { onToggleEnabled(true) },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                        modifier = Modifier.height(28.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.VisibilityOff,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Kamera keranjang dimatikan",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        TextButton(
-                            onClick = { onToggleEnabled(true) },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                        ) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Nyalakan", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("Nyalakan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
