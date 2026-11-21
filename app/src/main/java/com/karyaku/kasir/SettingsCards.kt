@@ -643,6 +643,7 @@ fun SettingsModuleCard(
     enableOrderTypes: Boolean, onOrderTypesToggle: (Boolean) -> Unit,
     enableWholesale: Boolean, onWholesaleToggle: (Boolean) -> Unit,
     enablePreOrder: Boolean, onPreOrderToggle: (Boolean) -> Unit,
+    enableBomModule: Boolean = false, onBomModuleToggle: (Boolean) -> Unit = {},
     enableMembership: Boolean, onMembershipToggle: (Boolean) -> Unit,
     onManageMembershipClick: () -> Unit,
     enableSupplier: Boolean, onSupplierToggle: (Boolean) -> Unit,
@@ -1463,6 +1464,11 @@ fun SettingsModuleCard(
                             )
                         }
                     }
+
+BomModuleSwitchRow(
+        enabled = enableBomModule,
+        onToggle = onBomModuleToggle
+    )
 
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
