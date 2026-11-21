@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.ProductEntity
 import java.io.File
 import java.io.FileOutputStream
@@ -372,10 +374,50 @@ fun ProductFormBottomSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 6.dp)
             )
+            val packagingBarcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+                val scanned = result.contents?.trim()
+                if (!scanned.isNullOrEmpty()) {
+                    barcode = scanned
+                    Toast.makeText(context, "Barcode kemasan terbaca: $scanned", Toast.LENGTH_SHORT).show()
+                }
+            }
             OutlinedTextField(
                 value = barcode,
                 onValueChange = { barcode = it },
                 label = { Text("Barcode Kemasan (Opsional)") },
+                placeholder = { Text("Ketik atau scan barcode kemasan") },
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (barcode.isNotEmpty()) {
+                            IconButton(onClick = { barcode = "" }) {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = "Hapus Barcode",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = {
+                                val options = ScanOptions().apply {
+                                    setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                    setPrompt("Arahkan kamera ke barcode produk")
+                                    setCameraId(0)
+                                    setBeepEnabled(true)
+                                    setBarcodeImageEnabled(true)
+                                    setOrientationLocked(true)
+                                }
+                                packagingBarcodeLauncher.launch(options)
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.QrCodeScanner,
+                                contentDescription = "Scan Barcode Kamera",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
