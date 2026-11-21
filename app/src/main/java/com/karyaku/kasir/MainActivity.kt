@@ -535,7 +535,10 @@ fun MainNavigation(
         if (result.contents != null) {
             viewModel.processBarcodeScan(result.contents) { success, msg ->
                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                if (success) { showSearchDialog = false; viewModel.setSearchQuery("") }
+                if (success) {
+                    showSearchDialog = false
+                    viewModel.setSearchQuery("")
+                }
             }
         }
     }

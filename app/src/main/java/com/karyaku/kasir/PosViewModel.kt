@@ -380,6 +380,50 @@ class PosViewModel(
     }
 }
 
+    fun processBarcodeScan(rawCode: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        val code = rawCode.trim()
+        if (code.isEmpty()) {
+            onResult(false, "Barcode kosong.")
+            return
+        }
+        val currentList = _products.value
+        val matched = currentList.firstOrNull { prod ->
+            val rawBarcode = prod.barcode.trim()
+            val actualBarcode = if (rawBarcode.contains("|")) rawBarcode.substringAfter("|").trim() else rawBarcode
+            val skuPart = if (rawBarcode.contains("|")) rawBarcode.substringBefore("|").trim() else rawBarcode
+            rawBarcode.equals(code, ignoreCase = true) ||
+                actualBarcode.equals(code, ignoreCase = true) ||
+                skuPart.equals(code, ignoreCase = true)
+        }
+        if (matched == null) {
+            onResult(false, "Produk dengan barcode \"$code\" tidak ditemukan.")
+            return
+        }
+
+        val defaultVariation = if (matched.variations.isNotBlank() && !matched.variations.contains("|")) {
+            matched.variations.split(",").firstOrNull()?.split(":")?.firstOrNull()?.trim().orEmpty()
+        } else {
+            ""
+        }
+
+        val currentCart = _cart.value
+        val existingIdx = currentCart.indexOfFirst {
+            it.product.id == matched.id && it.selectedVariation == defaultVariation
+        }
+        val currentQtyInCart = if (existingIdx != -1) currentCart[existingIdx].quantity else 0
+        val availableStock = getStockForVariant(matched, defaultVariation)
+
+        if (!matched.isService && currentQtyInCart + 1 > availableStock) {
+            onResult(false, "Stok ${matched.name} tidak mencukupi (tersisa $availableStock).")
+            return
+        }
+
+        addToCart(matched, defaultVariation)
+        _searchQuery.value = ""
+        val updatedQty = currentQtyInCart + 1
+        onResult(true, "${matched.name} masuk keranjang (Qty: $updatedQty)")
+    }
+
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PosViewModel::class.java)) {
