@@ -160,3 +160,60 @@ fun BomModuleCombinedRow(
         }
     }
 }
+
+
+@Composable
+fun BomModuleSwitchRow(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var checkedState by rememberSaveable(enabled) { mutableStateOf(enabled) }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable {
+                val next = !checkedState
+                checkedState = next
+                setBomEnabledInContext(context, next)
+                onToggle(next)
+            }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Science,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Resep & Bahan Baku (BOM)",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Kelola stok bahan mentah & resep produk.",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = checkedState,
+            onCheckedChange = { newVal ->
+                checkedState = newVal
+                setBomEnabledInContext(context, newVal)
+                onToggle(newVal)
+            },
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+            )
+        )
+    }
+}
