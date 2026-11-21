@@ -513,6 +513,13 @@ fun SettingsScreen(
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SettingsModuleCard(
+                onRawMaterialClick = {
+                    if (enableBomModule) {
+                        showRawMaterialDialog = true
+                    } else {
+                        Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 isTableModeEnabled = isTableModeEnabled,
                 onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
                 enableMultiCurrency = enableMultiCurrency,
