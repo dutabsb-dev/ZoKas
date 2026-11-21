@@ -209,7 +209,9 @@ fun ProductFormBottomSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            val isBomActiveForForm = remember { isBomEnabledInContext(context) }
             // --- SESI 4 (POIN #2): AKSES CEPAT RESEP (BOM) & BAHAN BAKU DI FORM PRODUK ---
+            if (isBomActiveForForm) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -281,6 +283,8 @@ fun ProductFormBottomSheet(
                         }
                     }
                 }
+            }
+
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1267,6 +1271,101 @@ fun PaymentBottomSheet(
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PosActionMenuBottomSheet(
+    product: ProductEntity,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit,
+    onRestock: () -> Unit,
+    onWaste: () -> Unit,
+    onBom: () -> Unit = {},
+    onRawMaterial: () -> Unit = {},
+    onSaveBarcode: () -> Unit = {},
+    onDelete: () -> Unit
+) {
+    val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isBomActive = remember(product.id) { isBomEnabledInContext(context) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = product.name,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            ListItem(
+                headlineContent = { Text("Edit Produk", fontWeight = FontWeight.SemiBold) },
+                supportingContent = { Text(if (isBomActive) "Ubah detail, harga, varian & resep" else "Ubah detail, harga & varian", fontSize = 11.sp) },
+                leadingContent = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                modifier = Modifier.clickable { onEdit() }
+            )
+
+            ListItem(
+                headlineContent = { Text("Tambah Stok", fontWeight = FontWeight.SemiBold) },
+                supportingContent = { Text("Restock barang jadi", fontSize = 11.sp) },
+                leadingContent = { Icon(Icons.Default.AddCircleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                modifier = Modifier.clickable { onRestock() }
+            )
+
+            ListItem(
+                headlineContent = { Text("Barang Rusak", fontWeight = FontWeight.SemiBold) },
+                supportingContent = { Text("Catat waste/expired", fontSize = 11.sp) },
+                leadingContent = { Icon(Icons.Default.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                modifier = Modifier.clickable { onWaste() }
+            )
+
+            if (isBomActive) {
+                ListItem(
+                    headlineContent = { Text("Atur Resep (BOM)", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("Takaran komposisi & kelola bahan baku", fontSize = 11.sp) },
+                    leadingContent = { Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    modifier = Modifier.clickable { onBom() }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Kelola Bahan Baku", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text("Tambah item & stok bahan mentah", fontSize = 11.sp) },
+                    leadingContent = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                    modifier = Modifier.clickable { onRawMaterial() }
+                )
+            }
+
+            ListItem(
+                headlineContent = { Text("Simpan Barcode (JPG)", fontWeight = FontWeight.SemiBold) },
+                supportingContent = { Text("Simpan label ke galeri", fontSize = 11.sp) },
+                leadingContent = { Icon(Icons.Default.QrCode, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                modifier = Modifier.clickable { onSaveBarcode() }
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            ListItem(
+                headlineContent = { Text("Hapus Produk", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
+                supportingContent = { Text("Hapus permanen", fontSize = 11.sp) },
+                leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                modifier = Modifier.clickable { onDelete() }
+            )
         }
     }
 }

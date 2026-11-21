@@ -1,9 +1,12 @@
 package com.karyaku.kasir
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,38 +31,43 @@ private fun resolveContext(manager: SettingsManager): Context? {
     }
 }
 
-val SettingsManager.isBomModuleEnabled: Boolean
-    get() {
-        val ctx = resolveContext(this) ?: return false
-        return ctx.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(BOM_PREF_KEY, false)
-    }
+fun isBomEnabledInContext(context: Context): Boolean {
+    return context.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(BOM_PREF_KEY, false)
+}
 
-fun SettingsManager.setBomModuleEnabled(enabled: Boolean) {
-    val ctx = resolveContext(this) ?: return
-    ctx.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
+fun setBomEnabledInContext(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putBoolean(BOM_PREF_KEY, enabled)
         .apply()
 }
 
+val SettingsManager.isBomModuleEnabled: Boolean
+    get() {
+        val ctx = resolveContext(this) ?: return false
+        return isBomEnabledInContext(ctx)
+    }
+
+fun SettingsManager.setBomModuleEnabled(enabled: Boolean) {
+    val ctx = resolveContext(this) ?: return
+    setBomEnabledInContext(ctx, enabled)
+}
+
 @Composable
-fun BomModuleToggleCard(
-    settingsManager: SettingsManager,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+fun BomModuleCombinedRow(
+    enabled: Boolean,
+    onToggleEnabled: (Boolean) -> Unit,
+    onManageRawMaterialClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    Surface(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -76,13 +84,13 @@ fun BomModuleToggleCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = "Modul Resep / BOM",
-                        fontWeight = FontWeight.Bold,
+                        text = "Resep & Bahan Baku (BOM)",
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (checked) "Aktif • Kelola bahan baku & resep produk" else "Nonaktif • Aktifkan untuk memakai BOM",
+                        text = if (enabled) "Aktif • Kelola resep & bahan baku produk" else "Nonaktif • Aktifkan untuk memakai resep & bahan baku",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -90,16 +98,61 @@ fun BomModuleToggleCard(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Switch(
-                checked = checked,
+                checked = enabled,
                 onCheckedChange = { newVal ->
-                    settingsManager.setBomModuleEnabled(newVal)
-                    context.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
-                        .edit()
-                        .putBoolean(BOM_PREF_KEY, newVal)
-                        .apply()
-                    onCheckedChange(newVal)
+                    setBomEnabledInContext(context, newVal)
+                    onToggleEnabled(newVal)
                 }
             )
+        }
+
+        if (enabled) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onManageRawMaterialClick() },
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Inventory2,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Kelola Bahan Baku",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Atur stok bahan mentah & resep (BOM)",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
