@@ -577,6 +577,8 @@ fun SettingsScreen(
                 onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
                 language = language
             )
+                }
+            }
         }
 
         if (currentUser.role == "OWNER" && enableHrModule) {
@@ -756,8 +758,6 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-    }
     }
 }
 
