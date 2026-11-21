@@ -378,7 +378,6 @@ class PosViewModel(
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
-}
 
     fun processBarcodeScan(rawCode: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
         val code = rawCode.trim()
@@ -423,6 +422,7 @@ class PosViewModel(
         val updatedQty = currentQtyInCart + 1
         onResult(true, "${matched.name} masuk keranjang (Qty: $updatedQty)")
     }
+}
 
 class PosViewModelFactory(private val database: AppDatabase) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
