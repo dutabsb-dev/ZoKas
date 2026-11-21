@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -121,10 +122,7 @@ fun SettingsScreen(
     var enableSupplier by remember { mutableStateOf(settingsManager.enableSupplier) }
     var enableReservation by remember { mutableStateOf(settingsManager.enableReservation) }
     var enableFinance by remember { mutableStateOf(settingsManager.enableFinance) }
-    var enableBomModule by remember { mutableStateOf(isBomEnabledInContext(context)) }
-    LaunchedEffect(Unit) {
-        enableBomModule = isBomEnabledInContext(context)
-    }
+    var enableBomModule by rememberSaveable { mutableStateOf(isBomEnabledInContext(context)) }
 
     var enableHrModule by remember { mutableStateOf(settingsManager.enableHrModule) }
     var enableCrmModule by remember { mutableStateOf(settingsManager.enableCrmModule) }
@@ -486,7 +484,63 @@ fun SettingsScreen(
         }
 
         item {
-            SettingsModuleCard(
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    BomModuleCombinedRow(
+                        enabled = enableBomModule,
+                        onToggleEnabled = { enabled ->
+                            enableBomModule = enabled
+                            Toast.makeText(
+                                context,
+                                if (enabled) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        onManageRawMaterialClick = {
+                            if (enableBomModule) {
+                                showRawMaterialDialog = true
+                            } else {
+                                Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    BomModuleCombinedRow(
+                        enabled = enableBomModule,
+                        onToggleEnabled = { enabled ->
+                            enableBomModule = enabled
+                            Toast.makeText(
+                                context,
+                                if (enabled) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        onManageRawMaterialClick = {
+                            if (enableBomModule) {
+                                showRawMaterialDialog = true
+                            } else {
+                                Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingsModuleCard(
                 isTableModeEnabled = isTableModeEnabled,
                 onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
                 enableMultiCurrency = enableMultiCurrency,
@@ -552,6 +606,11 @@ fun SettingsScreen(
                 onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
                 language = language
             )
+                }
+            }
+
+                }
+            }
         }
 
         if (currentUser.role == "OWNER" && enableHrModule) {
