@@ -1406,7 +1406,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                         productToWaste = target
                     }
                 },
-                onBom = if (settingsManager.enableBomModule) {
+                onBom = if (settingsManager.isBomModuleEnabled) {
                     {
                         productToManageBom = showActionDialogFor
                         showActionDialogFor = null
@@ -1438,7 +1438,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        if (settingsManager.enableBomModule && productToManageBom != null) {
+        if (settingsManager.isBomModuleEnabled && productToManageBom != null) {
             BomManagementDialog(
                 product = productToManageBom!!,
                 rawMaterials = rawMaterials,

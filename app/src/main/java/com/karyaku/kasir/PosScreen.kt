@@ -703,7 +703,7 @@ fun PosScreen(
             )
         }
 
-        if (settingsManager.enableBomModule && productToManageBom != null) {
+        if (settingsManager.isBomModuleEnabled && productToManageBom != null) {
             BomManagementDialog(
                 product = productToManageBom!!,
                 rawMaterials = rawMaterials,
