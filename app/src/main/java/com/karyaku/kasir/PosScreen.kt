@@ -175,7 +175,7 @@ fun PosScreen(
     }
 
     var showCartOnPhone by rememberSaveable { mutableStateOf(false) }
-    var isLiveScannerOpen by rememberSaveable { mutableStateOf(true) }
+    var isLiveScannerOpen by rememberSaveable { mutableStateOf(false) }
 
     val isPhoneCartScannerActive = showCartOnPhone && !isLandscape && isPhone
     LaunchedEffect(isPhoneCartScannerActive) {
@@ -413,7 +413,7 @@ fun PosScreen(
                 selectedOrderType
             }
         } else {
-            settingsManager.businessType.ifBlank { "Retail" }
+            ""
         }
         val bankDetails = if (!settingsManager.bankAccountNumber.isNullOrBlank()) {
             "Transfer: ${settingsManager.bankName ?: ""} ${settingsManager.bankAccountNumber} a/n ${settingsManager.bankAccountName ?: ""}"
@@ -1063,6 +1063,8 @@ fun PosScreen(
                                 onProductLongClick = { prod: ProductEntity -> if (canOpenProductMenu) showActionDialogFor = prod },
                                 onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                                 onCameraScanClick = {
+                                    isLiveScannerOpen = true
+                                    if (showCartOnPhone.not() && isPhone && !isLandscape) showCartOnPhone = true
                                     val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
                                     barcodeLauncher.launch(options)
                                 },
@@ -1207,6 +1209,8 @@ fun PosScreen(
                             onProductLongClick = { prod: ProductEntity -> if (canOpenProductMenu) showActionDialogFor = prod },
                             onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },
                             onCameraScanClick = {
+                                isLiveScannerOpen = true
+                                if (isPhone && !isLandscape) showCartOnPhone = true
                                 val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES); setPrompt("Scan Barcode Produk"); setCameraId(0); setBeepEnabled(false); setBarcodeImageEnabled(true); setOrientationLocked(true) }
                                 barcodeLauncher.launch(options)
                             },

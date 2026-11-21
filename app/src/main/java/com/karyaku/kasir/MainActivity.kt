@@ -1366,7 +1366,11 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 productToEdit = productToEdit,
                 onDismiss = { showProductForm = false; productToEdit = null },
                 onManageBom = { prod ->
-                    productToManageBom = prod
+                    if (settingsManager.isBomModuleEnabled) {
+                        productToManageBom = prod
+                    } else {
+                        Toast.makeText(context, "Modul Resep / BOM sedang nonaktif.", Toast.LENGTH_SHORT).show()
+                    }
                 },
                 onManageRawMaterial = {
                     showRawMaterialDialog = true

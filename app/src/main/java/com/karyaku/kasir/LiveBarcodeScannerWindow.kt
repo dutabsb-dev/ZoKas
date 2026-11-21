@@ -1,7 +1,11 @@
 package com.karyaku.kasir
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -23,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.journeyapps.barcodescanner.BarcodeCallback
@@ -41,11 +46,27 @@ fun LiveBarcodeScannerWindow(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
     var lastCode by remember { mutableStateOf("") }
     var lastScanMillis by remember { mutableLongStateOf(0L) }
     var statusText by remember { mutableStateOf("Kamera siap") }
 
     val onBarcodeDetectedState by rememberUpdatedState(onBarcodeDetected)
+    val onToggleEnabledState by rememberUpdatedState(onToggleEnabled)
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCameraPermission = granted
+        if (!granted) {
+            statusText = "Izin kamera ditolak"
+            onToggleEnabledState(false)
+        }
+    }
 
     val barcodeView = remember {
         DecoratedBarcodeView(context).apply {
@@ -63,8 +84,13 @@ fun LiveBarcodeScannerWindow(
         }
     }
 
-    LaunchedEffect(enabled) {
+    LaunchedEffect(enabled, hasCameraPermission) {
         if (enabled) {
+            if (!hasCameraPermission) {
+                statusText = "Meminta izin kamera..."
+                permissionLauncher.launch(Manifest.permission.CAMERA)
+                return@LaunchedEffect
+            }
             statusText = "Scan aktif"
             barcodeView.resume()
             barcodeView.decodeContinuous(object : BarcodeCallback {
@@ -86,10 +112,10 @@ fun LiveBarcodeScannerWindow(
         }
     }
 
-    DisposableEffect(lifecycleOwner, enabled) {
+    DisposableEffect(lifecycleOwner, enabled, hasCameraPermission) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> if (enabled) barcodeView.resume()
+                Lifecycle.Event.ON_RESUME -> if (enabled && hasCameraPermission) barcodeView.resume()
                 Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> barcodeView.pause()
                 else -> {}
             }
@@ -106,7 +132,7 @@ fun LiveBarcodeScannerWindow(
         shape = RoundedCornerShape(10.dp),
         border = BorderStroke(
             1.dp,
-            if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            if (enabled && hasCameraPermission) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
             else MaterialTheme.colorScheme.outlineVariant
         ),
         colors = CardDefaults.cardColors(
@@ -143,7 +169,13 @@ fun LiveBarcodeScannerWindow(
                     )
                 }
                 TextButton(
-                    onClick = { onToggleEnabled(!enabled) },
+                    onClick = {
+                        val nextState = !enabled
+                        if (nextState && !hasCameraPermission) {
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                        onToggleEnabled(nextState)
+                    },
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                     modifier = Modifier.height(26.dp)
                 ) {
@@ -163,7 +195,7 @@ fun LiveBarcodeScannerWindow(
                 }
             }
 
-            if (enabled) {
+            if (enabled && hasCameraPermission) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

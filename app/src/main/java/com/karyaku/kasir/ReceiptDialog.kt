@@ -48,22 +48,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// ====================================================================
-// REKOMENDASI #2 & #3 DITERAPKAN — ReceiptDialog-v3.kt:
-//   1. Format Struk Presisi 32 Karakter (Standar Thermal 58mm):
-//      - Nama produk yang panjang otomatis di-wrap rapi ke baris bawah
-//        tanpa menabrak atau menggeser kolom subtotal di sebelah kanan.
-//      - Catatan, Serial Number (SN), dan Staf ditampilkan rapi di bawah
-//        nama barang dengan indentasi yang bersih.
-//   2. Rincian Lengkap Diskon, Voucher, Pajak (Inklusif/Eksklusif) & Service Charge:
-//      - Mencetak rincian potongan Diskon, Voucher, Pajak (termasuk
-//        keterangan Pajak Inklusif jika aktif), dan Service Charge secara
-//        lengkap dan sejajar vertikal.
-//   3. Pratinjau PDF & Kertas Struk Presisi:
-//      - Lebar halaman PDF disesuaikan agar proporsional dengan kertas struk
-//        32 kolom, menggunakan font Monospace tajam di atas kertas putih.
-// ====================================================================
-
 private const val RECEIPT_WIDTH = 32
 
 private fun formatNumPlain(amount: Long): String {
@@ -124,13 +108,13 @@ private fun buildFormattedReceipt32(
     dateStr: String,
     taxPercent: Double,
     serviceChargePercent: Double,
-    isTaxInclusive: Boolean
+    isTaxInclusive: Boolean,
+    isCulinaryBusiness: Boolean
 ): String {
     val sb = StringBuilder()
     val dashLine = "-".repeat(RECEIPT_WIDTH)
     val doubleLine = "=".repeat(RECEIPT_WIDTH)
 
-    // HEADER TOKO (RATA TENGAH)
     wrapTextLines(storeName.ifBlank { "ZoKas Store" }.uppercase()).forEach {
         sb.appendLine(centerLine(it))
     }
@@ -142,23 +126,23 @@ private fun buildFormattedReceipt32(
     }
     sb.appendLine(doubleLine)
 
-    // METADATA TRANSAKSI
     sb.appendLine(leftRightLine("No. Struk", "#${transaction.id}"))
     sb.appendLine(leftRightLine("Tanggal", dateStr))
     sb.appendLine(leftRightLine("Kasir", transaction.cashierName ?: "Kasir"))
     val customerLabel = transaction.customerName?.takeIf { it.isNotBlank() } ?: "Umum"
     sb.appendLine(leftRightLine("Pelanggan", customerLabel))
-    val orderLabel = buildString {
-        val oType = transaction.orderType?.takeIf { it.isNotBlank() } ?: "Dine-In"
-        append(oType)
-        if (transaction.tableName.isNotBlank() && oType == "Dine-In") {
-            append(" (${transaction.tableName})")
+    if (isCulinaryBusiness) {
+        val orderLabel = buildString {
+            val oType = transaction.orderType?.takeIf { it.isNotBlank() } ?: "Dine-In"
+            append(oType)
+            if (transaction.tableName.isNotBlank() && oType == "Dine-In") {
+                append(" (${transaction.tableName})")
+            }
         }
+        sb.appendLine(leftRightLine("Tipe", orderLabel))
     }
-    sb.appendLine(leftRightLine("Tipe", orderLabel))
     sb.appendLine(dashLine)
 
-    // DAFTAR ITEM BELANJA (WORD-WRAP AMAN 32 KARAKTER)
     var subtotalItems = 0L
     items.forEach { item ->
         subtotalItems += item.subtotal
@@ -183,11 +167,8 @@ private fun buildFormattedReceipt32(
     }
 
     sb.appendLine(dashLine)
-
-    // RINGKASAN SUBTOTAL, DISKON, PAJAK & TOTAL
     sb.appendLine(leftRightLine("Subtotal", formatNumPlain(subtotalItems)))
 
-    // Hitung estimasi dasar pengenaan pajak/service dari totalPrice
     val effectiveTaxRate = if (isTaxInclusive) 0.0 else taxPercent
     val totalExtraRate = (effectiveTaxRate + serviceChargePercent) / 100.0
     val estimatedNetBeforeTax = if (totalExtraRate > 0.0) {
@@ -237,7 +218,6 @@ private fun buildFormattedReceipt32(
     sb.appendLine(leftRightLine("Kembali", formatNumPlain(transaction.changeAmount)))
     sb.appendLine(doubleLine)
 
-    // FOOTER STRUK
     val footerMsg = storeFooter.ifBlank { "Terima Kasih atas Kunjungan Anda" }
     wrapTextLines(footerMsg).forEach {
         sb.appendLine(centerLine(it))
@@ -264,6 +244,9 @@ fun ReceiptDialog(
 
     val taxPrefs = remember { context.getSharedPreferences("zokas_tax_ext", Context.MODE_PRIVATE) }
     val isTaxInclusive = remember { taxPrefs.getBoolean("is_tax_inclusive", false) }
+    val isCulinaryBusiness = remember(settingsManager.businessType) {
+        settingsManager.businessType.equals("KULINER", ignoreCase = true)
+    }
 
     val allProducts by viewModel.products.collectAsStateWithLifecycle()
     val itemsFlow = remember(transaction.id) { viewModel.getTransactionItems(transaction.id) }
@@ -291,7 +274,8 @@ fun ReceiptDialog(
         storeAddress,
         storePhone,
         storeFooter,
-        isTaxInclusive
+        isTaxInclusive,
+        isCulinaryBusiness
     ) {
         buildFormattedReceipt32(
             storeName = storeName,
@@ -304,7 +288,8 @@ fun ReceiptDialog(
             dateStr = dateFormat.format(Date(transaction.timestamp)),
             taxPercent = settingsManager.taxPercent,
             serviceChargePercent = settingsManager.serviceChargePercent,
-            isTaxInclusive = isTaxInclusive
+            isTaxInclusive = isTaxInclusive,
+            isCulinaryBusiness = isCulinaryBusiness
         )
     }
 
