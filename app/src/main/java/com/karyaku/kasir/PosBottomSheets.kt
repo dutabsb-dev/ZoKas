@@ -321,7 +321,7 @@ fun ProductFormBottomSheet(
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
-                        .padding(top = 10.dp, bottom = 20.dp)
+                        .padding(top = 10.dp, bottom = 36.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -1111,18 +1111,21 @@ fun ProductFormBottomSheet(
                                 val expiryText = if (expiry > 0) dateFormat.format(Date(expiry)) else "Pilih Tanggal"
                                 OutlinedButton(
                                     onClick = { showDatePicker = true },
-                                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                                    shape = RoundedCornerShape(10.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                                 ) {
-                                    Icon(Icons.Default.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                                    Icon(Icons.Default.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 }
+                                Spacer(modifier = Modifier.height(6.dp))
                             }
                         }
                     }
 
+                    // Bezel / ruang kosong bawah agar tombol Expiry terangkat & terlihat jelas saat di-scroll
+                    Spacer(modifier = Modifier.height(56.dp))
                 }
 
             }
