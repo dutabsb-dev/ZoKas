@@ -39,4 +39,13 @@ object LoginProfilePhotoHelper {
             null
         }
     }
+
+    fun clearUserPhoto(context: Context, userId: Long) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val oldPath = prefs.getString("user_$userId", null)
+        if (!oldPath.isNullOrBlank()) {
+            runCatching { File(oldPath).delete() }
+        }
+        prefs.edit().remove("user_$userId").apply()
+    }
 }

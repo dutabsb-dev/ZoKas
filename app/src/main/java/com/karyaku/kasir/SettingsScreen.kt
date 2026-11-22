@@ -133,6 +133,7 @@ fun SettingsScreen(
     val dateFormat = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
 
     var showChangePinDialog by remember { mutableStateOf(false) }
+    var showAccountPhotoDialog by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
     var showUserManagementDialog by remember { mutableStateOf(false) }
     var showShiftHistory by remember { mutableStateOf(false) }
@@ -230,6 +231,13 @@ fun SettingsScreen(
         }
     }
 
+    if (showAccountPhotoDialog) {
+        AccountPhotoSettingsDialog(
+            users = users,
+            currentUser = currentUser,
+            onDismiss = { showAccountPhotoDialog = false }
+        )
+    }
     if (showChangePinDialog) {
         ChangePinDialog(user = currentUser, onDismiss = { showChangePinDialog = false }, onSave = { newPin ->
             viewModel.updatePin(currentUser, newPin); showChangePinDialog = false; Toast.makeText(context, "PIN berhasil diubah!", Toast.LENGTH_SHORT).show()
@@ -483,6 +491,7 @@ fun SettingsScreen(
                 isBiometricEnabled = isBiometricEnabled,
                 onBiometricToggle = { isChecked -> isBiometricEnabled = isChecked; settingsManager.isBiometricEnabled = isChecked },
                 onChangePinClick = { showChangePinDialog = true },
+                onPhotoSettingsClick = { showAccountPhotoDialog = true },
                 onManageStaffClick = { showUserManagementDialog = true },
                 onShiftHistoryClick = { showShiftHistory = true },
                 onRegisterBiometricClick = {

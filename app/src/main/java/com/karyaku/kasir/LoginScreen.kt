@@ -1,10 +1,7 @@
 package com.karyaku.kasir
 
 import android.content.res.Configuration
-import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
@@ -74,22 +70,6 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var isPinVisible by remember { mutableStateOf(false) }
-    var photoVersion by remember { mutableIntStateOf(0) }
-    var targetUserForPhoto by remember { mutableStateOf<UserEntity?>(null) }
-
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        val userTarget = targetUserForPhoto
-        targetUserForPhoto = null
-        if (uri != null && userTarget != null) {
-            val savedPath = LoginProfilePhotoHelper.saveUserPhotoFromUri(context, userTarget.id, uri)
-            if (savedPath != null) {
-                photoVersion++
-                Toast.makeText(context, "Foto profil ${userTarget.name} diperbarui", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
     if (isInitializing) {
         Box(
@@ -140,7 +120,7 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    "Ketuk profil untuk masuk • Ketuk ikon kamera untuk ganti foto",
+                    "Ketuk profil untuk masuk",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -159,7 +139,7 @@ fun LoginScreen(
                             .heightIn(max = if (isWideTablet) 560.dp else 480.dp)
                     ) {
                         items(users, key = { it.id }) { user ->
-                            val photoPath = remember(user.id, photoVersion) {
+                            val photoPath = remember(user.id) {
                                 LoginProfilePhotoHelper.getUserPhotoPath(context, user.id)
                             }
                             UserProfileCard(
@@ -167,10 +147,6 @@ fun LoginScreen(
                                 photoPath = photoPath,
                                 showBiometricBadge = biometricAllowed,
                                 isLargeCard = isTablet,
-                                onPickPhoto = {
-                                    targetUserForPhoto = user
-                                    photoPickerLauncher.launch("image/*")
-                                },
                                 onClick = {
                                     errorMessage = ""
                                     isPinVisible = false
@@ -193,7 +169,7 @@ fun LoginScreen(
                 }
             } else {
                 val user = selectedUser!!
-                val selectedPhotoPath = remember(user.id, photoVersion) {
+                val selectedPhotoPath = remember(user.id) {
                     LoginProfilePhotoHelper.getUserPhotoPath(context, user.id)
                 }
 
@@ -220,11 +196,7 @@ fun LoginScreen(
                     modifier = Modifier
                         .size(if (isTablet) 112.dp else 92.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                        .clickable {
-                            targetUserForPhoto = user
-                            photoPickerLauncher.launch("image/*")
-                        },
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (selectedPhotoPath != null) {
@@ -368,7 +340,6 @@ fun UserProfileCard(
     photoPath: String? = null,
     showBiometricBadge: Boolean = true,
     isLargeCard: Boolean = false,
-    onPickPhoto: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val bezelPadding = if (isLargeCard) 7.dp else 6.dp
@@ -412,29 +383,6 @@ fun UserProfileCard(
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                }
-
-                if (onPickPhoto != null) {
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(if (isLargeCard) 34.dp else 28.dp)
-                            .clip(CircleShape)
-                            .clickable { onPickPhoto() },
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-                        shape = CircleShape,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.AddAPhoto,
-                                contentDescription = "Upload Foto Akun",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(if (isLargeCard) 17.dp else 14.dp)
-                            )
-                        }
-                    }
                 }
             }
 
