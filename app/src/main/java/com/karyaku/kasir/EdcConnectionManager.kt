@@ -103,7 +103,7 @@ object EdcConnectionManager {
         val trace = customTrace.trim().ifBlank {
             String.format(Locale.US, "%06d", (now % 900000L) + 100000L)
         }
-        val cmdId = "EDC-${now}"
+        val cmdId = "EDC-$now"
         val paddedAmount12 = String.format(Locale.US, "%012d", amount.coerceAtLeast(0L) * 100L)
         val isoStyle = "0200|000000|$paddedAmount12|$trace|IDR|SALE"
         val jsonObj = JSONObject().apply {
@@ -116,7 +116,7 @@ object EdcConnectionManager {
             put("timestamp", now)
         }
         val jsonStr = jsonObj.toString()
-        val wireFrame = "STX|${jsonStr}|ETX"
+        val wireFrame = "STX|$jsonStr|ETX"
         return EdcCommandPayload(
             commandId = cmdId,
             amount = amount,
@@ -165,7 +165,6 @@ object EdcConnectionManager {
             )
         }
 
-        // Coba parsing JSON jika mesin/ECR mengembalikan JSON
         if (cleaned.startsWith("{")) {
             runCatching {
                 val obj = JSONObject(cleaned)
@@ -212,6 +211,7 @@ object EdcConnectionManager {
 
     @SuppressLint("MissingPermission")
     private fun trySendBluetooth(context: Context, payload: EdcCommandPayload): EdcDispatchFeedback {
+        val trace = runCatching { JSONObject(payload.jsonCommand).optString("trace", "") }.getOrDefault("")
         val devices = getPairedBluetoothDevices(context)
         if (devices.isEmpty()) {
             return EdcDispatchFeedback(
@@ -219,9 +219,7 @@ object EdcConnectionManager {
                 isApproved = false,
                 channelUsed = "Bluetooth",
                 responseCode = "NO_BT",
-                traceNumber = payload.jsonCommand.let {
-                    runCatching { JSONObject(it).optString("trace", "") }.getOrDefault("")
-                },
+                traceNumber = trace,
                 message = "Tidak ada perangkat Bluetooth EDC yang dipasangkan (paired)."
             )
         }
@@ -241,11 +239,9 @@ object EdcConnectionManager {
                 sock.soTimeout = 2500
                 val reader = BufferedReader(InputStreamReader(sock.inputStream, Charsets.UTF_8))
                 val line = runCatching { reader.readLine() }.getOrNull().orEmpty()
-                val trace = runCatching { JSONObject(payload.jsonCommand).optString("trace", "") }.getOrDefault("")
                 parseEdcResponseFeedback(line, trace, "Bluetooth (${preferred.name ?: preferred.address})")
             }
         } catch (e: Exception) {
-            val trace = runCatching { JSONObject(payload.jsonCommand).optString("trace", "") }.getOrDefault("")
             EdcDispatchFeedback(
                 success = false,
                 isApproved = false,
@@ -417,9 +413,7 @@ object EdcConnectionManager {
                                     isApproved = false,
                                     channelUsed = "OTOMATIS (Siap Manual/Jalur Lokal)",
                                     responseCode = "CMD_READY",
-                                    traceNumber = payload.jsonCommand.let {
-                                        runCatching { JSONObject(it).optString("trace", "") }.getOrDefault("")
-                                    },
+                                    traceNumber = runCatching { JSONObject(payload.jsonCommand).optString("trace", "") }.getOrDefault(""),
                                     message = "Command otomatis dibuat (${payload.commandId}). Perangkat EDC eksternal belum terhubung; konfirmasi manual siap dipakai."
                                 )
                             }
@@ -429,6 +423,5 @@ object EdcConnectionManager {
             }
         }
         payload to feedback
-    }
     }
 }
