@@ -321,7 +321,7 @@ fun ProductFormBottomSheet(
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
-                        .padding(top = 10.dp, bottom = 8.dp)
+                        .padding(top = 10.dp, bottom = 20.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -1123,152 +1123,8 @@ fun ProductFormBottomSheet(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                        if (name.isBlank()) {
-                            Toast.makeText(context, "Nama produk wajib diisi!", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-
-                        var finalPrice = 0L
-                        var finalCost = 0L
-                        var finalStock = 0
-                        var finalVariations = ""
-
-                        if (hasVariants) {
-                            if (variantList.isEmpty() || variantList.any { it.name.isBlank() }) {
-                                Toast.makeText(context, "Nama varian tidak boleh kosong!", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-
-                            val variationParts = variantList.map {
-                                val p = it.price.toLongOrNull() ?: 0L
-                                val c = it.costPrice.toLongOrNull() ?: 0L
-                                val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
-                                val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                                val vb = it.barcode.trim()
-                                if (vb.isNotBlank()) "${it.name.trim()}:$p:$c:$s:$m:$vb" else "${it.name.trim()}:$p:$c:$s:$m"
-                            }
-                            finalVariations = variationParts.joinToString(",")
-
-                            finalStock = if (isService) 0 else variantList.sumOf {
-                                val s = it.stock.toIntOrNull() ?: 0
-                                val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                                s * m
-                            }
-                            finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
-                            finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
-                        } else {
-                            finalPrice = singlePrice.toLongOrNull() ?: 0L
-                            finalCost = singleCost.toLongOrNull() ?: 0L
-                            finalStock = if (isService) 0 else (singleStock.toIntOrNull() ?: 0)
-                            finalVariations = ""
-                        }
-
-                        if (finalPrice <= 0) {
-                            Toast.makeText(context, "Harga jual harus lebih dari 0!", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-
-                        val combinedCode = packSkuAndBarcode(productSku, barcode, baseUnit)
-                        onSave(
-                            name.trim(), finalPrice, finalStock, category.trim().ifBlank { "Umum" }, finalCost,
-                            combinedCode, finalVariations, commission.toLongOrNull() ?: 0L, expiry,
-                            isService, isCombo, imagePath,
-                            wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
-                        )
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(
-                            text = if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 6.dp
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (name.isBlank()) {
-                                    Toast.makeText(context, "Nama produk wajib diisi!", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-
-                                var finalPrice = 0L
-                                var finalCost = 0L
-                                var finalStock = 0
-                                var finalVariations = ""
-
-                                if (hasVariants) {
-                                    if (variantList.isEmpty() || variantList.any { it.name.isBlank() }) {
-                                        Toast.makeText(context, "Nama varian tidak boleh kosong!", Toast.LENGTH_SHORT).show()
-                                        return@Button
-                                    }
-
-                                    val variationParts = variantList.map {
-                                        val p = it.price.toLongOrNull() ?: 0L
-                                        val c = it.costPrice.toLongOrNull() ?: 0L
-                                        val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
-                                        val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                                        val vb = it.barcode.trim()
-                                        if (vb.isNotBlank()) "${it.name.trim()}:$p:$c:$s:$m:$vb" else "${it.name.trim()}:$p:$c:$s:$m"
-                                    }
-                                    finalVariations = variationParts.joinToString(",")
-
-                                    finalStock = if (isService) 0 else variantList.sumOf {
-                                        val s = it.stock.toIntOrNull() ?: 0
-                                        val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                                        s * m
-                                    }
-                                    finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
-                                    finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
-                                } else {
-                                    finalPrice = singlePrice.toLongOrNull() ?: 0L
-                                    finalCost = singleCost.toLongOrNull() ?: 0L
-                                    finalStock = if (isService) 0 else (singleStock.toIntOrNull() ?: 0)
-                                    finalVariations = ""
-                                }
-
-                                if (finalPrice <= 0) {
-                                    Toast.makeText(context, "Harga jual harus lebih dari 0!", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-
-                                val combinedCode = packSkuAndBarcode(productSku, barcode, baseUnit)
-                                onSave(
-                                    name.trim(), finalPrice, finalStock, category.trim().ifBlank { "Umum" }, finalCost,
-                                    combinedCode, finalVariations, commission.toLongOrNull() ?: 0L, expiry,
-                                    isService, isCombo, imagePath,
-                                    wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        }
-                    }
-                }
             }
         }
     }
