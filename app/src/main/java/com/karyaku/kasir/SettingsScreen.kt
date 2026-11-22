@@ -424,34 +424,28 @@ fun SettingsScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp, vertical = 0.dp)
             .imePadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, bottom = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    LanguageManager.tr("pengaturan", lang),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                SettingsHeaderBadgesRow(
-                    showBranchBadge = allBranches.size > 1,
-                    branchName = currentBranch?.name ?: "Cabang Utama",
-                    isBranchLocked = isBranchSwitchLocked,
-                    showShiftBadge = enableHrModule && activeShift != null,
-                    shiftUserName = activeShift?.userName ?: currentUser.name
-                )
+        if (allBranches.size > 1) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp, vertical = 1.dp),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SettingsHeaderBadgesRow(
+                        showBranchBadge = true,
+                        branchName = currentBranch?.name ?: "Cabang Utama",
+                        isBranchLocked = isBranchSwitchLocked,
+                        showShiftBadge = false,
+                        shiftUserName = ""
+                    )
+                }
             }
         }
 
@@ -749,19 +743,19 @@ fun SettingsScreen(
         }
 
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Button(
                 onClick = onLogout,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
                 ),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RoundedCornerShape(6.dp)
             ) {
                 Text(LanguageManager.tr("logout", lang), fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }

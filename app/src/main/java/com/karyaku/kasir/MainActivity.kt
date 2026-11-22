@@ -64,24 +64,6 @@ import com.karyaku.kasir.data.local.UserEntity
 import kotlinx.coroutines.delay
 import java.io.File
 
-// ====================================================================
-// UPDATE MainActivity-v3.kt:
-//   1. FIX BUG TOMBOL BACK ANDROID (Double Back to Exit & Back ke Kasir):
-//      - Jika user sedang berada di tab selain Kasir (Produk, Laporan,
-//        Pengaturan, atau Dapur), menekan tombol Back akan mengembalikan
-//        ke menu utama (Tab 0 - Kasir).
-//      - Jika sudah di menu utama (Kasir), menekan tombol Back sekali
-//        menampilkan pesan "Tekan sekali lagi untuk keluar aplikasi",
-//        dan menekan 2x dalam 2 detik baru keluar dari aplikasi.
-//   2. FIX BUG KATEGORI DI TAB PRODUK (ProductManagementScreen):
-//      - Sebelumnya selectedCategory di-hardcode "Semua" sehingga klik
-//        filter kategori di Tab Produk tidak menyaring daftar produk.
-//        Kini telah dihubungkan ke viewModel.selectedCategory.
-//   3. FIX BUG INISIALISASI CABANG SAAT BUKA ULANG APLIKASI:
-//      - Memastikan initCurrentBranchForUser(currentUser) tetap dipanggil
-//        ketika aplikasi dibuka kembali dari memori (rememberSaveable).
-// ====================================================================
-
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -205,7 +187,7 @@ fun MainContent(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.WifiTethering, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
@@ -232,7 +214,7 @@ fun MainContent(
                             },
                             modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -252,7 +234,7 @@ fun MainContent(
                             label = { Text("Atau ketik IP Kasir (cth: 192.168.1.5:8765)") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         )
                     }
                 },
@@ -265,7 +247,7 @@ fun MainContent(
                             }
                         },
                         enabled = cfdHostInput.isNotBlank(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Hubungkan & Kunci", fontWeight = FontWeight.Bold)
                     }
@@ -313,7 +295,7 @@ fun MainContent(
                 }
             }
             Box(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
                     Icon(
                         Icons.Default.CheckCircle,
                         contentDescription = null,
@@ -347,7 +329,7 @@ fun MainContent(
                                     staffMessage = ""
                                 },
                                 modifier = Modifier.weight(1f).height(48.dp),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Selesai Absen", fontWeight = FontWeight.Bold)
                             }
@@ -363,7 +345,7 @@ fun MainContent(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(10.dp)
                             ) {
                                 Icon(Icons.Default.Restaurant, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -409,8 +391,8 @@ fun MainContent(
                     onClick = { showConnectCfdDialog = true },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(10.dp),
+                        .padding(8.dp),
+                    shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                 ) {
                     Icon(
@@ -501,7 +483,6 @@ fun MainNavigation(
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val activeShift by viewModel.activeShift.collectAsStateWithLifecycle()
     val currentBranch by viewModel.currentBranch.collectAsStateWithLifecycle()
 
     var presentation by remember { mutableStateOf<CustomerDisplayPresentation?>(null) }
@@ -575,7 +556,7 @@ fun MainNavigation(
                             )
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(10.dp)
                 )
             },
             confirmButton = {
@@ -592,7 +573,7 @@ fun MainNavigation(
                                     }
                                 }
                             },
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Text("Tambah Kode", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
@@ -624,224 +605,189 @@ fun MainNavigation(
     Scaffold(
         topBar = {
             if (!hideTopHeader) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background)
-                    .statusBarsPadding()
-            ) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (logoFile != null && logoFile.exists()) {
-                            AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        } else {
-                            Image(
-                                painter = painterResource(id = R.drawable.logo_zokas),
-                                contentDescription = "Logo ZoKas",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    val activeStoreTitle = remember(storeName, settingsManager.storeName) {
-                        storeName?.takeIf { it.isNotBlank() }
-                            ?: settingsManager.storeName?.takeIf { it.isNotBlank() }
-                            ?: "ZoKas Store"
-                    }
-                    LaunchedEffect(activeStoreTitle) {
-                        if (storeName.isNullOrBlank() && activeStoreTitle != "ZoKas Store") {
-                            onStoreNameChange(activeStoreTitle)
-                        }
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = activeStoreTitle,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    IconButton(onClick = { showTutorialDialog = true }) {
-                        Icon(
-                            Icons.Default.HelpOutline,
-                            contentDescription = "Panduan & Tutorial",
-                            tint = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-
-                    if (selectedTab == 0) {
-                        IconButton(onClick = { showSearchDialog = true }) {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
-                        }
-                        IconButton(onClick = { showCfdDialog = true }) {
-                            Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary)
-                        }
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                DropdownMenuItem(
-                                    text = { Text("Panduan & Tutorial", fontWeight = FontWeight.SemiBold) },
-                                    leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
-                                    onClick = { showTutorialDialog = true; showMenu = false }
-                                )
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                if (isKuliner) {
-                                    DropdownMenuItem(
-                                        text = { Text(LanguageManager.tr("gabung_meja", language)) },
-                                        leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { posActionTrigger = "MERGE"; showMenu = false }
-                                    )
-                                }
-                                DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("buka_laci", language)) },
-                                    leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { posActionTrigger = "DRAWER"; showMenu = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("pesanan_parkir", language)) },
-                                    leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { posActionTrigger = "HOLD"; showMenu = false }
-                                )
-                                if (currentUser.role == "OWNER") {
-                                    DropdownMenuItem(
-                                        text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) },
-                                        leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
-                                        onClick = { posActionTrigger = "CASHFLOW"; showMenu = false }
-                                    )
-                                }
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                if (currentUser.role == "OWNER") {
-                                    DropdownMenuItem(
-                                        text = { Text("Kelola Cabang") },
-                                        leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { showBranchManagementDialog = true; showMenu = false }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Transfer Stok") },
-                                        leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { showStockTransferDialog = true; showMenu = false }
-                                    )
-                                }
-                                DropdownMenuItem(
-                                    text = { Text("Tutup Kasir (Close Harian)") },
-                                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
-                                    onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(LanguageManager.tr("logout", language), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                    onClick = { onLogout(); showMenu = false }
-                                )
-                            }
-                        }
-                    } else if (currentUser.role != "OWNER") {
-                        IconButton(onClick = onLogout) {
-                            Icon(
-                                Icons.Default.ExitToApp,
-                                contentDescription = "Logout",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
-                if (selectedTab == 3) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 68.dp, end = 16.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background)
+                        .statusBarsPadding()
                 ) {
-                    if (currentUser.role == "OWNER") {
-                        BranchSelectorHeader(
-                            viewModel = viewModel,
-                            onManageBranchesClick = { showBranchManagementDialog = true }
-                        )
-                    } else {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(6.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Store,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = currentBranch?.name ?: "Cabang Utama",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                            if (logoFile != null && logoFile.exists()) {
+                                AsyncImage(model = logoFile, contentDescription = "Store Logo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            } else {
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo_zokas),
+                                    contentDescription = "Logo ZoKas",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
                         }
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    val shiftPrefs = remember { context.getSharedPreferences("zokas_shift_session", Context.MODE_PRIVATE) }
-                    val isShiftClosedFlag = shiftPrefs.getBoolean("is_shift_closed", false)
-                    val lastClosedId = shiftPrefs.getLong("last_closed_shift_id", -1L)
-                    val shift = activeShift?.takeIf { it.endTime == null && !isShiftClosedFlag && it.id != lastClosedId }
-                    if (shift != null) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(modifier = Modifier.size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Shift: ${shift.userName}",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val activeStoreTitle = remember(storeName, settingsManager.storeName) {
+                            storeName?.takeIf { it.isNotBlank() }
+                                ?: settingsManager.storeName?.takeIf { it.isNotBlank() }
+                                ?: "ZoKas Store"
+                        }
+                        LaunchedEffect(activeStoreTitle) {
+                            if (storeName.isNullOrBlank() && activeStoreTitle != "ZoKas Store") {
+                                onStoreNameChange(activeStoreTitle)
                             }
                         }
-                    } else {
-                        Surface(
-                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(6.dp)
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "Kasir Belum Dibuka",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                text = activeStoreTitle,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 17.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
+                            if (selectedTab == 3) {
+                                if (currentUser.role == "OWNER") {
+                                    BranchSelectorHeader(
+                                        viewModel = viewModel,
+                                        onManageBranchesClick = { showBranchManagementDialog = true }
+                                    )
+                                } else {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Store,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = currentBranch?.name ?: "Cabang Utama",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        IconButton(onClick = { showTutorialDialog = true }, modifier = Modifier.size(36.dp)) {
+                            Icon(
+                                Icons.Default.HelpOutline,
+                                contentDescription = "Panduan & Tutorial",
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        if (selectedTab == 0) {
+                            IconButton(onClick = { showSearchDialog = true }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                            IconButton(onClick = { showCfdDialog = true }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Person, contentDescription = "Customer Display", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                            Box {
+                                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                                }
+                                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("Panduan & Tutorial", fontWeight = FontWeight.SemiBold) },
+                                        leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                                        onClick = { showTutorialDialog = true; showMenu = false }
+                                    )
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    if (isKuliner) {
+                                        DropdownMenuItem(
+                                            text = { Text(LanguageManager.tr("gabung_meja", language)) },
+                                            leadingIcon = { Icon(Icons.Default.Merge, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { posActionTrigger = "MERGE"; showMenu = false }
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text(LanguageManager.tr("buka_laci", language)) },
+                                        leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { posActionTrigger = "DRAWER"; showMenu = false }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(LanguageManager.tr("pesanan_parkir", language)) },
+                                        leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { posActionTrigger = "HOLD"; showMenu = false }
+                                    )
+                                    if (currentUser.role == "OWNER") {
+                                        DropdownMenuItem(
+                                            text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) },
+                                            leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                                            onClick = { posActionTrigger = "CASHFLOW"; showMenu = false }
+                                        )
+                                    }
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    if (currentUser.role == "OWNER") {
+                                        DropdownMenuItem(
+                                            text = { Text("Kelola Cabang") },
+                                            leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { showBranchManagementDialog = true; showMenu = false }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Transfer Stok") },
+                                            leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { showStockTransferDialog = true; showMenu = false }
+                                        )
+                                    }
+                                    DropdownMenuItem(
+                                        text = { Text("Tutup Kasir (Close Harian)") },
+                                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                                        onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(LanguageManager.tr("logout", language), color = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                        onClick = { onLogout(); showMenu = false }
+                                    )
+                                }
+                            }
+                        } else if (currentUser.role != "OWNER") {
+                            IconButton(onClick = onLogout, modifier = Modifier.size(36.dp)) {
+                                Icon(
+                                    Icons.Default.ExitToApp,
+                                    contentDescription = "Logout",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }
-                }
-            }
             }
         },
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp,
+                tonalElevation = 2.dp,
                 modifier = Modifier.navigationBarsPadding()
             ) {
                 NavigationBarItem(
@@ -916,7 +862,9 @@ fun MainNavigation(
                         onCartScannerModeChange = { active -> hideTopHeader = active; onHideTopHeaderChange(active) }
                     )
                     1 -> ProductManagementScreen(viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
-                    2 -> HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
+                    2 -> Box(modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp)) {
+                        HistoryScreen(transactions = transactions, viewModel = viewModel, settingsManager = settingsManager, currentUser = currentUser)
+                    }
                     3 -> SettingsScreen(
                         settingsManager = settingsManager, isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
                         isHighContrast = isHighContrast, onToggleHighContrast = onToggleHighContrast,
@@ -1085,8 +1033,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 4.dp, vertical = 3.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 val productBarcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
                     if (result.contents != null) {
@@ -1133,32 +1081,32 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     singleLine = true
                 )
 
                 if (filteredProducts.isNotEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         OutlinedButton(
                             onClick = { showStockAuditDialog = true },
-                            modifier = Modifier.weight(1f).height(38.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            shape = RoundedCornerShape(8.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                                 contentColor = MaterialTheme.colorScheme.primary
                             ),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FactCheck,
                                 contentDescription = "Audit Stok",
                                 modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Audit Stok",
                                 fontSize = 12.sp,
@@ -1172,8 +1120,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                 isBatchDeleteMode = !isBatchDeleteMode
                                 selectedBatchIds.clear()
                             },
-                            modifier = Modifier.weight(1f).height(38.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            shape = RoundedCornerShape(8.dp),
                             border = BorderStroke(
                                 1.dp,
                                 if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
@@ -1182,14 +1130,14 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                 containerColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error.copy(alpha = 0.14f) else Color.Transparent,
                                 contentColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                             ),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Icon(
                                 imageVector = if (isBatchDeleteMode) Icons.Default.Close else Icons.Default.Checklist,
                                 contentDescription = "Hapus Massal",
                                 modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = if (isBatchDeleteMode) "Batal Pilih" else "Hapus Massal",
                                 fontSize = 12.sp,
@@ -1207,11 +1155,11 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    shape = RoundedCornerShape(10.dp)
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -1230,8 +1178,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                     selectedBatchIds.addAll(filteredProducts.map { it.id })
                                 }
                             },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            modifier = Modifier.height(28.dp)
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                            modifier = Modifier.height(26.dp)
                         ) {
                             Text(
                                 text = if (selectedBatchIds.size == filteredProducts.size) "Batal Semua" else "Pilih Semua",
@@ -1245,8 +1193,8 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
 
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 76.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(filteredProducts, key = { it.id }) { prod ->
                         val isChecked = selectedBatchIds.contains(prod.id)
@@ -1267,10 +1215,10 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                 1.dp,
                                 if (isChecked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(
@@ -1284,7 +1232,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                     },
                                     colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.error)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = prod.name,
@@ -1338,25 +1286,25 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                         showBatchDeleteAuth = true
                     }
                 },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = MaterialTheme.colorScheme.onError,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Terpilih")
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text("Hapus Terpilih (${selectedBatchIds.size})", fontWeight = FontWeight.Bold)
             }
         } else {
             ExtendedFloatingActionButton(
                 onClick = { productToEdit = null; showProductForm = true },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Tambah Produk")
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text("Tambah Produk", fontWeight = FontWeight.Bold)
             }
         }
@@ -1534,12 +1482,9 @@ fun SystemImmersiveModeEffect(immersive: Boolean) {
 
         fun applyBarPolicy() {
             if (immersive) {
-                // Mode Imersif penuh (aktif otomatis di Tablet): sembunyikan systemBars,
-                // bisa dimunculkan sementara dengan swipe dari tepi layar.
                 controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 controller?.hide(WindowInsetsCompat.Type.systemBars())
             } else {
-                // Mode aman kamera depan di HP: statusBars selalu tampil agar tidak tertutup kamera depan.
                 controller?.show(WindowInsetsCompat.Type.statusBars())
                 controller?.show(WindowInsetsCompat.Type.navigationBars())
             }
