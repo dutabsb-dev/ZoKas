@@ -913,10 +913,11 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             allProducts.filter { prod ->
                 prod.branchId == currentBranchId &&
                     (selectedCategory == "Semua" || prod.category.equals(selectedCategory, ignoreCase = true)) &&
-                    matchesProductSearch(prod, q)
+                    (matchesProductSearch(prod, q) || VariantBarcodeSearchHelper.matchesVariantBarcode(prod, q))
             }.sortedWith(
                 compareByDescending<ProductEntity> {
-                    extractProductSku(it.barcode).equals(q, ignoreCase = true)
+                    extractProductSku(it.barcode).equals(q, ignoreCase = true) ||
+                        VariantBarcodeSearchHelper.extractAllVariantBarcodes(it.variations).any { b -> b.equals(q, ignoreCase = true) }
                 }.thenByDescending {
                     extractProductSku(it.barcode).startsWith(q, ignoreCase = true)
                 }.thenBy { it.name }
