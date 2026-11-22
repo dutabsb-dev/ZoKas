@@ -117,20 +117,20 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .padding(
-                    horizontal = if (isTablet) 36.dp else 24.dp,
-                    vertical = if (isWideTablet) 24.dp else 36.dp
+                    horizontal = if (isTablet) 32.dp else 20.dp,
+                    vertical = if (isWideTablet) 20.dp else 28.dp
                 )
                 .fillMaxWidth()
-                .widthIn(max = if (isWideTablet) 920.dp else if (isTablet) 720.dp else 600.dp)
+                .widthIn(max = if (isWideTablet) 960.dp else if (isTablet) 760.dp else 620.dp)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.logo_zokas),
                 contentDescription = "Logo",
                 modifier = Modifier
-                    .size(if (isTablet) 116.dp else 100.dp)
+                    .size(if (isTablet) 112.dp else 96.dp)
                     .clip(RoundedCornerShape(18.dp))
             )
-            Spacer(modifier = Modifier.height(if (isTablet) 18.dp else 24.dp))
+            Spacer(modifier = Modifier.height(if (isTablet) 16.dp else 20.dp))
 
             if (selectedUser == null) {
                 Text(
@@ -145,18 +145,18 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(if (isTablet) 28.dp else 32.dp))
+                Spacer(modifier = Modifier.height(if (isTablet) 24.dp else 28.dp))
 
                 if (users.isEmpty()) {
                     Text("Belum ada karyawan terdaftar.", color = MaterialTheme.colorScheme.error)
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = if (isWideTablet) 210.dp else if (isTablet) 180.dp else 130.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (isTablet) 20.dp else 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(if (isTablet) 20.dp else 16.dp),
+                        columns = GridCells.Adaptive(minSize = if (isWideTablet) 235.dp else if (isTablet) 200.dp else 160.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (isTablet) 20.dp else 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (isTablet) 20.dp else 14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = if (isWideTablet) 520.dp else 440.dp)
+                            .heightIn(max = if (isWideTablet) 560.dp else 480.dp)
                     ) {
                         items(users, key = { it.id }) { user ->
                             val photoPath = remember(user.id, photoVersion) {
@@ -218,7 +218,7 @@ fun LoginScreen(
 
                 Box(
                     modifier = Modifier
-                        .size(if (isTablet) 104.dp else 86.dp)
+                        .size(if (isTablet) 112.dp else 92.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                         .clickable {
@@ -371,48 +371,79 @@ fun UserProfileCard(
     onPickPhoto: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
+    val bezelPadding = if (isLargeCard) 7.dp else 6.dp
+    val mediaCorner = if (isLargeCard) 15.dp else 12.dp
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(if (isLargeCard) 1.18f else 1.02f)
+            .aspectRatio(if (isLargeCard) 0.92f else 0.84f)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(if (isLargeCard) 20.dp else 16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+        shape = RoundedCornerShape(if (isLargeCard) 22.dp else 18.dp),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bezelPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (isLargeCard) 8.dp else 6.dp)
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = if (isLargeCard) 18.dp else 12.dp, vertical = if (isLargeCard) 16.dp else 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(mediaCorner))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
             ) {
-                val avatarSize = if (isLargeCard) 84.dp else 64.dp
-                Box(
-                    modifier = Modifier
-                        .size(avatarSize)
-                        .clip(RoundedCornerShape(if (isLargeCard) 18.dp else 14.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (photoPath != null) {
-                        AsyncImage(
-                            model = File(photoPath),
-                            contentDescription = "Foto ${user.name}",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Text(
-                            text = user.name.firstOrNull()?.uppercase() ?: "?",
-                            fontSize = if (isLargeCard) 34.sp else 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                if (photoPath != null) {
+                    AsyncImage(
+                        model = File(photoPath),
+                        contentDescription = "Foto ${user.name}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = user.name.firstOrNull()?.uppercase() ?: "?",
+                        fontSize = if (isLargeCard) 46.sp else 36.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                if (onPickPhoto != null) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(if (isLargeCard) 34.dp else 28.dp)
+                            .clip(CircleShape)
+                            .clickable { onPickPhoto() },
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.AddAPhoto,
+                                contentDescription = "Upload Foto Akun",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(if (isLargeCard) 17.dp else 14.dp)
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(if (isLargeCard) 12.dp else 8.dp))
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = if (isLargeCard) 4.dp else 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
                     text = user.name,
                     fontWeight = FontWeight.Bold,
@@ -423,42 +454,23 @@ fun UserProfileCard(
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = user.role,
-                    fontSize = if (isLargeCard) 12.sp else 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (showBiometricBadge && user.role == "OWNER" && user.biometricKey.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Icon(
-                        Icons.Default.Fingerprint,
-                        contentDescription = "Biometrik Aktif",
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(if (isLargeCard) 18.dp else 14.dp)
-                    )
-                }
-            }
-
-            if (onPickPhoto != null) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(if (isLargeCard) 32.dp else 28.dp)
-                        .clip(CircleShape)
-                        .clickable { onPickPhoto() },
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-                    shape = CircleShape,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 2.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = user.role,
+                        fontSize = if (isLargeCard) 12.sp else 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (showBiometricBadge && user.role == "OWNER" && user.biometricKey.isNotBlank()) {
                         Icon(
-                            imageVector = Icons.Default.AddAPhoto,
-                            contentDescription = "Upload Foto Akun",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(if (isLargeCard) 16.dp else 14.dp)
+                            Icons.Default.Fingerprint,
+                            contentDescription = "Biometrik Aktif",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(if (isLargeCard) 17.dp else 14.dp)
                         )
                     }
                 }
