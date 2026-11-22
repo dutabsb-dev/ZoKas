@@ -250,8 +250,7 @@ fun ProductFormBottomSheet(
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             dismissOnBackPress = false,
-            dismissOnClickOutside = false,
-            decorFitsSystemWindows = false
+            dismissOnClickOutside = false
         )
     ) {
         BackHandler(enabled = true) {
@@ -311,10 +310,9 @@ fun ProductFormBottomSheet(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
                 .imePadding(),
             color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+            shape = RoundedCornerShape(12.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
@@ -1059,17 +1057,16 @@ fun ProductFormBottomSheet(
 
             }
 
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 3.dp
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                tonalElevation = 4.dp
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Button(
                         onClick = {
@@ -1126,7 +1123,7 @@ fun ProductFormBottomSheet(
                                 wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
                             )
                         },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         shape = RoundedCornerShape(10.dp)
                     ) {
