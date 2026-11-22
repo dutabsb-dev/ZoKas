@@ -1339,8 +1339,13 @@ fun PaymentBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val availableMethods = remember(settingsManager.paymentMethods) {
-                    (settingsManager.paymentMethods + "EDC").distinct()
+                val isEdcToggleOn = remember(context) { EdcConnectionManager.isEdcEnabled(context) }
+                val availableMethods = remember(settingsManager.paymentMethods, isEdcToggleOn) {
+                    if (isEdcToggleOn) {
+                        (settingsManager.paymentMethods + "EDC").distinct()
+                    } else {
+                        settingsManager.paymentMethods.filterNot { it.equals("EDC", ignoreCase = true) }.distinct()
+                    }
                 }
                 availableMethods.forEach { method ->
                     val isSelected = paymentMethod == method

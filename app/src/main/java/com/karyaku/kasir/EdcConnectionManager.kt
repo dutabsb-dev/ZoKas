@@ -53,6 +53,16 @@ object EdcConnectionManager {
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private const val PREFS_NAME = "zokas_edc_channel_prefs"
 
+    fun isEdcEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("edc_enabled", false)
+    }
+
+    fun setEdcEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("edc_enabled", enabled).apply()
+    }
+
     fun getPreferredChannel(context: Context): EdcChannel {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val raw = prefs.getString("edc_channel", EdcChannel.AUTO.name) ?: EdcChannel.AUTO.name

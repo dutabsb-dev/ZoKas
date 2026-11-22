@@ -2542,8 +2542,15 @@ fun SettingsPaymentMethodCard(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                val pmContext = LocalContext.current
+                val edcActive = remember(pmContext) { EdcConnectionManager.isEdcEnabled(pmContext) }
+                val summaryMethods = remember(currentMethods, edcActive) {
+                    val base = currentMethods.toMutableList()
+                    if (edcActive && !base.contains("EDC")) base.add("EDC")
+                    base.joinToString(", ").ifBlank { "Belum dipilih" }
+                }
                 Text(
-                    text = currentMethods.joinToString(", ").ifBlank { "Belum dipilih" },
+                    text = summaryMethods,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold
@@ -2939,12 +2946,151 @@ fun PaymentMethodManagementDialog(
                         }
                     }
                 }
+
+                // TOGGLE EDC DI BAWAH TRANSFER BANK MANUAL (DEFAULT OFF)
+                var isEdcEnabledState by remember {
+                    mutableStateOf(EdcConnectionManager.isEdcEnabled(context))
+                }
+                var edcChannelState by remember {
+                    mutableStateOf(EdcConnectionManager.getPreferredChannel(context))
+                }
+                var edcHostState by remember {
+                    mutableStateOf(EdcConnectionManager.getTcpHost(context))
+                }
+                var edcPortState by remember {
+                    mutableStateOf(EdcConnectionManager.getTcpPort(context).toString())
+                }
+                var edcIntentState by remember {
+                    mutableStateOf(EdcConnectionManager.getIntentPackageOrUri(context))
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isEdcEnabledState = !isEdcEnabledState }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Pembayaran Mesin EDC (Kartu)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isEdcEnabledState)
+                                "Aktif: Opsi EDC muncul di kasir"
+                            else
+                                "Nonaktif: Opsi EDC disembunyikan di kasir",
+                            fontSize = 11.sp,
+                            color = if (isEdcEnabledState)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isEdcEnabledState,
+                        onCheckedChange = { checked -> isEdcEnabledState = checked },
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = isEdcEnabledState,
+                    enter = expandVertically(),
+                    exit = shrinkVertically()
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp, bottom = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        ),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Jalur Koneksi EDC",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                EdcChannel.entries.forEach { ch ->
+                                    FilterChip(
+                                        selected = edcChannelState == ch,
+                                        onClick = { edcChannelState = ch },
+                                        label = { Text(ch.label, fontSize = 10.5.sp) }
+                                    )
+                                }
+                            }
+                            if (edcChannelState == EdcChannel.TCP_WIFI || edcChannelState == EdcChannel.AUTO) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = edcHostState,
+                                        onValueChange = { edcHostState = it },
+                                        label = { Text("IP EDC", fontSize = 11.sp) },
+                                        modifier = Modifier.weight(2f),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    OutlinedTextField(
+                                        value = edcPortState,
+                                        onValueChange = { edcPortState = it.filter { c -> c.isDigit() } },
+                                        label = { Text("Port", fontSize = 11.sp) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                }
+                            }
+                            if (edcChannelState == EdcChannel.INTENT || edcChannelState == EdcChannel.AUTO) {
+                                OutlinedTextField(
+                                    value = edcIntentState,
+                                    onValueChange = { edcIntentState = it },
+                                    label = { Text("Package / URI EDC (Opsional)", fontSize = 11.sp) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (canSave) {
+                        EdcConnectionManager.setEdcEnabled(context, isEdcEnabledState)
+                        EdcConnectionManager.setPreferredChannel(context, edcChannelState)
+                        EdcConnectionManager.setTcpHost(context, edcHostState)
+                        EdcConnectionManager.setTcpPort(context, edcPortState.toIntOrNull() ?: 9100)
+                        EdcConnectionManager.setIntentPackageOrUri(context, edcIntentState)
                         onSave(
                             selectedMethods.toSet(),
                             qrisPayload.trim(),
