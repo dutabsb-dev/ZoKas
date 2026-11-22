@@ -1,5 +1,6 @@
 package com.karyaku.kasir
 
+import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -25,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -48,8 +50,13 @@ fun LoginScreen(
     onLoginSuccess: (UserEntity) -> Unit
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
     val activity = LocalActivity.current as? FragmentActivity
     val scope = rememberCoroutineScope()
+
+    val isTablet = configuration.screenWidthDp >= 600
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isWideTablet = isTablet && isLandscape
 
     val isInitializing by viewModel.isInitializing.collectAsStateWithLifecycle()
     val users by viewModel.users.collectAsStateWithLifecycle()
@@ -86,21 +93,26 @@ fun LoginScreen(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .padding(horizontal = 24.dp, vertical = 36.dp)
+                .padding(
+                    horizontal = if (isTablet) 36.dp else 24.dp,
+                    vertical = if (isWideTablet) 24.dp else 36.dp
+                )
                 .fillMaxWidth()
-                .widthIn(max = 600.dp)
+                .widthIn(max = if (isWideTablet) 920.dp else if (isTablet) 720.dp else 600.dp)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.logo_zokas),
                 contentDescription = "Logo",
-                modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp))
+                modifier = Modifier
+                    .size(if (isTablet) 116.dp else 100.dp)
+                    .clip(RoundedCornerShape(18.dp))
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(if (isTablet) 18.dp else 24.dp))
 
             if (selectedUser == null) {
                 Text(
                     "Pilih Akun Anda",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = if (isTablet) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -109,21 +121,24 @@ fun LoginScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(if (isTablet) 28.dp else 32.dp))
 
                 if (users.isEmpty()) {
                     Text("Belum ada karyawan terdaftar.", color = MaterialTheme.colorScheme.error)
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 120.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
+                        columns = GridCells.Adaptive(minSize = if (isWideTablet) 210.dp else if (isTablet) 180.dp else 130.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (isTablet) 20.dp else 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (isTablet) 20.dp else 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = if (isWideTablet) 520.dp else 440.dp)
                     ) {
                         items(users) { user ->
                             UserProfileCard(
                                 user = user,
                                 showBiometricBadge = biometricAllowed,
+                                isLargeCard = isTablet,
                                 onClick = {
                                     errorMessage = ""
                                     isPinVisible = false
@@ -168,13 +183,13 @@ fun LoginScreen(
 
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(if (isTablet) 96.dp else 80.dp)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = user.name.firstOrNull()?.uppercase() ?: "?",
-                        fontSize = 36.sp,
+                        fontSize = if (isTablet) 42.sp else 36.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -182,11 +197,16 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     user.name,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = if (isTablet) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
                 )
-                Text(user.role, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    user.role,
+                    fontSize = if (isTablet) 13.sp else 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -247,7 +267,7 @@ fun LoginScreen(
                             errorMessage = "PIN harus 4 sampai 6 digit."
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    modifier = Modifier.fillMaxWidth().height(if (isTablet) 56.dp else 50.dp),
                     enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -278,7 +298,7 @@ fun LoginScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        modifier = Modifier.fillMaxWidth().height(if (isTablet) 56.dp else 50.dp),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
@@ -297,54 +317,63 @@ fun LoginScreen(
 fun UserProfileCard(
     user: UserEntity,
     showBiometricBadge: Boolean = true,
+    isLargeCard: Boolean = false,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
+            .aspectRatio(if (isLargeCard) 1.18f else 1.02f)
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(if (isLargeCard) 20.dp else 16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = if (isLargeCard) 18.dp else 12.dp, vertical = if (isLargeCard) 16.dp else 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Box(
-                modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
+                modifier = Modifier
+                    .size(if (isLargeCard) 72.dp else 56.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = user.name.firstOrNull()?.uppercase() ?: "?",
-                    fontSize = 24.sp,
+                    fontSize = if (isLargeCard) 32.sp else 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(if (isLargeCard) 12.dp else 8.dp))
             Text(
                 text = user.name,
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
+                fontSize = if (isLargeCard) 17.sp else 14.sp,
+                lineHeight = if (isLargeCard) 21.sp else 18.sp,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = user.role,
-                fontSize = 10.sp,
+                fontSize = if (isLargeCard) 12.sp else 10.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (showBiometricBadge && user.role == "OWNER" && user.biometricKey.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Icon(
                     Icons.Default.Fingerprint,
                     contentDescription = "Biometrik Aktif",
                     tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(if (isLargeCard) 18.dp else 14.dp)
                 )
             }
         }

@@ -337,26 +337,11 @@ fun ProductFormBottomSheet(
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedButton(
-                            onClick = {
-                                keyboardController?.hide()
-                                focusManager.clearFocus(force = true)
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.height(32.dp),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.KeyboardHide, contentDescription = "Tutup Keyboard", modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Keyboard", fontSize = 11.sp)
-                        }
-                        IconButton(
-                            onClick = { handleBackOrCloseAttempt(forcePromptIfDirty = true) },
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = "Tutup Form", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    IconButton(
+                        onClick = { handleBackOrCloseAttempt(forcePromptIfDirty = true) },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup Form", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
