@@ -426,20 +426,22 @@ fun SettingsScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 8.dp, vertical = 10.dp)
+            .padding(horizontal = 4.dp, vertical = 2.dp)
             .imePadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         item {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp, bottom = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     LanguageManager.tr("pengaturan", lang),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -589,9 +591,9 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(6.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                         Text(
                             "Kepegawaian (HR)",
                             fontWeight = FontWeight.Bold,
@@ -818,7 +820,7 @@ private fun SettingsAuditLogCard(
                         onClick = {
                             pdfAuditLauncher.launch("ZoKas_Audit_Log_${System.currentTimeMillis()}.pdf")
                         },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         modifier = Modifier.height(34.dp)
                     ) {
@@ -844,7 +846,7 @@ private fun SettingsAuditLogCard(
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     LazyColumn(
@@ -889,7 +891,7 @@ private fun SettingsAuditLogCard(
             confirmButton = {
                 Button(
                     onClick = { showFullHistoryDialog = false },
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Text("Tutup", fontWeight = FontWeight.Bold)
                 }
@@ -900,11 +902,11 @@ private fun SettingsAuditLogCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -934,7 +936,7 @@ private fun SettingsAuditLogCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
                     if (cappedLogs.isNotEmpty()) {
@@ -945,7 +947,7 @@ private fun SettingsAuditLogCard(
                             OutlinedButton(
                                 onClick = { showFullHistoryDialog = true },
                                 modifier = Modifier.weight(1f).height(38.dp),
-                                shape = RoundedCornerShape(10.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
                                 Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -966,7 +968,7 @@ private fun SettingsAuditLogCard(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
-                                shape = RoundedCornerShape(10.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
                                 Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1047,11 +1049,11 @@ fun SettingsHeaderBadgesRow(
     ) {
         if (showBranchBadge) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -1083,11 +1085,11 @@ fun SettingsHeaderBadgesRow(
 
         if (showShiftBadge) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -1224,11 +1226,11 @@ private fun SettingsBranchManagementCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1272,7 +1274,7 @@ private fun SettingsBranchManagementCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -1407,11 +1409,11 @@ private fun SettingsCrmCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1452,7 +1454,7 @@ private fun SettingsCrmCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(modifier = Modifier.height(12.dp))
 

@@ -73,8 +73,8 @@ fun SettingsSectionLeadingIcon(
 ) {
     Box(
         modifier = Modifier
-            .size(36.dp)
-            .background(tint.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+            .size(30.dp)
+            .background(tint.copy(alpha = 0.15f), RoundedCornerShape(6.dp)),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -96,10 +96,10 @@ fun SettingsAppearanceCard(
     val lang = language
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -168,7 +168,7 @@ fun SettingsAppearanceCard(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(if (lang == "in") "Indonesia" else "English")
                 }
@@ -197,12 +197,12 @@ fun SettingsAccountCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -231,7 +231,7 @@ fun SettingsAccountCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -253,7 +253,7 @@ fun SettingsAccountCard(
                                 containerColor = MaterialTheme.colorScheme.tertiary,
                                 contentColor = MaterialTheme.colorScheme.onTertiary
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp)
                         }
@@ -265,7 +265,7 @@ fun SettingsAccountCard(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(6.dp)
                             ) {
                                 Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp)
                             }
@@ -276,7 +276,7 @@ fun SettingsAccountCard(
                     OutlinedButton(
                         onClick = onPhotoSettingsClick,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -297,7 +297,7 @@ fun SettingsAccountCard(
                             else
                                 MaterialTheme.colorScheme.onSecondary
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) {
                         Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -315,7 +315,7 @@ fun SettingsAccountCard(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = MaterialTheme.colorScheme.onSecondary
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp)
                     }
@@ -504,7 +504,7 @@ fun SettingsBusinessTypeCard(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
                         if (lang == "in") "GANTI" else "CHANGE",
@@ -523,11 +523,11 @@ fun SettingsBusinessTypeCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -557,7 +557,7 @@ fun SettingsBusinessTypeCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -574,7 +574,7 @@ fun SettingsBusinessTypeCard(
                         OutlinedButton(
                             onClick = { dropdownExpanded = true },
                             modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(6.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.primary
@@ -697,11 +697,11 @@ fun SettingsModuleCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -769,7 +769,7 @@ fun SettingsModuleCard(
                                 OutlinedButton(
                                     onClick = onManageBranchesClick,
                                     modifier = Modifier.weight(1f).height(40.dp),
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(6.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                                     contentPadding = PaddingValues(horizontal = 6.dp)
                                 ) {
@@ -785,7 +785,7 @@ fun SettingsModuleCard(
                                         containerColor = MaterialTheme.colorScheme.primary,
                                         contentColor = MaterialTheme.colorScheme.onPrimary
                                     ),
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(6.dp),
                                     contentPadding = PaddingValues(horizontal = 6.dp)
                                 ) {
                                     Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -845,7 +845,7 @@ fun SettingsModuleCard(
                                         label = { Text("Mulai", fontSize = 11.sp) },
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
                                     OutlinedTextField(
                                         value = hhEnd,
@@ -853,7 +853,7 @@ fun SettingsModuleCard(
                                         label = { Text("Selesai", fontSize = 11.sp) },
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -865,7 +865,7 @@ fun SettingsModuleCard(
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
                                     OutlinedTextField(
                                         value = maxDiscountCap,
@@ -874,7 +874,7 @@ fun SettingsModuleCard(
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
                                 }
                             }
@@ -1019,7 +1019,7 @@ fun SettingsModuleCard(
                             label = { Text(LanguageManager.tr("kurs_usd", lang), fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(6.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
                             )
@@ -1541,11 +1541,11 @@ fun SettingsPrinterCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1574,7 +1574,7 @@ fun SettingsPrinterCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -1598,7 +1598,7 @@ fun SettingsPrinterCard(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) { Text(LanguageManager.tr("pilih_printer", lang)) }
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -1621,7 +1621,7 @@ fun SettingsPrinterCard(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) { Text(LanguageManager.tr("pilih_printer_dapur", lang)) }
                 }
             }
@@ -1670,11 +1670,11 @@ fun SettingsStoreProfileCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1703,7 +1703,7 @@ fun SettingsStoreProfileCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -1756,7 +1756,7 @@ fun SettingsStoreProfileCard(
                         label = { Text(LanguageManager.tr("nama_toko", lang)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
@@ -1765,7 +1765,7 @@ fun SettingsStoreProfileCard(
                         label = { Text(LanguageManager.tr("alamat_toko", lang)) },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
@@ -1775,7 +1775,7 @@ fun SettingsStoreProfileCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
@@ -1784,7 +1784,7 @@ fun SettingsStoreProfileCard(
                         label = { Text(LanguageManager.tr("pesan_struk", lang)) },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
@@ -1794,7 +1794,7 @@ fun SettingsStoreProfileCard(
                         placeholder = { Text("Contoh: Terima Kasih atas pembeliannya 🙏") },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     HorizontalDivider(
@@ -1828,7 +1828,7 @@ fun SettingsStoreProfileCard(
                             OutlinedButton(
                                 onClick = { onTaxPercentChange(rateVal) },
                                 modifier = Modifier.weight(1f).height(36.dp),
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
                                 border = BorderStroke(
                                     1.dp,
@@ -1861,7 +1861,7 @@ fun SettingsStoreProfileCard(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         )
                         OutlinedTextField(
                             value = serviceChargePercent,
@@ -1870,7 +1870,7 @@ fun SettingsStoreProfileCard(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1880,7 +1880,7 @@ fun SettingsStoreProfileCard(
                             .clip(RoundedCornerShape(10.dp))
                             .clickable { onTaxInclusiveChange(!isTaxInclusive) },
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
@@ -1941,7 +1941,7 @@ fun SettingsStoreProfileCard(
                             OutlinedButton(
                                 onClick = { onCashRoundingChange(unitVal) },
                                 modifier = Modifier.weight(1f).height(36.dp),
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 contentPadding = PaddingValues(horizontal = 4.dp),
                                 border = BorderStroke(
                                     1.dp,
@@ -1982,11 +1982,11 @@ fun SettingsDiscountCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -2011,7 +2011,7 @@ fun SettingsDiscountCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -2030,7 +2030,7 @@ fun SettingsDiscountCard(
                             label = { Text(LanguageManager.tr("mulai", lang)) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         )
                         OutlinedTextField(
                             value = hhEnd,
@@ -2038,7 +2038,7 @@ fun SettingsDiscountCard(
                             label = { Text(LanguageManager.tr("selesai", lang)) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
@@ -2049,7 +2049,7 @@ fun SettingsDiscountCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
@@ -2059,7 +2059,7 @@ fun SettingsDiscountCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                 }
             }
@@ -2082,11 +2082,11 @@ fun SettingsBackupCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -2115,7 +2115,7 @@ fun SettingsBackupCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -2135,7 +2135,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) { Text(LanguageManager.tr("backup", lang)) }
                         Button(
                             onClick = onRestoreClick,
@@ -2144,7 +2144,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.tertiary,
                                 contentColor = MaterialTheme.colorScheme.onTertiary
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) { Text(LanguageManager.tr("restore", lang)) }
                     }
                     HorizontalDivider(
@@ -2172,7 +2172,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) { Text(LanguageManager.tr("ekspor_excel", lang)) }
                         Button(
                             onClick = onImportExcelClick,
@@ -2181,7 +2181,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.secondary,
                                 contentColor = MaterialTheme.colorScheme.onSecondary
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) { Text(LanguageManager.tr("impor_excel", lang)) }
                     }
                 }
@@ -2205,19 +2205,19 @@ fun SettingsPaymentMethodCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(12.dp),
+            modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(30.dp)
                     .background(
                         if (hasWarning) MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
                         else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        RoundedCornerShape(8.dp)
+                        RoundedCornerShape(6.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -2454,9 +2454,9 @@ fun PaymentMethodManagementDialog(
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                                 ),
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(6.dp)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -2498,7 +2498,7 @@ fun PaymentMethodManagementDialog(
                                             modifier = Modifier.weight(1f),
                                             maxLines = 3,
                                             isError = qrisPayload.isBlank(),
-                                            shape = RoundedCornerShape(10.dp)
+                                            shape = RoundedCornerShape(6.dp)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         IconButton(
@@ -2580,9 +2580,9 @@ fun PaymentMethodManagementDialog(
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                                 ),
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(6.dp)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                                     Text(
                                         "Rekening Tujuan Transfer",
                                         fontWeight = FontWeight.Bold,
@@ -2597,7 +2597,7 @@ fun PaymentMethodManagementDialog(
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
                                         isError = bankName.isBlank(),
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     OutlinedTextField(
@@ -2608,7 +2608,7 @@ fun PaymentMethodManagementDialog(
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
                                         isError = bankAccountNumber.isBlank(),
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     OutlinedTextField(
@@ -2617,7 +2617,7 @@ fun PaymentMethodManagementDialog(
                                         label = { Text("Atas Nama Rekening", fontSize = 11.sp) },
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
-                                        shape = RoundedCornerShape(10.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
 
                                     if (bankName.isBlank() || bankAccountNumber.isBlank()) {
@@ -2654,7 +2654,7 @@ fun PaymentMethodManagementDialog(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(6.dp)
             ) { Text("SIMPAN", fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
@@ -2705,14 +2705,14 @@ fun SettingsOwnerMonitorCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
-                    .padding(12.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -2744,7 +2744,7 @@ fun SettingsOwnerMonitorCard() {
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -2845,7 +2845,7 @@ fun SettingsOwnerMonitorCard() {
                                     OutlinedButton(
                                         onClick = { openTelegramLink("https://t.me/BotFather") },
                                         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(6.dp),
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                                     ) {
                                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -2872,7 +2872,7 @@ fun SettingsOwnerMonitorCard() {
                                     OutlinedButton(
                                         onClick = { openTelegramLink("https://t.me/userinfobot") },
                                         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(6.dp),
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
                                     ) {
@@ -2900,7 +2900,7 @@ fun SettingsOwnerMonitorCard() {
                             confirmButton = {
                                 Button(
                                     onClick = { showTelegramGuideDialog = false },
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text("MENGERTI", fontWeight = FontWeight.Bold)
                                 }
@@ -2911,7 +2911,7 @@ fun SettingsOwnerMonitorCard() {
                     OutlinedButton(
                         onClick = { showTelegramGuideDialog = true },
                         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
@@ -2938,13 +2938,13 @@ fun SettingsOwnerMonitorCard() {
                         placeholder = { Text("123456789:ABCdef...") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedButton(
                         onClick = { openTelegramLink("https://t.me/BotFather") },
                         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 40.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -2962,13 +2962,13 @@ fun SettingsOwnerMonitorCard() {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedButton(
                         onClick = { openTelegramLink("https://t.me/userinfobot") },
                         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 40.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
                     ) {
@@ -3062,7 +3062,7 @@ fun SettingsOwnerMonitorCard() {
                         },
                         enabled = !isBusy,
                         modifier = Modifier.fillMaxWidth().height(42.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
                     ) {
@@ -3095,7 +3095,7 @@ fun SettingsOwnerMonitorCard() {
                             },
                             enabled = !isTesting,
                             modifier = Modifier.weight(1f).height(44.dp),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(if (isTesting) "Mengirim..." else "Tes Kirim", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
@@ -3113,7 +3113,7 @@ fun SettingsOwnerMonitorCard() {
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(6.dp)
                         ) {
                             Text("SIMPAN", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
@@ -3239,7 +3239,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(6.dp)
                 ) {
                     Text("MENGERTI", fontWeight = FontWeight.Bold)
                 }
@@ -3250,14 +3250,14 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(6.dp)
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
-                    .padding(12.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -3290,7 +3290,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -3298,12 +3298,12 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                     // PANEL STATUS & IDENTITAS AKUN TERVERIFIKASI
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Row(
@@ -3333,7 +3333,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
                                     else
                                         MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text(
                                         text = "$queueCount Data Antrean",
@@ -3381,12 +3381,12 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                         leadingIcon = { Icon(Icons.Default.PointOfSale, contentDescription = null) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     )
 
                     Surface(
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
@@ -3437,7 +3437,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(6.dp)
                     ) {
                         Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -3458,7 +3458,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                             },
                             enabled = !isBusy,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(6.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
@@ -3471,7 +3471,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                             onClick = { importSyncLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
                             enabled = !isBusy,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(6.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary),
                             contentPadding = PaddingValues(horizontal = 8.dp)
