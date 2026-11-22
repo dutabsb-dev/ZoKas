@@ -1256,6 +1256,16 @@ fun PaymentBottomSheet(
     var cashInput by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("CASH") }
     var manualTransferConfirmed by remember { mutableStateOf(false) }
+    var edcRefCode by remember { mutableStateOf("") }
+    var edcConfirmed by remember { mutableStateOf(false) }
+    var selectedEdcChannel by remember { mutableStateOf(EdcConnectionManager.getPreferredChannel(context)) }
+    var edcTcpHost by remember { mutableStateOf(EdcConnectionManager.getTcpHost(context)) }
+    var edcTcpPort by remember { mutableStateOf(EdcConnectionManager.getTcpPort(context).toString()) }
+    var edcIntentTarget by remember { mutableStateOf(EdcConnectionManager.getIntentPackageOrUri(context)) }
+    var edcLastCommand by remember { mutableStateOf<EdcCommandPayload?>(null) }
+    var edcFeedback by remember { mutableStateOf<EdcDispatchFeedback?>(null) }
+    var isDispatchingEdc by remember { mutableStateOf(false) }
+    var edcDispatchCounter by remember { mutableIntStateOf(0) }
 
     val cashReceived = cashInput.toLongOrNull() ?: 0L
     val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
@@ -1263,6 +1273,10 @@ fun PaymentBottomSheet(
     LaunchedEffect(paymentMethod, qrisString, uniqueTransferAmount, totalPrice, cashReceived, change) {
         if (paymentMethod != "Bank Transfer") {
             manualTransferConfirmed = false
+        }
+        if (paymentMethod != "EDC") {
+            edcConfirmed = false
+            edcFeedback = null
         }
         if (paymentMethod == "QRIS" && qrisString.isEmpty()) {
             onGenerateQris()
@@ -1325,7 +1339,9 @@ fun PaymentBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val availableMethods = settingsManager.paymentMethods.toList()
+                val availableMethods = remember(settingsManager.paymentMethods) {
+                    (settingsManager.paymentMethods + "EDC").distinct()
+                }
                 availableMethods.forEach { method ->
                     val isSelected = paymentMethod == method
                     Button(
@@ -1430,6 +1446,173 @@ fun PaymentBottomSheet(
                         }
                     }
                 }
+            } else if (paymentMethod == "EDC") {
+                LaunchedEffect(paymentMethod, totalPrice, selectedEdcChannel, edcDispatchCounter) {
+                    if (totalPrice > 0L) {
+                        isDispatchingEdc = true
+                        EdcConnectionManager.setPreferredChannel(context, selectedEdcChannel)
+                        EdcConnectionManager.setTcpHost(context, edcTcpHost)
+                        EdcConnectionManager.setTcpPort(context, edcTcpPort.toIntOrNull() ?: 9100)
+                        EdcConnectionManager.setIntentPackageOrUri(context, edcIntentTarget)
+                        val (cmd, fb) = EdcConnectionManager.dispatchAutomaticCommand(
+                            context = context,
+                            amount = totalPrice,
+                            selectedChannel = selectedEdcChannel,
+                            customTrace = edcRefCode
+                        )
+                        edcLastCommand = cmd
+                        edcFeedback = fb
+                        if (edcRefCode.isBlank() && fb.traceNumber.isNotBlank()) {
+                            edcRefCode = fb.traceNumber
+                        }
+                        if (fb.isApproved) {
+                            edcConfirmed = true
+                        }
+                        isDispatchingEdc = false
+                    }
+                }
+
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Pembayaran Kartu (Mesin EDC)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                            OutlinedButton(
+                                onClick = { edcDispatchCounter++ },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(32.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Kirim Ulang", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Text("Pilih Jalur Koneksi EDC:", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            EdcChannel.entries.forEach { ch ->
+                                FilterChip(
+                                    selected = selectedEdcChannel == ch,
+                                    onClick = { selectedEdcChannel = ch },
+                                    label = { Text(ch.label, fontSize = 11.sp, maxLines = 1) }
+                                )
+                            }
+                        }
+
+                        if (selectedEdcChannel == EdcChannel.TCP_WIFI || selectedEdcChannel == EdcChannel.AUTO) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = edcTcpHost,
+                                    onValueChange = {
+                                        edcTcpHost = it
+                                        EdcConnectionManager.setTcpHost(context, it)
+                                    },
+                                    label = { Text("IP EDC (TCP)", fontSize = 11.sp) },
+                                    modifier = Modifier.weight(2f),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                OutlinedTextField(
+                                    value = edcTcpPort,
+                                    onValueChange = {
+                                        val digits = it.filter { c -> c.isDigit() }
+                                        edcTcpPort = digits
+                                        digits.toIntOrNull()?.let { p -> EdcConnectionManager.setTcpPort(context, p) }
+                                    },
+                                    label = { Text("Port", fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+                        }
+
+                        if (selectedEdcChannel == EdcChannel.INTENT || selectedEdcChannel == EdcChannel.AUTO) {
+                            OutlinedTextField(
+                                value = edcIntentTarget,
+                                onValueChange = {
+                                    edcIntentTarget = it
+                                    EdcConnectionManager.setIntentPackageOrUri(context, it)
+                                },
+                                label = { Text("Package / URI Aplikasi EDC (Opsional)", fontSize = 11.sp) },
+                                placeholder = { Text("cth: com.bank.ecr atau ecr://pay") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        // Feedback otomatis dari jalur EDC
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (isDispatchingEdc) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                        Text("Mengirim perintah otomatis ke jalur EDC...", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                } else if (edcFeedback != null) {
+                                    Text(
+                                        text = "Status: ${edcFeedback!!.message}",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (edcFeedback!!.isApproved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Jalur: ${edcFeedback!!.channelUsed} • RC: ${edcFeedback!!.responseCode}",
+                                        fontSize = 10.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (edcLastCommand != null) {
+                                    Text(
+                                        text = "Command: ${edcLastCommand!!.isoStyleMessage}",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = edcRefCode,
+                            onValueChange = { edcRefCode = it },
+                            label = { Text("No. Trace / Approval EDC") },
+                            placeholder = { Text("Terisi otomatis atau ketik manual") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { edcConfirmed = !edcConfirmed },
+                    color = if (edcConfirmed) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, if (edcConfirmed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = edcConfirmed, onCheckedChange = { edcConfirmed = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Transaksi mesin EDC telah disetujui (Approved)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
             } else {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
                     Text("Pembayaran via $paymentMethod belum didukung secara offline.", color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp, modifier = Modifier.padding(12.dp), textAlign = TextAlign.Center)
@@ -1441,10 +1624,18 @@ fun PaymentBottomSheet(
                 "CASH" -> cashReceived >= totalPrice && totalPrice > 0
                 "QRIS" -> isQrisPaid
                 "Bank Transfer" -> isTransferPaid || manualTransferConfirmed
+                "EDC" -> edcConfirmed && totalPrice > 0
                 else -> true
             }
             Button(
-                onClick = { onConfirmPayment(if (paymentMethod == "CASH") cashReceived else totalPrice, paymentMethod) },
+                onClick = {
+                    val finalMethodLabel = if (paymentMethod == "EDC" && edcRefCode.isNotBlank()) {
+                        "EDC (${edcRefCode.trim()})"
+                    } else {
+                        paymentMethod
+                    }
+                    onConfirmPayment(if (paymentMethod == "CASH") cashReceived else totalPrice, finalMethodLabel)
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = canCompletePayment,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),

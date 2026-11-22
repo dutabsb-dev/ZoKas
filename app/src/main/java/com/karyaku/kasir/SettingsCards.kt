@@ -17,7 +17,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +31,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -86,7 +89,7 @@ fun SettingsSectionLeadingIcon(
     }
 }
 
-// --- 1. CARD TAMPILAN & BAHASA ---
+// --- 1. CARD TAMPILAN, 50 TEMA INTERAKTIF & BAHASA ---
 @Composable
 fun SettingsAppearanceCard(
     isDarkMode: Boolean, onToggleDarkMode: () -> Unit,
@@ -94,12 +97,309 @@ fun SettingsAppearanceCard(
     language: String, onToggleLanguage: () -> Unit
 ) {
     val lang = language
+    val context = LocalContext.current
+    ZokasThemeManager.ensureLoaded(context)
+    val currentThemeId = ZokasThemeManager.selectedThemeId
+    val activePreset = remember(currentThemeId) { ZokasThemeManager.getActivePreset(context) }
+    var showThemeGalleryDialog by remember { mutableStateOf(false) }
+    var selectedThemeCategory by remember { mutableStateOf("SEMUA") }
+    var themeSearchQuery by remember { mutableStateOf("") }
+
+    if (showThemeGalleryDialog) {
+        val categories = remember {
+            listOf("SEMUA") + ZOKAS_50_THEMES.map { it.category }.distinct()
+        }
+        val filteredThemes = remember(selectedThemeCategory, themeSearchQuery) {
+            ZOKAS_50_THEMES.filter { preset ->
+                val matchCat = selectedThemeCategory == "SEMUA" || preset.category == selectedThemeCategory
+                val matchQuery = themeSearchQuery.isBlank() ||
+                    preset.name.contains(themeSearchQuery, ignoreCase = true) ||
+                    preset.category.contains(themeSearchQuery, ignoreCase = true)
+                matchCat && matchQuery
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showThemeGalleryDialog = false },
+            title = {
+                Column {
+                    Text("Galeri 50 Tema Interaktif", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(
+                        "Tema aktif: ${activePreset.name}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 460.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = themeSearchQuery,
+                        onValueChange = { themeSearchQuery = it },
+                        placeholder = { Text("Cari nama tema atau warna...", fontSize = 12.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = {
+                            if (themeSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { themeSearchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Hapus", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        categories.forEach { cat ->
+                            FilterChip(
+                                selected = selectedThemeCategory == cat,
+                                onClick = { selectedThemeCategory = cat },
+                                label = { Text(cat, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        filteredThemes.forEach { preset ->
+                            val isSelected = preset.id == currentThemeId
+                            val pColor = Color(preset.primaryHex)
+                            val sColor = Color(preset.surfaceHex)
+                            val gStart = Color(preset.gradientStartHex)
+                            val gEnd = Color(preset.gradientEndHex)
+                            val previewTextColor = if (sColor.luminance() > 0.42f) Color(0xFF0F172A) else Color(0xFFF8FAFC)
+
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        ZokasThemeManager.selectTheme(context, preset.id)
+                                        if (preset.id != "default_emerald" && preset.isDark != isDarkMode) {
+                                            onToggleDarkMode()
+                                        } else if (preset.id == "default_emerald" && isDarkMode) {
+                                            onToggleDarkMode()
+                                        }
+                                    },
+                                color = sColor.copy(alpha = preset.glassAlpha),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) pColor else MaterialTheme.colorScheme.outlineVariant
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Brush.linearGradient(listOf(gStart, gEnd)))
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    text = preset.name,
+                                                    fontSize = 12.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = previewTextColor
+                                                )
+                                                Text(
+                                                    text = "${preset.category} • Transparansi ${(preset.glassAlpha * 100).toInt()}%",
+                                                    fontSize = 10.sp,
+                                                    color = previewTextColor.copy(alpha = 0.78f)
+                                                )
+                                            }
+                                        }
+                                        if (isSelected) {
+                                            Icon(
+                                                Icons.Default.CheckCircle,
+                                                contentDescription = "Aktif",
+                                                tint = pColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Brush.horizontalGradient(listOf(gStart, gEnd)))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (currentThemeId != "default_emerald") {
+                        OutlinedButton(
+                            onClick = {
+                                ZokasThemeManager.selectTheme(context, "default_emerald")
+                                if (isDarkMode) onToggleDarkMode()
+                            },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Reset Default", fontSize = 12.sp)
+                        }
+                    }
+                    Button(
+                        onClick = { showThemeGalleryDialog = false },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Selesai", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        )
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+            // PILIHAN 50 TEMA INTERAKTIF (GRADASI & TRANSPARANSI)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { showThemeGalleryDialog = true }
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        Color(activePreset.gradientStartHex),
+                                        Color(activePreset.gradientEndHex)
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Palette,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Tema Warna Aplikasi (50 Tema)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = activePreset.name,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                OutlinedButton(
+                    onClick = { showThemeGalleryDialog = true },
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text("Pilih Tema", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Strip cepat 8 tema favorit (termasuk Hijau & Putih Default di urutan pertama)
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                ZOKAS_50_THEMES.take(10).forEach { preset ->
+                    val isSelected = preset.id == currentThemeId
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                ZokasThemeManager.selectTheme(context, preset.id)
+                                if (preset.id != "default_emerald" && preset.isDark != isDarkMode) {
+                                    onToggleDarkMode()
+                                } else if (preset.id == "default_emerald" && isDarkMode) {
+                                    onToggleDarkMode()
+                                }
+                            },
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                        border = BorderStroke(
+                            if (isSelected) 2.dp else 1.dp,
+                            if (isSelected) Color(preset.primaryHex) else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(Color(preset.gradientStartHex), Color(preset.gradientEndHex))
+                                        )
+                                    )
+                            )
+                            Text(
+                                text = preset.name.substringAfter(". "),
+                                fontSize = 10.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -113,7 +413,12 @@ fun SettingsAppearanceCard(
                 )
                 Switch(
                     checked = isDarkMode,
-                    onCheckedChange = { onToggleDarkMode() },
+                    onCheckedChange = {
+                        if (currentThemeId != "default_emerald") {
+                            ZokasThemeManager.selectTheme(context, "default_emerald")
+                        }
+                        onToggleDarkMode()
+                    },
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = MaterialTheme.colorScheme.primary,
                         uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)

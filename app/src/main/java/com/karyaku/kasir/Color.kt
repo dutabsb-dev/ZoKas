@@ -1,13 +1,20 @@
 package com.karyaku.kasir
 
+import android.content.Context
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 // =====================================================================
-// KONSTANTA WARNA BRAND (dipakai di Theme.kt sebagai base color)
-// JANGAN dipakai langsung untuk teks di Composable baru — pakai helper
-// di bawah agar otomatis adaptif light/dark.
+// KONSTANTA WARNA BRAND BAWAAN (HIJAU & PUTIH — TEMA DEFAULT)
 // =====================================================================
 val EmeraldGreen = Color(0xFF059669)
 val EmeraldGreenDark = Color(0xFF047857)
@@ -45,25 +52,268 @@ val DarkSurface = SurfaceDark
 val DarkSurfaceVariant = SurfaceVariantDark
 val DarkText = SlateGreyLight
 
+data class ZokasThemePreset(
+    val id: String,
+    val name: String,
+    val category: String,
+    val isDark: Boolean,
+    val primaryHex: Long,
+    val secondaryHex: Long,
+    val tertiaryHex: Long,
+    val backgroundHex: Long,
+    val surfaceHex: Long,
+    val surfaceVariantHex: Long,
+    val gradientStartHex: Long,
+    val gradientEndHex: Long,
+    val glassAlpha: Float = 0.88f
+)
+
+private fun readableOnColor(bg: Color): Color {
+    // Gunakan luminansi relatif WCAG agar teks selalu kontras & tidak menyatu dengan warna tema
+    return if (bg.luminance() > 0.42f) Color(0xFF0F172A) else Color(0xFFF8FAFC)
+}
+
+private fun readableSecondaryOnColor(bg: Color): Color {
+    return if (bg.luminance() > 0.42f) Color(0xFF334155) else Color(0xFFE2E8F0)
+}
+
+val ZOKAS_50_THEMES: List<ZokasThemePreset> = listOf(
+    // 1. DEFAULT (Hijau & Putih — Bawaan ZoKas)
+    ZokasThemePreset("default_emerald", "01. Hijau Zamrud & Putih (Default)", "Default", false, 0xFF059669, 0xFF64748B, 0xFFF59E0B, 0xFFF8FAFC, 0xFFFFFFFF, 0xFFF1F5F9, 0xFF059669, 0xFF10B981, 0.96f),
+    ZokasThemePreset("emerald_glass_mint", "02. Mint Transparan", "Alam & Segar", false, 0xFF0D9488, 0xFF475569, 0xFFD97706, 0xFFF0FDFA, 0xE6FFFFFF, 0xFFCCFBF1, 0xFF0D9488, 0xFF2DD4BF, 0.86f),
+    ZokasThemePreset("forest_jade", "03. Hutan Giok", "Alam & Segar", true, 0xFF34D399, 0xFF94A3B8, 0xFFFBBF24, 0xFF062019, 0xE60D2E25, 0xFF164236, 0xFF059669, 0xFF34D399, 0.85f),
+    ZokasThemePreset("lime_citrus", "04. Jeruk Nipis Segar", "Alam & Segar", false, 0xFF4D7C0F, 0xFF57534E, 0xFFEA580C, 0xFFF7FEE7, 0xF2FFFFFF, 0xFFECFCCB, 0xFF65A30D, 0xFFA3E635, 0.90f),
+    ZokasThemePreset("sage_botanical", "05. Daun Sage Lembut", "Alam & Segar", false, 0xFF2F6F4E, 0xFF52525B, 0xFFC2410C, 0xFFF4F7F5, 0xF5FFFFFF, 0xFFE2ECE6, 0xFF2F6F4E, 0xFF5FA37E, 0.92f),
+    ZokasThemePreset("matcha_latte", "06. Matcha Latte", "Alam & Segar", false, 0xFF3F6212, 0xFF57534E, 0xFFB45309, 0xFFFAF9F5, 0xF5FFFFFF, 0xFFE9EED9, 0xFF4D7C0F, 0xFF84CC16, 0.92f),
+    ZokasThemePreset("bamboo_mist", "07. Kabut Bambu", "Alam & Segar", true, 0xFF4ADE80, 0xFFA1A1AA, 0xFFF59E0B, 0xFF0B1911, 0xE0132A1D, 0xFF1E3F2C, 0xFF16A34A, 0xFF4ADE80, 0.84f),
+    ZokasThemePreset("alpine_pine", "08. Pinus Alpen", "Alam & Segar", true, 0xFF2DD4BF, 0xFF94A3B8, 0xFFFB923C, 0xFF071E22, 0xE60F2E34, 0xFF1A434B, 0xFF0F766E, 0xFF2DD4BF, 0.86f),
+    ZokasThemePreset("pistachio_cream", "09. Krim Pistachio", "Alam & Segar", false, 0xFF15803D, 0xFF475569, 0xFFD97706, 0xFFF6FDF8, 0xF5FFFFFF, 0xFFDCFCE7, 0xFF16A34A, 0xFF4ADE80, 0.92f),
+    ZokasThemePreset("seafoam_breeze", "10. Angin Laut Hijau", "Alam & Segar", false, 0xFF0F766E, 0xFF475569, 0xFFE11D48, 0xFFF2FBF9, 0xEBFFFFFF, 0xFFD5F5EE, 0xFF0F766E, 0xFF14B8A6, 0.88f),
+
+    // Biru & Samudra (11 - 20)
+    ZokasThemePreset("ocean_sapphire", "11. Safir Samudra", "Biru & Langit", false, 0xFF1D4ED8, 0xFF475569, 0xFFD97706, 0xFFF8FAFC, 0xF5FFFFFF, 0xFFDBEAFE, 0xFF1D4ED8, 0xFF3B82F6, 0.92f),
+    ZokasThemePreset("sky_glass", "12. Kaca Langit Biru", "Biru & Langit", false, 0xFF0284C7, 0xFF475569, 0xFFEA580C, 0xFFF0F9FF, 0xE3FFFFFF, 0xFFE0F2FE, 0xFF0284C7, 0xFF38BDF8, 0.85f),
+    ZokasThemePreset("midnight_navy", "13. Biru Tengah Malam", "Biru & Langit", true, 0xFF60A5FA, 0xFF94A3B8, 0xFFFBBF24, 0xFF091226, 0xE611203E, 0xFF1B325E, 0xFF2563EB, 0xFF60A5FA, 0.86f),
+    ZokasThemePreset("cobalt_wave", "14. Gelombang Kobalt", "Biru & Langit", false, 0xFF2563EB, 0xFF4B5563, 0xFF059669, 0xFFF5F8FF, 0xF2FFFFFF, 0xFFE0E7FF, 0xFF1E40AF, 0xFF60A5FA, 0.90f),
+    ZokasThemePreset("arctic_frost", "15. Embun Arktik", "Biru & Langit", false, 0xFF0369A1, 0xFF475569, 0xFF7C3AED, 0xFFF3FAFD, 0xE0FFFFFF, 0xFFD9EEF7, 0xFF0369A1, 0xFF06B6D4, 0.83f),
+    ZokasThemePreset("deep_abyss", "16. Palung Laut Gelap", "Biru & Langit", true, 0xFF38BDF8, 0xFF94A3B8, 0xFFF472B6, 0xFF06131D, 0xE60C2233, 0xFF15364F, 0xFF0284C7, 0xFF38BDF8, 0.85f),
+    ZokasThemePreset("cerulean_aqua", "17. Biru Cerulean", "Biru & Langit", false, 0xFF0891B2, 0xFF475569, 0xFFD97706, 0xFFECFEFF, 0xEBFFFFFF, 0xFFCFFAFE, 0xFF0891B2, 0xFF22D3EE, 0.88f),
+    ZokasThemePreset("indigo_dusk", "18. Senja Indigo", "Biru & Langit", true, 0xFF818CF8, 0xFF94A3B8, 0xFF34D399, 0xFF0E1028, 0xE6191D42, 0xFF262C5E, 0xFF4F46E5, 0xFF818CF8, 0.86f),
+    ZokasThemePreset("glacier_crystal", "19. Kristal Gletser", "Biru & Langit", false, 0xFF0E7490, 0xFF475569, 0xFF2563EB, 0xFFF4FBFD, 0xE0FFFFFF, 0xFFDCEFF5, 0xFF0E7490, 0xFF38BDF8, 0.82f),
+    ZokasThemePreset("electric_cyan", "20. Sian Elektrik", "Biru & Langit", true, 0xFF22D3EE, 0xFF94A3B8, 0xFFFACC15, 0xFF071921, 0xE60E2B38, 0xFF174154, 0xFF06B6D4, 0xFF22D3EE, 0.85f),
+
+    // Hangat, Kopi, Emas & Senja (21 - 30)
+    ZokasThemePreset("espresso_gold", "21. Kopi Espresso & Emas", "Kopi & Hangat", true, 0xFFFBBF24, 0xFFD6D3D1, 0xFF34D399, 0xFF19120D, 0xEB291E16, 0xFF3D2D21, 0xFFB45309, 0xFFF59E0B, 0.88f),
+    ZokasThemePreset("caramel_latte", "22. Karamel Latte", "Kopi & Hangat", false, 0xFFB45309, 0xFF57534E, 0xFF059669, 0xFFFFFBF5, 0xF5FFFFFF, 0xFFFEF3C7, 0xFFB45309, 0xFFF59E0B, 0.92f),
+    ZokasThemePreset("sunset_amber", "23. Senja Kuning Emas", "Kopi & Hangat", false, 0xFFD97706, 0xFF57534E, 0xFFDC2626, 0xFFFFFBEB, 0xEBFFFFFF, 0xFFFDE68A, 0xFFD97706, 0xFFFBBF24, 0.88f),
+    ZokasThemePreset("terracotta_clay", "24. Terakota Hangat", "Kopi & Hangat", false, 0xFFC2410C, 0xFF57534E, 0xFF0D9488, 0xFFFFF7ED, 0xF2FFFFFF, 0xFFFFEDD5, 0xFFC2410C, 0xFFF97316, 0.90f),
+    ZokasThemePreset("mocha_velvet", "25. Beludru Moka", "Kopi & Hangat", true, 0xFFFB923C, 0xFFD6D3D1, 0xFF38BDF8, 0xFF1C1310, 0xEB2E201B, 0xFF453129, 0xFFEA580C, 0xFFFB923C, 0.87f),
+    ZokasThemePreset("honey_comb", "26. Madu Nusantara", "Kopi & Hangat", false, 0xFFA16207, 0xFF57534E, 0xFF15803D, 0xFFFEFCE8, 0xF2FFFFFF, 0xFFFEF08A, 0xFFCA8A04, 0xFFEAB308, 0.90f),
+    ZokasThemePreset("cinnamon_spice", "27. Kayu Manis", "Kopi & Hangat", false, 0xFF9A3412, 0xFF57534E, 0xFF047857, 0xFFFAF6F2, 0xF5FFFFFF, 0xFFF5E6D8, 0xFF9A3412, 0xFFEA580C, 0.92f),
+    ZokasThemePreset("royal_gold_dark", "28. Emas Kerajaan Gelap", "Kopi & Hangat", true, 0xFFFACC15, 0xFFCBD5E1, 0xFF4ADE80, 0xFF14120B, 0xEB242014, 0xFF38321F, 0xFFCA8A04, 0xFFFACC15, 0.88f),
+    ZokasThemePreset("peach_blossom", "29. Persik Transparan", "Kopi & Hangat", false, 0xFFEA580C, 0xFF57534E, 0xFF7C3AED, 0xFFFFF8F3, 0xE6FFFFFF, 0xFFFFE4D6, 0xFFEA580C, 0xFFFB923C, 0.85f),
+    ZokasThemePreset("roasted_chestnut", "30. Kastanye Panggang", "Kopi & Hangat", true, 0xFFF59E0B, 0xFFA8A29E, 0xFF2DD4BF, 0xFF17110E, 0xEB291F1A, 0xFF3D2E27, 0xFFD97706, 0xFFF59E0B, 0.87f),
+
+    // Merah, Mawar, Ungu & Berry (31 - 40)
+    ZokasThemePreset("crimson_ruby", "31. Merah Delima", "Merah & Ungu", false, 0xFFDC2626, 0xFF475569, 0xFFD97706, 0xFFFEF2F2, 0xF5FFFFFF, 0xFFFEE2E2, 0xFFDC2626, 0xFFF87171, 0.92f),
+    ZokasThemePreset("rose_quartz_glass", "32. Kaca Mawar Kuarsa", "Merah & Ungu", false, 0xFFE11D48, 0xFF475569, 0xFF0284C7, 0xFFFFF1F2, 0xE3FFFFFF, 0xFFFFE4E6, 0xFFE11D48, 0xFFFB7185, 0.84f),
+    ZokasThemePreset("velvet_maroon", "33. Marun Elegan", "Merah & Ungu", true, 0xFFFB7185, 0xFFCBD5E1, 0xFFFBBF24, 0xFF1F0B12, 0xEB33131E, 0xFF4D1D2E, 0xFFE11D48, 0xFFFB7185, 0.86f),
+    ZokasThemePreset("royal_violet", "34. Ungu Violet", "Merah & Ungu", false, 0xFF7C3AED, 0xFF475569, 0xFF059669, 0xFFF5F3FF, 0xF2FFFFFF, 0xFFEDE9FE, 0xFF6D28D9, 0xFFA78BFA, 0.90f),
+    ZokasThemePreset("lavender_mist", "35. Kabut Lavender", "Merah & Ungu", false, 0xFF6D28D9, 0xFF52525B, 0xFFD97706, 0xFFFAF5FF, 0xE6FFFFFF, 0xFFF3E8FF, 0xFF7E22CE, 0xFFC084FC, 0.85f),
+    ZokasThemePreset("cyber_amethyst", "36. Kecubung Malam", "Merah & Ungu", true, 0xFFC084FC, 0xFFCBD5E1, 0xFF34D399, 0xFF150C24, 0xEB24153D, 0xFF37215C, 0xFF9333EA, 0xFFC084FC, 0.86f),
+    ZokasThemePreset("magenta_neon", "37. Magenta Neon", "Merah & Ungu", true, 0xFFF472B6, 0xFFCBD5E1, 0xFF38BDF8, 0xFF1D0B1B, 0xEB30132D, 0xFF4A1E45, 0xFFDB2777, 0xFFF472B6, 0.85f),
+    ZokasThemePreset("plum_berry", "38. Buah Plum Segar", "Merah & Ungu", false, 0xFF9333EA, 0xFF4B5563, 0xFF0D9488, 0xFFFCF7FF, 0xF2FFFFFF, 0xFFF5E6FF, 0xFF9333EA, 0xFFD946EF, 0.90f),
+    ZokasThemePreset("cherry_blossom", "39. Bunga Sakura", "Merah & Ungu", false, 0xFFDB2777, 0xFF475569, 0xFF059669, 0xFFFDF2F8, 0xE8FFFFFF, 0xFFFCE7F3, 0xFFDB2777, 0xFFF472B6, 0.86f),
+    ZokasThemePreset("obsidian_orchid", "40. Anggrek Obsidian", "Merah & Ungu", true, 0xFFE879F9, 0xFFCBD5E1, 0xFFFACC15, 0xFF160B1E, 0xEB261433, 0xFF3B1F4F, 0xFFC026D3, 0xFFE879F9, 0.86f),
+
+    // Modern, Monokrom, Glassmorphism & Profesional (41 - 50)
+    ZokasThemePreset("slate_corporate", "41. Abu-Abu Korporat", "Modern & Elegan", false, 0xFF334155, 0xFF64748B, 0xFF059669, 0xFFF8FAFC, 0xF7FFFFFF, 0xFFE2E8F0, 0xFF334155, 0xFF64748B, 0.95f),
+    ZokasThemePreset("midnight_slate", "42. Slate Gelap Modern", "Modern & Elegan", true, 0xFF34D399, 0xFF94A3B8, 0xFFF59E0B, 0xFF0F172A, 0xF21E293B, 0xFF334155, 0xFF1E293B, 0xFF334155, 0.92f),
+    ZokasThemePreset("graphite_carbon", "43. Karbon Grafit", "Modern & Elegan", true, 0xFF38BDF8, 0xFFA1A1AA, 0xFFFBBF24, 0xFF121214, 0xF01E1E22, 0xFF2E2E34, 0xFF27272A, 0xFF3F3F46, 0.90f),
+    ZokasThemePreset("pearl_white_glass", "44. Putih Mutiara Kaca", "Modern & Elegan", false, 0xFF047857, 0xFF475569, 0xFF1D4ED8, 0xFFF9FAFB, 0xDEFFFFFF, 0xFFE5E7EB, 0xFF047857, 0xFF10B981, 0.82f),
+    ZokasThemePreset("aurora_borealis", "45. Aurora Gradasi", "Modern & Elegan", true, 0xFF2DD4BF, 0xFFCBD5E1, 0xFFA78BFA, 0xFF081822, 0xE3102938, 0xFF193E54, 0xFF0D9488, 0xFF7C3AED, 0.84f),
+    ZokasThemePreset("sunset_horizon", "46. Cakrawala Senja", "Modern & Elegan", false, 0xFFE11D48, 0xFF475569, 0xFFD97706, 0xFFFFF8F6, 0xE8FFFFFF, 0xFFFFE7E0, 0xFFE11D48, 0xFFF59E0B, 0.86f),
+    ZokasThemePreset("emerald_gold_lux", "47. Zamrud & Emas Mewah", "Modern & Elegan", true, 0xFF34D399, 0xFFD6D3D1, 0xFFFACC15, 0xFF071B15, 0xEB0E2E24, 0xFF184738, 0xFF059669, 0xFFD97706, 0.87f),
+    ZokasThemePreset("nordic_silver", "48. Perak Nordik", "Modern & Elegan", false, 0xFF1E3A8A, 0xFF475569, 0xFF059669, 0xFFF1F5F9, 0xEBFFFFFF, 0xFFCBD5E1, 0xFF1E3A8A, 0xFF3B82F6, 0.88f),
+    ZokasThemePreset("amoled_pitch_black", "49. Hitam Pekat AMOLED", "Modern & Elegan", true, 0xFF34D399, 0xFFA1A1AA, 0xFFFBBF24, 0xFF000000, 0xF2121212, 0xFF222222, 0xFF059669, 0xFF10B981, 0.94f),
+    ZokasThemePreset("crystal_prism", "50. Prisma Transparan", "Modern & Elegan", false, 0xFF2563EB, 0xFF475569, 0xFF059669, 0xFFF4F7FB, 0xDBFFFFFF, 0xFFDBEAFE, 0xFF2563EB, 0xFF059669, 0.80f)
+)
+
+object ZokasThemeManager {
+    private const val PREFS_NAME = "zokas_theme_gallery_prefs"
+    private const val KEY_THEME_ID = "selected_theme_id"
+
+    var selectedThemeId by mutableStateOf("default_emerald")
+        private set
+
+    private var initialized = false
+
+    fun ensureLoaded(context: Context) {
+        if (!initialized) {
+            val saved = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_THEME_ID, "default_emerald") ?: "default_emerald"
+            selectedThemeId = saved
+            initialized = true
+        }
+    }
+
+    fun selectTheme(context: Context, themeId: String) {
+        selectedThemeId = themeId
+        initialized = true
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(KEY_THEME_ID, themeId).apply()
+    }
+
+    fun getActivePreset(context: Context): ZokasThemePreset {
+        ensureLoaded(context)
+        return ZOKAS_50_THEMES.find { it.id == selectedThemeId } ?: ZOKAS_50_THEMES.first()
+    }
+
+    fun activeGradientBrush(context: Context): Brush {
+        val preset = getActivePreset(context)
+        return Brush.horizontalGradient(
+            colors = listOf(
+                Color(preset.gradientStartHex),
+                Color(preset.gradientEndHex)
+            )
+        )
+    }
+
+    fun buildColorScheme(preset: ZokasThemePreset, forceDarkMode: Boolean): ColorScheme {
+        val primary = Color(preset.primaryHex)
+        val secondary = Color(preset.secondaryHex)
+        val tertiary = Color(preset.tertiaryHex)
+
+        // Jika pengguna memilih tema default ("default_emerald"), hormati toggle Dark Mode bawaan secara presisi
+        if (preset.id == "default_emerald") {
+            return if (forceDarkMode) {
+                darkColorScheme(
+                    primary = EmeraldGreenLight,
+                    onPrimary = Color(0xFF022C22),
+                    primaryContainer = EmeraldGreenDark,
+                    onPrimaryContainer = Color(0xFFA7F3D0),
+                    secondary = SlateGreyLight,
+                    onSecondary = BackgroundDark,
+                    secondaryContainer = SurfaceVariantDark,
+                    onSecondaryContainer = Color(0xFFE2E8F0),
+                    tertiary = AmberAccent,
+                    onTertiary = Color(0xFF451A03),
+                    tertiaryContainer = Color(0xFF78350F),
+                    onTertiaryContainer = Color(0xFFFEF3C7),
+                    background = BackgroundDark,
+                    onBackground = Color(0xFFF1F5F9),
+                    surface = SurfaceDark,
+                    onSurface = Color(0xFFF1F5F9),
+                    surfaceVariant = SurfaceVariantDark,
+                    onSurfaceVariant = Color(0xFFE2E8F0),
+                    surfaceTint = EmeraldGreenLight,
+                    inverseSurface = Color(0xFFE2E8F0),
+                    inverseOnSurface = BackgroundDark,
+                    inversePrimary = EmeraldGreenDark,
+                    error = Color(0xFFF87171),
+                    onError = Color(0xFF450A0A),
+                    errorContainer = Color(0xFF7F1D1D),
+                    onErrorContainer = Color(0xFFFECACA),
+                    outline = Color(0xFF94A3B8),
+                    outlineVariant = Color(0xFF475569),
+                    scrim = Color(0xFF000000)
+                )
+            } else {
+                lightColorScheme(
+                    primary = EmeraldGreen,
+                    onPrimary = Color.White,
+                    primaryContainer = EmeraldGreenLight,
+                    onPrimaryContainer = Color(0xFF022C22),
+                    secondary = SlateGrey,
+                    onSecondary = Color.White,
+                    secondaryContainer = SlateGreyLight,
+                    onSecondaryContainer = SlateGreyDark,
+                    tertiary = AmberAccent,
+                    onTertiary = Color(0xFF1E293B),
+                    background = BackgroundLight,
+                    onBackground = Color(0xFF0F172A),
+                    surface = SurfaceLight,
+                    onSurface = Color(0xFF0F172A),
+                    surfaceVariant = SlateSurface,
+                    onSurfaceVariant = Color(0xFF334155),
+                    outline = Color(0xFF64748B),
+                    outlineVariant = Color(0xFFCBD5E1),
+                    error = ErrorRed,
+                    onError = Color.White
+                )
+            }
+        }
+
+        val bg = Color(preset.backgroundHex)
+        val surf = Color(preset.surfaceHex).copy(alpha = preset.glassAlpha)
+        val surfVar = Color(preset.surfaceVariantHex).copy(alpha = (preset.glassAlpha + 0.05f).coerceAtMost(1f))
+
+        val onBg = readableOnColor(bg)
+        val onSurf = readableOnColor(Color(preset.surfaceHex))
+        val onSurfVar = readableSecondaryOnColor(Color(preset.surfaceVariantHex))
+        val onPrim = readableOnColor(primary)
+        val onSec = readableOnColor(secondary)
+        val onTert = readableOnColor(tertiary)
+
+        val primContainer = primary.copy(alpha = 0.20f)
+        val onPrimContainer = onSurf
+
+        return if (preset.isDark) {
+            darkColorScheme(
+                primary = primary,
+                onPrimary = onPrim,
+                primaryContainer = primContainer,
+                onPrimaryContainer = onPrimContainer,
+                secondary = secondary,
+                onSecondary = onSec,
+                secondaryContainer = secondary.copy(alpha = 0.22f),
+                onSecondaryContainer = onSurf,
+                tertiary = tertiary,
+                onTertiary = onTert,
+                tertiaryContainer = tertiary.copy(alpha = 0.22f),
+                onTertiaryContainer = onSurf,
+                background = bg,
+                onBackground = onBg,
+                surface = surf,
+                onSurface = onSurf,
+                surfaceVariant = surfVar,
+                onSurfaceVariant = onSurfVar,
+                outline = onSurfVar.copy(alpha = 0.55f),
+                outlineVariant = onSurfVar.copy(alpha = 0.25f),
+                error = Color(0xFFF87171),
+                onError = Color(0xFF450A0A)
+            )
+        } else {
+            lightColorScheme(
+                primary = primary,
+                onPrimary = onPrim,
+                primaryContainer = primContainer,
+                onPrimaryContainer = onPrimContainer,
+                secondary = secondary,
+                onSecondary = onSec,
+                secondaryContainer = secondary.copy(alpha = 0.18f),
+                onSecondaryContainer = onSurf,
+                tertiary = tertiary,
+                onTertiary = onTert,
+                tertiaryContainer = tertiary.copy(alpha = 0.18f),
+                onTertiaryContainer = onSurf,
+                background = bg,
+                onBackground = onBg,
+                surface = surf,
+                onSurface = onSurf,
+                surfaceVariant = surfVar,
+                onSurfaceVariant = onSurfVar,
+                outline = onSurfVar.copy(alpha = 0.55f),
+                outlineVariant = onSurfVar.copy(alpha = 0.25f),
+                error = ErrorRed,
+                onError = Color.White
+            )
+        }
+    }
+}
+
 // =====================================================================
-// FIX #6 — COMPOSABLE COLOR HELPERS (WAJIB DIPAKAI DI COMPOSABLE BARU)
-// =====================================================================
-// SEBELUM (buruk di dark mode):
-//   Text("Dapur Bersih!", color = SlateGrey)  ← abu-abu gelap, tenggelam
-//
-// SESUDAH (adaptif):
-//   Text("Dapur Bersih!", color = secondaryTextColor())
-//
-// Aturan pakai:
-//   - Teks sekunder / hint / caption  → secondaryTextColor()
-//   - Teks aksen (promo, warning)     → accentTextColor()
-//   - Teks sukses (hijau)             → successTextColor()
-//   - Teks error / hapus              → dangerTextColor()
-//   - Teks "redup" untuk placeholder  → mutedTextColor()
-//   - Garis pemisah                   → subtleDividerColor()
-//   - Warna tombol container          → MaterialTheme.colorScheme.primary
-//                                       (bukan EmeraldGreen langsung — di dark
-//                                        jadi EmeraldGreenLight yang lebih cerah)
+// COMPOSABLE COLOR HELPERS (ADAPTIF TERHADAP SELURUH 50 TEMA)
 // =====================================================================
 
 @Composable
@@ -79,7 +329,7 @@ fun successTextColor(): Color = MaterialTheme.colorScheme.primary
 fun dangerTextColor(): Color = MaterialTheme.colorScheme.error
 
 @Composable
-fun mutedTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+fun mutedTextColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
 
 @Composable
 fun subtleDividerColor(): Color = MaterialTheme.colorScheme.outlineVariant
