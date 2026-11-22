@@ -73,15 +73,15 @@ fun SettingsSectionLeadingIcon(
 ) {
     Box(
         modifier = Modifier
-            .size(40.dp)
-            .background(tint.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+            .size(36.dp)
+            .background(tint.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = tint,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -96,9 +96,10 @@ fun SettingsAppearanceCard(
     val lang = language
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -167,7 +168,7 @@ fun SettingsAppearanceCard(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(if (lang == "in") "Indonesia" else "English")
                 }
@@ -183,6 +184,7 @@ fun SettingsAccountCard(
     isBiometricEnabled: Boolean,
     onBiometricToggle: (Boolean) -> Unit,
     onChangePinClick: () -> Unit,
+    onPhotoSettingsClick: () -> Unit = {},
     onManageStaffClick: () -> Unit,
     onShiftHistoryClick: () -> Unit,
     onRegisterBiometricClick: () -> Unit,
@@ -195,24 +197,25 @@ fun SettingsAccountCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.ManageAccounts, MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             LanguageManager.tr("manajemen_akun", lang),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         Text(
                             currentUser.name,
                             fontSize = 11.sp,
@@ -228,7 +231,7 @@ fun SettingsAccountCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -250,7 +253,7 @@ fun SettingsAccountCard(
                                 containerColor = MaterialTheme.colorScheme.tertiary,
                                 contentColor = MaterialTheme.colorScheme.onTertiary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(LanguageManager.tr("ubah_pin", lang), fontSize = 12.sp)
                         }
@@ -262,11 +265,22 @@ fun SettingsAccountCard(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text(LanguageManager.tr("kelola_karyawan", lang), fontSize = 12.sp)
                             }
                         }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = onPhotoSettingsClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Foto Profil Akun", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -283,7 +297,7 @@ fun SettingsAccountCard(
                             else
                                 MaterialTheme.colorScheme.onSecondary
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -301,7 +315,7 @@ fun SettingsAccountCard(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = MaterialTheme.colorScheme.onSecondary
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(LanguageManager.tr("riwayat_shift", lang), fontSize = 12.sp)
                     }
@@ -490,7 +504,7 @@ fun SettingsBusinessTypeCard(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
                         if (lang == "in") "GANTI" else "CHANGE",
@@ -509,24 +523,24 @@ fun SettingsBusinessTypeCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.BusinessCenter, MaterialTheme.colorScheme.tertiary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             LanguageManager.tr("tipe_usaha", lang),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         Text(
                             currentLabel,
                             fontSize = 11.sp,
@@ -543,7 +557,7 @@ fun SettingsBusinessTypeCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -683,17 +697,17 @@ fun SettingsModuleCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.Widgets, MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             LanguageManager.tr("modul_toko", lang),
@@ -716,15 +730,15 @@ fun SettingsModuleCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(bottom = 12.dp)) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
 
                     // MULTI-CABANG DI DALAM MODUL TOKO
                     if (isOwner) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Default.Storefront,
@@ -781,14 +795,14 @@ fun SettingsModuleCard(
                             }
                         }
                         HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                         )
                     }
 
                     // HAPPY HOUR PROMO DI DALAM MODUL TOKO
                     var showHappyHourInline by remember { mutableStateOf(false) }
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -867,22 +881,22 @@ fun SettingsModuleCard(
                         }
                     }
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Modul HR
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onHrModuleToggle(!enableHrModule) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onHrModuleToggle(!enableHrModule) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Badge,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Modul Kepegawaian (HR)",
@@ -900,22 +914,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Modul CRM
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onCrmModuleToggle(!enableCrmModule) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onCrmModuleToggle(!enableCrmModule) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.People,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Modul CRM (Pelanggan)",
@@ -933,22 +947,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Mode Meja
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onTableModeToggle(!isTableModeEnabled) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onTableModeToggle(!isTableModeEnabled) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Restaurant,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Mode Meja Restoran",
@@ -966,22 +980,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Multi Currency
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onMultiCurrencyToggle(!enableMultiCurrency) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onMultiCurrencyToggle(!enableMultiCurrency) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Payments,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Multi-Mata Uang (USD)",
@@ -1004,8 +1018,8 @@ fun SettingsModuleCard(
                             onValueChange = onExchangeRateChange,
                             label = { Text(LanguageManager.tr("kurs_usd", lang), fontSize = 12.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
                             )
@@ -1013,22 +1027,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Tipe Pesanan
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onOrderTypesToggle(!enableOrderTypes) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onOrderTypesToggle(!enableOrderTypes) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.LocalDining,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Tipe Pesanan (Order Type)",
@@ -1046,22 +1060,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Harga Grosir
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onWholesaleToggle(!enableWholesale) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onWholesaleToggle(!enableWholesale) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.MonetizationOn,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Harga Grosir (Retail)",
@@ -1079,22 +1093,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Pre-Order
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onPreOrderToggle(!enablePreOrder) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onPreOrderToggle(!enablePreOrder) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Event,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Pre-Order (Pesanan Musiman)",
@@ -1112,22 +1126,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Reservasi
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onReservationToggle(!enableReservation) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onReservationToggle(!enableReservation) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.CalendarMonth,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Reservasi / Booking",
@@ -1146,16 +1160,16 @@ fun SettingsModuleCard(
 
                     if (enableReservation) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onManageReservationClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onManageReservationClick() }.padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.Schedule,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     "Kelola Jadwal Reservasi",
@@ -1178,22 +1192,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Membership
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onMembershipToggle(!enableMembership) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onMembershipToggle(!enableMembership) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.CardMembership,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Paket Langganan (Membership)",
@@ -1212,16 +1226,16 @@ fun SettingsModuleCard(
 
                     if (enableMembership) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onManageMembershipClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onManageMembershipClick() }.padding(horizontal = 12.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.List,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     "Kelola Paket Langganan",
@@ -1244,22 +1258,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Supplier
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onSupplierToggle(!enableSupplier) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onSupplierToggle(!enableSupplier) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.LocalShipping,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Supplier & Pembelian (PO)",
@@ -1278,16 +1292,16 @@ fun SettingsModuleCard(
 
                     if (enableSupplier) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onManageSupplierClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onManageSupplierClick() }.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.Person,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     "Kelola Supplier",
@@ -1308,16 +1322,16 @@ fun SettingsModuleCard(
                             )
                         }
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onCreatePOClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onCreatePOClick() }.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.AddShoppingCart,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     "Buat Pembelian (PO)",
@@ -1340,22 +1354,22 @@ fun SettingsModuleCard(
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Keuangan
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onFinanceToggle(!enableFinance) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onFinanceToggle(!enableFinance) }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.AccountBalanceWallet,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Modul Keuangan (Finance)",
@@ -1374,16 +1388,16 @@ fun SettingsModuleCard(
 
                     if (enableFinance) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onManageReceivableClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onManageReceivableClick() }.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.ReceiptLong,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     "Buku Piutang (Bon)",
@@ -1404,16 +1418,16 @@ fun SettingsModuleCard(
                             )
                         }
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onManagePayableClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onManagePayableClick() }.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.RequestQuote,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     "Buku Hutang (Supplier)",
@@ -1434,16 +1448,16 @@ fun SettingsModuleCard(
                             )
                         }
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { onManageExpenseClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onManageExpenseClick() }.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.MoneyOff,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     "Pengeluaran Operasional",
@@ -1465,28 +1479,28 @@ fun SettingsModuleCard(
                         }
                     }
 
-BomModuleSwitchRow(
-        enabled = enableBomModule,
-        onToggle = onBomModuleToggle
-    )
+                    BomModuleSwitchRow(
+                        enabled = enableBomModule,
+                        onToggle = onBomModuleToggle
+                    )
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // Bahan Baku
                     Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onRawMaterialClick() }.padding(horizontal = 16.dp, vertical = 16.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onRawMaterialClick() }.padding(horizontal = 12.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             Icons.Default.Inventory,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 "Kelola Bahan Baku",
@@ -1527,17 +1541,17 @@ fun SettingsPrinterCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.Print, MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             LanguageManager.tr("printer_kasir", lang),
@@ -1560,7 +1574,7 @@ fun SettingsPrinterCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -1584,10 +1598,10 @@ fun SettingsPrinterCard(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     ) { Text(LanguageManager.tr("pilih_printer", lang)) }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
                         LanguageManager.tr("printer_dapur", lang),
@@ -1607,7 +1621,7 @@ fun SettingsPrinterCard(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     ) { Text(LanguageManager.tr("pilih_printer_dapur", lang)) }
                 }
             }
@@ -1656,17 +1670,17 @@ fun SettingsStoreProfileCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.Store, MaterialTheme.colorScheme.tertiary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             LanguageManager.tr("profil_toko", lang),
@@ -1689,17 +1703,17 @@ fun SettingsStoreProfileCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                         Box(
                             modifier = Modifier
-                                .size(72.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .size(68.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surface)
                                 .clickable { logoPickerLauncher.launch("image/*") },
                             contentAlignment = Alignment.Center
@@ -1716,11 +1730,11 @@ fun SettingsStoreProfileCard(
                                     Icons.Default.Store,
                                     contentDescription = "Upload Logo",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(30.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
                         Column {
                             Text(
                                 "Logo Toko",
@@ -1742,18 +1756,18 @@ fun SettingsStoreProfileCard(
                         label = { Text(LanguageManager.tr("nama_toko", lang)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = storeAddress,
                         onValueChange = onStoreAddressChange,
                         label = { Text(LanguageManager.tr("alamat_toko", lang)) },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = storePhone,
                         onValueChange = onStorePhoneChange,
@@ -1761,18 +1775,18 @@ fun SettingsStoreProfileCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = storeFooter,
                         onValueChange = onStoreFooterChange,
                         label = { Text(LanguageManager.tr("pesan_struk", lang)) },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = cfdThankYouMessage,
                         onValueChange = onCfdThankYouMessageChange,
@@ -1780,9 +1794,9 @@ fun SettingsStoreProfileCard(
                         placeholder = { Text("Contoh: Terima Kasih atas pembeliannya 🙏") },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -1847,7 +1861,7 @@ fun SettingsStoreProfileCard(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         )
                         OutlinedTextField(
                             value = serviceChargePercent,
@@ -1856,17 +1870,17 @@ fun SettingsStoreProfileCard(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .clickable { onTaxInclusiveChange(!isTaxInclusive) },
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
@@ -1968,11 +1982,11 @@ fun SettingsDiscountCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -1997,7 +2011,7 @@ fun SettingsDiscountCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -2008,7 +2022,7 @@ fun SettingsDiscountCard(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = hhStart,
@@ -2016,7 +2030,7 @@ fun SettingsDiscountCard(
                             label = { Text(LanguageManager.tr("mulai", lang)) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         )
                         OutlinedTextField(
                             value = hhEnd,
@@ -2024,10 +2038,10 @@ fun SettingsDiscountCard(
                             label = { Text(LanguageManager.tr("selesai", lang)) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = hhDiscount,
                         onValueChange = onHhDiscountChange,
@@ -2035,9 +2049,9 @@ fun SettingsDiscountCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = maxDiscountCap,
                         onValueChange = onMaxDiscountCapChange,
@@ -2045,7 +2059,7 @@ fun SettingsDiscountCard(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
                 }
             }
@@ -2068,17 +2082,17 @@ fun SettingsBackupCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.CloudSync, MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             LanguageManager.tr("data_backup", lang),
@@ -2101,7 +2115,7 @@ fun SettingsBackupCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -2112,7 +2126,7 @@ fun SettingsBackupCard(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = onBackupClick,
@@ -2121,7 +2135,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) { Text(LanguageManager.tr("backup", lang)) }
                         Button(
                             onClick = onRestoreClick,
@@ -2130,7 +2144,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.tertiary,
                                 contentColor = MaterialTheme.colorScheme.onTertiary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) { Text(LanguageManager.tr("restore", lang)) }
                     }
                     HorizontalDivider(
@@ -2149,7 +2163,7 @@ fun SettingsBackupCard(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = onExportExcelClick,
@@ -2158,7 +2172,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) { Text(LanguageManager.tr("ekspor_excel", lang)) }
                         Button(
                             onClick = onImportExcelClick,
@@ -2167,7 +2181,7 @@ fun SettingsBackupCard(
                                 containerColor = MaterialTheme.colorScheme.secondary,
                                 contentColor = MaterialTheme.colorScheme.onSecondary
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) { Text(LanguageManager.tr("impor_excel", lang)) }
                     }
                 }
@@ -2191,15 +2205,15 @@ fun SettingsPaymentMethodCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(16.dp),
+            modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .background(
                         if (hasWarning) MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
                         else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
@@ -2211,10 +2225,10 @@ fun SettingsPaymentMethodCard(
                     imageVector = if (hasWarning) Icons.Default.Warning else Icons.Default.Payment,
                     contentDescription = null,
                     tint = if (hasWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Metode Pembayaran",
@@ -2440,7 +2454,7 @@ fun PaymentMethodManagementDialog(
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                                 ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(10.dp)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Row(
@@ -2566,7 +2580,7 @@ fun PaymentMethodManagementDialog(
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                                 ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(10.dp)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
@@ -2640,7 +2654,7 @@ fun PaymentMethodManagementDialog(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp)
             ) { Text("SIMPAN", fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
@@ -2691,20 +2705,20 @@ fun SettingsOwnerMonitorCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
-                    .padding(16.dp),
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.NotificationsActive, MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Pantauan HP Owner (Tanpa Server)",
@@ -2730,7 +2744,7 @@ fun SettingsOwnerMonitorCard() {
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
@@ -2924,7 +2938,7 @@ fun SettingsOwnerMonitorCard() {
                         placeholder = { Text("123456789:ABCdef...") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedButton(
@@ -2948,7 +2962,7 @@ fun SettingsOwnerMonitorCard() {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedButton(
@@ -3236,20 +3250,20 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
-                    .padding(16.dp),
+                    .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     SettingsSectionLeadingIcon(Icons.Default.Sync, MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Sinkronisasi Multi-Perangkat",
@@ -3276,15 +3290,15 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                     // PANEL STATUS & IDENTITAS AKUN TERVERIFIKASI
                     Surface(
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -3367,15 +3381,15 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                         leadingIcon = { Icon(Icons.Default.PointOfSale, contentDescription = null) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
 
                     Surface(
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .clickable {
                                 val nextVal = !autoExportOnCloseShift
                                 autoExportOnCloseShift = nextVal
@@ -3418,12 +3432,12 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                             Toast.makeText(context, info, if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
                         },
                         enabled = !isBusy,
-                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 46.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -3444,7 +3458,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                             },
                             enabled = !isBusy,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
@@ -3457,7 +3471,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                             onClick = { importSyncLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
                             enabled = !isBusy,
                             modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary),
                             contentPadding = PaddingValues(horizontal = 8.dp)
