@@ -51,11 +51,6 @@ object ProductVoiceOcrHelper {
         return file to uri
     }
 
-    /**
-     * Menjalankan ML Kit Text Recognition secara lokal (on-device) pada Uri gambar.
-     * Mengembalikan daftar kandidat teks (baris & frasa utama) yang sudah dibersihkan
-     * agar cocok dengan berbagai jenis font kemasan produk.
-     */
     suspend fun recognizeProductNameCandidates(context: Context, imageUri: Uri): List<String> {
         return try {
             val inputImage = InputImage.fromFilePath(context, imageUri)
@@ -79,7 +74,6 @@ object ProductVoiceOcrHelper {
             val visionText = recognizer.process(inputImage).await()
             val rawCandidates = mutableListOf<String>()
 
-            // Gabungan blok/baris terpanjang biasanya merupakan nama produk utama pada label/kemasan
             for (block in visionText.textBlocks) {
                 val blockClean = cleanProductLabelText(block.text)
                 if (blockClean.length >= 2) {
@@ -119,9 +113,7 @@ object ProductVoiceOcrHelper {
         val letters = text.count { it.isLetter() }
         if (lettersAndDigits in 3..45) score += 10
         if (letters >= 2) score += 8
-        // Hindari kandidat yang hanya berupa angka murni (misal harga/berat/kode)
         if (letters == 0 && text.any { it.isDigit() }) score -= 12
-        // Utamakan panjang nama produk yang wajar (2 - 6 kata)
         val wordCount = text.split(Regex("\\s+")).filter { it.isNotBlank() }.size
         if (wordCount in 1..6) score += 6
         return score

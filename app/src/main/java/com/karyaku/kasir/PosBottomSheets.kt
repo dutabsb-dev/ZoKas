@@ -35,6 +35,7 @@ import coil.compose.AsyncImage
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.karyaku.kasir.data.local.ProductEntity
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -42,25 +43,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-// =====================================================================
-// SESI 1b, SESI 2a, & SESI 4 (POIN #1, #2, #5, #6):
-//   1. ProductFormBottomSheet:
-//      - Menambahkan tombol akses langsung "Atur Resep (BOM) & Bahan Baku"
-//        saat mengedit produk (onManageBom), sehingga user bisa langsung
-//        mengatur resep dan stok bahan baku dari form Edit Produk.
-//      - Semua warna keras (SlateGrey, EmeraldGreen, AmberAccent, ErrorRed)
-//        diganti ke MaterialTheme.colorScheme.* adaptif.
-//   2. PaymentBottomSheet (Sesi 2a):
-//      - Menghilangkan spinner "Menunggu notifikasi transfer masuk..." (VA)
-//      - Mengganti link kecil konfirmasi manual dengan Checkbox jelas
-//        "Saya sudah menerima transfer sesuai nominal" yang mengaktifkan
-//        tombol SELESAIKAN PEMBAYARAN.
-//      - Semua warna keras diganti ke MaterialTheme.colorScheme.* adaptif.
-// =====================================================================
-
-// =====================================================================
-// DATA CLASS UNTUK VARIAN DINAMIS
-// =====================================================================
 data class VariantInput(
     val id: String = UUID.randomUUID().toString(),
     var name: String = "",
@@ -71,9 +53,6 @@ data class VariantInput(
     var barcode: String = ""
 )
 
-// =====================================================================
-// 1. PRODUCT FORM BOTTOM SHEET
-// =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductFormBottomSheet(
@@ -89,9 +68,9 @@ fun ProductFormBottomSheet(
     ) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // STATE FORM
     var name by remember { mutableStateOf(productToEdit?.name ?: "") }
     var productSku by remember { mutableStateOf(productToEdit?.let { extractProductSku(it.barcode) } ?: "") }
     var barcode by remember { mutableStateOf(productToEdit?.let { extractActualBarcode(it.barcode) } ?: "") }
@@ -100,16 +79,31 @@ fun ProductFormBottomSheet(
     var unitDropdownExpanded by remember { mutableStateOf(false) }
     var imagePath by remember { mutableStateOf(productToEdit?.imagePath ?: "") }
 
-    // State Varian
+    var isScanningOcr by remember { mutableStateOf(false) }
+    var ocrCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pendingCaptureFile by remember { mutableStateOf<File?>(null) }
+    var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
+    var showAdvancedOptions by remember {
+        mutableStateOf(
+            productToEdit != null && (
+                extractProductSku(productToEdit.barcode).isNotBlank() ||
+                    extractActualBarcode(productToEdit.barcode).isNotBlank() ||
+                    productToEdit.commissionPerItem > 0L ||
+                    productToEdit.wholesalePrice > 0L ||
+                    productToEdit.expiryDate > 0L ||
+                    productToEdit.isService ||
+                    productToEdit.isCombo
+                )
+        )
+    }
+
     var hasVariants by remember { mutableStateOf(false) }
     var variantList by remember { mutableStateOf<List<VariantInput>>(emptyList()) }
 
-    // State Tanpa Varian
     var singleCost by remember { mutableStateOf(productToEdit?.costPrice?.toString() ?: "") }
     var singlePrice by remember { mutableStateOf(productToEdit?.price?.toString() ?: "") }
     var singleStock by remember { mutableStateOf(productToEdit?.stock?.toString() ?: "") }
 
-    // State Tambahan
     var commission by remember { mutableStateOf(productToEdit?.commissionPerItem?.toString() ?: "0") }
     var wholesalePrice by remember { mutableStateOf(productToEdit?.wholesalePrice?.toString() ?: "0") }
     var wholesaleMinQty by remember { mutableStateOf(productToEdit?.wholesaleMinQty?.toString() ?: "0") }
@@ -118,6 +112,41 @@ fun ProductFormBottomSheet(
     var isCombo by remember { mutableStateOf(productToEdit?.isCombo ?: false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var scanningVariantIndex by remember { mutableStateOf<Int?>(null) }
+
+    fun runOcrFromUri(uri: Uri) {
+        isScanningOcr = true
+        scope.launch {
+            val found = ProductVoiceOcrHelper.recognizeProductNameCandidates(context, uri)
+            isScanningOcr = false
+            ocrCandidates = found
+            if (found.isNotEmpty()) {
+                name = found.first()
+                Toast.makeText(context, "Teks terbaca: \"${found.first()}\"", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(
+                    context,
+                    "Teks produk belum jelas terbaca. Coba arahkan kamera lebih dekat atau pilih dari galeri.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    val ocrGalleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) runOcrFromUri(uri)
+    }
+
+    val ocrCameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        val capturedUri = pendingCaptureUri
+        if (taken && capturedUri != null) {
+            runOcrFromUri(capturedUri)
+        } else {
+            pendingCaptureFile?.delete()
+        }
+        pendingCaptureUri = null
+        pendingCaptureFile = null
+    }
+
     val variantBarcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val scanned = result.contents?.trim()
         val idx = scanningVariantIndex
@@ -130,7 +159,6 @@ fun ProductFormBottomSheet(
         }
     }
 
-    // Parse data varian saat pertama kali dibuka
     LaunchedEffect(productToEdit) {
         if (productToEdit != null && productToEdit.variations.isNotBlank()) {
             hasVariants = true
@@ -178,642 +206,719 @@ fun ProductFormBottomSheet(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 32.dp)
                 .imePadding()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
                 text = if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 16.dp)
+                color = MaterialTheme.colorScheme.onSurface
             )
 
-            // --- FOTO PRODUK ---
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                    .clickable { imagePickerLauncher.launch("image/*") },
-                contentAlignment = Alignment.Center
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                if (imagePath.isNotEmpty() && File(imagePath).exists()) {
-                    AsyncImage(
-                        model = File(imagePath),
-                        contentDescription = "Foto Produk",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
-                    )
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.AddAPhoto,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "Pilih Foto",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val isBomActiveForForm = remember { isBomEnabledInContext(context) }
-            // --- SESI 4 (POIN #2): AKSES CEPAT RESEP (BOM) & BAHAN BAKU DI FORM PRODUK ---
-            if (isBomActiveForForm) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Science,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Resep (BOM) & Bahan Baku",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text(
-                        text = if (productToEdit != null)
-                            "Atur takaran resep produk ini atau kelola stok bahan baku secara langsung."
-                        else
-                            "Anda dapat menyiapkan daftar bahan baku sekarang, lalu mengatur resep setelah produk disimpan.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "1. Informasi Wajib & Isi Cepat",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(110.dp)
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                            .clickable { imagePickerLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (imagePath.isNotEmpty() && File(imagePath).exists()) {
+                            AsyncImage(
+                                model = File(imagePath),
+                                contentDescription = "Foto Produk",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
+                            )
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Pilih Foto Produk (Opsional)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (productToEdit != null && onManageBom != null) {
-                            Button(
-                                onClick = { onManageBom(productToEdit) },
-                                modifier = Modifier.weight(1f).height(42.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp)
-                            ) {
-                                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Atur Resep (BOM)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        if (onManageRawMaterial != null) {
-                            OutlinedButton(
-                                onClick = onManageRawMaterial,
-                                modifier = Modifier.weight(1f).height(42.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.tertiary
-                                ),
-                                contentPadding = PaddingValues(horizontal = 8.dp)
-                            ) {
-                                Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Kelola Bahan Baku", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // --- CHECKBOX JASA / COMBO ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().clickable { isService = !isService }
-            ) {
-                Checkbox(
-                    checked = isService,
-                    onCheckedChange = { isService = it },
-                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
-                )
-                Text(
-                    "Produk Jasa (Tanpa Stok)",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }
-            ) {
-                Checkbox(
-                    checked = isCombo,
-                    onCheckedChange = { isCombo = it },
-                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
-                )
-                Text(
-                    "Produk Combo/Paket",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // --- FIELD UTAMA ---
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nama Produk *") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = category,
-                onValueChange = { category = it },
-                label = { Text("Kategori") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = productSku,
-                onValueChange = { productSku = it.uppercase() },
-                label = { Text("Kode Unik / SKU (cth: KOP-01)") },
-                placeholder = { Text("Bisa dicari di Kasir") },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                trailingIcon = {
-                    IconButton(
-                        onClick = {
-                            val catPrefix = category.trim().take(3).uppercase().ifBlank { "PRD" }
-                            val namePrefix = name.trim().split(Regex("\\s+"))
-                                .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                                .joinToString("")
-                                .take(3)
-                                .ifBlank { "X" }
-                            val randNum = (10..99).random()
-                            productSku = "$catPrefix-$namePrefix$randNum"
-                        }
-                    ) {
-                        Icon(
-                            Icons.Default.AutoAwesome,
-                            contentDescription = "Buat Kode Otomatis",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
-            Text(
-                text = "Tips: Ketuk ikon bintang untuk membuat Kode Unik otomatis, atau ketik kode sendiri.",
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 6.dp)
-            )
-            val packagingBarcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-                val scanned = result.contents?.trim()
-                if (!scanned.isNullOrEmpty()) {
-                    barcode = scanned
-                    Toast.makeText(context, "Barcode kemasan terbaca: $scanned", Toast.LENGTH_SHORT).show()
-                }
-            }
-            OutlinedTextField(
-                value = barcode,
-                onValueChange = { barcode = it },
-                label = { Text("Barcode Kemasan (Opsional)") },
-                placeholder = { Text("Ketik atau scan barcode kemasan") },
-                trailingIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (barcode.isNotEmpty()) {
-                            IconButton(onClick = { barcode = "" }) {
-                                Icon(
-                                    Icons.Default.Clear,
-                                    contentDescription = "Hapus Barcode",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        IconButton(
+                        OutlinedButton(
                             onClick = {
-                                val options = ScanOptions().apply {
-                                    setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                                    setPrompt("Arahkan kamera ke barcode produk")
-                                    setCameraId(0)
-                                    setBeepEnabled(true)
-                                    setBarcodeImageEnabled(true)
-                                    setOrientationLocked(true)
+                                if (isScanningOcr) return@OutlinedButton
+                                try {
+                                    val (file, uri) = ProductVoiceOcrHelper.createTempOcrPhotoUri(context)
+                                    pendingCaptureFile = file
+                                    pendingCaptureUri = uri
+                                    ocrCameraLauncher.launch(uri)
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, "Kamera OCR tidak dapat dibuka. Gunakan Scan dari Foto.", Toast.LENGTH_LONG).show()
                                 }
-                                packagingBarcodeLauncher.launch(options)
-                            }
+                            },
+                            enabled = !isScanningOcr,
+                            modifier = Modifier.weight(1f).height(40.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Icon(
-                                Icons.Default.QrCodeScanner,
-                                contentDescription = "Scan Barcode Kamera",
-                                tint = MaterialTheme.colorScheme.primary
+                            Icon(Icons.Default.DocumentScanner, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isScanningOcr) "Membaca..." else "Scan Nama (Kamera)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
                             )
                         }
+
+                        OutlinedButton(
+                            onClick = { if (!isScanningOcr) ocrGalleryLauncher.launch("image/*") },
+                            enabled = !isScanningOcr,
+                            modifier = Modifier.weight(1f).height(40.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(Icons.Default.ImageSearch, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Scan dari Foto", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    if (isScanningOcr) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text("Mendeteksi teks nama produk pada label...", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
 
-            // --- TOGGLE VARIAN ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().clickable {
-                    hasVariants = !hasVariants
-                    if (hasVariants && variantList.isEmpty()) variantList = listOf(VariantInput())
-                }
-            ) {
-                Checkbox(
-                    checked = hasVariants,
-                    onCheckedChange = {
-                        hasVariants = it
-                        if (it && variantList.isEmpty()) variantList = listOf(VariantInput())
-                    },
-                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
-                )
-                Text(
-                    "Produk ini memiliki Varian (Ukuran/Rasa, dll)",
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- JIKA TANPA VARIAN ---
-            if (!hasVariants) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = singleCost,
-                        onValueChange = { singleCost = it },
-                        label = { Text("Harga Beli") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    OutlinedTextField(
-                        value = singlePrice,
-                        onValueChange = { singlePrice = it },
-                        label = { Text("Harga Jual") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-                if (!isService) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = singleStock,
-                            onValueChange = { singleStock = it },
-                            label = { Text("Stok Awal") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1.4f),
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        Box(modifier = Modifier.weight(1f)) {
-                            OutlinedButton(
-                                onClick = { unitDropdownExpanded = true },
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Satuan: $baseUnit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                            }
-                            DropdownMenu(
-                                expanded = unitDropdownExpanded,
-                                onDismissRequest = { unitDropdownExpanded = false },
-                                modifier = Modifier.heightIn(max = 260.dp)
-                            ) {
-                                AVAILABLE_STOCK_UNITS.forEach { u ->
-                                    DropdownMenuItem(
-                                        text = { Text(u, fontWeight = if (u == baseUnit) FontWeight.Bold else FontWeight.Normal) },
-                                        onClick = { baseUnit = u; unitDropdownExpanded = false }
+                    if (ocrCandidates.size > 1) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Hasil scan terdeteksi (ketuk untuk mengganti nama):", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                ocrCandidates.forEach { candidate ->
+                                    FilterChip(
+                                        selected = name.equals(candidate, ignoreCase = true),
+                                        onClick = { name = candidate },
+                                        label = { Text(candidate, fontSize = 11.sp, maxLines = 1) }
                                     )
                                 }
                             }
                         }
                     }
-                }
-            } else {
-                // --- JIKA DENGAN VARIAN (BARIS DINAMIS + SATUAN & KONVERSI KEMASAN) ---
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Daftar Varian & Satuan Terkecil",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Nama Produk *") },
+                        placeholder = { Text("Ketik, scan label, atau ucapkan nama produk") },
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (name.isNotEmpty()) {
+                                    IconButton(onClick = { name = "" }, modifier = Modifier.size(34.dp)) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Hapus Nama", modifier = Modifier.size(17.dp))
+                                    }
+                                }
+                                VoiceMicButton(promptLabel = "nama produk", currentValue = name, onResultText = { name = it })
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = { category = it },
+                        label = { Text("Kategori *") },
+                        trailingIcon = {
+                            VoiceMicButton(promptLabel = "kategori produk", currentValue = category, onResultText = { category = it })
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            hasVariants = !hasVariants
+                            if (hasVariants && variantList.isEmpty()) variantList = listOf(VariantInput())
+                        }
+                    ) {
+                        Checkbox(
+                            checked = hasVariants,
+                            onCheckedChange = {
+                                hasVariants = it
+                                if (it && variantList.isEmpty()) variantList = listOf(VariantInput())
+                            },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                         )
-                        val previewTotalSmallest = variantList.sumOf {
-                            val q = it.stock.toIntOrNull() ?: 0
-                            val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                            q * m
+                        Text("Produk ini memiliki Varian (Ukuran/Rasa, dll)", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    if (!hasVariants) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = singleCost,
+                                onValueChange = { singleCost = it.filter { c -> c.isDigit() } },
+                                label = { Text("Harga Beli") },
+                                trailingIcon = {
+                                    VoiceMicButton(promptLabel = "harga beli", currentValue = singleCost, onResultText = { singleCost = it.filter { c -> c.isDigit() } })
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            OutlinedTextField(
+                                value = singlePrice,
+                                onValueChange = { singlePrice = it.filter { c -> c.isDigit() } },
+                                label = { Text("Harga Jual *") },
+                                trailingIcon = {
+                                    VoiceMicButton(promptLabel = "harga jual", currentValue = singlePrice, onResultText = { singlePrice = it.filter { c -> c.isDigit() } })
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
                         }
                         if (!isService) {
-                            Text(
-                                text = "Total Stok Gabungan: $previewTotalSmallest $baseUnit",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-                    }
-                    Box {
-                        OutlinedButton(
-                            onClick = { unitDropdownExpanded = true },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Text("Satuan: $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                        DropdownMenu(
-                            expanded = unitDropdownExpanded,
-                            onDismissRequest = { unitDropdownExpanded = false },
-                            modifier = Modifier.heightIn(max = 260.dp)
-                        ) {
-                            AVAILABLE_STOCK_UNITS.forEach { u ->
-                                DropdownMenuItem(
-                                    text = { Text(u) },
-                                    onClick = { baseUnit = u; unitDropdownExpanded = false }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                variantList.forEachIndexed { index, variant ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 OutlinedTextField(
-                                    value = variant.name,
-                                    onValueChange = { newName ->
-                                        val newList = variantList.toMutableList()
-                                        newList[index] = variant.copy(name = newName)
-                                        variantList = newList
+                                    value = singleStock,
+                                    onValueChange = { singleStock = it.filter { c -> c.isDigit() } },
+                                    label = { Text("Stok Awal") },
+                                    trailingIcon = {
+                                        VoiceMicButton(promptLabel = "jumlah stok", currentValue = singleStock, onResultText = { singleStock = it.filter { c -> c.isDigit() } })
                                     },
-                                    label = { Text("Nama Varian (cth: Jumbo)") },
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                IconButton(onClick = {
-                                    val newList = variantList.toMutableList()
-                                    newList.removeAt(index)
-                                    variantList = newList
-                                }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Hapus",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(
-                                    value = variant.costPrice,
-                                    onValueChange = {
-                                        val newList = variantList.toMutableList()
-                                        newList[index] = variant.copy(costPrice = it)
-                                        variantList = newList
-                                    },
-                                    label = { Text("Harga Beli") },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1.4f),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 )
-                                OutlinedTextField(
-                                    value = variant.price,
-                                    onValueChange = {
-                                        val newList = variantList.toMutableList()
-                                        newList[index] = variant.copy(price = it)
-                                        variantList = newList
-                                    },
-                                    label = { Text("Harga Jual") },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                            }
-                            if (!isService) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedTextField(
-                                        value = variant.stock,
-                                        onValueChange = {
-                                            val newList = variantList.toMutableList()
-                                            newList[index] = variant.copy(stock = it)
-                                            variantList = newList
-                                        },
-                                        label = { Text("Jumlah Stok") },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        modifier = Modifier.weight(1f),
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    OutlinedTextField(
-                                        value = variant.packMultiplier,
-                                        onValueChange = {
-                                            val digits = it.filter { c -> c.isDigit() }
-                                            val newList = variantList.toMutableList()
-                                            newList[index] = variant.copy(packMultiplier = digits)
-                                            variantList = newList
-                                        },
-                                        label = { Text("Isi / Kemasan ($baseUnit)") },
-                                        placeholder = { Text("1") },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        modifier = Modifier.weight(1f),
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                }
-                                val vQty = variant.stock.toIntOrNull() ?: 0
-                                val vMult = (variant.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                                if (vMult > 1) {
-                                    Text(
-                                        text = "Konversi satuan terkecil: $vQty x $vMult = ${vQty * vMult} $baseUnit",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = variant.barcode,
-                                onValueChange = { newCode ->
-                                    val newList = variantList.toMutableList()
-                                    newList[index] = variant.copy(barcode = newCode)
-                                    variantList = newList
-                                },
-                                label = { Text("Barcode Varian (Opsional)") },
-                                placeholder = { Text("Ketik atau scan barcode varian") },
-                                trailingIcon = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (variant.barcode.isNotEmpty()) {
-                                            IconButton(onClick = {
-                                                val newList = variantList.toMutableList()
-                                                newList[index] = variant.copy(barcode = "")
-                                                variantList = newList
-                                            }) {
-                                                Icon(Icons.Default.Clear, contentDescription = "Hapus Barcode Varian", modifier = Modifier.size(16.dp))
-                                            }
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                scanningVariantIndex = index
-                                                val options = ScanOptions().apply {
-                                                    setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                                                    setPrompt("Scan Barcode Varian ${variant.name.ifBlank { "#${index + 1}" }}")
-                                                    setCameraId(0)
-                                                    setBeepEnabled(true)
-                                                    setBarcodeImageEnabled(true)
-                                                    setOrientationLocked(true)
-                                                }
-                                                variantBarcodeLauncher.launch(options)
-                                            }
-                                        ) {
-                                            Icon(
-                                                Icons.Default.QrCodeScanner,
-                                                contentDescription = "Scan Barcode Varian",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
+                                Box(modifier = Modifier.weight(1f)) {
+                                    OutlinedButton(
+                                        onClick = { unitDropdownExpanded = true },
+                                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("Satuan: $baseUnit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                    }
+                                    DropdownMenu(
+                                        expanded = unitDropdownExpanded,
+                                        onDismissRequest = { unitDropdownExpanded = false },
+                                        modifier = Modifier.heightIn(max = 260.dp)
+                                    ) {
+                                        AVAILABLE_STOCK_UNITS.forEach { u ->
+                                            DropdownMenuItem(
+                                                text = { Text(u, fontWeight = if (u == baseUnit) FontWeight.Bold else FontWeight.Normal) },
+                                                onClick = { baseUnit = u; unitDropdownExpanded = false }
                                             )
                                         }
                                     }
-                                },
+                                }
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Daftar Varian & Satuan Terkecil", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                val previewTotalSmallest = variantList.sumOf {
+                                    val q = it.stock.toIntOrNull() ?: 0
+                                    val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                                    q * m
+                                }
+                                if (!isService) {
+                                    Text("Total Stok Gabungan: $previewTotalSmallest $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                                }
+                            }
+                            Box {
+                                OutlinedButton(
+                                    onClick = { unitDropdownExpanded = true },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Text("Satuan: $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                                }
+                                DropdownMenu(
+                                    expanded = unitDropdownExpanded,
+                                    onDismissRequest = { unitDropdownExpanded = false },
+                                    modifier = Modifier.heightIn(max = 260.dp)
+                                ) {
+                                    AVAILABLE_STOCK_UNITS.forEach { u ->
+                                        DropdownMenuItem(text = { Text(u) }, onClick = { baseUnit = u; unitDropdownExpanded = false })
+                                    }
+                                }
+                            }
+                        }
+
+                        variantList.forEachIndexed { index, variant ->
+                            Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
-                            )
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        OutlinedTextField(
+                                            value = variant.name,
+                                            onValueChange = { newName ->
+                                                val newList = variantList.toMutableList()
+                                                newList[index] = variant.copy(name = newName)
+                                                variantList = newList
+                                            },
+                                            label = { Text("Nama Varian (cth: Jumbo)") },
+                                            trailingIcon = {
+                                                VoiceMicButton(
+                                                    promptLabel = "nama varian",
+                                                    currentValue = variant.name,
+                                                    onResultText = { spoken ->
+                                                        val newList = variantList.toMutableList()
+                                                        newList[index] = variant.copy(name = spoken)
+                                                        variantList = newList
+                                                    }
+                                                )
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        IconButton(onClick = {
+                                            val newList = variantList.toMutableList()
+                                            newList.removeAt(index)
+                                            variantList = newList
+                                        }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            value = variant.costPrice,
+                                            onValueChange = {
+                                                val newList = variantList.toMutableList()
+                                                newList[index] = variant.copy(costPrice = it.filter { c -> c.isDigit() })
+                                                variantList = newList
+                                            },
+                                            label = { Text("Harga Beli") },
+                                            trailingIcon = {
+                                                VoiceMicButton(
+                                                    promptLabel = "harga beli varian",
+                                                    currentValue = variant.costPrice,
+                                                    onResultText = { spoken ->
+                                                        val newList = variantList.toMutableList()
+                                                        newList[index] = variant.copy(costPrice = spoken.filter { c -> c.isDigit() })
+                                                        variantList = newList
+                                                    }
+                                                )
+                                            },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        OutlinedTextField(
+                                            value = variant.price,
+                                            onValueChange = {
+                                                val newList = variantList.toMutableList()
+                                                newList[index] = variant.copy(price = it.filter { c -> c.isDigit() })
+                                                variantList = newList
+                                            },
+                                            label = { Text("Harga Jual") },
+                                            trailingIcon = {
+                                                VoiceMicButton(
+                                                    promptLabel = "harga jual varian",
+                                                    currentValue = variant.price,
+                                                    onResultText = { spoken ->
+                                                        val newList = variantList.toMutableList()
+                                                        newList[index] = variant.copy(price = spoken.filter { c -> c.isDigit() })
+                                                        variantList = newList
+                                                    }
+                                                )
+                                            },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            modifier = Modifier.weight(1f),
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                    }
+                                    if (!isService) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedTextField(
+                                                value = variant.stock,
+                                                onValueChange = {
+                                                    val newList = variantList.toMutableList()
+                                                    newList[index] = variant.copy(stock = it.filter { c -> c.isDigit() })
+                                                    variantList = newList
+                                                },
+                                                label = { Text("Jumlah Stok") },
+                                                trailingIcon = {
+                                                    VoiceMicButton(
+                                                        promptLabel = "stok varian",
+                                                        currentValue = variant.stock,
+                                                        onResultText = { spoken ->
+                                                            val newList = variantList.toMutableList()
+                                                            newList[index] = variant.copy(stock = spoken.filter { c -> c.isDigit() })
+                                                            variantList = newList
+                                                        }
+                                                    )
+                                                },
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                modifier = Modifier.weight(1f),
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            OutlinedTextField(
+                                                value = variant.packMultiplier,
+                                                onValueChange = {
+                                                    val digits = it.filter { c -> c.isDigit() }
+                                                    val newList = variantList.toMutableList()
+                                                    newList[index] = variant.copy(packMultiplier = digits)
+                                                    variantList = newList
+                                                },
+                                                label = { Text("Isi ($baseUnit)") },
+                                                placeholder = { Text("1") },
+                                                trailingIcon = {
+                                                    VoiceMicButton(
+                                                        promptLabel = "isi kemasan varian",
+                                                        currentValue = variant.packMultiplier,
+                                                        onResultText = { spoken ->
+                                                            val digits = spoken.filter { c -> c.isDigit() }
+                                                            val newList = variantList.toMutableList()
+                                                            newList[index] = variant.copy(packMultiplier = digits)
+                                                            variantList = newList
+                                                        }
+                                                    )
+                                                },
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                modifier = Modifier.weight(1f),
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                        }
+                                        val vQty = variant.stock.toIntOrNull() ?: 0
+                                        val vMult = (variant.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                                        if (vMult > 1) {
+                                            Text("Konversi satuan terkecil: $vQty x $vMult = ${vQty * vMult} $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                    OutlinedTextField(
+                                        value = variant.barcode,
+                                        onValueChange = { newCode ->
+                                            val newList = variantList.toMutableList()
+                                            newList[index] = variant.copy(barcode = newCode)
+                                            variantList = newList
+                                        },
+                                        label = { Text("Barcode Varian (Opsional)") },
+                                        placeholder = { Text("Ketik, ucapkan, atau scan barcode") },
+                                        trailingIcon = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                VoiceMicButton(
+                                                    promptLabel = "barcode varian",
+                                                    currentValue = variant.barcode,
+                                                    onResultText = { spoken ->
+                                                        val newList = variantList.toMutableList()
+                                                        newList[index] = variant.copy(barcode = spoken.replace(" ", ""))
+                                                        variantList = newList
+                                                    }
+                                                )
+                                                if (variant.barcode.isNotEmpty()) {
+                                                    IconButton(onClick = {
+                                                        val newList = variantList.toMutableList()
+                                                        newList[index] = variant.copy(barcode = "")
+                                                        variantList = newList
+                                                    }, modifier = Modifier.size(32.dp)) {
+                                                        Icon(Icons.Default.Clear, contentDescription = "Hapus Barcode Varian", modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+                                                IconButton(
+                                                    onClick = {
+                                                        scanningVariantIndex = index
+                                                        val options = ScanOptions().apply {
+                                                            setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                                            setPrompt("Scan Barcode Varian ${variant.name.ifBlank { "#${index + 1}" }}")
+                                                            setCameraId(0)
+                                                            setBeepEnabled(true)
+                                                            setBarcodeImageEnabled(true)
+                                                            setOrientationLocked(true)
+                                                        }
+                                                        variantBarcodeLauncher.launch(options)
+                                                    },
+                                                    modifier = Modifier.size(34.dp)
+                                                ) {
+                                                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode Varian", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = { variantList = variantList + VariantInput() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Tambah Baris Varian", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-
-                OutlinedButton(
-                    onClick = { variantList = variantList + VariantInput() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Tambah Baris Varian",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- FIELD TAMBAHAN (GROSIR & KOMISI) ---
-            if (!isService) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = wholesalePrice,
-                        onValueChange = { wholesalePrice = it },
-                        label = { Text("Harga Grosir") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    OutlinedTextField(
-                        value = wholesaleMinQty,
-                        onValueChange = { wholesaleMinQty = it },
-                        label = { Text("Min Qty Grosir") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            OutlinedTextField(
-                value = commission,
-                onValueChange = { commission = it },
-                label = { Text("Komisi Kasir / Item (Rp)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // --- EXPIRY ---
-            val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-            val expiryText = if (expiry > 0) dateFormat.format(Date(expiry)) else "Pilih Tanggal"
-            OutlinedButton(
-                onClick = { showDatePicker = true },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    Icons.Default.DateRange,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface)
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { showAdvancedOptions = !showAdvancedOptions },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("2. Pengaturan Lanjutan (Opsional)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text("SKU, barcode kemasan, tipe jasa/combo, resep BOM, grosir, komisi & expiry", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(imageVector = if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle Pengaturan Lanjutan", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    if (showAdvancedOptions) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
+                            Checkbox(checked = isService, onCheckedChange = { isService = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
+                            Text("Produk Jasa (Tanpa Stok)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
+                            Checkbox(checked = isCombo, onCheckedChange = { isCombo = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
+                            Text("Produk Combo/Paket", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+
+                        OutlinedTextField(
+                            value = productSku,
+                            onValueChange = { productSku = it.uppercase() },
+                            label = { Text("Kode Unik / SKU (cth: KOP-01)") },
+                            placeholder = { Text("Bisa dicari di Kasir") },
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                            trailingIcon = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    VoiceMicButton(promptLabel = "kode SKU produk", currentValue = productSku, onResultText = { productSku = it.uppercase().replace(" ", "-") })
+                                    IconButton(
+                                        onClick = {
+                                            val catPrefix = category.trim().take(3).uppercase().ifBlank { "PRD" }
+                                            val namePrefix = name.trim().split(Regex("\\s+")).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("").take(3).ifBlank { "X" }
+                                            val randNum = (10..99).random()
+                                            productSku = "$catPrefix-$namePrefix$randNum"
+                                        },
+                                        modifier = Modifier.size(34.dp)
+                                    ) {
+                                        Icon(Icons.Default.AutoAwesome, contentDescription = "Buat Kode Otomatis", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        val packagingBarcodeLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+                            val scanned = result.contents?.trim()
+                            if (!scanned.isNullOrEmpty()) {
+                                barcode = scanned
+                                Toast.makeText(context, "Barcode kemasan terbaca: $scanned", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        OutlinedTextField(
+                            value = barcode,
+                            onValueChange = { barcode = it },
+                            label = { Text("Barcode Kemasan (Opsional)") },
+                            placeholder = { Text("Ketik, ucapkan, atau scan barcode kemasan") },
+                            trailingIcon = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    VoiceMicButton(promptLabel = "barcode kemasan", currentValue = barcode, onResultText = { barcode = it.replace(" ", "") })
+                                    if (barcode.isNotEmpty()) {
+                                        IconButton(onClick = { barcode = "" }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Default.Clear, contentDescription = "Hapus Barcode", modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val options = ScanOptions().apply {
+                                                setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                                                setPrompt("Arahkan kamera ke barcode produk")
+                                                setCameraId(0)
+                                                setBeepEnabled(true)
+                                                setBarcodeImageEnabled(true)
+                                                setOrientationLocked(true)
+                                            }
+                                            packagingBarcodeLauncher.launch(options)
+                                        },
+                                        modifier = Modifier.size(34.dp)
+                                    ) {
+                                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode Kamera", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        val isBomActiveForForm = remember { isBomEnabledInContext(context) }
+                        if (isBomActiveForForm) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Science, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Resep (BOM) & Bahan Baku", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (productToEdit != null)
+                                            "Atur takaran resep produk ini atau kelola stok bahan baku secara langsung."
+                                        else
+                                            "Anda dapat menyiapkan daftar bahan baku sekarang, lalu mengatur resep setelah produk disimpan.",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        if (productToEdit != null && onManageBom != null) {
+                                            Button(
+                                                onClick = { onManageBom(productToEdit) },
+                                                modifier = Modifier.weight(1f).height(42.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
+                                                shape = RoundedCornerShape(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp)
+                                            ) {
+                                                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Atur Resep (BOM)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        if (onManageRawMaterial != null) {
+                                            OutlinedButton(
+                                                onClick = onManageRawMaterial,
+                                                modifier = Modifier.weight(1f).height(42.dp),
+                                                shape = RoundedCornerShape(10.dp),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary),
+                                                contentPadding = PaddingValues(horizontal = 8.dp)
+                                            ) {
+                                                Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Kelola Bahan Baku", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!isService) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = wholesalePrice,
+                                    onValueChange = { wholesalePrice = it.filter { c -> c.isDigit() } },
+                                    label = { Text("Harga Grosir") },
+                                    trailingIcon = {
+                                        VoiceMicButton(promptLabel = "harga grosir", currentValue = wholesalePrice, onResultText = { wholesalePrice = it.filter { c -> c.isDigit() } })
+                                    },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                OutlinedTextField(
+                                    value = wholesaleMinQty,
+                                    onValueChange = { wholesaleMinQty = it.filter { c -> c.isDigit() } },
+                                    label = { Text("Min Qty Grosir") },
+                                    trailingIcon = {
+                                        VoiceMicButton(promptLabel = "minimal jumlah grosir", currentValue = wholesaleMinQty, onResultText = { wholesaleMinQty = it.filter { c -> c.isDigit() } })
+                                    },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = commission,
+                            onValueChange = { commission = it.filter { c -> c.isDigit() } },
+                            label = { Text("Komisi Kasir / Item (Rp)") },
+                            trailingIcon = {
+                                VoiceMicButton(promptLabel = "komisi kasir per item", currentValue = commission, onResultText = { commission = it.filter { c -> c.isDigit() } })
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                        val expiryText = if (expiry > 0) dateFormat.format(Date(expiry)) else "Pilih Tanggal"
+                        OutlinedButton(
+                            onClick = { showDatePicker = true },
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        ) {
+                            Icon(Icons.Default.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            // --- TOMBOL SIMPAN ---
             Button(
                 onClick = {
                     if (name.isBlank()) {
@@ -832,7 +937,6 @@ fun ProductFormBottomSheet(
                             return@Button
                         }
 
-                        // Rakit string: Nama:HargaJual:HargaBeli:Stok:IsiPerKemasan
                         val variationParts = variantList.map {
                             val p = it.price.toLongOrNull() ?: 0L
                             val c = it.costPrice.toLongOrNull() ?: 0L
@@ -850,7 +954,6 @@ fun ProductFormBottomSheet(
                         }
                         finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
                         finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
-
                     } else {
                         finalPrice = singlePrice.toLongOrNull() ?: 0L
                         finalCost = singleCost.toLongOrNull() ?: 0L
@@ -872,17 +975,10 @@ fun ProductFormBottomSheet(
                     )
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
+                Text(if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
@@ -920,9 +1016,6 @@ private fun parseVariationString(variations: String, mainStock: Int): List<Varia
     return list
 }
 
-// =====================================================================
-// 2. PAYMENT BOTTOM SHEET (SESI 2a: VA DISEMBUNYIKAN + TRANSFER MANUAL RAPI)
-// =====================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentBottomSheet(
@@ -991,57 +1084,27 @@ fun PaymentBottomSheet(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "Pembayaran",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Text("Pembayaran", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "Total Tagihan:",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                formatRupiah(totalPrice),
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Black
-            )
+            Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
 
             if (settingsManager.enableMultiCurrency && settingsManager.exchangeRateUsd > 0) {
                 val usdAmount = totalPrice / settingsManager.exchangeRateUsd
                 val formattedUsd = String.format(Locale.US, "$%.2f", usdAmount)
-                Text(
-                    "≈ $formattedUsd USD",
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("≈ $formattedUsd USD", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (totalCommission > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        "Komisi Kasir: +${formatRupiah(totalCommission)}",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(8.dp),
-                        fontSize = 12.sp
-                    )
+                Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(12.dp)) {
+                    Text("Komisi Kasir: +${formatRupiah(totalCommission)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp), fontSize = 12.sp)
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val availableMethods = settingsManager.paymentMethods.toList()
                 availableMethods.forEach { method ->
                     val isSelected = paymentMethod == method
@@ -1051,23 +1114,11 @@ fun PaymentBottomSheet(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     ) {
-                        Text(
-                            text = method,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            textAlign = TextAlign.Center
-                        )
+                        Text(text = method, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -1084,76 +1135,29 @@ fun PaymentBottomSheet(
                     shape = RoundedCornerShape(12.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        "Kembalian:",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        formatRupiah(change),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (change > 0)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurface
-                    )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Kembalian:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                 }
             } else if (paymentMethod == "QRIS") {
                 if (isQrisPaid) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(64.dp)
-                            )
+                    Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                "Pembayaran Diterima!",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            Text("Pembayaran Diterima!", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 } else if (qrisString.isNotEmpty()) {
                     val bitmap = remember(qrisString) { generateQrCodeBitmap(qrisString) }
                     if (bitmap != null) {
-                        Surface(
-                            color = Color.White,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.padding(4.dp)
-                        ) {
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "QR Code",
-                                modifier = Modifier.size(250.dp).padding(8.dp)
-                            )
+                        Surface(color = Color.White, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(4.dp)) {
+                            Image(bitmap = bitmap.asImageBitmap(), contentDescription = "QR Code", modifier = Modifier.size(250.dp).padding(8.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Scan dengan aplikasi Bank/E-Wallet",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("Scan dengan aplikasi Bank/E-Wallet", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        Text(
-                            "Gagal membuat QR Code. Periksa Payload di Pengaturan.",
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        Text("Gagal membuat QR Code. Periksa Payload di Pengaturan.", color = MaterialTheme.colorScheme.error)
                     }
                 } else {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -1162,147 +1166,53 @@ fun PaymentBottomSheet(
                 }
             } else if (paymentMethod == "Bank Transfer") {
                 if (isTransferPaid) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(64.dp)
-                            )
+                    Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                "Transfer Diterima!",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            Text("Transfer Diterima!", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 } else {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                "Transfer ke Rekening:",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Transfer ke Rekening:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(6.dp))
                             if (settingsManager.bankAccountNumber.isNullOrBlank()) {
-                                Text(
-                                    "Rekening Bank belum diatur oleh Owner di Pengaturan -> Metode Pembayaran.",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center
-                                )
+                                Text("Rekening Bank belum diatur oleh Owner di Pengaturan -> Metode Pembayaran.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
                             } else {
-                                Text(
-                                    settingsManager.bankName?.ifBlank { "-" } ?: "-",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    settingsManager.bankAccountNumber?.ifBlank { "-" } ?: "-",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 24.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    "a/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                Text(settingsManager.bankName?.ifBlank { "-" } ?: "-", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text(settingsManager.bankAccountNumber?.ifBlank { "-" } ?: "-", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
+                                Text("a/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
 
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant
-                            )
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
-                            Text(
-                                "Nominal Transfer:",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                formatRupiah(if (uniqueTransferAmount > 0) uniqueTransferAmount else totalPrice),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 26.sp,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
+                            Text("Nominal Transfer:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatRupiah(if (uniqueTransferAmount > 0) uniqueTransferAmount else totalPrice), fontWeight = FontWeight.Black, fontSize = 26.sp, color = MaterialTheme.colorScheme.tertiary)
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Checkbox Konfirmasi Transfer Manual (Pengganti VA Auto-Detect)
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .clickable { manualTransferConfirmed = !manualTransferConfirmed },
-                        color = if (manualTransferConfirmed)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        color = if (manualTransferConfirmed) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (manualTransferConfirmed)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.outlineVariant
-                        )
+                        border = BorderStroke(1.dp, if (manualTransferConfirmed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = manualTransferConfirmed,
-                                onCheckedChange = { manualTransferConfirmed = it },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
+                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = manualTransferConfirmed, onCheckedChange = { manualTransferConfirmed = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Saya sudah menerima transfer sesuai nominal",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Text("Saya sudah menerima transfer sesuai nominal", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
             } else {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        "Pembayaran via $paymentMethod belum didukung secara offline.",
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(12.dp),
-                        textAlign = TextAlign.Center
-                    )
+                Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text("Pembayaran via $paymentMethod belum didukung secara offline.", color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp, modifier = Modifier.padding(12.dp), textAlign = TextAlign.Center)
                 }
             }
 
@@ -1314,31 +1224,18 @@ fun PaymentBottomSheet(
                 else -> true
             }
             Button(
-                onClick = {
-                    onConfirmPayment(
-                        if (paymentMethod == "CASH") cashReceived else totalPrice,
-                        paymentMethod
-                    )
-                },
+                onClick = { onConfirmPayment(if (paymentMethod == "CASH") cashReceived else totalPrice, paymentMethod) },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = canCompletePayment,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    "SELESAIKAN PEMBAYARAN",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1370,13 +1267,7 @@ fun PosActionMenuBottomSheet(
                 .padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = product.name,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
+            Text(text = product.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 4.dp))
 
             ListItem(
                 headlineContent = { Text("Edit Produk", fontWeight = FontWeight.SemiBold) },
