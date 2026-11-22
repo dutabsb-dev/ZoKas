@@ -12,8 +12,8 @@ android {
         applicationId "com.dbsbstudio.zokas"
         minSdk 26
         targetSdk 36
-        versionCode 6
-        versionName "1.0.5"
+        versionCode 7
+        versionName "1.0.6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary true }
@@ -107,4 +107,6 @@ dependencies {
     implementation 'androidx.biometric:biometric:1.1.0'
     implementation 'io.coil-kt:coil-compose:2.6.0'
     implementation 'org.apache.poi:poi-ooxml:5.2.3'
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3'
 }
