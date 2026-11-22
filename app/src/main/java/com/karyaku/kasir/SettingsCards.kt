@@ -2607,6 +2607,22 @@ fun PaymentMethodManagementDialog(
     var bankAccountName by remember { mutableStateOf(currentBankAccountName) }
     var showQrisTutorial by remember { mutableStateOf(false) }
 
+    var isEdcEnabledState by remember {
+        mutableStateOf(EdcConnectionManager.isEdcEnabled(context))
+    }
+    var edcChannelState by remember {
+        mutableStateOf(EdcConnectionManager.getPreferredChannel(context))
+    }
+    var edcHostState by remember {
+        mutableStateOf(EdcConnectionManager.getTcpHost(context))
+    }
+    var edcPortState by remember {
+        mutableStateOf(EdcConnectionManager.getTcpPort(context).toString())
+    }
+    var edcIntentState by remember {
+        mutableStateOf(EdcConnectionManager.getIntentPackageOrUri(context))
+    }
+
     val isQrisSelected = selectedMethods.contains("QRIS")
     val isBankSelected = selectedMethods.contains("Bank Transfer")
 
@@ -2948,21 +2964,7 @@ fun PaymentMethodManagementDialog(
                 }
 
                 // TOGGLE EDC DI BAWAH TRANSFER BANK MANUAL (DEFAULT OFF)
-                var isEdcEnabledState by remember {
-                    mutableStateOf(EdcConnectionManager.isEdcEnabled(context))
-                }
-                var edcChannelState by remember {
-                    mutableStateOf(EdcConnectionManager.getPreferredChannel(context))
-                }
-                var edcHostState by remember {
-                    mutableStateOf(EdcConnectionManager.getTcpHost(context))
-                }
-                var edcPortState by remember {
-                    mutableStateOf(EdcConnectionManager.getTcpPort(context).toString())
-                }
-                var edcIntentState by remember {
-                    mutableStateOf(EdcConnectionManager.getIntentPackageOrUri(context))
-                }
+
 
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
