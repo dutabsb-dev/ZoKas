@@ -34,7 +34,7 @@ import androidx.compose.ui.window.DialogProperties
 //   - Dirancang khusus untuk pengguna awam dan orang tua dengan gaya
 //     langkah-demi-langkah (1, 2, 3...) + Catatan/Tips penting persis
 //     seperti Tutorial QRIS yang disukai pengguna.
-//   - Mencakup Sesi 5 (Tutorial Dasar: Login, Kasir, Pembayaran, Cetak)
+//   - Mencakup Sesi 5 (Tutorial Dasar: Login, Kasir, Pembayaran, Cetak, EDC)
 //     dan Sesi 6 (Tutorial Lanjutan: Produk & BOM, Cabang, HR, CRM,
 //     Keuangan, Supplier & Backup).
 //   - Seluruh warna menggunakan MaterialTheme.colorScheme.* (100% Dark Mode Ready).
@@ -52,7 +52,7 @@ data class TutorialGuideTopic(
 
 private val allTutorialTopics = listOf(
     // =================================================================
-    // SESI 5 — TUTORIAL DASAR (LOGIN, KASIR, PEMBAYARAN, CETAK)
+    // SESI 5 — TUTORIAL DASAR (LOGIN, KASIR, PEMBAYARAN, EDC, CETAK)
     // =================================================================
     TutorialGuideTopic(
         id = "login_shift",
@@ -101,9 +101,24 @@ private val allTutorialTopics = listOf(
         importantNote = "Catatan: Anda bisa mengatur metode pembayaran apa saja yang aktif (serta mengisi nomor rekening & kode QRIS) melalui menu Pengaturan -> Metode Pembayaran."
     ),
     TutorialGuideTopic(
+        id = "pembayaran_edc_interaktif",
+        category = "DASAR",
+        title = "4. Cara Pakai Pembayaran Mesin EDC (Semua Jalur)",
+        subtitle = "Menghubungkan mesin EDC via Bluetooth, USB, Wi-Fi/TCP, atau Intent ECR.",
+        icon = Icons.Default.CreditCard,
+        steps = listOf(
+            "Pada layar 'Pembayaran' setelah menekan tombol 'BAYAR', geser deretan tombol metode pembayaran lalu pilih 'EDC'.",
+            "Aplikasi otomatis membentuk perintah ECR (ISO-8583 & JSON) beserta nomor Trace unik dan mengirimkannya ke jalur EDC yang dipilih.",
+            "Pilih jalur koneksi EDC yang sesuai di perangkat Anda: 'OTOMATIS (Semua Jalur)', 'Bluetooth (SPP/RFCOMM)', 'USB Host / Serial', 'Wi-Fi / LAN (TCP Socket)' (isi IP & Port EDC), atau 'Aplikasi / Intent ECR'.",
+            "Gesek atau tempelkan kartu Debit/Kredit pembeli pada mesin EDC. Jika mesin EDC terhubung, respon persetujuan (RC 00) dan No. Trace akan terisi otomatis; atau tekan 'Kirim Ulang' jika perlu.",
+            "Pastikan 'No. Trace / Approval EDC' sesuai struk EDC, centang 'Transaksi mesin EDC telah disetujui (Approved)', lalu tekan 'SELESAIKAN PEMBAYARAN'."
+        ),
+        importantNote = "Tips EDC: Gunakan mode 'OTOMATIS (Semua Jalur)' agar ZoKas mencoba Bluetooth, USB, Wi-Fi/TCP, dan Intent ECR secara berurutan tanpa perlu pengaturan rumit."
+    ),
+    TutorialGuideTopic(
         id = "printer_struk",
         category = "DASAR",
-        title = "4. Cara Pasang Printer Bluetooth & Cetak Struk",
+        title = "5. Cara Pasang Printer Bluetooth & Cetak Struk",
         subtitle = "Menghubungkan printer kasir/dapur dan membagikan struk WhatsApp.",
         icon = Icons.Default.Print,
         steps = listOf(
@@ -122,7 +137,7 @@ private val allTutorialTopics = listOf(
     TutorialGuideTopic(
         id = "produk_bom_bahan",
         category = "LANJUTAN",
-        title = "5. Cara Tambah Produk, Resep (BOM) & Bahan Baku",
+        title = "6. Cara Tambah Produk, Resep (BOM) & Bahan Baku",
         subtitle = "Mengelola daftar menu, stok barang, dan pemotongan bahan mentah otomatis.",
         icon = Icons.Default.Inventory,
         steps = listOf(
@@ -137,7 +152,7 @@ private val allTutorialTopics = listOf(
     TutorialGuideTopic(
         id = "modul_crm_member",
         category = "LANJUTAN",
-        title = "6. Cara Pakai Modul Pelanggan (CRM) & Paket Membership",
+        title = "7. Cara Pakai Modul Pelanggan (CRM) & Paket Membership",
         subtitle = "Mengaktifkan fitur member, poin belanja, diskon ulang tahun & paket kuota.",
         icon = Icons.Default.People,
         steps = listOf(
@@ -152,7 +167,7 @@ private val allTutorialTopics = listOf(
     TutorialGuideTopic(
         id = "supplier_keuangan",
         category = "LANJUTAN",
-        title = "7. Cara Catat Supplier (PO), Hutang, Piutang & Pengeluaran",
+        title = "8. Cara Catat Supplier (PO), Hutang, Piutang & Pengeluaran",
         subtitle = "Pembukuan uang keluar, kasbon pelanggan, dan belanja stok barang.",
         icon = Icons.Default.AccountBalanceWallet,
         steps = listOf(
@@ -167,7 +182,7 @@ private val allTutorialTopics = listOf(
     TutorialGuideTopic(
         id = "hr_karyawan_gaji",
         category = "LANJUTAN",
-        title = "8. Cara Kelola Karyawan, Absensi & Gaji (HR)",
+        title = "9. Cara Kelola Karyawan, Absensi & Gaji (HR)",
         subtitle = "Menambah akun staf/kasir, mencatat kehadiran, dan cetak slip gaji.",
         icon = Icons.Default.Badge,
         steps = listOf(
@@ -182,7 +197,7 @@ private val allTutorialTopics = listOf(
     TutorialGuideTopic(
         id = "cabang_backup_excel",
         category = "LANJUTAN",
-        title = "9. Cara Multi-Cabang, Transfer Stok & Backup Data",
+        title = "10. Cara Multi-Cabang, Transfer Stok & Backup Data",
         subtitle = "Mengelola lebih dari 1 cabang toko dan mengamankan data di HP.",
         icon = Icons.Default.Storefront,
         steps = listOf(
@@ -212,28 +227,28 @@ fun SettingsTutorialCard(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
         ),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)),
+                    .size(38.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.MenuBook,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (language == "in") "Buku Panduan & Tutorial Lengkap" else "Complete Guide & Tutorials",
@@ -243,9 +258,9 @@ fun SettingsTutorialCard(
                 )
                 Text(
                     text = if (language == "in")
-                        "Cara pakai semua fitur langkah demi langkah untuk pemula"
+                        "Cara pakai semua fitur & EDC langkah demi langkah"
                     else
-                        "Step-by-step guide for all features",
+                        "Step-by-step guide for all features & EDC",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -271,6 +286,7 @@ fun TutorialCenterDialog(
     var searchQuery by remember { mutableStateOf("") }
     var expandedTopicId by remember { mutableStateOf<String?>(allTutorialTopics.firstOrNull()?.id) }
     var selectedTopicDetail by remember { mutableStateOf<TutorialGuideTopic?>(null) }
+    var edcInteractiveChannel by remember { mutableStateOf(EdcChannel.AUTO) }
 
     val filteredTopics = remember(selectedFilter, searchQuery) {
         allTutorialTopics.filter { topic ->
@@ -283,7 +299,6 @@ fun TutorialCenterDialog(
         }
     }
 
-    // Dialog Popup Detail (Persis seperti dialog Tutorial QRIS jika user ingin baca layar penuh per topik)
     if (selectedTopicDetail != null) {
         val topic = selectedTopicDetail!!
         AlertDialog(
@@ -370,12 +385,11 @@ fun TutorialCenterDialog(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.9f),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                // Header
+            Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -384,7 +398,7 @@ fun TutorialCenterDialog(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(38.dp)
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
@@ -392,10 +406,10 @@ fun TutorialCenterDialog(
                                 Icons.Default.School,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
                                 "Pusat Panduan & Tutorial ZoKas",
@@ -419,13 +433,12 @@ fun TutorialCenterDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Pencarian Topik Tutorial
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Cari panduan (cth: QRIS, resep, printer, gaji)...", fontSize = 12.sp) },
+                    placeholder = { Text("Cari panduan (cth: EDC, QRIS, resep, printer, gaji)...", fontSize = 12.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -436,21 +449,20 @@ fun TutorialCenterDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(10.dp)
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Tab Filter Kategori (Semua, Dasar, Lanjutan)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     val filters = listOf(
-                        "SEMUA" to "Semua Panduan (9)",
-                        "DASAR" to "1. Panduan Dasar Kasir (4)",
+                        "SEMUA" to "Semua Panduan (${allTutorialTopics.size})",
+                        "DASAR" to "1. Panduan Dasar Kasir (5)",
                         "LANJUTAN" to "2. Panduan Fitur Lanjutan (5)"
                     )
                     filters.forEach { (key, label) ->
@@ -480,10 +492,9 @@ fun TutorialCenterDialog(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Daftar Panduan
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredTopics, key = { it.id }) { topic ->
                         val isExpanded = expandedTopicId == topic.id
@@ -498,7 +509,7 @@ fun TutorialCenterDialog(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
                             ),
                             border = if (isExpanded) BorderStroke(1.dp, accentColor) else null,
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Column {
                                 Row(
@@ -507,13 +518,13 @@ fun TutorialCenterDialog(
                                         .clickable {
                                             expandedTopicId = if (isExpanded) null else topic.id
                                         }
-                                        .padding(14.dp),
+                                        .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(38.dp)
-                                            .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                                            .size(36.dp)
+                                            .background(accentColor.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -523,7 +534,7 @@ fun TutorialCenterDialog(
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
-                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Surface(
@@ -569,7 +580,7 @@ fun TutorialCenterDialog(
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+                                            .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
                                     ) {
                                         HorizontalDivider(
                                             modifier = Modifier.padding(bottom = 10.dp),
@@ -608,6 +619,61 @@ fun TutorialCenterDialog(
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     modifier = Modifier.weight(1f)
                                                 )
+                                            }
+                                        }
+
+                                        // Simulasi interaktif jalur EDC di dalam topik tutorial EDC
+                                        if (topic.id == "pembayaran_edc_interaktif") {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            val sampleCmd = remember(edcInteractiveChannel) {
+                                                EdcConnectionManager.buildAutomaticEdcCommand(
+                                                    amount = 50000L,
+                                                    channel = edcInteractiveChannel,
+                                                    customTrace = "123456"
+                                                )
+                                            }
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                                shape = RoundedCornerShape(10.dp),
+                                                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.5f)),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(10.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Simulasi Interaktif Jalur & Command EDC (Contoh Rp 50.000):",
+                                                        fontSize = 11.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .horizontalScroll(rememberScrollState()),
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        EdcChannel.entries.forEach { ch ->
+                                                            FilterChip(
+                                                                selected = edcInteractiveChannel == ch,
+                                                                onClick = { edcInteractiveChannel = ch },
+                                                                label = { Text(ch.label, fontSize = 10.5.sp) }
+                                                            )
+                                                        }
+                                                    }
+                                                    Text(
+                                                        text = "Fungsi Jalur: ${edcInteractiveChannel.desc}",
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    Text(
+                                                        text = "Contoh Command Otomatis: ${sampleCmd.isoStyleMessage}",
+                                                        fontSize = 10.5.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
                                             }
                                         }
 
@@ -667,15 +733,15 @@ fun TutorialCenterDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Button(
                     onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Text("Mengerti & Tutup Panduan", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }

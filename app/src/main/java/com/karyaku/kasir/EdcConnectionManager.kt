@@ -236,7 +236,6 @@ object EdcConnectionManager {
                 writer.println(payload.rawWireFrame)
                 writer.flush()
 
-                sock.soTimeout = 2500
                 val reader = BufferedReader(InputStreamReader(sock.inputStream, Charsets.UTF_8))
                 val line = runCatching { reader.readLine() }.getOrNull().orEmpty()
                 parseEdcResponseFeedback(line, trace, "Bluetooth (${preferred.name ?: preferred.address})")
@@ -306,7 +305,6 @@ object EdcConnectionManager {
         }
         return try {
             Socket().use { sock ->
-                sock.soTimeout = 2500
                 sock.connect(InetSocketAddress(host, port), 2000)
                 val out = PrintWriter(OutputStreamWriter(sock.getOutputStream(), Charsets.UTF_8), true)
                 out.println(payload.rawWireFrame)
