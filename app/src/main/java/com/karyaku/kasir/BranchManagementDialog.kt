@@ -261,7 +261,7 @@ fun BranchManagementDialog(
                                 start = 16.dp,
                                 end = 16.dp,
                                 top = 4.dp,
-                                bottom = 96.dp
+                                bottom = 116.dp
                             ),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -280,7 +280,7 @@ fun BranchManagementDialog(
                     }
                 }
 
-                // FAB
+                // FAB (DENGAN BEZEL BAWAH AGAR NAIK & TERLIHAT JELAS)
                 ExtendedFloatingActionButton(
                     onClick = {
                         branchToEdit = null
@@ -288,7 +288,8 @@ fun BranchManagementDialog(
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(16.dp),
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp),

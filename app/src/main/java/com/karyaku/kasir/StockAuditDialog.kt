@@ -171,7 +171,7 @@ fun StockAuditDialog(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            Column(modifier = Modifier.fillMaxSize().imePadding()) {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 // TOP BAR
                 Row(
                     modifier = Modifier
@@ -423,16 +423,18 @@ fun StockAuditDialog(
                     }
                 }
 
-                // TOMBOL SIMPAN AUDIT DI BAGIAN BAWAH
+                // TOMBOL SIMPAN AUDIT DI BAGIAN BAWAH (DENGAN BEZEL BAWAH AGAR NAIK & TERLIHAT JELAS)
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 22.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         OutlinedButton(
