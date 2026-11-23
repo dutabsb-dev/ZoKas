@@ -1808,6 +1808,7 @@ fun SettingsPrinterCard(
     onKitchenClick: () -> Unit,
     language: String
 ) {
+    val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
 
