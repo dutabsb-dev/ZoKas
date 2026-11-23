@@ -112,28 +112,50 @@ fun ScheduledBackupDriveDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            cfg = cfg.copy(openGoogleDriveAfterBackup = !cfg.openGoogleDriveAfterBackup)
-                            AutoBackupDriveManager.saveSettings(context, cfg)
-                        }
-                        .padding(vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Checkbox(
-                        checked = cfg.openGoogleDriveAfterBackup,
-                        onCheckedChange = { checked ->
-                            cfg = cfg.copy(openGoogleDriveAfterBackup = checked)
-                            AutoBackupDriveManager.saveSettings(context, cfg)
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "Pengaturan Google Drive",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    cfg = cfg.copy(openGoogleDriveAfterBackup = !cfg.openGoogleDriveAfterBackup)
+                                    AutoBackupDriveManager.saveSettings(context, cfg)
+                                }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = cfg.openGoogleDriveAfterBackup,
+                                onCheckedChange = { checked ->
+                                    cfg = cfg.copy(openGoogleDriveAfterBackup = checked)
+                                    AutoBackupDriveManager.saveSettings(context, cfg)
+                                }
+                            )
+                            Text(
+                                "Otomatis arahkan ke Google Drive saat backup dibuat",
+                                fontSize = 11.5.sp,
+                                lineHeight = 15.sp,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                    )
-                    Text(
-                        "Buka / kirim file ke Google Drive setelah backup dibuat",
-                        fontSize = 12.sp,
-                        modifier = Modifier.weight(1f)
-                    )
+                        Text(
+                            "Catatan: Backup disimpan otomatis ke memori HP terlebih dahulu agar aman saat offline, lalu diteruskan ke aplikasi Google Drive milik akun Anda.",
+                            fontSize = 10.5.sp,
+                            lineHeight = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 Surface(
@@ -166,12 +188,18 @@ fun ScheduledBackupDriveDialog(
                             statusBanner = msg
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Backup Sekarang & Kirim ke Google Drive", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Backup Sekarang & Kirim ke Google Drive",
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         },
@@ -192,14 +220,14 @@ fun SimpleProductExcelDialog(
     val context = LocalContext.current
 
     val createTemplateLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
+        ActivityResultContracts.CreateDocument(SimpleProductExcelManager.XLSX_MIME_TYPE)
     ) { uri: Uri? ->
         if (uri != null) {
             try {
                 context.contentResolver.openOutputStream(uri)?.use { out ->
-                    out.write(SimpleProductExcelManager.buildSimpleTemplateCsv().toByteArray(Charsets.UTF_8))
+                    out.write(SimpleProductExcelManager.buildSimpleTemplateXlsxBytes())
                 }
-                Toast.makeText(context, "Template CSV simpel berhasil disimpan (1 kolom = 1 data).", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Template Excel (.xlsx) simpel berhasil disimpan.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "Gagal menyimpan template: ${e.message}", Toast.LENGTH_SHORT).show()
             }
@@ -207,10 +235,10 @@ fun SimpleProductExcelDialog(
     }
 
     val exportSimpleLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
+        ActivityResultContracts.CreateDocument(SimpleProductExcelManager.XLSX_MIME_TYPE)
     ) { uri: Uri? ->
         if (uri != null) {
-            val (_, msg) = SimpleProductExcelManager.exportProductsToSimpleCsvUri(context, uri, products)
+            val (_, msg) = SimpleProductExcelManager.exportProductsToSimpleXlsxUri(context, uri, products)
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
@@ -219,9 +247,9 @@ fun SimpleProductExcelDialog(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            val parsed = SimpleProductExcelManager.parseSimpleCsvUri(context, uri)
+            val parsed = SimpleProductExcelManager.parseSimpleSpreadsheetUri(context, uri)
             if (parsed.isEmpty()) {
-                Toast.makeText(context, "Tidak ada baris produk valid ditemukan di file.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Tidak ada baris produk valid ditemukan di file Excel (.xlsx).", Toast.LENGTH_LONG).show()
             } else {
                 onImportRows(parsed)
                 Toast.makeText(context, "${parsed.size} baris produk siap diproses.", Toast.LENGTH_SHORT).show()
@@ -240,7 +268,7 @@ fun SimpleProductExcelDialog(
             )
         },
         title = {
-            Text("Excel / CSV Produk Simpel", fontWeight = FontWeight.Bold)
+            Text("Excel Produk Simpel (.xlsx)", fontWeight = FontWeight.Bold)
         },
         text = {
             Column(
@@ -250,48 +278,72 @@ fun SimpleProductExcelDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    "Setiap informasi dipisah ke kolom sendiri (Nama, Kategori, Harga Beli, Harga Jual, Stok, Satuan, SKU, Barcode Kemasan, serta Varian di kolom terpisah) agar mudah diedit di Excel/Google Sheets tanpa salah tanda pemisah.",
+                    "Format Excel (.xlsx) dengan 1 kolom = 1 data (Nama, Kategori, Harga Beli, Harga Jual, Stok, Satuan, SKU, Barcode Kemasan, serta Varian di kolom terpisah) agar mudah diedit tanpa typo.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 OutlinedButton(
                     onClick = {
-                        createTemplateLauncher.launch("ZoKas_Template_Produk_Simpel.csv")
+                        createTemplateLauncher.launch("ZoKas_Template_Produk_Simpel.xlsx")
                     },
-                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Unduh Template Kosong + Contoh", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Unduh Template Kosong + Contoh (.xlsx)",
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 OutlinedButton(
                     onClick = {
-                        exportSimpleLauncher.launch("ZoKas_Produk_${System.currentTimeMillis()}.csv")
+                        exportSimpleLauncher.launch("ZoKas_Produk_Simpel_${System.currentTimeMillis()}.xlsx")
                     },
-                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
                 ) {
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Ekspor Produk Saat Ini (${products.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Ekspor Produk Saat Ini (${products.size}) (.xlsx)",
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 Button(
                     onClick = {
-                        importSimpleLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/*", "*/*"))
+                        importSimpleLauncher.launch(
+                            arrayOf(
+                                SimpleProductExcelManager.XLSX_MIME_TYPE,
+                                "application/vnd.ms-excel",
+                                "*/*"
+                            )
+                        )
                     },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Impor Produk dari File CSV/Excel", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Impor Produk dari File Excel (.xlsx)",
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         },
