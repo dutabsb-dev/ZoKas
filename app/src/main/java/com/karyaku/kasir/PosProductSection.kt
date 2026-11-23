@@ -924,6 +924,7 @@ private fun ProductCompactListRow(
 }
 
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BounceMarqueeText(
     text: String,
@@ -934,73 +935,20 @@ private fun BounceMarqueeText(
     softWrap: Boolean = false,
     textAlign: TextAlign? = null
 ) {
-    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
-    var boxWidthPx by remember { mutableFloatStateOf(0f) }
-    val measuredTextWidthPx = remember(text, style) {
-        textMeasurer.measure(
-            text = androidx.compose.ui.text.AnnotatedString(text),
-            style = style,
-            maxLines = 1,
-            softWrap = false
-        ).size.width.toFloat()
-    }
-    val overflowPx = remember(measuredTextWidthPx, boxWidthPx) {
-        if (boxWidthPx > 1f && measuredTextWidthPx > boxWidthPx + 2f) {
-            (measuredTextWidthPx - boxWidthPx + 10f)
-        } else {
-            0f
-        }
-    }
-
-    val bounceAnim = remember(text) { androidx.compose.animation.core.Animatable(0f) }
-
-    LaunchedEffect(text, overflowPx) {
-        if (overflowPx > 1f) {
-            val dur = (overflowPx * 26f).toInt().coerceIn(900, 3600)
-            while (true) {
-                kotlinx.coroutines.delay(550L)
-                bounceAnim.animateTo(
-                    targetValue = -overflowPx,
-                    animationSpec = androidx.compose.animation.core.tween(
-                        durationMillis = dur,
-                        easing = androidx.compose.animation.core.FastOutSlowInEasing
-                    )
-                )
-                kotlinx.coroutines.delay(550L)
-                bounceAnim.animateTo(
-                    targetValue = 0f,
-                    animationSpec = androidx.compose.animation.core.tween(
-                        durationMillis = dur,
-                        easing = androidx.compose.animation.core.FastOutSlowInEasing
-                    )
-                )
-            }
-        } else {
-            bounceAnim.snapTo(0f)
-        }
-    }
-
-    Box(
-        modifier = modifier
-            .clip(androidx.compose.ui.graphics.RectangleShape)
-            .onSizeChanged { size ->
-                boxWidthPx = size.width.toFloat()
-            },
-        contentAlignment = if (overflowPx > 1f) Alignment.CenterStart else Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = style,
-            color = color,
-            maxLines = maxLines,
-            softWrap = softWrap,
-            overflow = TextOverflow.Clip,
-            textAlign = if (overflowPx > 1f) TextAlign.Start else textAlign,
-            modifier = Modifier.graphicsLayer {
-                translationX = bounceAnim.value
-            }
+    Text(
+        text = text,
+        style = style,
+        color = color,
+        maxLines = maxLines,
+        softWrap = softWrap,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = textAlign,
+        modifier = modifier.basicMarquee(
+            iterations = Int.MAX_VALUE,
+            repeatDelayMillis = 800,
+            velocity = 32.dp
         )
-    }
+    )
 }
 
 private fun contrastingTextForBackground(bgColor: Color): Color {
