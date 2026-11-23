@@ -41,6 +41,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -158,6 +159,17 @@ fun PosProductSection(
                     FilterChip(
                         selected = isSelected,
                         onClick = { onCategorySelect(category) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = resolveCategoryIcon(category),
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = if (isSelected)
+                                    MaterialTheme.colorScheme.onPrimary
+                                else
+                                    MaterialTheme.colorScheme.primary
+                            )
+                        },
                         label = {
                             Text(
                                 category,
@@ -455,15 +467,31 @@ private fun ProductGridCard(
     val baseUnit = remember(product.barcode) { extractProductBaseUnit(product) }
 
     val imageFile = remember(product.imagePath) {
-        if (product.imagePath.isNotEmpty()) File(product.imagePath) else null
+        product.imagePath.trim().takeIf { it.isNotEmpty() }?.let { File(it) }
     }
-    val hasValidImage = imageFile != null && imageFile.exists()
+    val hasValidImage = remember(imageFile?.absolutePath) {
+        imageFile != null && imageFile.exists() && imageFile.length() > 0L
+    }
 
     val errorColor = MaterialTheme.colorScheme.error
     val containerBg = MaterialTheme.colorScheme.background
     val titleColor = remember(containerBg) { contrastingTextForBackground(containerBg) }
     val priceColor = MaterialTheme.colorScheme.primary
     val categoryLabel = if (productSku.isNotEmpty()) "$productSku • ${product.category}" else product.category
+
+    val stockText = remember(product.isService, product.stock, variantStocks, baseUnit) {
+        if (product.isService) {
+            "Jasa"
+        } else if (variantStocks.isNotEmpty()) {
+            val vSummary = variantStocks.joinToString(" • ") {
+                if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
+                else "${it.name}: ${it.stock} $baseUnit"
+            }
+            "Stok: ${product.stock} $baseUnit ($vSummary)"
+        } else {
+            "Stok: ${product.stock} $baseUnit"
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -472,7 +500,7 @@ private fun ProductGridCard(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // 4. Nama produk di atas card dengan deteksi warna background & bounce running text
+        // 1. Nama produk di atas card dengan bounce running text sampai ujung teks terlihat
         BounceMarqueeText(
             text = product.name,
             style = TextStyle(
@@ -489,7 +517,7 @@ private fun ProductGridCard(
                 .padding(horizontal = 2.dp)
         )
 
-        // Card utama berisi gambar terang & jelas + badge kategori vertikal di sebelah kiri
+        // Card utama: badge kategori vertikal di kiri + gambar full tanpa terpotong + stok di bawah dalam card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -513,7 +541,7 @@ private fun ProductGridCard(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
-                // 2. Badge kategori di sebelah kiri dengan teks kecil, posisi vertikal & bounce running text
+                // Badge kategori di sebelah kiri dengan teks kecil, posisi vertikal & bounce running text
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
                     modifier = Modifier
@@ -526,124 +554,162 @@ private fun ProductGridCard(
                             .padding(vertical = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
+                        Column(
                             modifier = Modifier
-                                .requiredWidth(72.dp)
-                                .graphicsLayer { rotationZ = -90f },
-                            contentAlignment = Alignment.Center
+                                .fillMaxSize()
+                                .padding(vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            BounceMarqueeText(
-                                text = categoryLabel,
-                                style = TextStyle(
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    lineHeight = 10.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                maxLines = 1,
-                                softWrap = false,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
+                            Icon(
+                                imageVector = resolveCategoryIcon(product.category, product.isService),
+                                contentDescription = product.category,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(13.dp)
                             )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .requiredWidth(64.dp)
+                                        .graphicsLayer { rotationZ = -90f },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    BounceMarqueeText(
+                                        text = categoryLabel,
+                                        style = TextStyle(
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            lineHeight = 10.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // 1 & 5. Gambar produk terang benderang, jelas, tanpa gradasi gelap & tanpa tertutup teks
-                Box(
+                // Area kanan di dalam card: gambar full tidak terpotong + info stok di bagian bawah dalam card
+                Column(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentAlignment = Alignment.Center
+                        .background(MaterialTheme.colorScheme.surface)
                 ) {
-                    if (hasValidImage) {
-                        AsyncImage(
-                            model = imageFile,
-                            contentDescription = product.name,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    when {
-                                        isOutOfStock -> Color(0xFFFEE2E2)
-                                        isLowStock -> Color(0xFFFEF2F2)
-                                        isExpiringSoon -> Color(0xFFFEF3C7)
-                                        else -> Color(0xFFECFDF5)
-                                    }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (product.isService) Icons.Default.Build else Icons.Default.Inventory2,
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (hasValidImage) {
+                            AsyncImage(
+                                model = imageFile,
                                 contentDescription = product.name,
-                                tint = when {
-                                    isOutOfStock || isLowStock -> Color(0xFFB91C1C)
-                                    isExpiringSoon -> Color(0xFFB45309)
-                                    else -> Color(0xFF047857)
-                                },
-                                modifier = Modifier.size(34.dp)
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        when {
+                                            isOutOfStock -> Color(0xFFFEE2E2)
+                                            isLowStock -> Color(0xFFFEF2F2)
+                                            isExpiringSoon -> Color(0xFFFEF3C7)
+                                            else -> Color(0xFFECFDF5)
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = resolveCategoryIcon(product.category, product.isService),
+                                    contentDescription = product.name,
+                                    tint = when {
+                                        isOutOfStock || isLowStock -> Color(0xFFB91C1C)
+                                        isExpiringSoon -> Color(0xFFB45309)
+                                        else -> Color(0xFF047857)
+                                    },
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                        }
+
+                        if (isOutOfStock || isLowStock || isExpiringSoon || product.promoType != "NONE") {
+                            val badgeBg = when {
+                                isOutOfStock -> Color(0xFFDC2626)
+                                isLowStock -> Color(0xFFEA580C)
+                                isExpiringSoon -> Color(0xFFD97706)
+                                else -> Color(0xFF059669)
+                            }
+                            val badgeText = when {
+                                isOutOfStock -> "HABIS"
+                                isLowStock -> "TIPIS"
+                                isExpiringSoon -> "EXP"
+                                product.promoType == "BOGO" -> "BOGO"
+                                else -> "-${product.promoValue}%"
+                            }
+                            Surface(
+                                color = badgeBg,
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            ) {
+                                Text(
+                                    text = badgeText,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                )
+                            }
                         }
                     }
 
-                    // Indikator kecil status stok/promo di pojok kanan atas tanpa menutupi tengah gambar
-                    if (isOutOfStock || isLowStock || isExpiringSoon || product.promoType != "NONE") {
-                        val badgeBg = when {
-                            isOutOfStock -> Color(0xFFDC2626)
-                            isLowStock -> Color(0xFFEA580C)
-                            isExpiringSoon -> Color(0xFFD97706)
-                            else -> Color(0xFF059669)
-                        }
-                        val badgeText = when {
-                            isOutOfStock -> "HABIS"
-                            isLowStock -> "TIPIS (${product.stock})"
-                            isExpiringSoon -> "EXP"
-                            product.promoType == "BOGO" -> "BOGO"
-                            else -> "-${product.promoValue}%"
-                        }
-                        Surface(
-                            color = badgeBg,
-                            shape = RoundedCornerShape(bottomStart = 8.dp),
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        ) {
-                            Text(
-                                text = badgeText,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
-                                maxLines = 1,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    // Info stok ringkas di pojok kiri bawah kecil
-                    if (!product.isService && variantStocks.isEmpty()) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.88f),
-                            shape = RoundedCornerShape(topEnd = 6.dp),
-                            modifier = Modifier.align(Alignment.BottomStart)
-                        ) {
-                            Text(
-                                text = "${product.stock} $baseUnit",
-                                fontSize = 8.5.sp,
+                    // 3. Teks stok tampil di bawah tetapi tetap di dalam card
+                    Surface(
+                        color = if (isOutOfStock || isLowStock)
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        BounceMarqueeText(
+                            text = stockText,
+                            style = TextStyle(
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isOutOfStock || isLowStock) Color(0xFFB91C1C) else Color(0xFF0F172A),
-                                maxLines = 1,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                            )
-                        }
+                                lineHeight = 12.sp
+                            ),
+                            color = if (isOutOfStock || isLowStock)
+                                MaterialTheme.colorScheme.error
+                            else
+                                MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            softWrap = false,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
                     }
                 }
             }
         }
 
-        // 3. Harga dipindah ke bawah card (diluar card)
+        // Harga di bawah card (di luar card)
         BounceMarqueeText(
             text = formatRupiah(product.price),
             style = TextStyle(
@@ -676,9 +742,11 @@ private fun ProductCompactListRow(
     val productSku = remember(product.barcode) { extractProductSku(product.barcode) }
     val baseUnit = remember(product.barcode) { extractProductBaseUnit(product) }
     val imageFile = remember(product.imagePath) {
-        if (product.imagePath.isNotEmpty()) File(product.imagePath) else null
+        product.imagePath.trim().takeIf { it.isNotEmpty() }?.let { File(it) }
     }
-    val hasValidImage = imageFile != null && imageFile.exists()
+    val hasValidImage = remember(imageFile?.absolutePath) {
+        imageFile != null && imageFile.exists() && imageFile.length() > 0L
+    }
     val hasEmptyVariant = variantStocks.any { it.stock <= 0 }
 
     val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit) {
@@ -866,14 +934,31 @@ private fun BounceMarqueeText(
     softWrap: Boolean = false,
     textAlign: TextAlign? = null
 ) {
-    var overflowPx by remember(text) { mutableFloatStateOf(0f) }
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    var boxWidthPx by remember { mutableFloatStateOf(0f) }
+    val measuredTextWidthPx = remember(text, style) {
+        textMeasurer.measure(
+            text = androidx.compose.ui.text.AnnotatedString(text),
+            style = style,
+            maxLines = 1,
+            softWrap = false
+        ).size.width.toFloat()
+    }
+    val overflowPx = remember(measuredTextWidthPx, boxWidthPx) {
+        if (boxWidthPx > 1f && measuredTextWidthPx > boxWidthPx + 2f) {
+            (measuredTextWidthPx - boxWidthPx + 10f)
+        } else {
+            0f
+        }
+    }
+
     val bounceAnim = remember(text) { androidx.compose.animation.core.Animatable(0f) }
 
     LaunchedEffect(text, overflowPx) {
         if (overflowPx > 1f) {
-            val dur = (overflowPx * 28f).toInt().coerceIn(900, 3200)
+            val dur = (overflowPx * 26f).toInt().coerceIn(900, 3600)
             while (true) {
-                kotlinx.coroutines.delay(500L)
+                kotlinx.coroutines.delay(550L)
                 bounceAnim.animateTo(
                     targetValue = -overflowPx,
                     animationSpec = androidx.compose.animation.core.tween(
@@ -881,7 +966,7 @@ private fun BounceMarqueeText(
                         easing = androidx.compose.animation.core.FastOutSlowInEasing
                     )
                 )
-                kotlinx.coroutines.delay(450L)
+                kotlinx.coroutines.delay(550L)
                 bounceAnim.animateTo(
                     targetValue = 0f,
                     animationSpec = androidx.compose.animation.core.tween(
@@ -894,11 +979,14 @@ private fun BounceMarqueeText(
             bounceAnim.snapTo(0f)
         }
     }
-    val animOffset = bounceAnim.value
 
     Box(
-        modifier = modifier.clip(androidx.compose.ui.graphics.RectangleShape),
-        contentAlignment = Alignment.CenterStart
+        modifier = modifier
+            .clip(androidx.compose.ui.graphics.RectangleShape)
+            .onSizeChanged { size ->
+                boxWidthPx = size.width.toFloat()
+            },
+        contentAlignment = if (overflowPx > 1f) Alignment.CenterStart else Alignment.Center
     ) {
         Text(
             text = text,
@@ -907,19 +995,9 @@ private fun BounceMarqueeText(
             maxLines = maxLines,
             softWrap = softWrap,
             overflow = TextOverflow.Clip,
-            textAlign = textAlign,
-            onTextLayout = { res ->
-                val diff = if (res.hasVisualOverflow) {
-                    (res.size.width - res.layoutInput.constraints.maxWidth.coerceAtLeast(1)).toFloat().coerceAtLeast(12f)
-                } else {
-                    0f
-                }
-                if (kotlin.math.abs(diff - overflowPx) > 1f) {
-                    overflowPx = diff
-                }
-            },
+            textAlign = if (overflowPx > 1f) TextAlign.Start else textAlign,
             modifier = Modifier.graphicsLayer {
-                translationX = animOffset
+                translationX = bounceAnim.value
             }
         )
     }
@@ -927,4 +1005,56 @@ private fun BounceMarqueeText(
 
 private fun contrastingTextForBackground(bgColor: Color): Color {
     return if (bgColor.luminance() > 0.45f) Color(0xFF0F172A) else Color(0xFFF8FAFC)
+}
+
+
+private fun resolveCategoryIcon(category: String, isService: Boolean = false): androidx.compose.ui.graphics.vector.ImageVector {
+    if (isService) return Icons.Default.Build
+    val c = category.trim().lowercase(java.util.Locale.getDefault())
+    if (c.isEmpty() || c == "semua") return Icons.Default.Category
+
+    return when {
+        c.contains("makanan") || c.contains("snack") || c.contains("ringan") ||
+            c.contains("roti") || c.contains("kue") || c.contains("nasi") ||
+            c.contains("mie") || c.contains("ayam") || c.contains("kuliner") ||
+            c.contains("food") -> Icons.Default.Fastfood
+
+        c.contains("minuman") || c.contains("kopi") || c.contains("coffee") ||
+            c.contains("teh") || c.contains("tea") || c.contains("susu") ||
+            c.contains("jus") || c.contains("juice") || c.contains("es ") ||
+            c.contains("air") || c.contains("drink") || c.contains("cafe") -> Icons.Default.LocalCafe
+
+        c.contains("sembako") || c.contains("beras") || c.contains("gula") ||
+            c.contains("minyak") || c.contains("bumbu") || c.contains("dapur") ||
+            c.contains("bahan") -> Icons.Default.ShoppingBasket
+
+        c.contains("elektronik") || c.contains("listrik") || c.contains("hp") ||
+            c.contains("gadget") || c.contains("kabel") || c.contains("lampu") -> Icons.Default.ElectricalServices
+
+        c.contains("pakaian") || c.contains("baju") || c.contains("kaos") ||
+            c.contains("fashion") || c.contains("celana") || c.contains("hijab") -> Icons.Default.Checkroom
+
+        c.contains("sepatu") || c.contains("sandal") || c.contains("tas") ||
+            c.contains("aksesoris") || c.contains("belanja") -> Icons.Default.ShoppingBag
+
+        c.contains("kebersihan") || c.contains("sabun") || c.contains("shampoo") ||
+            c.contains("sampo") || c.contains("deterjen") || c.contains("laundry") ||
+            c.contains("tisu") -> Icons.Default.CleaningServices
+
+        c.contains("kesehatan") || c.contains("obat") || c.contains("apotek") ||
+            c.contains("medis") || c.contains("vitamin") -> Icons.Default.MedicalServices
+
+        c.contains("kecantikan") || c.contains("kosmetik") || c.contains("skincare") ||
+            c.contains("parfum") || c.contains("salon") -> Icons.Default.Spa
+
+        c.contains("otomotif") || c.contains("motor") || c.contains("mobil") ||
+            c.contains("oli") || c.contains("bengkel") || c.contains("sparepart") -> Icons.Default.DirectionsCar
+
+        c.contains("buku") || c.contains("atk") || c.contains("tulis") ||
+            c.contains("kantor") || c.contains("sekolah") -> Icons.Default.MenuBook
+
+        c.contains("rumah") || c.contains("perabot") || c.contains("bangunan") -> Icons.Default.Home
+
+        else -> Icons.Default.Category
+    }
 }
