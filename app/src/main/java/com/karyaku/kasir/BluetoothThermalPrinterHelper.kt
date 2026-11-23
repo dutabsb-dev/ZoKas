@@ -245,6 +245,11 @@ object EscPosCommands {
     val FEED_3 = byteArrayOf(0x1B, 0x64, 0x03)
     val CUT_PAPER = byteArrayOf(0x1D, 0x56, 0x42, 0x00)
 
+    fun printDefaultOrCustomLogo(context: Context, logoPath: String?, targetWidthPx: Int = 192): ByteArray {
+        val bmp = ReceiptLogoHelper.resolveThermalLogoBitmap(context, logoPath, targetWidthPx) ?: return byteArrayOf()
+        return ALIGN_CENTER + printImage(bmp) + byteArrayOf(0x0A)
+    }
+
     fun printImage(bitmap: Bitmap): ByteArray {
         val outputStream = ByteArrayOutputStream()
         val width = bitmap.width

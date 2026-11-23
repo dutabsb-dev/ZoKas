@@ -109,7 +109,7 @@ object AutoBackupDriveManager {
                 .replace(Regex("[^A-Za-z0-9_-]"), "_")
                 .ifBlank { "ZoKas" }
 
-            val dbFile = context.getDatabasePath("zokas_pos_db")
+            val dbFile = context.getDatabasePath("pos_database")
             val outFile = if (dbFile != null && dbFile.exists()) {
                 val target = File(getBackupFolder(context), "Backup_${storeSlug}_$stamp.db")
                 FileInputStream(dbFile).use { input ->
@@ -193,6 +193,18 @@ object AutoBackupDriveManager {
         } catch (e: Exception) {
             false to "Gagal membuka Google Drive: ${e.message ?: "tidak tersedia"}"
         }
+    }
+
+    fun triggerAutoBackupOnCloseShift(context: Context): Pair<Boolean, String>? {
+        val cfg = loadSettings(context)
+        if (!cfg.isEnabled || cfg.scheduleMode != BackupScheduleMode.ON_CLOSE_SHIFT) {
+            return null
+        }
+        return runScheduledOrManualBackup(
+            context = context,
+            triggerLabel = "Tutup Kasir",
+            forceDriveShare = cfg.openGoogleDriveAfterBackup
+        )
     }
 
     fun runScheduledOrManualBackup(

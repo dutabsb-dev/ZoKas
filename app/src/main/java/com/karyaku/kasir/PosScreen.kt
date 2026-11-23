@@ -918,6 +918,7 @@ fun PosScreen(
                             )
                             val branchLabel = currentBranch?.name ?: "Cabang #${currentBranchId}"
                             MultiDeviceTransactionSyncManager.recordLocalShiftToQueue(context, accurateReportShift, branchLabel)
+                            AutoBackupDriveManager.triggerAutoBackupOnCloseShift(context)
                             if (MultiDeviceTransactionSyncManager.isAutoExportOnCloseShiftEnabled(context)) {
                                 MultiDeviceTransactionSyncManager.writeAutoSnapshotToCache(context)
                             }
