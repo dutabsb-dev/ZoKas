@@ -230,10 +230,13 @@ fun PosViewModel.printReceipt(
             strukText
         }
 
+        val cleanReceiptText = adaptedText.trimEnd() + "\n"
         outputStream.write(EscPosCommands.ALIGN_LEFT)
-        outputStream.write(adaptedText.toByteArray(charset("GBK")))
-        outputStream.write(byteArrayOf(0x0A))
-        outputStream.write(byteArrayOf(0x1B, 0x64, cfg.feedLines.coerceIn(1, 5).toByte()))
+        outputStream.write(cleanReceiptText.toByteArray(charset("GBK")))
+        val effectiveFeed = cfg.feedLines.coerceIn(0, 4)
+        if (effectiveFeed > 0) {
+            outputStream.write(byteArrayOf(0x1B, 0x64, effectiveFeed.toByte()))
+        }
         if (cfg.autoCutPaper) {
             outputStream.write(EscPosCommands.CUT_PAPER)
         }

@@ -623,11 +623,14 @@ private fun generatePrintData(
         strukText
     }
 
+    val cleanReceiptText = adaptedText.trimEnd() + "\n"
     output.write(EscPosCommands.ALIGN_LEFT)
-    output.write(adaptedText.toByteArray(charset("GBK")))
-    output.write(byteArrayOf(0x0A))
+    output.write(cleanReceiptText.toByteArray(charset("GBK")))
 
-    output.write(byteArrayOf(0x1B, 0x64, cfg.feedLines.coerceIn(1, 5).toByte()))
+    val effectiveFeed = cfg.feedLines.coerceIn(0, 4)
+    if (effectiveFeed > 0) {
+        output.write(byteArrayOf(0x1B, 0x64, effectiveFeed.toByte()))
+    }
     if (cfg.autoCutPaper) {
         output.write(EscPosCommands.CUT_PAPER)
     }

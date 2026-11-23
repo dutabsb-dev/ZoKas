@@ -81,9 +81,8 @@ object ReceiptFormatter {
         if (storeFooter.isNotBlank()) {
             sb.append(centerText(storeFooter)).append("\n")
         }
-        sb.append("\n\n\n") // Jarak untuk potong kertas
 
-        return sb.toString()
+        return sb.toString().trimEnd() + "\n"
     }
 
     // --- FUNGSI BANTU ---

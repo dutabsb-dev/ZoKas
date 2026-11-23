@@ -43,7 +43,7 @@ data class PrinterUpgradeConfig(
     val printLogo: Boolean = true,
     val autoCutPaper: Boolean = true,
     val autoOpenDrawerOnCash: Boolean = false,
-    val feedLines: Int = 3
+    val feedLines: Int = 1
 )
 
 object PrinterUpgradePrefs {
@@ -57,7 +57,7 @@ object PrinterUpgradePrefs {
             printLogo = prefs.getBoolean("print_logo", true),
             autoCutPaper = prefs.getBoolean("auto_cut_paper", true),
             autoOpenDrawerOnCash = prefs.getBoolean("auto_open_drawer_on_cash", false),
-            feedLines = prefs.getInt("feed_lines", 3).coerceIn(1, 5)
+            feedLines = prefs.getInt("feed_lines", 1).coerceIn(0, 4)
         )
     }
 
@@ -106,7 +106,8 @@ object PrinterUpgradePrefs {
 
         out.write(EscPosCommands.ALIGN_LEFT)
         out.write(sb.toString().toByteArray(charset("GBK")))
-        out.write(byteArrayOf(0x1B, 0x64, cfg.feedLines.coerceIn(1, 5).toByte()))
+        val fLines = cfg.feedLines.coerceIn(0, 4)
+        if (fLines > 0) out.write(byteArrayOf(0x1B, 0x64, fLines.toByte()))
         if (cfg.autoCutPaper) {
             out.write(EscPosCommands.CUT_PAPER)
         }
@@ -255,8 +256,8 @@ fun PrinterUpgradeSettingsSection(
             Text("Jarak Feed Kertas: ${cfg.feedLines} baris", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(
-                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines - 1).coerceIn(1, 5))) },
-                    enabled = cfg.feedLines > 1,
+                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines - 1).coerceIn(0, 4))) },
+                    enabled = cfg.feedLines > 0,
                     modifier = Modifier.size(34.dp),
                     contentPadding = PaddingValues(0.dp),
                     shape = RoundedCornerShape(6.dp)
@@ -264,8 +265,8 @@ fun PrinterUpgradeSettingsSection(
                     Icon(Icons.Default.Remove, contentDescription = "Kurangi Feed", modifier = Modifier.size(16.dp))
                 }
                 OutlinedButton(
-                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines + 1).coerceIn(1, 5))) },
-                    enabled = cfg.feedLines < 5,
+                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines + 1).coerceIn(0, 4))) },
+                    enabled = cfg.feedLines < 4,
                     modifier = Modifier.size(34.dp),
                     contentPadding = PaddingValues(0.dp),
                     shape = RoundedCornerShape(6.dp)
