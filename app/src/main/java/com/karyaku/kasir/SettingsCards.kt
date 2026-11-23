@@ -280,7 +280,7 @@ fun SettingsAppearanceCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f))
     ) {
         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
             // PILIHAN 50 TEMA INTERAKTIF (GRADASI & TRANSPARANSI)
@@ -453,7 +453,7 @@ fun SettingsAccountCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f))
     ) {
         Column {
             Row(
@@ -486,6 +486,11 @@ fun SettingsAccountCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
@@ -646,6 +651,7 @@ fun SettingsAccountCard(
                         )
                     }
                 }
+                }
             }
         }
     }
@@ -777,7 +783,7 @@ fun SettingsBusinessTypeCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -812,6 +818,11 @@ fun SettingsBusinessTypeCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
@@ -897,6 +908,7 @@ fun SettingsBusinessTypeCard(
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -951,7 +963,7 @@ fun SettingsModuleCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -985,6 +997,11 @@ fun SettingsModuleCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(bottom = 12.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1776,6 +1793,7 @@ fun SettingsModuleCard(
                         )
                     }
                 }
+                }
             }
         }
     }
@@ -1795,7 +1813,7 @@ fun SettingsPrinterCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -1829,6 +1847,11 @@ fun SettingsPrinterCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
@@ -1879,6 +1902,7 @@ fun SettingsPrinterCard(
                         shape = RoundedCornerShape(6.dp)
                     ) { Text(LanguageManager.tr("pilih_printer_dapur", lang)) }
                 }
+                }
             }
         }
     }
@@ -1924,7 +1948,7 @@ fun SettingsStoreProfileCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -1958,6 +1982,11 @@ fun SettingsStoreProfileCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
@@ -2217,6 +2246,7 @@ fun SettingsStoreProfileCard(
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -2236,7 +2266,7 @@ fun SettingsDiscountCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -2266,6 +2296,11 @@ fun SettingsDiscountCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
@@ -2317,6 +2352,7 @@ fun SettingsDiscountCard(
                         shape = RoundedCornerShape(6.dp)
                     )
                 }
+                }
             }
         }
     }
@@ -2336,7 +2372,7 @@ fun SettingsBackupCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -2370,6 +2406,11 @@ fun SettingsBackupCard(
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
@@ -2417,43 +2458,8 @@ fun SettingsBackupCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Jadwal Auto-Backup & Google Drive", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
 
-                    Text(
-                        LanguageManager.tr("manajemen_produk_massal", lang),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        LanguageManager.tr("manajemen_produk_massal_desc", lang),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = onExportExcelClick,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            shape = RoundedCornerShape(6.dp)
-                        ) { Text(LanguageManager.tr("ekspor_excel", lang)) }
-                        Button(
-                            onClick = onImportExcelClick,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.secondary,
-                                contentColor = MaterialTheme.colorScheme.onSecondary
-                            ),
-                            shape = RoundedCornerShape(6.dp)
-                        ) { Text(LanguageManager.tr("impor_excel", lang)) }
-                    }
+                }
                 }
             }
         }
@@ -2474,7 +2480,7 @@ fun SettingsPaymentMethodCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Row(
@@ -3122,7 +3128,7 @@ fun SettingsOwnerMonitorCard() {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -3162,6 +3168,11 @@ fun SettingsOwnerMonitorCard() {
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
                     HorizontalDivider(
                         modifier = Modifier.padding(bottom = 12.dp),
@@ -3537,6 +3548,7 @@ fun SettingsOwnerMonitorCard() {
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -3667,7 +3679,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
@@ -3707,6 +3719,11 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
             }
 
             AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                 Column(
                     modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -3899,6 +3916,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                             Text("Impor & Gabung", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
+                }
                 }
             }
         }
