@@ -41,9 +41,9 @@ enum class PrinterPaperSize(
 data class PrinterUpgradeConfig(
     val paperSize: PrinterPaperSize = PrinterPaperSize.MM_58,
     val printLogo: Boolean = true,
-    val autoCutPaper: Boolean = true,
+    val autoCutPaper: Boolean = false,
     val autoOpenDrawerOnCash: Boolean = false,
-    val feedLines: Int = 1
+    val feedLines: Int = 0
 )
 
 object PrinterUpgradePrefs {
@@ -55,9 +55,9 @@ object PrinterUpgradePrefs {
         return PrinterUpgradeConfig(
             paperSize = PrinterPaperSize.fromMm(mm),
             printLogo = prefs.getBoolean("print_logo", true),
-            autoCutPaper = prefs.getBoolean("auto_cut_paper", true),
+            autoCutPaper = prefs.getBoolean("auto_cut_paper", false),
             autoOpenDrawerOnCash = prefs.getBoolean("auto_open_drawer_on_cash", false),
-            feedLines = prefs.getInt("feed_lines", 1).coerceIn(0, 4)
+            feedLines = prefs.getInt("feed_lines", 0).coerceIn(0, 3)
         )
     }
 
@@ -106,7 +106,7 @@ object PrinterUpgradePrefs {
 
         out.write(EscPosCommands.ALIGN_LEFT)
         out.write(sb.toString().toByteArray(charset("GBK")))
-        val fLines = cfg.feedLines.coerceIn(0, 4)
+        val fLines = cfg.feedLines.coerceIn(0, 3)
         if (fLines > 0) out.write(byteArrayOf(0x1B, 0x64, fLines.toByte()))
         if (cfg.autoCutPaper) {
             out.write(EscPosCommands.CUT_PAPER)
@@ -256,7 +256,7 @@ fun PrinterUpgradeSettingsSection(
             Text("Jarak Feed Kertas: ${cfg.feedLines} baris", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(
-                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines - 1).coerceIn(0, 4))) },
+                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines - 1).coerceIn(0, 3))) },
                     enabled = cfg.feedLines > 0,
                     modifier = Modifier.size(34.dp),
                     contentPadding = PaddingValues(0.dp),
@@ -265,8 +265,8 @@ fun PrinterUpgradeSettingsSection(
                     Icon(Icons.Default.Remove, contentDescription = "Kurangi Feed", modifier = Modifier.size(16.dp))
                 }
                 OutlinedButton(
-                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines + 1).coerceIn(0, 4))) },
-                    enabled = cfg.feedLines < 4,
+                    onClick = { updateCfg(cfg.copy(feedLines = (cfg.feedLines + 1).coerceIn(0, 3))) },
+                    enabled = cfg.feedLines < 3,
                     modifier = Modifier.size(34.dp),
                     contentPadding = PaddingValues(0.dp),
                     shape = RoundedCornerShape(6.dp)

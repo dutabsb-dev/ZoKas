@@ -82,7 +82,7 @@ object ReceiptFormatter {
             sb.append(centerText(storeFooter)).append("\n")
         }
 
-        return sb.toString().trimEnd() + "\n"
+        return sb.toString().trimEnd()
     }
 
     // --- FUNGSI BANTU ---

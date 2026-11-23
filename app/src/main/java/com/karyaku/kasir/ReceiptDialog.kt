@@ -623,11 +623,11 @@ private fun generatePrintData(
         strukText
     }
 
-    val cleanReceiptText = adaptedText.trimEnd() + "\n"
+    val cleanReceiptText = adaptedText.trimEnd()
     output.write(EscPosCommands.ALIGN_LEFT)
     output.write(cleanReceiptText.toByteArray(charset("GBK")))
 
-    val effectiveFeed = cfg.feedLines.coerceIn(0, 4)
+    val effectiveFeed = cfg.feedLines.coerceIn(0, 3)
     if (effectiveFeed > 0) {
         output.write(byteArrayOf(0x1B, 0x64, effectiveFeed.toByte()))
     }
