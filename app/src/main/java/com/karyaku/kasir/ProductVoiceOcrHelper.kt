@@ -3,6 +3,10 @@ package com.karyaku.kasir
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
