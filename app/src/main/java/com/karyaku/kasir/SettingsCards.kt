@@ -318,7 +318,7 @@ fun SettingsAppearanceCard(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Tema Warna Aplikasi (50 Tema)",
+                            text = "Tema Aplikasi",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -343,58 +343,7 @@ fun SettingsAppearanceCard(
                 }
             }
 
-            // Strip cepat 8 tema favorit (termasuk Hijau & Putih Default di urutan pertama)
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                ZOKAS_50_THEMES.take(10).forEach { preset ->
-                    val isSelected = preset.id == currentThemeId
-                    Surface(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                ZokasThemeManager.selectTheme(context, preset.id)
-                                if (preset.id != "default_emerald" && preset.isDark != isDarkMode) {
-                                    onToggleDarkMode()
-                                } else if (preset.id == "default_emerald" && isDarkMode) {
-                                    onToggleDarkMode()
-                                }
-                            },
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                        border = BorderStroke(
-                            if (isSelected) 2.dp else 1.dp,
-                            if (isSelected) Color(preset.primaryHex) else MaterialTheme.colorScheme.outlineVariant
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Color(preset.gradientStartHex), Color(preset.gradientEndHex))
-                                        )
-                                    )
-                            )
-                            Text(
-                                text = preset.name.substringAfter(". "),
-                                fontSize = 10.5.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-            }
+
 
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
