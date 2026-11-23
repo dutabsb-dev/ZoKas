@@ -209,11 +209,38 @@ fun PosViewModel.printReceipt(
 
     viewModelScope.launch(Dispatchers.IO) {
         val printerManager = BluetoothPrinterManager(context)
+        val cfg = PrinterUpgradePrefs.load(context)
         val outputStream = java.io.ByteArrayOutputStream()
         outputStream.write(EscPosCommands.INIT)
-        outputStream.write(strukText.toByteArray(charset("GBK")))
-        outputStream.write(EscPosCommands.FEED_3)
-        outputStream.write(EscPosCommands.CUT_PAPER)
+
+        if (cfg.printLogo) {
+            val logoBytes = EscPosCommands.printDefaultOrCustomLogo(
+                context = context,
+                logoPath = settingsManager.storeLogoPath,
+                targetWidthPx = cfg.paperSize.logoWidthPx
+            )
+            if (logoBytes.isNotEmpty()) {
+                outputStream.write(logoBytes)
+            }
+        }
+
+        val adaptedText = if (cfg.paperSize == PrinterPaperSize.MM_80) {
+            strukText.replace("=".repeat(32), "=".repeat(48)).replace("-".repeat(32), "-".repeat(48))
+        } else {
+            strukText
+        }
+
+        outputStream.write(EscPosCommands.ALIGN_LEFT)
+        outputStream.write(adaptedText.toByteArray(charset("GBK")))
+        outputStream.write(byteArrayOf(0x0A))
+        outputStream.write(byteArrayOf(0x1B, 0x64, cfg.feedLines.coerceIn(1, 5).toByte()))
+        if (cfg.autoCutPaper) {
+            outputStream.write(EscPosCommands.CUT_PAPER)
+        }
+
+        if (cfg.autoOpenDrawerOnCash && transaction.paymentMethod.equals("CASH", ignoreCase = true)) {
+            printerManager.openCashDrawer(macAddress)
+        }
         printerManager.printData(macAddress, outputStream.toByteArray())
     }
 }
