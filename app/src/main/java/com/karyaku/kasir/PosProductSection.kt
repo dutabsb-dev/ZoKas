@@ -868,7 +868,7 @@ private fun BounceMarqueeText(
 ) {
     var overflowPx by remember(text) { mutableStateOf(0f) }
     val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "bounce_marquee")
-    val animOffset by if (overflowPx > 1f) {
+    val animOffsetState: State<Float> = if (overflowPx > 1f) {
         infiniteTransition.animateFloat(
             initialValue = 0f,
             targetValue = -overflowPx,
@@ -882,8 +882,9 @@ private fun BounceMarqueeText(
             label = "bounce_offset"
         )
     } else {
-        remember { mutableStateOf(0f) }
+        remember { mutableFloatStateOf(0f) }
     }
+    val animOffset = animOffsetState.value
 
     Box(
         modifier = modifier.clip(androidx.compose.ui.graphics.RectangleShape),
