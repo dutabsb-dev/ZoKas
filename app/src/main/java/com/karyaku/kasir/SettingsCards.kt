@@ -1901,6 +1901,13 @@ fun SettingsPrinterCard(
                         ),
                         shape = RoundedCornerShape(6.dp)
                     ) { Text(LanguageManager.tr("pilih_printer_dapur", lang)) }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PrinterUpgradeSettingsSection(
+                        savedPrinterMac = savedPrinterMac,
+                        storeName = settingsStoreNameOrDefault(context),
+                        logoPath = SettingsManager(context).storeLogoPath
+                    )
                 }
                 }
             }

@@ -12,7 +12,6 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -26,10 +25,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -422,7 +419,11 @@ fun ReceiptDialog(
                         } else {
                             scope.launch {
                                 try {
-                                    val printData = generatePrintData(context, strukText, logoFile)
+                                    val printerCfg = PrinterUpgradePrefs.load(context)
+                                    val printData = generatePrintData(context, strukText, logoFile, printerCfg)
+                                    if (printerCfg.autoOpenDrawerOnCash && transaction.paymentMethod.equals("CASH", ignoreCase = true)) {
+                                        printerManager.openCashDrawer(mac)
+                                    }
                                     val success = printerManager.printData(mac, printData)
                                     if (success) {
                                         Toast.makeText(context, "Struk dicetak!", Toast.LENGTH_SHORT).show()
@@ -474,12 +475,9 @@ fun ReceiptDialog(
                         .padding(14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val previewLogoBitmap = remember(logoFile) {
-                        ReceiptLogoHelper.resolveReceiptLogoBitmap(context, logoFile?.absolutePath)
-                    }
-                    if (previewLogoBitmap != null) {
-                        Image(
-                            bitmap = previewLogoBitmap.asImageBitmap(),
+                    if (logoFile != null && logoFile.exists()) {
+                        AsyncImage(
+                            model = logoFile,
                             contentDescription = "Store Logo",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.size(64.dp).padding(bottom = 8.dp)
@@ -536,8 +534,7 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
     val padding = 22f
     val pageWidth = (sampleWidth + (padding * 2)).toInt().coerceAtLeast(280)
     val lineHeight = 16f
-    val resolvedPdfLogo = ReceiptLogoHelper.resolveReceiptLogoBitmap(context, logoFile?.absolutePath)
-    val logoHeight = if (resolvedPdfLogo != null) 95f else 0f
+    val logoHeight = if (logoFile != null && logoFile.exists()) 95f else 0f
     val pageHeight = ((lines.size * lineHeight) + (padding * 2) + logoHeight + 36).toInt()
 
     val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
@@ -548,12 +545,13 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
 
     var currentY = padding + 10f
 
-    if (resolvedPdfLogo != null) {
+    if (logoFile != null && logoFile.exists()) {
         try {
-            if (resolvedPdfLogo.height > 0) {
+            val bitmap = BitmapFactory.decodeFile(logoFile.absolutePath)
+            if (bitmap != null && bitmap.height > 0) {
                 val targetH = 72
-                val targetW = (resolvedPdfLogo.width * (targetH.toFloat() / resolvedPdfLogo.height)).toInt().coerceAtMost(pageWidth - 40)
-                val scaledLogo = android.graphics.Bitmap.createScaledBitmap(resolvedPdfLogo, targetW, targetH, true)
+                val targetW = (bitmap.width * (targetH.toFloat() / bitmap.height)).toInt().coerceAtMost(pageWidth - 40)
+                val scaledLogo = android.graphics.Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
                 val left = (pageWidth - scaledLogo.width) / 2f
                 canvas.drawBitmap(scaledLogo, left, currentY - 6f, null)
                 currentY += 84f
@@ -592,32 +590,47 @@ private fun generateReceiptPdf(context: Context, strukText: String, transactionI
     }
 }
 
-private fun generatePrintData(context: Context, strukText: String, logoFile: File?): ByteArray {
+private fun generatePrintData(
+    context: Context,
+    strukText: String,
+    logoFile: File?,
+    cfg: PrinterUpgradeConfig = PrinterUpgradePrefs.load(context)
+): ByteArray {
     val output = ByteArrayOutputStream()
     output.write(EscPosCommands.INIT)
 
-    val bitmap = ReceiptLogoHelper.resolveReceiptLogoBitmap(context, logoFile?.absolutePath)
-    if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
-        try {
-            val targetWidth = 192
-            val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
-            val newHeight = ((targetWidth / ratio).toInt()).coerceAtLeast(8)
-            val resizedBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, newHeight, true)
+    if (cfg.printLogo) {
+        val bitmap = ReceiptLogoHelper.resolveReceiptLogoBitmap(context, logoFile?.absolutePath)
+        if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
+            try {
+                val targetWidth = cfg.paperSize.logoWidthPx
+                val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                val newHeight = ((targetWidth / ratio).toInt()).coerceAtLeast(8)
+                val resizedBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, newHeight, true)
 
-            output.write(EscPosCommands.ALIGN_CENTER)
-            output.write(EscPosCommands.printImage(resizedBitmap))
-            output.write(byteArrayOf(0x0A))
-        } catch (e: Exception) {
-            e.printStackTrace()
+                output.write(EscPosCommands.ALIGN_CENTER)
+                output.write(EscPosCommands.printImage(resizedBitmap))
+                output.write(byteArrayOf(0x0A))
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
+    val adaptedText = if (cfg.paperSize == PrinterPaperSize.MM_80) {
+        strukText.replace("=".repeat(32), "=".repeat(48)).replace("-".repeat(32), "-".repeat(48))
+    } else {
+        strukText
+    }
+
     output.write(EscPosCommands.ALIGN_LEFT)
-    output.write(strukText.toByteArray(charset("GBK")))
+    output.write(adaptedText.toByteArray(charset("GBK")))
     output.write(byteArrayOf(0x0A))
 
-    output.write(EscPosCommands.FEED_3)
-    output.write(EscPosCommands.CUT_PAPER)
+    output.write(byteArrayOf(0x1B, 0x64, cfg.feedLines.coerceIn(1, 5).toByte()))
+    if (cfg.autoCutPaper) {
+        output.write(EscPosCommands.CUT_PAPER)
+    }
 
     return output.toByteArray()
 }
