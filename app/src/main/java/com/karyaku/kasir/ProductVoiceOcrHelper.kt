@@ -115,7 +115,7 @@ object ProductVoiceOcrHelper {
                 )
 
                 val successProxy = java.lang.reflect.Proxy.newProxyInstance(
-                    cont.context.classLoader,
+                    ProductVoiceOcrHelper::class.java.classLoader,
                     arrayOf(Class.forName("com.google.android.gms.tasks.OnSuccessListener"))
                 ) { _, _, args ->
                     val visionText = args?.firstOrNull()
@@ -133,7 +133,7 @@ object ProductVoiceOcrHelper {
                 }
 
                 val failureProxy = java.lang.reflect.Proxy.newProxyInstance(
-                    cont.context.classLoader,
+                    ProductVoiceOcrHelper::class.java.classLoader,
                     arrayOf(Class.forName("com.google.android.gms.tasks.OnFailureListener"))
                 ) { _, _, _ ->
                     if (cont.isActive) cont.resume(emptyList())
@@ -259,5 +259,58 @@ object ProductVoiceOcrHelper {
                     }
                 }
             }
+    }
+}
+
+
+@androidx.compose.runtime.Composable
+fun VoiceMicButton(
+    promptLabel: String = "",
+    currentValue: String = "",
+    onResultText: (String) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val speechLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { res ->
+        if (res.resultCode == android.app.Activity.RESULT_OK) {
+            val matches = res.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            val spoken = matches?.firstOrNull()?.trim().orEmpty()
+            if (spoken.isNotEmpty()) {
+                onResultText(spoken)
+            }
+        }
+    }
+
+    androidx.compose.material3.IconButton(
+        onClick = {
+            try {
+                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                    )
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
+                    if (promptLabel.isNotBlank()) {
+                        putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Ucapkan $promptLabel")
+                    }
+                }
+                speechLauncher.launch(intent)
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(
+                    context,
+                    "Fitur suara tidak tersedia di perangkat ini.",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        },
+        modifier = androidx.compose.ui.Modifier.size(34.dp)
+    ) {
+        androidx.compose.material3.Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.Mic,
+            contentDescription = if (currentValue.isBlank()) "Input Suara" else "Ulangi Input Suara",
+            tint = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+            modifier = androidx.compose.ui.Modifier.size(18.dp)
+        )
     }
 }
