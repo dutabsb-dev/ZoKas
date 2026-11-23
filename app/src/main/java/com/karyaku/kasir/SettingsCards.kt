@@ -3199,13 +3199,7 @@ fun SettingsOwnerMonitorCard() {
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    SettingsMenuHelpIconButton(
-                        menuKey = "owner_monitor",
-                        onOpenQuickAction = { act ->
-                            if (act == "backup_now") onBackupClick()
-                            else if (act == "restore_now") onRestoreClick()
-                        }
-                    )
+SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = "Toggle",
@@ -3759,13 +3753,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    SettingsMenuHelpIconButton(
-                        menuKey = "multi_device_sync",
-                        onOpenQuickAction = { act ->
-                            if (act == "backup_now") onBackupClick()
-                            else if (act == "restore_now") onRestoreClick()
-                        }
-                    )
+SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = "Toggle",
