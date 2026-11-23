@@ -261,7 +261,7 @@ fun BranchManagementDialog(
                                 start = 16.dp,
                                 end = 16.dp,
                                 top = 4.dp,
-                                bottom = 136.dp
+                                bottom = 160.dp
                             ),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -289,7 +289,7 @@ fun BranchManagementDialog(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .navigationBarsPadding()
-                        .padding(start = 16.dp, end = 20.dp, top = 16.dp, bottom = 44.dp),
+                        .padding(start = 16.dp, end = 20.dp, top = 16.dp, bottom = 72.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp),
