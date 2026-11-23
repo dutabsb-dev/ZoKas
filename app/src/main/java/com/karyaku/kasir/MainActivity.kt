@@ -1086,6 +1086,43 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     singleLine = true
                 )
 
+                var showSimpleExcelDialog by remember { mutableStateOf(false) }
+                if (showSimpleExcelDialog) {
+                    SimpleProductExcelDialog(
+                        products = allProducts.filter { it.branchId == currentBranchId },
+                        onImportRows = { rows ->
+                            rows.forEach { r ->
+                                val packedCode = packSkuAndBarcode(r.sku, r.barcode, r.unit)
+                                val varStr = if (r.variantName.isNotBlank()) {
+                                    "${r.variantName}:${r.variantPrice}:${r.costPrice}:${r.variantStock}:1:${r.variantBarcode}"
+                                } else {
+                                    ""
+                                }
+                                viewModel.addProduct(
+                                    r.name,
+                                    r.sellPrice,
+                                    r.stock,
+                                    r.category,
+                                    r.costPrice,
+                                    packedCode,
+                                    varStr,
+                                    0L,
+                                    0L,
+                                    false,
+                                    false,
+                                    "",
+                                    0L,
+                                    0,
+                                    currentUser.id,
+                                    currentUser.name
+                                )
+                            }
+                            Toast.makeText(context, "${rows.size} produk berhasil diimpor.", Toast.LENGTH_SHORT).show()
+                        },
+                        onDismiss = { showSimpleExcelDialog = false }
+                    )
+                }
+
                 if (filteredProducts.isNotEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1100,17 +1137,42 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                                 contentColor = MaterialTheme.colorScheme.primary
                             ),
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FactCheck,
                                 contentDescription = "Audit Stok",
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "Audit Stok",
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showSimpleExcelDialog = true },
+                            modifier = Modifier.weight(1f).height(36.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+                                contentColor = MaterialTheme.colorScheme.tertiary
+                            ),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.TableChart,
+                                contentDescription = "Excel Simpel",
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "Excel Simpel",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 softWrap = false
@@ -1131,17 +1193,17 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                                 containerColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error.copy(alpha = 0.14f) else Color.Transparent,
                                 contentColor = if (isBatchDeleteMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                             ),
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                         ) {
                             Icon(
                                 imageVector = if (isBatchDeleteMode) Icons.Default.Close else Icons.Default.Checklist,
                                 contentDescription = "Hapus Massal",
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = if (isBatchDeleteMode) "Batal Pilih" else "Hapus Massal",
-                                fontSize = 12.sp,
+                                text = if (isBatchDeleteMode) "Batal" else "Hapus",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 softWrap = false

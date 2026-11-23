@@ -2382,6 +2382,10 @@ fun SettingsBackupCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(10.dp))
+                    var showAutoBackupDriveDialog by remember { mutableStateOf(false) }
+                    if (showAutoBackupDriveDialog) {
+                        ScheduledBackupDriveDialog(onDismiss = { showAutoBackupDriveDialog = false })
+                    }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = onBackupClick,
@@ -2401,6 +2405,17 @@ fun SettingsBackupCard(
                             ),
                             shape = RoundedCornerShape(6.dp)
                         ) { Text(LanguageManager.tr("restore", lang)) }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showAutoBackupDriveDialog = true },
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Jadwal Auto-Backup & Google Drive", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 12.dp),
