@@ -866,25 +866,35 @@ private fun BounceMarqueeText(
     softWrap: Boolean = false,
     textAlign: TextAlign? = null
 ) {
-    var overflowPx by remember(text) { mutableStateOf(0f) }
-    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "bounce_marquee")
-    val animOffsetState: State<Float> = if (overflowPx > 1f) {
-        infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = -overflowPx,
-            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                animation = androidx.compose.animation.core.tween(
-                    durationMillis = (overflowPx * 28f).toInt().coerceIn(900, 3200),
-                    easing = androidx.compose.animation.core.FastOutSlowInEasing
-                ),
-                repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-            ),
-            label = "bounce_offset"
-        )
-    } else {
-        remember { mutableFloatStateOf(0f) }
+    var overflowPx by remember(text) { mutableFloatStateOf(0f) }
+    val bounceAnim = remember(text) { androidx.compose.animation.core.Animatable(0f) }
+
+    LaunchedEffect(text, overflowPx) {
+        if (overflowPx > 1f) {
+            val dur = (overflowPx * 28f).toInt().coerceIn(900, 3200)
+            while (true) {
+                kotlinx.coroutines.delay(500L)
+                bounceAnim.animateTo(
+                    targetValue = -overflowPx,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = dur,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    )
+                )
+                kotlinx.coroutines.delay(450L)
+                bounceAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = dur,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    )
+                )
+            }
+        } else {
+            bounceAnim.snapTo(0f)
+        }
     }
-    val animOffset = animOffsetState.value
+    val animOffset = bounceAnim.value
 
     Box(
         modifier = modifier.clip(androidx.compose.ui.graphics.RectangleShape),
