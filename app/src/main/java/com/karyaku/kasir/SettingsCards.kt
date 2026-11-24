@@ -124,9 +124,9 @@ fun SettingsAppearanceCard(
             onDismissRequest = { showThemeGalleryDialog = false },
             title = {
                 Column {
-                    Text("Galeri 50 Tema Interaktif", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(zokasText("Galeri 50 Tema Interaktif", "50 Interactive Themes Gallery"), fontWeight = FontWeight.Bold, fontSize = 17.sp)
                     Text(
-                        "Tema aktif: ${activePreset.name}",
+                        zokasText("Tema aktif: ${activePreset.name}", "Active theme: ${activePreset.name}"),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
@@ -141,12 +141,12 @@ fun SettingsAppearanceCard(
                     OutlinedTextField(
                         value = themeSearchQuery,
                         onValueChange = { themeSearchQuery = it },
-                        placeholder = { Text("Cari nama tema atau warna...", fontSize = 12.sp) },
+                        placeholder = { Text(zokasText("Cari nama tema atau warna...", "Search theme name or color..."), fontSize = 12.sp) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         trailingIcon = {
                             if (themeSearchQuery.isNotEmpty()) {
                                 IconButton(onClick = { themeSearchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Hapus", modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.Clear, contentDescription = zokasText("Hapus", "Delete"), modifier = Modifier.size(16.dp))
                                 }
                             }
                         },
@@ -233,7 +233,7 @@ fun SettingsAppearanceCard(
                                         if (isSelected) {
                                             Icon(
                                                 Icons.Default.CheckCircle,
-                                                contentDescription = "Aktif",
+                                                contentDescription = zokasText("Aktif", "Active"),
                                                 tint = pColor,
                                                 modifier = Modifier.size(20.dp)
                                             )
@@ -263,14 +263,14 @@ fun SettingsAppearanceCard(
                             },
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Reset Default", fontSize = 12.sp)
+                            Text(zokasText("Reset Default", "Reset Default"), fontSize = 12.sp)
                         }
                     }
                     Button(
                         onClick = { showThemeGalleryDialog = false },
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Selesai", fontWeight = FontWeight.Bold)
+                        Text(zokasText("Selesai", "Done"), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -318,7 +318,7 @@ fun SettingsAppearanceCard(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Tema Aplikasi",
+                            text = zokasText("Tema Aplikasi", "App Theme"),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -339,7 +339,7 @@ fun SettingsAppearanceCard(
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
-                    Text("Pilih Tema", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(zokasText("Pilih Tema", "Choose Theme"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 SettingsMenuHelpIconButton(menuKey = "appearance")
@@ -420,14 +420,14 @@ fun SettingsAppearanceCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Button(
-                    onClick = { onToggleLanguage() },
+                    onClick = { ZokasLocaleManager.toggleLanguage(context); onToggleLanguage() },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(6.dp)
                 ) {
-                    Text(if (lang == "in") "Indonesia" else "English")
+                    Text(if (!ZokasLocaleManager.isEnglish()) "Indonesia" else "English")
                 }
             }
         }
@@ -545,7 +545,7 @@ fun SettingsAccountCard(
                     ) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Foto Profil Akun", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(zokasText("Foto Profil Akun", "Account Profile Photo"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -567,7 +567,7 @@ fun SettingsAccountCard(
                         Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            if (currentUser.biometricKey.isNotBlank()) "Biometrik Terdaftar (Ubah)" else "Daftarkan Sidik Jari/Wajah",
+                            if (currentUser.biometricKey.isNotBlank()) zokasText("Biometrik Terdaftar (Ubah)", "Biometrics Registered (Change)") else zokasText("Daftarkan Sidik Jari/Wajah", "Register Fingerprint/Face"),
                             fontSize = 12.sp
                         )
                     }
@@ -597,13 +597,13 @@ fun SettingsAccountCard(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Login Sidik Jari (Login Screen)",
+                                zokasText("Login Sidik Jari (Login Screen)", "Fingerprint Login (Login Screen)"),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Aktifkan fitur login cepat di halaman awal.",
+                                zokasText("Aktifkan fitur login cepat di halaman awal.", "Enable quick sign-in on the login screen."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -613,7 +613,7 @@ fun SettingsAccountCard(
                             onCheckedChange = { isChecked ->
                                 if (isChecked) {
                                     if (activity == null) {
-                                        Toast.makeText(context, "ERROR: Activity tidak ditemukan.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, zokasText("ERROR: Activity tidak ditemukan.", "ERROR: Activity not found."), Toast.LENGTH_LONG).show()
                                         return@Switch
                                     }
                                     val biometricManager = BiometricManager.from(context)
@@ -625,24 +625,24 @@ fun SettingsAccountCard(
                                                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                                                     super.onAuthenticationSucceeded(result)
                                                     onBiometricToggle(true)
-                                                    Toast.makeText(context, "Sidik jari berfungsi.", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, zokasText("Sidik jari berfungsi.", "Fingerprint works."), Toast.LENGTH_SHORT).show()
                                                 }
 
                                                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                                                     super.onAuthenticationError(errorCode, errString)
                                                     onBiometricToggle(false)
-                                                    Toast.makeText(context, "Gagal: $errString", Toast.LENGTH_LONG).show()
+                                                    Toast.makeText(context, zokasText("Gagal: $errString", "Failed: $errString"), Toast.LENGTH_LONG).show()
                                                 }
                                             })
                                         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                                            .setTitle("Aktivasi Sidik Jari")
-                                            .setSubtitle("Sentuh sensor untuk mengonfirmasi")
-                                            .setNegativeButtonText("Batal")
+                                            .setTitle(zokasText("Aktivasi Sidik Jari", "Fingerprint Activation"))
+                                            .setSubtitle(zokasText("Sentuh sensor untuk mengonfirmasi", "Touch sensor to confirm"))
+                                            .setNegativeButtonText(zokasText("Batal", "Cancel"))
                                             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
                                             .build()
                                         biometricPrompt.authenticate(promptInfo)
                                     } else {
-                                        Toast.makeText(context, "HP belum mendaftarkan sidik jari.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, zokasText("HP belum mendaftarkan sidik jari.", "No fingerprint enrolled on this device."), Toast.LENGTH_LONG).show()
                                         onBiometricToggle(false)
                                     }
                                 } else {
@@ -676,10 +676,10 @@ fun SettingsBusinessTypeCard(
     val lang = language
 
     val businessTypes = listOf(
-        "KULINER" to "Kuliner (Restoran, Cafe, Warung)",
-        "RETAIL" to "Retail (Toko, Minimarket, Bangunan)",
-        "JASA" to "Jasa (Salon, Laundry, Servis)",
-        "MUSIMAN" to "Musiman (Event, Toko Kue)"
+        "KULINER" to translateBusinessTypeLabel("KULINER", lang),
+        "RETAIL" to translateBusinessTypeLabel("RETAIL", lang),
+        "JASA" to translateBusinessTypeLabel("JASA", lang),
+        "MUSIMAN" to translateBusinessTypeLabel("MUSIMAN", lang)
     )
     val currentLabel = businessTypes.find { it.first == currentBusinessType }?.second ?: currentBusinessType
 
@@ -729,7 +729,7 @@ fun SettingsBusinessTypeCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (lang == "in") "• Mode Meja otomatis DIAKTIFKAN" else "• Table Mode automatically ENABLED",
+                            if (lang == "in") zokasText("• Mode Meja otomatis DIAKTIFKAN", "• Table Mode automatically ENABLED") else "• Table Mode automatically ENABLED",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -745,14 +745,14 @@ fun SettingsBusinessTypeCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (lang == "in") "• Mode Meja otomatis DINONAKTIFKAN" else "• Table Mode automatically DISABLED",
+                            if (lang == "in") zokasText("• Mode Meja otomatis DINONAKTIFKAN", "• Table Mode automatically DISABLED") else "• Table Mode automatically DISABLED",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        if (lang == "in") "Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh."
+                        if (lang == "in") zokasText("Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh.", "Note: Transaction data, products, customers, and receipts are NOT affected.")
                         else "Note: Transaction data, products, customers, and receipts are NOT affected.",
                         fontSize = 10.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
@@ -773,14 +773,14 @@ fun SettingsBusinessTypeCard(
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        if (lang == "in") "GANTI" else "CHANGE",
+                        if (lang == "in") zokasText("GANTI", "CHANGE") else "CHANGE",
                         fontWeight = FontWeight.Bold
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = null }) {
-                    Text(if (lang == "in") "Batal" else "Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (lang == "in") zokasText("Batal", "Cancel") else "Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -1032,13 +1032,13 @@ fun SettingsModuleCard(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        "Multi-Cabang ($totalBranches Cabang)",
+                                        zokasText("Multi-Cabang ($totalBranches Cabang)", "Multi-Branch ($totalBranches Branches)"),
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        "Cabang aktif: $currentBranchName",
+                                        zokasText("Cabang aktif: $currentBranchName", "Active branch: $currentBranchName"),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -1058,7 +1058,7 @@ fun SettingsModuleCard(
                                 ) {
                                     Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(15.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Kelola Cabang", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(zokasText("Kelola Cabang", "Manage Branches"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                                 Button(
                                     onClick = onTransferStockClick,
@@ -1073,7 +1073,7 @@ fun SettingsModuleCard(
                                 ) {
                                     Icon(Icons.Default.SwapHoriz, contentDescription = null, modifier = Modifier.size(15.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Transfer Stok", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(zokasText("Transfer Stok", "Stock Transfer"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1102,13 +1102,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Happy Hour Promo ($hhStart - $hhEnd)",
+                                    zokasText("Happy Hour Promo ($hhStart - $hhEnd)", "Happy Hour Promo ($hhStart - $hhEnd)"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Diskon otomatis pada jam tertentu & batas maksimal diskon.",
+                                    zokasText("Diskon otomatis pada jam tertentu & batas maksimal diskon.", "Automatic discount during set hours & max discount cap."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1125,7 +1125,7 @@ fun SettingsModuleCard(
                                     OutlinedTextField(
                                         value = hhStart,
                                         onValueChange = onHhStartChange,
-                                        label = { Text("Mulai", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Mulai", "Start"), fontSize = 11.sp) },
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
                                         shape = RoundedCornerShape(6.dp)
@@ -1133,7 +1133,7 @@ fun SettingsModuleCard(
                                     OutlinedTextField(
                                         value = hhEnd,
                                         onValueChange = onHhEndChange,
-                                        label = { Text("Selesai", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Selesai", "Done"), fontSize = 11.sp) },
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
                                         shape = RoundedCornerShape(6.dp)
@@ -1144,7 +1144,7 @@ fun SettingsModuleCard(
                                     OutlinedTextField(
                                         value = hhDiscount,
                                         onValueChange = onHhDiscountChange,
-                                        label = { Text("Diskon (%)", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Diskon (%)", "Discount (%)"), fontSize = 11.sp) },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
@@ -1153,7 +1153,7 @@ fun SettingsModuleCard(
                                     OutlinedTextField(
                                         value = maxDiscountCap,
                                         onValueChange = onMaxDiscountCapChange,
-                                        label = { Text("Maks. Diskon (Rp)", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Maks. Diskon (Rp)", "Max Discount (Rp)"), fontSize = 11.sp) },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
@@ -1182,13 +1182,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Modul Kepegawaian (HR)",
+                                zokasText("Modul Kepegawaian (HR)", "Human Resources Module (HR)"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Aktifkan jika punya karyawan (Absensi & Gaji).",
+                                zokasText("Aktifkan jika punya karyawan (Absensi & Gaji).", "Enable if you have staff (Attendance & Payroll)."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1215,13 +1215,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Modul CRM (Pelanggan)",
+                                zokasText("Modul CRM (Pelanggan)", "CRM Module (Customers)"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Fitur member, poin, dan data pelanggan setia.",
+                                zokasText("Fitur member, poin, dan data pelanggan setia.", "Membership, points, and loyal customer data."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1248,13 +1248,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Mode Meja Restoran",
+                                zokasText("Mode Meja Restoran", "Restaurant Table Mode"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Tampilkan pilihan meja di halaman kasir.",
+                                zokasText("Tampilkan pilihan meja di halaman kasir.", "Show table selection on cashier screen."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1281,13 +1281,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Multi-Mata Uang (USD)",
+                                zokasText("Multi-Mata Uang (USD)", "Multi-Currency (USD)"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Estimasi harga dalam Dolar AS.",
+                                zokasText("Estimasi harga dalam Dolar AS.", "Estimated price in US Dollars."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1328,13 +1328,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Tipe Pesanan (Order Type)",
+                                zokasText("Tipe Pesanan (Order Type)", "Order Type"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Dine-In, Take-Away, Delivery, Pick-Up.",
+                                zokasText("Dine-In, Take-Away, Delivery, Pick-Up.", "Dine-In, Take-Away, Delivery, Pick-Up."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1361,13 +1361,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Harga Grosir (Retail)",
+                                zokasText("Harga Grosir (Retail)", "Wholesale Pricing (Retail)"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Harga khusus untuk pembelian jumlah banyak.",
+                                zokasText("Harga khusus untuk pembelian jumlah banyak.", "Special pricing for bulk purchases."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1394,13 +1394,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Pre-Order (Pesanan Musiman)",
+                                zokasText("Pre-Order (Pesanan Musiman)", "Pre-Order (Seasonal Orders)"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Atur tanggal pengambilan pesanan pelanggan.",
+                                zokasText("Atur tanggal pengambilan pesanan pelanggan.", "Set customer order pickup dates."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1427,13 +1427,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Reservasi / Booking",
+                                zokasText("Reservasi / Booking", "Reservation / Booking"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Jadwal meja atau terapis (Salon/Klinik).",
+                                zokasText("Jadwal meja atau terapis (Salon/Klinik).", "Table or therapist schedule (Salon/Clinic)."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1455,13 +1455,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Kelola Jadwal Reservasi",
+                                    zokasText("Kelola Jadwal Reservasi", "Manage Reservations"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Lihat & buat jadwal pelanggan.",
+                                    zokasText("Lihat & buat jadwal pelanggan.", "View & create customer bookings."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1493,13 +1493,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Paket Langganan (Membership)",
+                                zokasText("Paket Langganan (Membership)", "Membership Packages"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Jual paket kuota (cth: Facial 5x).",
+                                zokasText("Jual paket kuota (cth: Facial 5x).", "Sell quota packages (e.g., 5x Facial)."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1521,13 +1521,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Kelola Paket Langganan",
+                                    zokasText("Kelola Paket Langganan", "Manage Membership Packages"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Buat dan atur daftar paket.",
+                                    zokasText("Buat dan atur daftar paket.", "Create and manage package list."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1559,13 +1559,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Supplier & Pembelian (PO)",
+                                zokasText("Supplier & Pembelian (PO)", "Suppliers & Purchase Orders (PO)"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Catat barang masuk dari supplier.",
+                                zokasText("Catat barang masuk dari supplier.", "Record incoming goods from suppliers."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1587,13 +1587,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Kelola Supplier",
+                                    zokasText("Kelola Supplier", "Manage Suppliers"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Daftar pemasok barang.",
+                                    zokasText("Daftar pemasok barang.", "Vendor & supplier directory."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1617,13 +1617,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Buat Pembelian (PO)",
+                                    zokasText("Buat Pembelian (PO)", "Create Purchase Order (PO)"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Catat barang masuk & tambah stok.",
+                                    zokasText("Catat barang masuk & tambah stok.", "Record incoming stock & add inventory."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1655,13 +1655,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Modul Keuangan (Finance)",
+                                zokasText("Modul Keuangan (Finance)", "Finance Module"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Kelola hutang, piutang & pengeluaran.",
+                                zokasText("Kelola hutang, piutang & pengeluaran.", "Manage receivables, payables & expenses."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1683,13 +1683,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Buku Piutang (Bon)",
+                                    zokasText("Buku Piutang (Bon)", "Receivables Ledger (Credit)"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Daftar bon pelanggan yang belum lunas.",
+                                    zokasText("Daftar bon pelanggan yang belum lunas.", "Unpaid customer credit list."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1713,13 +1713,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Buku Hutang (Supplier)",
+                                    zokasText("Buku Hutang (Supplier)", "Payables Ledger (Suppliers)"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Daftar PO yang belum dibayar.",
+                                    zokasText("Daftar PO yang belum dibayar.", "Unpaid purchase orders list."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1743,13 +1743,13 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Pengeluaran Operasional",
+                                    zokasText("Pengeluaran Operasional", "Operating Expenses"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Catat biaya gaji, listrik, sewa, dll.",
+                                    zokasText("Catat biaya gaji, listrik, sewa, dll.", "Record salaries, utilities, rent, etc."),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1786,13 +1786,13 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Kelola Bahan Baku",
+                                zokasText("Kelola Bahan Baku", "Manage Raw Materials"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Atur stok bahan mentah & resep (BOM).",
+                                zokasText("Atur stok bahan mentah & resep (BOM).", "Manage raw material stock & recipes (BOM)."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1963,7 +1963,7 @@ fun SettingsStoreProfileCard(
                 outputStream.close()
                 onLogoChange(file.absolutePath)
             } catch (e: Exception) {
-                Toast.makeText(context, "Gagal simpan logo: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, zokasText("Gagal simpan logo: ${e.message}", "Failed to save logo: ${e.message}"), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -2046,13 +2046,13 @@ fun SettingsStoreProfileCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column {
                             Text(
-                                "Logo Toko",
+                                zokasText("Logo Toko", "Store Logo"),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Ketuk gambar untuk mengganti logo di struk & aplikasi.",
+                                zokasText("Ketuk gambar untuk mengganti logo di struk & aplikasi.", "Tap image to change logo on receipt & app."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -2099,8 +2099,8 @@ fun SettingsStoreProfileCard(
                     OutlinedTextField(
                         value = cfdThankYouMessage,
                         onValueChange = onCfdThankYouMessageChange,
-                        label = { Text("Pesan Layar Pelanggan (CFD) Selesai Bayar") },
-                        placeholder = { Text("Contoh: Terima Kasih atas pembeliannya 🙏") },
+                        label = { Text(zokasText("Pesan Layar Pelanggan (CFD) Selesai Bayar", "Customer Display (CFD) Completed Message")) },
+                        placeholder = { Text(zokasText("Contoh: Terima Kasih atas pembeliannya 🙏", "Example: Thank you for your purchase 🙏")) },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 2,
                         shape = RoundedCornerShape(6.dp)
@@ -2111,13 +2111,13 @@ fun SettingsStoreProfileCard(
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
                     Text(
-                        "Pengaturan Pajak & Layanan (Standar Indonesia)",
+                        zokasText("Pengaturan Pajak & Layanan (Standar Indonesia)", "Tax & Service Settings"),
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        "Pilih cepat tarif pajak sesuai jenis usaha Anda di Indonesia:",
+                        zokasText("Pilih cepat tarif pajak sesuai jenis usaha Anda di Indonesia:", "Quickly select a tax rate preset for your business:"),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2199,16 +2199,16 @@ fun SettingsStoreProfileCard(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Harga Produk Sudah Termasuk Pajak (Inclusive)",
+                                    zokasText("Harga Produk Sudah Termasuk Pajak (Inclusive)", "Prices Already Include Tax (Inclusive)"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     if (isTaxInclusive)
-                                        "Aktif: Pajak dihitung di dalam harga menu (tidak menambah total tagihan pembeli)."
+                                        zokasText("Aktif: Pajak dihitung di dalam harga menu (tidak menambah total tagihan pembeli).", "Active: Tax is included in item price (does not add to buyer total).")
                                     else
-                                        "Nonaktif (Eksklusif): Pajak ditambahkan di atas subtotal belanja.",
+                                        zokasText("Nonaktif (Eksklusif): Pajak ditambahkan di atas subtotal belanja.", "Inactive (Exclusive): Tax is added on top of subtotal."),
                                     fontSize = 10.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2225,13 +2225,13 @@ fun SettingsStoreProfileCard(
 
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        "Pembulatan Otomatis Pembayaran Tunai (Cash)",
+                        zokasText("Pembulatan Otomatis Pembayaran Tunai (Cash)", "Automatic Cash Rounding"),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Menghindari kembalian receh satuan (misal Rp 43) saat ada pajak/diskon persen:",
+                        zokasText("Menghindari kembalian receh satuan (misal Rp 43) saat ada pajak/diskon persen:", "Avoid small coin change (e.g., Rp 43) with tax/percentage discounts:"),
                         fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2241,7 +2241,7 @@ fun SettingsStoreProfileCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val roundingOptions = listOf(
-                            0 to "Tanpa Bulat",
+                            0 to zokasText("Tanpa Bulat", "No Rounding"),
                             100 to "Rp 100",
                             500 to "Rp 500"
                         )
@@ -2493,7 +2493,7 @@ fun SettingsBackupCard(
                     ) {
                         Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Jadwal Auto-Backup & Google Drive", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Jadwal Auto-Backup & Google Drive", "Auto-Backup Schedule & Google Drive"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                 }
@@ -2544,7 +2544,7 @@ fun SettingsPaymentMethodCard(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Metode Pembayaran",
+                    text = zokasText("Metode Pembayaran", "Payment Methods"),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -2554,7 +2554,7 @@ fun SettingsPaymentMethodCard(
                 val summaryMethods = remember(currentMethods, edcActive) {
                     val base = currentMethods.toMutableList()
                     if (edcActive && !base.contains("EDC")) base.add("EDC")
-                    base.joinToString(", ").ifBlank { "Belum dipilih" }
+                    base.joinToString(", ").ifBlank { zokasText("Belum dipilih", "Not selected") }
                 }
                 Text(
                     text = summaryMethods,
@@ -2564,8 +2564,8 @@ fun SettingsPaymentMethodCard(
                 )
                 if (hasWarning) {
                     val warningText = buildList {
-                        if (missingQris) add("Payload QRIS belum diisi")
-                        if (missingBank) add("Nomor rekening belum diisi")
+                        if (missingQris) add(zokasText("Payload QRIS belum diisi", "QRIS payload not set"))
+                        if (missingBank) add(zokasText("Nomor rekening belum diisi", "Account number not set"))
                     }.joinToString(" • ")
                     Text(
                         text = warningText,
@@ -2642,11 +2642,11 @@ fun PaymentMethodManagementDialog(
         if (result.contents != null) {
             if (QrisHelper.isValidQris(result.contents)) {
                 qrisPayload = result.contents
-                Toast.makeText(context, "QRIS Statis berhasil dipindai!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, zokasText("QRIS Statis berhasil dipindai!", "Static QRIS scanned successfully!"), Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(
                     context,
-                    "Gagal: QR Code ini bukan QRIS Statis yang valid (Gagal verifikasi CRC16).",
+                    zokasText("Gagal: QR Code ini bukan QRIS Statis yang valid (Gagal verifikasi CRC16).", "Error: Not a valid Static QRIS code (CRC16 check failed)."),
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -2667,38 +2667,38 @@ fun PaymentMethodManagementDialog(
             text = {
                 Column {
                     Text(
-                        "1. Buka aplikasi Bank atau E-Wallet Anda (BCA, Mandiri, GoPay, OVO, dll).",
+                        zokasText("1. Buka aplikasi Bank atau E-Wallet Anda (BCA, Mandiri, GoPay, OVO, dll).", "1. Open your Bank or E-Wallet app (BCA, Mandiri, GoPay, OVO, etc.)."),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "2. Cari menu \"QRIS\" atau \"Terima Pembayaran\".",
+                        zokasText("2. Cari menu \"QRIS\" atau \"Terima Pembayaran\".", "2. Find the \"QRIS\" or \"Receive Payment\" menu."),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "3. Pastikan Anda menggunakan QRIS Statis (bukan QR dinamis yang nominalnya berubah-ubah).",
+                        zokasText("3. Pastikan Anda menggunakan QRIS Statis (bukan QR dinamis yang nominalnya berubah-ubah).", "3. Make sure you use a Static QRIS (not a dynamic QR with changing amounts)."),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "4. Screenshot QR tersebut, atau minta file gambar QRIS ke bank Anda.",
+                        zokasText("4. Screenshot QR tersebut, atau minta file gambar QRIS ke bank Anda.", "4. Screenshot the QR code or request the QRIS image file from your bank."),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "5. Gunakan tombol 'Scan QRIS' di aplikasi ini untuk memindai gambar tersebut. Aplikasi akan otomatis menyimpan kode rahasianya.",
+                        zokasText("5. Gunakan tombol 'Scan QRIS' di aplikasi ini untuk memindai gambar tersebut. Aplikasi akan otomatis menyimpan kode rahasianya.", "5. Use 'Scan QRIS' in this app to scan it. The payload will be saved automatically."),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        "Catatan: Aplikasi memvalidasi QRIS menggunakan checksum CRC16. Jika QR yang Anda scan adalah QRIS dinamis atau bukan QRIS, aplikasi akan menolak.",
+                        zokasText("Catatan: Aplikasi memvalidasi QRIS menggunakan checksum CRC16. Jika QR yang Anda scan adalah QRIS dinamis atau bukan QRIS, aplikasi akan menolak.", "Note: QRIS is validated using CRC16 checksum. Dynamic or invalid QR codes will be rejected."),
                         fontSize = 11.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2712,7 +2712,7 @@ fun PaymentMethodManagementDialog(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
-                ) { Text("Mengerti") }
+                ) { Text(zokasText("Mengerti", "Got It")) }
             }
         )
     }
@@ -2721,7 +2721,7 @@ fun PaymentMethodManagementDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "Metode Pembayaran",
+                zokasText("Metode Pembayaran", "Payment Methods"),
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -2733,7 +2733,7 @@ fun PaymentMethodManagementDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    "Pilih metode yang diterima di toko & lengkapi pengaturannya:",
+                    zokasText("Pilih metode yang diterima di toko & lengkapi pengaturannya:", "Select accepted payment methods & configure details:"),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -2767,9 +2767,9 @@ fun PaymentMethodManagementDialog(
                             )
                             Text(
                                 text = when (method) {
-                                    "CASH" -> "Tunai (CASH)"
-                                    "QRIS" -> "QRIS Statis / Dinamis"
-                                    "Bank Transfer" -> "Transfer Bank Manual"
+                                    "CASH" -> zokasText("Tunai (CASH)", "Cash (CASH)")
+                                    "QRIS" -> zokasText("QRIS Statis / Dinamis", "QRIS Static / Dynamic")
+                                    "Bank Transfer" -> zokasText("Transfer Bank Manual", "Manual Bank Transfer")
                                     else -> method
                                 },
                                 fontSize = 14.sp,
@@ -2800,7 +2800,7 @@ fun PaymentMethodManagementDialog(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            "Konfigurasi QRIS",
+                                            zokasText("Konfigurasi QRIS", "QRIS Configuration"),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
                                             color = MaterialTheme.colorScheme.primary
@@ -2817,7 +2817,7 @@ fun PaymentMethodManagementDialog(
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text(
-                                                "Tutorial",
+                                                zokasText("Tutorial", "Tutorial"),
                                                 fontSize = 11.sp,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -2831,7 +2831,7 @@ fun PaymentMethodManagementDialog(
                                         OutlinedTextField(
                                             value = qrisPayload,
                                             onValueChange = { qrisPayload = it },
-                                            label = { Text("Payload QRIS (000201...)", fontSize = 11.sp) },
+                                            label = { Text(zokasText("Payload QRIS (000201...)", "QRIS Payload (000201...)"), fontSize = 11.sp) },
                                             modifier = Modifier.weight(1f),
                                             maxLines = 3,
                                             isError = qrisPayload.isBlank(),
@@ -2842,7 +2842,7 @@ fun PaymentMethodManagementDialog(
                                             onClick = {
                                                 val options = ScanOptions().apply {
                                                     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                                    setPrompt("Scan QRIS Toko")
+                                                    setPrompt(zokasText("Scan QRIS Toko", "Scan Store QRIS"))
                                                     setCameraId(0)
                                                     setBeepEnabled(false)
                                                     setOrientationLocked(true)
@@ -2858,7 +2858,7 @@ fun PaymentMethodManagementDialog(
                                         ) {
                                             Icon(
                                                 Icons.Default.QrCodeScanner,
-                                                contentDescription = "Scan QRIS",
+                                                contentDescription = zokasText("Scan QRIS", "Scan QRIS"),
                                                 tint = MaterialTheme.colorScheme.onPrimary
                                             )
                                         }
@@ -2866,7 +2866,7 @@ fun PaymentMethodManagementDialog(
 
                                     if (qrisPayload.isBlank()) {
                                         Text(
-                                            "Wajib diisi jika metode QRIS diaktifkan.",
+                                            zokasText("Wajib diisi jika metode QRIS diaktifkan.", "Required when QRIS method is enabled."),
                                             fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.padding(top = 4.dp)
@@ -2881,13 +2881,13 @@ fun PaymentMethodManagementDialog(
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                "Deteksi Otomatis Notifikasi",
+                                                zokasText("Deteksi Otomatis Notifikasi", "Auto-Detect Notifications"),
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontSize = 12.sp,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                "Konfirmasi lunas dari notifikasi aplikasi QRIS.",
+                                                zokasText("Konfirmasi lunas dari notifikasi aplikasi QRIS.", "Confirm payment from QRIS app notifications."),
                                                 fontSize = 10.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -2921,7 +2921,7 @@ fun PaymentMethodManagementDialog(
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                                     Text(
-                                        "Rekening Tujuan Transfer",
+                                        zokasText("Rekening Tujuan Transfer", "Destination Bank Account"),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.primary
@@ -2930,7 +2930,7 @@ fun PaymentMethodManagementDialog(
                                     OutlinedTextField(
                                         value = bankName,
                                         onValueChange = { bankName = it },
-                                        label = { Text("Nama Bank (cth: BCA / Mandiri)", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Nama Bank (cth: BCA / Mandiri)", "Bank Name (e.g., BCA / Mandiri)"), fontSize = 11.sp) },
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
                                         isError = bankName.isBlank(),
@@ -2940,7 +2940,7 @@ fun PaymentMethodManagementDialog(
                                     OutlinedTextField(
                                         value = bankAccountNumber,
                                         onValueChange = { bankAccountNumber = it },
-                                        label = { Text("Nomor Rekening", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Nomor Rekening", "Account Number"), fontSize = 11.sp) },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
@@ -2951,7 +2951,7 @@ fun PaymentMethodManagementDialog(
                                     OutlinedTextField(
                                         value = bankAccountName,
                                         onValueChange = { bankAccountName = it },
-                                        label = { Text("Atas Nama Rekening", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Atas Nama Rekening", "Account Holder Name"), fontSize = 11.sp) },
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
                                         shape = RoundedCornerShape(6.dp)
@@ -2959,7 +2959,7 @@ fun PaymentMethodManagementDialog(
 
                                     if (bankName.isBlank() || bankAccountNumber.isBlank()) {
                                         Text(
-                                            "Nama bank & nomor rekening wajib diisi jika Transfer Bank aktif.",
+                                            zokasText("Nama bank & nomor rekening wajib diisi jika Transfer Bank aktif.", "Bank name & account number are required when Bank Transfer is active."),
                                             fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.padding(top = 4.dp)
@@ -2989,16 +2989,16 @@ fun PaymentMethodManagementDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Pembayaran Mesin EDC (Kartu)",
+                            text = zokasText("Pembayaran Mesin EDC (Kartu)", "EDC Card Payment"),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (isEdcEnabledState)
-                                "Aktif: Opsi EDC muncul di kasir"
+                                zokasText("Aktif: Opsi EDC muncul di kasir", "Active: EDC option appears on cashier screen")
                             else
-                                "Nonaktif: Opsi EDC disembunyikan di kasir",
+                                zokasText("Nonaktif: Opsi EDC disembunyikan di kasir", "Inactive: EDC option hidden on cashier screen"),
                             fontSize = 11.sp,
                             color = if (isEdcEnabledState)
                                 MaterialTheme.colorScheme.primary
@@ -3034,7 +3034,7 @@ fun PaymentMethodManagementDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Jalur Koneksi EDC",
+                                text = zokasText("Jalur Koneksi EDC", "EDC Connection Channel"),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -3061,7 +3061,7 @@ fun PaymentMethodManagementDialog(
                                     OutlinedTextField(
                                         value = edcHostState,
                                         onValueChange = { edcHostState = it },
-                                        label = { Text("IP EDC", fontSize = 11.sp) },
+                                        label = { Text(zokasText("IP EDC", "EDC IP"), fontSize = 11.sp) },
                                         modifier = Modifier.weight(2f),
                                         singleLine = true,
                                         shape = RoundedCornerShape(6.dp)
@@ -3069,7 +3069,7 @@ fun PaymentMethodManagementDialog(
                                     OutlinedTextField(
                                         value = edcPortState,
                                         onValueChange = { edcPortState = it.filter { c -> c.isDigit() } },
-                                        label = { Text("Port", fontSize = 11.sp) },
+                                        label = { Text(zokasText("Port", "Port"), fontSize = 11.sp) },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
@@ -3081,7 +3081,7 @@ fun PaymentMethodManagementDialog(
                                 OutlinedTextField(
                                     value = edcIntentState,
                                     onValueChange = { edcIntentState = it },
-                                    label = { Text("Package / URI EDC (Opsional)", fontSize = 11.sp) },
+                                    label = { Text(zokasText("Package / URI EDC (Opsional)", "EDC Package / URI (Optional)"), fontSize = 11.sp) },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
                                     shape = RoundedCornerShape(6.dp)
@@ -3117,11 +3117,11 @@ fun PaymentMethodManagementDialog(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(6.dp)
-            ) { Text("SIMPAN", fontWeight = FontWeight.Bold) }
+            ) { Text(zokasText("SIMPAN", "SAVE"), fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -3183,16 +3183,16 @@ fun SettingsOwnerMonitorCard() {
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Pantauan HP Owner (Tanpa Server)",
+                            text = zokasText("Pantauan HP Owner (Tanpa Server)", "Owner Phone Monitor (Serverless)"),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (isEnabled)
-                                "Aktif • Kirim laporan transaksi & tutup kasir ke HP Owner"
+                                zokasText("Aktif • Kirim laporan transaksi & tutup kasir ke HP Owner", "Active • Send transaction & closing reports to Owner phone")
                             else
-                                "Nonaktif • Pantau transaksi & tutup shift jarak jauh",
+                                zokasText("Nonaktif • Pantau transaksi & tutup shift jarak jauh", "Inactive • Monitor transactions & shift closing remotely"),
                             fontSize = 11.sp,
                             color = if (isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -3222,7 +3222,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
 
                     if (ownerEmail.isNotBlank()) {
                         Text(
-                            text = "Akun Terdaftar: $ownerEmail",
+                            text = zokasText("Akun Terdaftar: $ownerEmail", "Registered Account: $ownerEmail"),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
@@ -3237,13 +3237,13 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Aktifkan Pantauan Jarak Jauh",
+                                text = zokasText("Aktifkan Pantauan Jarak Jauh", "Enable Remote Monitoring"),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Tanpa server berbayar developer. Menggunakan Bot Telegram milik Owner sendiri.",
+                                text = zokasText("Tanpa server berbayar developer. Menggunakan Bot Telegram milik Owner sendiri.", "No paid developer server. Uses the Owner's own Telegram Bot."),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -3269,7 +3269,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             }
                             context.startActivity(intent)
                         } catch (_: Exception) {
-                            Toast.makeText(context, "Aplikasi Telegram tidak ditemukan. Buka $url di browser.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, zokasText("Aplikasi Telegram tidak ditemukan. Buka $url di browser.", "Telegram app not found. Open $url in browser."), Toast.LENGTH_LONG).show()
                         }
                     }
 
@@ -3285,7 +3285,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             },
                             title = {
                                 Text(
-                                    "Panduan Setup Bot Telegram Owner",
+                                    zokasText("Panduan Setup Bot Telegram Owner", "Owner Telegram Bot Setup Guide"),
                                     fontWeight = FontWeight.Bold
                                 )
                             },
@@ -3297,17 +3297,24 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Text(
-                                        "Langkah 1 — Buat Bot Baru & Ambil Bot Token:",
+                                        zokasText("Langkah 1 — Buat Bot Baru & Ambil Bot Token:", "Step 1 — Create a New Bot & Get Bot Token:"),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        "1. Ketuk tombol 'Buka @BotFather' di bawah.\n" +
-                                        "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot\n" +
-                                        "3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n" +
-                                        "4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n" +
-                                        "5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.",
+                                        zokasText(
+                                            "1. Ketuk tombol 'Buka @BotFather' di bawah.\n" +
+                                            "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot\n" +
+                                            "3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n" +
+                                            "4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n" +
+                                            "5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.",
+                                            "1. Tap 'Open @BotFather in Telegram' below.\n" +
+                                            "2. In @BotFather chat, tap START and send: /newbot\n" +
+                                            "3. Enter a bot name (e.g., Kasir Toko Berkah).\n" +
+                                            "4. Enter a bot username ending in 'bot' (e.g., berkah_kasir_bot).\n" +
+                                            "5. Copy the HTTP API Token (e.g., 7123456789:AAH...) and paste it into Bot Token in ZoKas."
+                                        ),
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -3320,21 +3327,26 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                     ) {
                                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Buka @BotFather di Telegram", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text(zokasText("Buka @BotFather di Telegram", "Open @BotFather in Telegram"), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
 
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                                     Text(
-                                        "Langkah 2 — Ambil Chat ID HP Owner:",
+                                        zokasText("Langkah 2 — Ambil Chat ID HP Owner:", "Step 2 — Get Owner Phone Chat ID:"),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        "1. Ketuk tombol 'Buka @userinfobot' di bawah.\n" +
-                                        "2. Tekan START di chat bot tersebut.\n" +
-                                        "3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.",
+                                        zokasText(
+                                            "1. Ketuk tombol 'Buka @userinfobot' di bawah.\n" +
+                                            "2. Tekan START di chat bot tersebut.\n" +
+                                            "3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.",
+                                            "1. Tap 'Open @userinfobot in Telegram' below.\n" +
+                                            "2. Tap START in that bot chat.\n" +
+                                            "3. Copy the number under 'Id' (e.g., 987654321) and paste it into Owner Phone Chat ID."
+                                        ),
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -3348,19 +3360,22 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                     ) {
                                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Buka @userinfobot di Telegram", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text(zokasText("Buka @userinfobot di Telegram", "Open @userinfobot in Telegram"), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
 
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                                     Text(
-                                        "Langkah 3 — Aktivasi Chat Bot (Wajib):",
+                                        zokasText("Langkah 3 — Aktivasi Chat Bot (Wajib):", "Step 3 — Activate Bot Chat (Required):"),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.error
                                     )
                                     Text(
-                                        "Buka link username bot yang baru Anda buat di Langkah 1, lalu tekan tombol START sekali agar bot diizinkan mengirim pesan ke HP Owner. Setelah itu kembali ke ZoKas dan tekan 'Tes Kirim'.",
+                                        zokasText(
+                                            "Buka link username bot yang baru Anda buat di Langkah 1, lalu tekan tombol START sekali agar bot diizinkan mengirim pesan ke HP Owner. Setelah itu kembali ke ZoKas dan tekan 'Tes Kirim'.",
+                                            "Open the bot username link you created in Step 1 and tap START once so it can message the Owner phone. Then return to ZoKas and tap 'Test Send'."
+                                        ),
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -3372,7 +3387,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                     onClick = { showTelegramGuideDialog = false },
                                     shape = RoundedCornerShape(6.dp)
                                 ) {
-                                    Text("MENGERTI", fontWeight = FontWeight.Bold)
+                                    Text(zokasText("MENGERTI", "GOT IT"), fontWeight = FontWeight.Bold)
                                 }
                             }
                         )
@@ -3391,7 +3406,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                         Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "Tutorial Lengkap Cara Ambil Token & Chat ID",
+                            zokasText("Tutorial Lengkap Cara Ambil Token & Chat ID", "Full Guide: Get Bot Token & Chat ID"),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -3404,7 +3419,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     OutlinedTextField(
                         value = botToken,
                         onValueChange = { botToken = it },
-                        label = { Text("Bot Token Telegram *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                        label = { Text(zokasText("Bot Token Telegram *", "Telegram Bot Token *"), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         placeholder = { Text("123456789:ABCdef...") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -3419,7 +3434,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Buka @BotFather (Buat Bot & Ambil Token)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Buka @BotFather (Buat Bot & Ambil Token)", "Open @BotFather (Create Bot & Get Token)"), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -3427,8 +3442,8 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     OutlinedTextField(
                         value = chatId,
                         onValueChange = { chatId = it },
-                        label = { Text("Chat ID HP Owner *", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
-                        placeholder = { Text("Contoh: 987654321") },
+                        label = { Text(zokasText("Chat ID HP Owner *", "Owner Phone Chat ID *"), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                        placeholder = { Text(zokasText("Contoh: 987654321", "Example: 987654321")) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -3444,7 +3459,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Buka @userinfobot (Cek Chat ID Owner)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Buka @userinfobot (Cek Chat ID Owner)", "Open @userinfobot (Check Owner Chat ID)"), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -3460,7 +3475,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             onCheckedChange = { notifyTrx = it },
                             colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                         )
-                        Text("Kirim notifikasi setiap transaksi selesai", fontSize = 12.sp)
+                        Text(zokasText("Kirim notifikasi setiap transaksi selesai", "Send alert on every completed transaction"), fontSize = 12.sp)
                     }
 
                     Row(
@@ -3474,7 +3489,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             onCheckedChange = { notifyShift = it },
                             colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                         )
-                        Text("Kirim rekap saat Tutup Kasir (Close Shift)", fontSize = 12.sp)
+                        Text(zokasText("Kirim rekap saat Tutup Kasir (Close Shift)", "Send summary on Close Shift"), fontSize = 12.sp)
                     }
 
                     Row(
@@ -3488,7 +3503,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             onCheckedChange = { notifyVoid = it },
                             colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                         )
-                        Text("Kirim peringatan jika ada Void / Refund transaksi", fontSize = 12.sp)
+                        Text(zokasText("Kirim peringatan jika ada Void / Refund transaksi", "Send alert on Void / Refund transactions"), fontSize = 12.sp)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -3513,7 +3528,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                         )
                         Text(
-                            "Siapkan paket antrean otomatis saat Tutup Kasir",
+                            zokasText("Siapkan paket antrean otomatis saat Tutup Kasir", "Auto-prepare queue bundle on Close Shift"),
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
@@ -3538,7 +3553,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Kirim Paket Terbaru ke HP Owner", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Kirim Paket Terbaru ke HP Owner", "Send Latest Bundle to Owner Phone"), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -3559,7 +3574,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                     isTesting = false
                                     Toast.makeText(context, infoMsg.toString(), Toast.LENGTH_LONG).show()
                                     if (!ok) {
-                                        Toast.makeText(context, "Pengaturan tetap disimpan. Antrean akan dikirim saat terhubung.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, zokasText("Pengaturan tetap disimpan. Antrean akan dikirim saat terhubung.", "Settings saved. Queue will be sent once connected."), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -3567,7 +3582,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             modifier = Modifier.weight(1f).height(44.dp),
                             shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text(if (isTesting) "Mengirim..." else "Tes Kirim", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(if (isTesting) zokasText("Mengirim...", "Sending...") else zokasText("Tes Kirim", "Test Send"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
 
                         Button(
@@ -3576,7 +3591,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                     isEnabled = true
                                 }
                                 persistMonitorConfig(isEnabled)
-                                Toast.makeText(context, "Pengaturan Pantauan HP Owner disimpan!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, zokasText("Pengaturan Pantauan HP Owner disimpan!", "Owner Phone Monitor settings saved!"), Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.weight(1f).height(44.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -3585,7 +3600,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                             ),
                             shape = RoundedCornerShape(6.dp)
                         ) {
-                            Text("SIMPAN", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(zokasText("SIMPAN", "SAVE"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -3619,7 +3634,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
     var deviceLabel by remember {
         mutableStateOf(
             if (rawSavedLabel.isNotBlank()) rawSavedLabel
-            else SettingsManager(context).storeName?.takeIf { it.isNotBlank() }?.let { "Kasir $it" } ?: "Kasir Utama"
+            else SettingsManager(context).storeName?.takeIf { it.isNotBlank() }?.let { zokasText("Kasir $it", "Cashier $it") } ?: zokasText("Kasir Utama", "Main Cashier")
         )
     }
     var autoExportOnCloseShift by remember {
@@ -3666,7 +3681,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                 )
             },
             title = {
-                Text("Panduan Sinkronisasi Multi-Perangkat", fontWeight = FontWeight.Bold)
+                Text(zokasText("Panduan Sinkronisasi Multi-Perangkat", "Multi-Device Sync Guide"), fontWeight = FontWeight.Bold)
             },
             text = {
                 Column(
@@ -3676,28 +3691,28 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        "Skenario: HP Owner memantau dan menggabungkan laporan transaksi dari beberapa perangkat kasir di cabang/meja berbeda secara offline-first tanpa biaya server.",
+                        zokasText("Skenario: HP Owner memantau dan menggabungkan laporan transaksi dari beberapa perangkat kasir di cabang/meja berbeda secara offline-first tanpa biaya server.", "Scenario: Owner phone monitors and merges transaction reports from multiple cashier devices offline-first with zero server cost."),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "1. Gunakan Email Pemilik yang Sama:\nPastikan seluruh perangkat mendaftarkan alamat email pemilik yang sama saat aktivasi awal.",
+                        zokasText("1. Gunakan Email Pemilik yang Sama:\nPastikan seluruh perangkat mendaftarkan alamat email pemilik yang sama saat aktivasi awal.", "1. Use the Same Owner Email:\nEnsure all devices register the same owner email during initial setup."),
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "2. Tentukan Identitas Terminal Kasir:\nIsi nama perangkat (misal: 'Kasir Cabang Timur') agar setiap catatan transaksi dan tutup shift memiliki asal cabang yang jelas.",
+                        zokasText("2. Tentukan Identitas Terminal Kasir:\nIsi nama perangkat (misal: 'Kasir Cabang Timur') agar setiap catatan transaksi dan tutup shift memiliki asal cabang yang jelas.", "2. Set Cashier Terminal Identity:\nEnter a device name (e.g., 'East Branch POS') so each transaction and shift close has a clear source."),
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "3. Kirim / Ekspor Paket Data (.json):\nSetiap transaksi & tutup shift otomatis masuk antrean kronologis. Tekan 'Kirim Paket Laporan ke HP Owner' (via WhatsApp/Email/Drive) atau 'Ekspor File'.",
+                        zokasText("3. Kirim / Ekspor Paket Data (.json):\nSetiap transaksi & tutup shift otomatis masuk antrean kronologis. Tekan 'Kirim Paket Laporan ke HP Owner' (via WhatsApp/Email/Drive) atau 'Ekspor File'.", "3. Send / Export Data Bundle (.json):\nTransactions & shift closings queue automatically. Tap 'Send Report Bundle to Owner Phone' or 'Export File'."),
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "4. Gabungkan di Perangkat Owner:\nBuka menu ini di HP Owner lalu pilih 'Impor & Gabung'. Sistem menyusun ulang data berdasarkan waktu transaksi tanpa menimpa data lokal.",
+                        zokasText("4. Gabungkan di Perangkat Owner:\nBuka menu ini di HP Owner lalu pilih 'Impor & Gabung'. Sistem menyusun ulang data berdasarkan waktu transaksi tanpa menimpa data lokal.", "4. Merge on Owner Device:\nOpen this menu on the Owner phone and tap 'Import & Merge'. Data is sorted chronologically without overwriting local records."),
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -3712,7 +3727,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                     ),
                     shape = RoundedCornerShape(6.dp)
                 ) {
-                    Text("MENGERTI", fontWeight = FontWeight.Bold)
+                    Text(zokasText("MENGERTI", "GOT IT"), fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -3737,16 +3752,16 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Sinkronisasi Multi-Perangkat",
+                            text = zokasText("Sinkronisasi Multi-Perangkat", "Multi-Device Sync"),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (queueCount > 0)
-                                "$queueCount catatan siap disinkronkan • Lokal & Cloud"
+                                zokasText("$queueCount catatan siap disinkronkan • Lokal & Cloud", "$queueCount items ready to sync • Local & Cloud")
                             else
-                                "Tersinkron • Antrean catatan lokal kosong",
+                                zokasText("Tersinkron • Antrean catatan lokal kosong", "Synced • Local queue is empty"),
                             fontSize = 11.sp,
                             color = if (queueCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -3799,7 +3814,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = registeredEmail.ifBlank { "Akun Lokal Terdaftar" },
+                                        text = registeredEmail.ifBlank { zokasText("Akun Lokal Terdaftar", "Registered Local Account") },
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -3815,7 +3830,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                                     shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text(
-                                        text = "$queueCount Data Antrean",
+                                        text = zokasText("$queueCount Data Antrean", "$queueCount Queued Items"),
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (queueCount > 0)
@@ -3843,7 +3858,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                                 ) {
                                     Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Cara Kerja & Panduan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(zokasText("Cara Kerja & Panduan", "How It Works & Guide"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -3856,7 +3871,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                             deviceLabel = it
                             MultiDeviceTransactionSyncManager.setDeviceLabel(context, it)
                         },
-                        label = { Text("Nama Terminal / Cabang Kasir", maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
+                        label = { Text(zokasText("Nama Terminal / Cabang Kasir", "Cashier Terminal / Branch Name"), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = { Icon(Icons.Default.PointOfSale, contentDescription = null) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -3889,13 +3904,13 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Otomatis siapkan file rekap saat Tutup Kasir",
+                                    zokasText("Otomatis siapkan file rekap saat Tutup Kasir", "Auto-prepare summary file on Close Shift"),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    "Memudahkan pengiriman laporan shift ke HP Owner.",
+                                    zokasText("Memudahkan pengiriman laporan shift ke HP Owner.", "Makes sending shift reports to Owner phone easier."),
                                     fontSize = 10.5.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -3920,7 +3935,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                     ) {
                         Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Kirim Paket Laporan ke HP Owner", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Kirim Paket Laporan ke HP Owner", "Send Report Bundle to Owner Phone"), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     // AKSI SEKUNDER: EKSPOR & IMPOR FILE JSON
@@ -3943,7 +3958,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                         ) {
                             Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Ekspor File", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(zokasText("Ekspor File", "Export File"), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
 
                         OutlinedButton(
@@ -3957,7 +3972,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                         ) {
                             Icon(Icons.Default.DownloadForOffline, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Impor & Gabung", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(zokasText("Impor & Gabung", "Import & Merge"), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
                 }

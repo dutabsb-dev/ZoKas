@@ -132,13 +132,14 @@ fun PosProductSection(
         }
     }
 
+    val isEnLang = ZokasLocaleManager.isEnglish()
     val sortLabel = when (sortOption) {
-        "STOCK_ASC" -> "Stok Sedikit"
-        "STOCK_DESC" -> "Stok Banyak"
-        "EXPIRY_ASC" -> "Expired Terdekat"
-        "PRICE_ASC" -> "Harga Termurah"
-        "PRICE_DESC" -> "Harga Termahal"
-        else -> "Urutkan"
+        "STOCK_ASC" -> zokasText("Stok Sedikit", "Low Stock", if (isEnLang) "en" else "in")
+        "STOCK_DESC" -> zokasText("Stok Banyak", "High Stock", if (isEnLang) "en" else "in")
+        "EXPIRY_ASC" -> zokasText("Expired Terdekat", "Nearest Expiry", if (isEnLang) "en" else "in")
+        "PRICE_ASC" -> zokasText("Harga Termurah", "Lowest Price", if (isEnLang) "en" else "in")
+        "PRICE_DESC" -> zokasText("Harga Termahal", "Highest Price", if (isEnLang) "en" else "in")
+        else -> zokasText("Urutkan", "Sort By", if (isEnLang) "en" else "in")
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -214,13 +215,13 @@ fun PosProductSection(
                 ) {
                     Icon(
                         imageVector = if (isCompactListMode) Icons.Default.GridView else Icons.Default.ViewList,
-                        contentDescription = "Ubah Tampilan",
+                        contentDescription = zokasText("Ubah Tampilan", "Switch View"),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (isCompactListMode) "Grid" else "List",
+                        text = if (isCompactListMode) zokasText("Grid", "Grid") else zokasText("List", "List"),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -269,12 +270,12 @@ fun PosProductSection(
                     onDismissRequest = { showSortMenu = false }
                 ) {
                     val sortItems = listOf(
-                        "DEFAULT" to "Urutan Default",
-                        "STOCK_ASC" to "Stok Paling Sedikit (Menipis)",
-                        "STOCK_DESC" to "Stok Paling Banyak",
-                        "EXPIRY_ASC" to "Tanggal Expired Terdekat",
-                        "PRICE_ASC" to "Harga Termurah",
-                        "PRICE_DESC" to "Harga Termahal"
+                        "DEFAULT" to zokasText("Urutan Default", "Default Order"),
+                        "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis)", "Lowest Stock (Low)"),
+                        "STOCK_DESC" to zokasText("Stok Paling Banyak", "Highest Stock"),
+                        "EXPIRY_ASC" to zokasText("Tanggal Expired Terdekat", "Nearest Expiry Date"),
+                        "PRICE_ASC" to zokasText("Harga Termurah", "Lowest Price", if (isEnLang) "en" else "in"),
+                        "PRICE_DESC" to zokasText("Harga Termahal", "Highest Price", if (isEnLang) "en" else "in")
                     )
                     sortItems.forEach { (key, label) ->
                         DropdownMenuItem(
@@ -313,7 +314,7 @@ fun PosProductSection(
                     Icon(Icons.Default.Straighten, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (selectedUnitFilter == "SEMUA") "Semua Satuan" else "Satuan: $selectedUnitFilter",
+                        text = if (selectedUnitFilter == "SEMUA") zokasText("Semua Satuan", "All Units", if (isEnLang) "en" else "in") else zokasText("Satuan: $selectedUnitFilter", "Unit: $selectedUnitFilter", if (isEnLang) "en" else "in"),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -331,7 +332,7 @@ fun PosProductSection(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    if (unitKey == "SEMUA") "Semua Satuan" else unitKey,
+                                    if (unitKey == "SEMUA") zokasText("Semua Satuan", "All Units", if (isEnLang) "en" else "in") else unitKey,
                                     fontSize = 12.sp,
                                     fontWeight = if (selectedUnitFilter == unitKey) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -373,9 +374,9 @@ fun PosProductSection(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = if (searchQuery.isNotBlank())
-                            "Produk '$searchQuery' tidak ditemukan"
+                            zokasText("Produk '$searchQuery' tidak ditemukan", "Product '$searchQuery' not found")
                         else
-                            "Belum ada produk sesuai filter ini",
+                            zokasText("Belum ada produk sesuai filter ini", "No products match this filter"),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -383,7 +384,7 @@ fun PosProductSection(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Coba reset pencarian, kategori, atau filter satuan.",
+                        text = zokasText("Coba reset pencarian, kategori, atau filter satuan.", "Try resetting search, category, or unit filter."),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -402,7 +403,7 @@ fun PosProductSection(
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Reset Semua Filter", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(zokasText("Reset Semua Filter", "Reset All Filters"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -481,15 +482,15 @@ private fun ProductGridCard(
 
     val stockText = remember(product.isService, product.stock, variantStocks, baseUnit) {
         if (product.isService) {
-            "Jasa"
+            zokasText("Jasa", "Service")
         } else if (variantStocks.isNotEmpty()) {
             val vSummary = variantStocks.joinToString(" • ") {
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
                 else "${it.name}: ${it.stock} $baseUnit"
             }
-            "Stok: ${product.stock} $baseUnit ($vSummary)"
+            zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary)")
         } else {
-            "Stok: ${product.stock} $baseUnit"
+            zokasText("Stok: ${product.stock} $baseUnit", "Stock: ${product.stock} $baseUnit")
         }
     }
 
@@ -751,7 +752,7 @@ private fun ProductCompactListRow(
 
     val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit) {
         if (product.isService) {
-            "Layanan Jasa (Tanpa Stok)"
+            zokasText("Layanan Jasa (Tanpa Stok)", "Service Item (No Stock)")
         } else if (variantStocks.isNotEmpty()) {
             val details = variantStocks.joinToString("  •  ") {
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
@@ -759,11 +760,11 @@ private fun ProductCompactListRow(
             }
             "Total: ${product.stock} $baseUnit  •  $details"
         } else if (isOutOfStock) {
-            "Stok Habis (0 $baseUnit)"
+            zokasText("Stok Habis (0 $baseUnit)", "Out of Stock (0 $baseUnit)")
         } else if (isLowStock) {
-            "STOK MENIPIS: ${product.stock} $baseUnit"
+            zokasText("STOK MENIPIS: ${product.stock} $baseUnit", "LOW STOCK: ${product.stock} $baseUnit")
         } else {
-            "Stok Tersedia: ${product.stock} $baseUnit"
+            zokasText("Stok Tersedia: ${product.stock} $baseUnit", "In Stock: ${product.stock} $baseUnit")
         }
     }
 
@@ -911,7 +912,7 @@ private fun ProductCompactListRow(
                 )
                 if (product.wholesaleMinQty > 0 && product.wholesalePrice > 0) {
                     Text(
-                        text = "Grosir ≥${product.wholesaleMinQty}: ${formatRupiah(product.wholesalePrice)}",
+                        text = zokasText("Grosir ≥${product.wholesaleMinQty}: ${formatRupiah(product.wholesalePrice)}", "Wholesale ≥${product.wholesaleMinQty}: ${formatRupiah(product.wholesalePrice)}"),
                         fontSize = 9.sp,
                         color = MaterialTheme.colorScheme.tertiary,
                         fontWeight = FontWeight.SemiBold,
@@ -944,7 +945,9 @@ private fun BounceMarqueeText(
         overflow = TextOverflow.Ellipsis,
         textAlign = textAlign,
         modifier = modifier.basicMarquee(
-            iterations = Int.MAX_VALUE
+            iterations = Int.MAX_VALUE,
+            repeatDelayMillis = 800,
+            velocity = 32.dp
         )
     )
 }

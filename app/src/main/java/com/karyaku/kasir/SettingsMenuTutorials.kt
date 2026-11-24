@@ -35,12 +35,250 @@ data class MenuTutorialContent(
 )
 
 object SettingsTutorialCatalog {
-    fun getTutorial(menuKey: String): MenuTutorialContent {
+
+    private fun getTutorialEn(menuKey: String): MenuTutorialContent {
         return when (menuKey) {
             "backup" -> MenuTutorialContent(
                 menuKey = "backup",
-                title = "Tutorial Interaktif: Data & Backup",
-                subtitle = "Amankan transaksi, produk, stok, pelanggan & pengaturan agar tidak hilang saat ganti HP atau reinstall.",
+                title = "Interactive Tutorial: Data & Backup",
+                subtitle = "Protect transactions, products, stock, customers & settings from being lost on device change or reinstall.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Create Manual Backups Regularly",
+                        detail = "Tap 'Backup' to save a backup copy of your store data. Recommended at every shift closing or after adding many products.",
+                        tip = "Store backup files in an easy-to-find folder or upload them to personal cloud storage."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Configure Auto-Backup Schedule & Google Drive",
+                        detail = "Use 'Auto-Backup Schedule & Google Drive' so backups run routinely and sync without manual effort.",
+                        tip = "Ensure an active internet connection when uploading to Google Drive."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 3,
+                        title = "Restore Data Safely",
+                        detail = "When switching devices or reinstalling the app, tap 'Restore' and pick the latest backup file. Products, transaction history, and settings will be restored.",
+                        tip = "Double-check store name, printer, and payment methods after Restore finishes."
+                    )
+                ),
+                checklist = listOf(
+                    "Latest backup file created today",
+                    "Backup file saved safely (not only in temporary cache)",
+                    "Auto-Backup / Google Drive schedule verified",
+                    "Ready to Restore when changing devices"
+                )
+            )
+            "appearance" -> MenuTutorialContent(
+                menuKey = "appearance",
+                title = "Tutorial: Appearance, Theme & Language",
+                subtitle = "Customize theme colors, dark/light mode, text scale, and ZoKas interface language.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Choose App Theme (50 Themes)",
+                        detail = "Tap 'Choose Theme' to search and pick color palettes and glass transparency that fit your screen.",
+                        tip = "Use 'Reset Default' anytime to return to the default theme."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Adjust Dark Mode, Font Size & Language",
+                        detail = "Drag the font scale slider for readability, toggle Dark Mode for low-light areas, and switch between Indonesian and English."
+                    )
+                ),
+                checklist = listOf(
+                    "Text and buttons are easy to read",
+                    "Theme contrast keeps stock indicators clear"
+                )
+            )
+            "account" -> MenuTutorialContent(
+                menuKey = "account",
+                title = "Tutorial: Account Management & Security",
+                subtitle = "Manage cashier PINs, staff accounts, shift history, and biometric login.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Change PIN & Manage Staff",
+                        detail = "Use 'Change PIN' to update the active account PIN, and 'Manage Staff' (OWNER only) to manage cashier/staff accounts.",
+                        tip = "Avoid easy-to-guess PINs for the OWNER account."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Register & Enable Fingerprint / Biometrics",
+                        detail = "Register biometrics and enable 'Fingerprint Login' for faster, safer sign-in."
+                    )
+                ),
+                checklist = listOf(
+                    "Account PIN updated from default",
+                    "Staff list and permissions are accurate"
+                )
+            )
+            "business_type" -> MenuTutorialContent(
+                menuKey = "business_type",
+                title = "Tutorial: Business Type",
+                subtitle = "Adapt POS features to your business type (Culinary, Retail, Services, or Seasonal).",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Select Your Business Type",
+                        detail = "Select CULINARY for Kitchen Display (KDS) and table mode, or RETAIL / SERVICES / SEASONAL to match your workflow.",
+                        tip = "Changing business type does not delete transactions or products."
+                    )
+                ),
+                checklist = listOf("Business type matches cashier & kitchen workflow")
+            )
+            "modules" -> MenuTutorialContent(
+                menuKey = "modules",
+                title = "Tutorial: Store Modules",
+                subtitle = "Enable only the modules your store needs to keep the UI clean and fast.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Toggle Operational Modules",
+                        detail = "Enable Multi-Branch, Happy Hour, HR, CRM, Table Mode, Wholesale, Pre-Order, Supplier/PO, Finance, or Raw Materials/BOM as needed."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Manage Enabled Module Data",
+                        detail = "Once enabled, open its management screen (such as Manage Branches, Stock Transfer, Reservations, or Receivables/Payables) to set up records."
+                    )
+                ),
+                checklist = listOf(
+                    "Unused modules are turned off for simplicity",
+                    "USD rate or Happy Hour window is set when enabled"
+                )
+            )
+            "printer" -> MenuTutorialContent(
+                menuKey = "printer",
+                title = "Tutorial: Printer & Paper Settings",
+                subtitle = "Pair Bluetooth cashier/kitchen printers, select 58mm/80mm paper size, and test print.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Pair & Select Bluetooth Printer",
+                        detail = "Pair the printer in Android Bluetooth settings first, then tap 'Select Printer' (or 'Select Kitchen Printer') and pick your device."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Choose Paper Size (58mm / 80mm) & Test Print",
+                        detail = "Pick 58mm or 80mm paper, configure logo printing, auto-cut, cash drawer on cash payment, and feed lines, then tap 'Test Cashier Printer'."
+                    )
+                ),
+                checklist = listOf(
+                    "Printer shows Connected with the right MAC address",
+                    "Paper size (58mm/80mm) and feed distance match test print"
+                )
+            )
+            "store_profile" -> MenuTutorialContent(
+                menuKey = "store_profile",
+                title = "Tutorial: Store Profile, Tax & Rounding",
+                subtitle = "Configure receipt header/footer, store logo, tax/service charge rates, and cash rounding.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Set Store Identity & Logo",
+                        detail = "Tap the logo box to upload your store logo, then fill in Store Name, Address, Phone, Receipt Message, and Customer Display (CFD) message."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Configure Tax, Service Charge & Cash Rounding",
+                        detail = "Pick a tax preset (0%, 10% PB1, 11%/12% PPN) or enter custom rates, set tax-inclusive mode, and choose cash rounding (Rp 100 / Rp 500)."
+                    )
+                ),
+                checklist = listOf(
+                    "Store name and receipt footer look right",
+                    "Tax rate and cash rounding match store policy"
+                )
+            )
+            "discount" -> MenuTutorialContent(
+                menuKey = "discount",
+                title = "Tutorial: Happy Hour & Discounts",
+                subtitle = "Set automatic promo hours, discount percentage, and maximum discount cap.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Set Start/End Time, Discount % & Max Cap",
+                        detail = "Enter start and end time (HH:mm), discount percentage (%), and maximum discount cap (Rp) to control promo limits."
+                    )
+                ),
+                checklist = listOf(
+                    "Promo start & end hours are accurate",
+                    "Maximum discount cap (Rp) is configured if needed"
+                )
+            )
+            "payment_method" -> MenuTutorialContent(
+                menuKey = "payment_method",
+                title = "Tutorial: Payment Methods",
+                subtitle = "Enable Cash, QRIS, Manual Bank Transfer, and EDC Terminal.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Check Methods & Fill Details",
+                        detail = "Select accepted payment methods. For QRIS, scan or paste the QRIS payload (000201...). For Bank Transfer, enter bank name and account number."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Enable EDC Terminal If Needed",
+                        detail = "Toggle 'EDC Card Payment' and choose connection channel (TCP/Wi-Fi, Intent, or Auto) when using an EDC terminal."
+                    )
+                ),
+                checklist = listOf(
+                    "At least one payment method is enabled",
+                    "QRIS payload / bank account details are filled when active"
+                )
+            )
+            "owner_monitor" -> MenuTutorialContent(
+                menuKey = "owner_monitor",
+                title = "Tutorial: Owner Phone Monitor (Telegram Bot)",
+                subtitle = "Receive transaction alerts, shift closing summaries, and void/refund alerts on Owner phone without a server.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Create Bot & Get Token via @BotFather",
+                        detail = "Open @BotFather in Telegram, send /newbot, follow prompts, and copy the Bot Token into the field."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Get Owner Chat ID & Tap START on Bot",
+                        detail = "Check Owner Chat ID via @userinfobot, open your bot chat and tap START once so it can message you, then tap 'Test Send' and 'SAVE'."
+                    )
+                ),
+                checklist = listOf(
+                    "Bot Token and Owner Chat ID are entered",
+                    "Bot chat activated (START) and 'Test Send' succeeded"
+                )
+            )
+            else -> MenuTutorialContent(
+                menuKey = "multi_device_sync",
+                title = "Tutorial: Multi-Device Sync",
+                subtitle = "Send and merge transaction data bundles across cashier devices and Owner phone.",
+                steps = listOf(
+                    TutorialStepItem(
+                        stepNumber = 1,
+                        title = "Match Owner Email & Terminal Name",
+                        detail = "Use the same registered owner email across devices and set a clear cashier terminal/branch name."
+                    ),
+                    TutorialStepItem(
+                        stepNumber = 2,
+                        title = "Send / Export & Import Merge",
+                        detail = "Use 'Send Report Bundle to Owner Phone' or 'Export File' (.json) on the cashier device, then tap 'Import & Merge' on the Owner device."
+                    )
+                ),
+                checklist = listOf(
+                    "Cashier terminal/branch name is clear",
+                    "JSON bundle imported into the right Owner device"
+                )
+            )
+        }
+    }
+
+    fun getTutorial(menuKey: String, isEn: Boolean = ZokasLocaleManager.isEnglish()): MenuTutorialContent {
+        if (isEn) return getTutorialEn(menuKey)
+        return when (menuKey) {
+            "backup" -> MenuTutorialContent(
+                menuKey = "backup",
+                title = zokasText("Tutorial Interaktif: Data & Backup", "Interactive Tutorial: Data & Backup"),
+                subtitle = zokasText("Amankan transaksi, produk, stok, pelanggan & pengaturan agar tidak hilang saat ganti HP atau reinstall.", "Protect transactions, products, stock, customers & settings from being lost on device change or reinstall."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -70,8 +308,8 @@ object SettingsTutorialCatalog {
             )
             "appearance" -> MenuTutorialContent(
                 menuKey = "appearance",
-                title = "Tutorial: Tampilan, Tema & Bahasa",
-                subtitle = "Sesuaikan warna tema, mode gelap/terang, ukuran teks, dan bahasa antarmuka ZoKas.",
+                title = zokasText("Tutorial: Tampilan, Tema & Bahasa", "Tutorial: Appearance, Theme & Language"),
+                subtitle = zokasText("Sesuaikan warna tema, mode gelap/terang, ukuran teks, dan bahasa antarmuka ZoKas.", "Customize theme colors, dark/light mode, text size, and ZoKas interface language."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -92,8 +330,8 @@ object SettingsTutorialCatalog {
             )
             "account" -> MenuTutorialContent(
                 menuKey = "account",
-                title = "Tutorial: Manajemen Akun & Keamanan",
-                subtitle = "Kelola PIN kasir, data karyawan, riwayat shift, dan login biometrik.",
+                title = zokasText("Tutorial: Manajemen Akun & Keamanan", "Tutorial: Account Management & Security"),
+                subtitle = zokasText("Kelola PIN kasir, data karyawan, riwayat shift, dan login biometrik.", "Manage cashier PINs, staff data, shift history, and biometric login."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -114,8 +352,8 @@ object SettingsTutorialCatalog {
             )
             "business_type" -> MenuTutorialContent(
                 menuKey = "business_type",
-                title = "Tutorial: Tipe Usaha",
-                subtitle = "Sesuaikan perilaku fitur kasir dengan jenis usaha Anda (Kuliner, Retail, Jasa, atau Musiman).",
+                title = zokasText("Tutorial: Tipe Usaha", "Tutorial: Business Type"),
+                subtitle = zokasText("Sesuaikan perilaku fitur kasir dengan jenis usaha Anda (Kuliner, Retail, Jasa, atau Musiman).", "Tailor POS behavior to your business type (Culinary, Retail, Services, or Seasonal)."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -130,8 +368,8 @@ object SettingsTutorialCatalog {
             )
             "modules" -> MenuTutorialContent(
                 menuKey = "modules",
-                title = "Tutorial: Modul Toko",
-                subtitle = "Aktifkan hanya modul yang dibutuhkan toko agar layar tetap ringkas dan efisien.",
+                title = zokasText("Tutorial: Modul Toko", "Tutorial: Store Modules"),
+                subtitle = zokasText("Aktifkan hanya modul yang dibutuhkan toko agar layar tetap ringkas dan efisien.", "Enable only the modules your store needs to keep the screen clean and fast."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -151,8 +389,8 @@ object SettingsTutorialCatalog {
             )
             "printer" -> MenuTutorialContent(
                 menuKey = "printer",
-                title = "Tutorial: Pengaturan Printer & Kertas",
-                subtitle = "Hubungkan printer kasir/dapur Bluetooth, pilih ukuran kertas 58mm/80mm, dan uji cetak.",
+                title = zokasText("Tutorial: Pengaturan Printer & Kertas", "Tutorial: Printer & Paper Settings"),
+                subtitle = zokasText("Hubungkan printer kasir/dapur Bluetooth, pilih ukuran kertas 58mm/80mm, dan uji cetak.", "Connect Bluetooth cashier/kitchen printers, select 58mm/80mm paper size, and test print."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -172,8 +410,8 @@ object SettingsTutorialCatalog {
             )
             "store_profile" -> MenuTutorialContent(
                 menuKey = "store_profile",
-                title = "Tutorial: Profil Toko, Pajak & Pembulatan",
-                subtitle = "Atur identitas struk, logo toko, tarif pajak/service charge, dan pembulatan tunai.",
+                title = zokasText("Tutorial: Profil Toko, Pajak & Pembulatan", "Tutorial: Store Profile, Tax & Rounding"),
+                subtitle = zokasText("Atur identitas struk, logo toko, tarif pajak/service charge, dan pembulatan tunai.", "Configure receipt identity, store logo, tax/service charge rates, and cash rounding."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -193,8 +431,8 @@ object SettingsTutorialCatalog {
             )
             "discount" -> MenuTutorialContent(
                 menuKey = "discount",
-                title = "Tutorial: Happy Hour & Diskon",
-                subtitle = "Atur rentang waktu promo otomatis, persentase diskon, dan batas maksimal diskon.",
+                title = zokasText("Tutorial: Happy Hour & Diskon", "Tutorial: Happy Hour & Discounts"),
+                subtitle = zokasText("Atur rentang waktu promo otomatis, persentase diskon, dan batas maksimal diskon.", "Set automatic promo time windows, discount percentage, and maximum discount cap."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -209,8 +447,8 @@ object SettingsTutorialCatalog {
             )
             "payment_method" -> MenuTutorialContent(
                 menuKey = "payment_method",
-                title = "Tutorial: Metode Pembayaran",
-                subtitle = "Aktifkan Tunai (CASH), QRIS, Transfer Bank Manual, dan Mesin EDC.",
+                title = zokasText("Tutorial: Metode Pembayaran", "Tutorial: Payment Methods"),
+                subtitle = zokasText("Aktifkan Tunai (CASH), QRIS, Transfer Bank Manual, dan Mesin EDC.", "Enable Cash, QRIS, Manual Bank Transfer, and EDC Terminal."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -230,8 +468,8 @@ object SettingsTutorialCatalog {
             )
             "owner_monitor" -> MenuTutorialContent(
                 menuKey = "owner_monitor",
-                title = "Tutorial: Pantauan HP Owner (Bot Telegram)",
-                subtitle = "Terima laporan transaksi, tutup shift, dan peringatan void/refund di HP Owner tanpa server.",
+                title = zokasText("Tutorial: Pantauan HP Owner (Bot Telegram)", "Tutorial: Owner Phone Monitor (Telegram Bot)"),
+                subtitle = zokasText("Terima laporan transaksi, tutup shift, dan peringatan void/refund di HP Owner tanpa server.", "Receive transaction reports, shift closings, and void/refund alerts on Owner phone without a server."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -251,8 +489,8 @@ object SettingsTutorialCatalog {
             )
             else -> MenuTutorialContent(
                 menuKey = "multi_device_sync",
-                title = "Tutorial: Sinkronisasi Multi-Perangkat",
-                subtitle = "Kirim dan gabungkan paket data transaksi antar perangkat kasir dan HP Owner.",
+                title = zokasText("Tutorial: Sinkronisasi Multi-Perangkat", "Tutorial: Multi-Device Sync"),
+                subtitle = zokasText("Kirim dan gabungkan paket data transaksi antar perangkat kasir dan HP Owner.", "Send and merge transaction data bundles across cashier devices and Owner phone."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -294,7 +532,8 @@ fun SettingsMenuHelpIconButton(
     }
 
     if (showDialog) {
-        val tutorial = remember(menuKey) { SettingsTutorialCatalog.getTutorial(menuKey) }
+        val isEn = ZokasLocaleManager.isEnglish()
+        val tutorial = remember(menuKey, isEn) { SettingsTutorialCatalog.getTutorial(menuKey, isEn) }
         var activeStepIndex by remember { mutableStateOf(0) }
         val checkedStates = remember(menuKey) {
             mutableStateListOf<Boolean>().apply {
@@ -425,7 +664,7 @@ fun SettingsMenuHelpIconButton(
                                 modifier = Modifier.height(34.dp)
                             ) {
                                 Icon(Icons.Default.ChevronLeft, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Text("Sebelumnya", fontSize = 11.sp)
+                                Text(zokasText("Sebelumnya", "Previous"), fontSize = 11.sp)
                             }
                             OutlinedButton(
                                 onClick = { if (activeStepIndex < tutorial.steps.lastIndex) activeStepIndex++ },
@@ -434,7 +673,7 @@ fun SettingsMenuHelpIconButton(
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 modifier = Modifier.height(34.dp)
                             ) {
-                                Text("Berikutnya", fontSize = 11.sp)
+                                Text(zokasText("Berikutnya", "Next"), fontSize = 11.sp)
                                 Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
                             }
                         }
@@ -444,7 +683,7 @@ fun SettingsMenuHelpIconButton(
                     if (tutorial.checklist.isNotEmpty()) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text(
-                            text = "Checklist Kesiapan:",
+                            text = zokasText("Checklist Kesiapan:", "Readiness Checklist:"),
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface
@@ -489,7 +728,7 @@ fun SettingsMenuHelpIconButton(
                                 modifier = Modifier.weight(1f).height(38.dp),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Backup Sekarang", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(zokasText("Backup Sekarang", "Backup Now"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                             OutlinedButton(
                                 onClick = {
@@ -499,7 +738,7 @@ fun SettingsMenuHelpIconButton(
                                 modifier = Modifier.weight(1f).height(38.dp),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Restore Data", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(zokasText("Restore Data", "Restore Data"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -510,7 +749,7 @@ fun SettingsMenuHelpIconButton(
                     onClick = { showDialog = false },
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("MENGERTI", fontWeight = FontWeight.Bold)
+                    Text(zokasText("MENGERTI", "GOT IT"), fontWeight = FontWeight.Bold)
                 }
             }
         )
