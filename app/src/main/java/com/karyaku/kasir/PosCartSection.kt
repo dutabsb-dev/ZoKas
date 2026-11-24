@@ -162,7 +162,7 @@ fun PosCartSection(
                     Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} ${zokasText("Poin", "Pts", lang)})" else zokasText("Pelanggan Umum", "Walk-in Customer", lang),
+                        text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} ${zokasText("Poin", "Pts", lang)})" else zokasText("Pelanggan Umum", "Walk-in Customer, lang"),
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.tertiary,
                         fontSize = 11.sp
@@ -414,7 +414,7 @@ fun PosCartSection(
             ),
             shape = RoundedCornerShape(10.dp)
         ) {
-            Text(zokasText("BAYAR (F2)", "PAY (F2"), lang), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(zokasText("BAYAR (F2)", "PAY (F2", lang), fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

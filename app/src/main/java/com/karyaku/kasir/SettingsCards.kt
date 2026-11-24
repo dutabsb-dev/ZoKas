@@ -3330,16 +3330,15 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        zokasText("1. Ketuk tombol 'Buka @BotFather' di bawah.\n" +
-                                            "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot\n" +
-                                            "3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n" +
-                                            "4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n" +
-                                            "5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.",
-                                            "1. Tap 'Open @BotFather in Telegram' below.\n" +
-                                            "2. In @BotFather chat, tap START and send: /newbot\n" +
-                                            "3. Enter a bot name (e.g., Kasir Toko Berkah).\n" +
-                                            "4. Enter a bot username ending in 'bot' (e.g., berkah_kasir_bot).\n" +
-                                            "5. Copy the HTTP API Token (e.g., 7123456789:AAH...) and paste it into Bot Token in ZoKas."),
+                                        zokasText("1. Ketuk tombol 'Buka @BotFather' di bawah.\n", "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot\n+
+                                            3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n +
+                                            4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n +
+                                            5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.,
+                                            1. Tap 'Open @BotFather in Telegram' below.\n +
+                                            2. In @BotFather chat, tap START and send: /newbot\n +
+                                            3. Enter a bot name (e.g., Kasir Toko Berkah).\n +
+                                            4. Enter a bot username ending in 'bot' (e.g., berkah_kasir_bot).\n +
+                                            5. Copy the HTTP API Token (e.g., 7123456789:AAH...) and paste it into Bot Token in ZoKas."),
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -3364,12 +3363,11 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        zokasText("1. Ketuk tombol 'Buka @userinfobot' di bawah.\n" +
-                                            "2. Tekan START di chat bot tersebut.\n" +
-                                            "3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.",
-                                            "1. Tap 'Open @userinfobot in Telegram' below.\n" +
-                                            "2. Tap START in that bot chat.\n" +
-                                            "3. Copy the number under 'Id' (e.g., 987654321) and paste it into Owner Phone Chat ID."),
+                                        zokasText("1. Ketuk tombol 'Buka @userinfobot' di bawah.\n", "2. Tekan START di chat bot tersebut.\n+
+                                            3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.,
+                                            1. Tap 'Open @userinfobot in Telegram' below.\n +
+                                            2. Tap START in that bot chat.\n +
+                                            3. Copy the number under 'Id' (e.g., 987654321) and paste it into Owner Phone Chat ID."),
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -3395,8 +3393,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                         color = MaterialTheme.colorScheme.error
                                     )
                                     Text(
-                                        zokasText("Buka link username bot yang baru Anda buat di Langkah 1, lalu tekan tombol START sekali agar bot diizinkan mengirim pesan ke HP Owner. Setelah itu kembali ke ZoKas dan tekan 'Tes Kirim'.",
-                                            "Open the bot username link you created in Step 1 and tap START once so it can message the Owner phone. Then return to ZoKas and tap 'Test Send'."),
+                                        zokasText("Buka link username bot yang baru Anda buat di Langkah 1, lalu tekan tombol START sekali agar bot diizinkan mengirim pesan ke HP Owner. Setelah itu kembali ke ZoKas dan tekan 'Tes Kirim'.", "Open the bot username link you created in Step 1 and tap START once so it can message the Owner phone. Then return to ZoKas and tap 'Test Send'."),
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface

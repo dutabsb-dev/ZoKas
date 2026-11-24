@@ -1424,7 +1424,7 @@ fun PaymentBottomSheet(
                             } else {
                                 Text(settingsManager.bankName?.ifBlank { "-" } ?: "-", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                                 Text(settingsManager.bankAccountNumber?.ifBlank { "-" } ?: "-", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
-                                Text(zokasText("a/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text(zokasText("a/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}", "A/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)

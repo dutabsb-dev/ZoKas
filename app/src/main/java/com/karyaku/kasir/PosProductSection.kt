@@ -134,12 +134,12 @@ fun PosProductSection(
 
     val isEnLang = ZokasLocaleManager.isEnglish()
     val sortLabel = when (sortOption) {
-        "STOCK_ASC" -> zokasText("Stok Sedikit", "Low Stock", if (isEnLang) "en" else "in")
-        "STOCK_DESC" -> zokasText("Stok Banyak", "High Stock", if (isEnLang) "en" else "in")
-        "EXPIRY_ASC" -> zokasText("Expired Terdekat", "Nearest Expiry", if (isEnLang) "en" else "in")
-        "PRICE_ASC" -> zokasText("Harga Termurah", "Lowest Price", if (isEnLang) "en" else "in")
-        "PRICE_DESC" -> zokasText("Harga Termahal", "Highest Price", if (isEnLang) "en" else "in")
-        else -> zokasText("Urutkan", "Sort By", if (isEnLang) "en" else "in")
+        "STOCK_ASC" -> zokasText("Stok Sedikit", "Low Stock, if (isEnLang) en else in")
+        "STOCK_DESC" -> zokasText("Stok Banyak", "High Stock, if (isEnLang) en else in")
+        "EXPIRY_ASC" -> zokasText("Expired Terdekat", "Nearest Expiry, if (isEnLang) en else in")
+        "PRICE_ASC" -> zokasText("Harga Termurah", "Lowest Price, if (isEnLang) en else in")
+        "PRICE_DESC" -> zokasText("Harga Termahal", "Highest Price, if (isEnLang) en else in")
+        else -> zokasText("Urutkan", "Sort By, if (isEnLang) en else in")
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -274,8 +274,8 @@ fun PosProductSection(
                         "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis)", "Lowest Stock (Low")),
                         "STOCK_DESC" to zokasText("Stok Paling Banyak", "Highest Stock"),
                         "EXPIRY_ASC" to zokasText("Tanggal Expired Terdekat", "Nearest Expiry Date"),
-                        "PRICE_ASC" to zokasText("Harga Termurah", "Lowest Price", if (isEnLang) "en" else "in"),
-                        "PRICE_DESC" to zokasText("Harga Termahal", "Highest Price", if (isEnLang) "en" else "in")
+                        "PRICE_ASC" to zokasText("Harga Termurah", "Lowest Price, if (isEnLang) en else in"),
+                        "PRICE_DESC" to zokasText("Harga Termahal", "Highest Price, if (isEnLang) en else in")
                     )
                     sortItems.forEach { (key, label) ->
                         DropdownMenuItem(
@@ -314,7 +314,7 @@ fun PosProductSection(
                     Icon(Icons.Default.Straighten, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (selectedUnitFilter == "SEMUA") zokasText("Semua Satuan", "All Units", if (isEnLang) "en" else "in") else zokasText("Satuan: $selectedUnitFilter", "Unit: $selectedUnitFilter", if (isEnLang) "en" else "in"),
+                        text = if (selectedUnitFilter == "SEMUA") zokasText("Semua Satuan", "All Units, if (isEnLang) en else in") else zokasText("Satuan: $selectedUnitFilter", "Unit: $selectedUnitFilter, if (isEnLang) en else in"),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -332,7 +332,7 @@ fun PosProductSection(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    if (unitKey == "SEMUA") zokasText("Semua Satuan", "All Units", if (isEnLang) "en" else "in") else unitKey,
+                                    if (unitKey == "SEMUA") zokasText("Semua Satuan", "All Units, if (isEnLang) en else in") else unitKey,
                                     fontSize = 12.sp,
                                     fontWeight = if (selectedUnitFilter == unitKey) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -490,7 +490,7 @@ private fun ProductGridCard(
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
                 else "${it.name}: ${it.stock} $baseUnit"
             }
-            zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary"), activeLang)
+            zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary", activeLang)
         } else {
             zokasText("Stok: ${product.stock} $baseUnit", "Stock: ${product.stock} $baseUnit", activeLang)
         }
@@ -756,7 +756,7 @@ private fun ProductCompactListRow(
     val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit, isEnRow) {
         val activeLang = if (isEnRow) "en" else "in"
         if (product.isService) {
-            zokasText("Layanan Jasa (Tanpa Stok)", "Service Item (No Stock"), activeLang)
+            zokasText("Layanan Jasa (Tanpa Stok)", "Service Item (No Stock", activeLang)
         } else if (variantStocks.isNotEmpty()) {
             val details = variantStocks.joinToString("  •  ") {
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
@@ -764,7 +764,7 @@ private fun ProductCompactListRow(
             }
             "${zokasText("Total", "Total", activeLang)}: ${product.stock} $baseUnit  •  $details"
         } else if (isOutOfStock) {
-            zokasText("Stok Habis (0 $baseUnit)", "Out of Stock (0 $baseUnit"), activeLang)
+            zokasText("Stok Habis (0 $baseUnit)", "Out of Stock (0 $baseUnit", activeLang)
         } else if (isLowStock) {
             zokasText("STOK MENIPIS: ${product.stock} $baseUnit", "LOW STOCK: ${product.stock} $baseUnit", activeLang)
         } else {

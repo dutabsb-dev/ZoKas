@@ -448,7 +448,7 @@ object SettingsTutorialCatalog {
             "payment_method" -> MenuTutorialContent(
                 menuKey = "payment_method",
                 title = zokasText("Tutorial: Metode Pembayaran", "Tutorial: Payment Methods"),
-                subtitle = zokasText("Aktifkan Tunai (CASH), QRIS, Transfer Bank Manual, dan Mesin EDC.", "Enable Cash, QRIS, Manual Bank Transfer, and EDC Terminal."),
+                subtitle = zokasText("Aktifkan Tunai (CASH", "Aktifkan Tunai (CASH"), QRIS, Transfer Bank Manual, dan Mesin EDC.", "Enable Cash, QRIS, Manual Bank Transfer, and EDC Terminal.""),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
