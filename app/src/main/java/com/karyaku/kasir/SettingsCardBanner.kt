@@ -125,7 +125,7 @@ fun SettingCardArtworkBanner(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(104.dp)
+            .height(92.dp)
             .clip(RoundedCornerShape(8.dp)),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
@@ -145,14 +145,14 @@ fun SettingCardArtworkBanner(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.22f)
+                                Color.Black.copy(alpha = 0.24f)
                             )
                         )
                     )
             )
             if (!tagText.isNullOrBlank()) {
                 Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)

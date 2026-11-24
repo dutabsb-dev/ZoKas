@@ -471,6 +471,7 @@ fun SettingsAccountCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f))
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_account, tagText = zokasText("Akun & Keamanan", "Account & Security"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -510,8 +511,11 @@ fun SettingsAccountCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_account, tagText = zokasText("Akun & Keamanan", "Account & Security"))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
                     Text(
                         "${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})",
                         fontSize = 12.sp,
@@ -802,6 +806,7 @@ fun SettingsBusinessTypeCard(
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_business_type, tagText = zokasText("Tipe Usaha", "Business Type"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -842,8 +847,11 @@ fun SettingsBusinessTypeCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_business_type, tagText = zokasText("Tipe Usaha", "Business Type"))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
                     Text(
                         LanguageManager.tr("tipe_usaha_desc", lang),
                         fontSize = 12.sp,
@@ -982,6 +990,7 @@ fun SettingsModuleCard(
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_modules, tagText = zokasText("Modul Toko", "Store Modules"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1021,11 +1030,10 @@ fun SettingsModuleCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(bottom = 12.dp)) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Box(modifier = Modifier.padding(horizontal = 12.dp)) {
-                        SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_modules, tagText = zokasText("Modul Toko", "Store Modules"))
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
 
                     // MULTI-CABANG DI DALAM MODUL TOKO
                     if (isOwner) {
@@ -1837,6 +1845,7 @@ fun SettingsPrinterCard(
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_printer, tagText = zokasText("Printer & Kertas", "Printer & Paper"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1876,8 +1885,10 @@ fun SettingsPrinterCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_printer, tagText = zokasText("Printer & Kertas", "Printer & Paper"))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
 
                     Text(
                         LanguageManager.tr("printer_kasir", lang),
@@ -1980,6 +1991,7 @@ fun SettingsStoreProfileCard(
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_store_profile, tagText = zokasText("Profil Toko", "Store Profile"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2019,8 +2031,10 @@ fun SettingsStoreProfileCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_store_profile, tagText = zokasText("Profil Toko", "Store Profile"))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                         Box(
@@ -2299,6 +2313,7 @@ fun SettingsDiscountCard(
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_discount, tagText = zokasText("Happy Hour & Diskon", "Happy Hour & Discounts"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2334,8 +2349,10 @@ fun SettingsDiscountCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_discount, tagText = zokasText("Happy Hour & Diskon", "Happy Hour & Discounts"))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
 
                     Text(
                         LanguageManager.tr("happy_hour_desc", lang),
@@ -2406,6 +2423,7 @@ fun SettingsBackupCard(
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_backup, tagText = zokasText("Data & Backup", "Data & Backup"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2451,8 +2469,10 @@ fun SettingsBackupCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_backup, tagText = zokasText("Data & Backup", "Data & Backup"))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
 
                     Text(
                         LanguageManager.tr("data_backup_desc", lang),
@@ -3176,6 +3196,7 @@ fun SettingsOwnerMonitorCard() {
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_owner_monitor, tagText = zokasText("Pantauan Owner", "Owner Monitor"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3221,8 +3242,10 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_owner_monitor, tagText = zokasText("Pantauan Owner", "Owner Monitor"))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
 
                     if (ownerEmail.isNotBlank()) {
                         Text(
@@ -3743,6 +3766,7 @@ fun SettingsMultiDeviceSyncCard(viewModel: PosViewModel) {
         shape = RoundedCornerShape(6.dp)
     ) {
         Column {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_multi_device_sync, tagText = zokasText("Sinkronisasi", "Multi-Device Sync"), modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3791,7 +3815,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                     modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_multi_device_sync, tagText = zokasText("Sinkronisasi", "Multi-Device Sync"))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                     // PANEL STATUS & IDENTITAS AKUN TERVERIFIKASI
                     Surface(

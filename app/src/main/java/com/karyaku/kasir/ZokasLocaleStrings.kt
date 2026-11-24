@@ -6,18 +6,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 object ZokasLocaleManager {
-    private const val LEGACY_PREFS_NAME = "zokas_locale_prefs"
-    private const val LEGACY_KEY_LANG = "app_language"
+    private const val PREFS_NAME = "zokas_locale_prefs"
+    private const val KEY_LANG = "app_language"
 
     var currentLanguage by mutableStateOf("in")
         private set
 
     fun ensureLoaded(context: Context): String {
-        val settings = SettingsManager(context)
-        val mainLang = settings.language
-        val norm = if (mainLang.equals("en", ignoreCase = true)) "en" else "in"
-        if (currentLanguage != norm) {
-            currentLanguage = norm
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val saved = prefs.getString(KEY_LANG, null)
+        if (!saved.isNullOrBlank() && currentLanguage != saved) {
+            currentLanguage = saved
         }
         return currentLanguage
     }
@@ -25,10 +24,9 @@ object ZokasLocaleManager {
     fun setLanguage(context: Context, lang: String) {
         val norm = if (lang.equals("en", ignoreCase = true)) "en" else "in"
         currentLanguage = norm
-        SettingsManager(context).language = norm
-        context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putString(LEGACY_KEY_LANG, norm)
+            .putString(KEY_LANG, norm)
             .apply()
     }
 

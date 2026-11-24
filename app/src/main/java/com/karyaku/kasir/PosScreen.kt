@@ -456,11 +456,11 @@ fun PosScreen(
     if (productForVariantAction != null) {
         AlertDialog(
             onDismissRequest = { productForVariantAction = null },
-            title = { Text("Pilih Varian", fontWeight = FontWeight.Bold) },
+            title = { Text(zokasText("Pilih Varian", "select Varian")", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     Text(
-                        "Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:",
+                        zokasText("Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:", "Product ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:")",
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -493,7 +493,7 @@ fun PosScreen(
             },
             confirmButton = {
                 TextButton(onClick = { productForVariantAction = null }) {
-                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(zokasText("Batal", "Cancel")", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -519,7 +519,7 @@ fun PosScreen(
                 uniqueTransferAmount = uniqueTransferAmount, isTransferPaid = isTransferPaid,
                 onGenerateQris = {
                     val payload = settingsManager.qrisStaticPayload
-                    if (payload.isNullOrBlank()) Toast.makeText(context, "QRIS belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
+                    if (payload.isNullOrBlank()) Toast.makeText(context, zokasText("QRIS belum diatur di Pengaturan.", "QRIS belum diatur di Settings."), Toast.LENGTH_LONG).show()
                     else viewModel.generateQrisPayment(totalToPay, payload)
                 },
                 onGenerateTransfer = { viewModel.generateTransferPayment(totalToPay) },
@@ -617,7 +617,7 @@ fun PosScreen(
                         productToEdit = showActionDialogFor
                         showProductForm = true
                     } else {
-                        Toast.makeText(context, "Hanya OWNER yang dapat mengubah detail/harga produk.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Hanya OWNER yang dapat mengubah detail/harga produk.", "Hanya OWNER yang dapat mengubah details/price product."), Toast.LENGTH_SHORT).show()
                     }
                     showActionDialogFor = null
                 },
@@ -734,9 +734,9 @@ fun PosScreen(
                     if (supervisor != null) {
                         showPinForDiscount = false
                         showDiscountDialog = true
-                        Toast.makeText(context, "Diskon diotorisasi oleh ${supervisor.name}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Diskon diotorisasi oleh ${supervisor.name}", "Discount diotorisasi oleh ${supervisor.name}"), Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "PIN Salah! Wajib menggunakan PIN Owner atau Supervisor.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("PIN Salah! Wajib menggunakan PIN Owner atau Supervisor.", "PIN Salah! Wajib menggunakan PIN Owner atau Supervisor."), Toast.LENGTH_SHORT).show()
                     }
                 },
                 onDismiss = { showPinForDiscount = false }
@@ -751,13 +751,13 @@ fun PosScreen(
                         scope.launch {
                             val printerManager = BluetoothPrinterManager(context)
                             val success = printerManager.openCashDrawer(mac)
-                            if (success) Toast.makeText(context, "Laci berhasil dibuka!", Toast.LENGTH_SHORT).show()
-                            else Toast.makeText(context, "Gagal buka laci. Periksa printer.", Toast.LENGTH_LONG).show()
+                            if (success) Toast.makeText(context, zokasText("Laci berhasil dibuka!", "Laci berhasil dibuka!"), Toast.LENGTH_SHORT).show()
+                            else Toast.makeText(context, zokasText("Gagal buka laci. Periksa printer.", "Failed buka laci. Periksa printer."), Toast.LENGTH_LONG).show()
                             viewModel.logCashDrawerOpen(currentUser)
                             showDrawerConfirm = false
                         }
                     } else {
-                        Toast.makeText(context, "Printer belum diatur di Pengaturan.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, zokasText("Printer belum diatur di Pengaturan.", "Printer belum diatur di Settings."), Toast.LENGTH_LONG).show()
                         viewModel.logCashDrawerOpen(currentUser)
                         showDrawerConfirm = false
                     }
@@ -778,7 +778,7 @@ fun PosScreen(
                     if (qty > 0) {
                         val totalSmallestQty = qty * packMult
                         viewModel.addStock(targetRestock, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, "Stok berhasil ditambahkan (+$totalSmallestQty)", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Stok berhasil ditambahkan (+$totalSmallestQty)", "Stock berhasil ditambahkan (+$totalSmallestQty)"), Toast.LENGTH_SHORT).show()
                     }
                     productToRestock = null
                     variantToProcess = ""
@@ -810,11 +810,11 @@ fun PosScreen(
                     if (qty > 0 && qty <= maxAvailableStock) {
                         val totalSmallestQty = qty * packMult
                         viewModel.recordWaste(targetProd, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, "Barang rusak tercatat (-$totalSmallestQty)", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Barang rusak tercatat (-$totalSmallestQty)", "Barang rusak tercatat (-$totalSmallestQty)"), Toast.LENGTH_SHORT).show()
                         productToWaste = null
                         variantToProcess = ""
                     } else {
-                        Toast.makeText(context, "Jumlah melebihi stok varian tersedia ($maxAvailableStock)!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Jumlah melebihi stok varian tersedia ($maxAvailableStock)!", "quantity melebihi stock varian tersedia ($maxAvailableStock)!"), Toast.LENGTH_SHORT).show()
                     }
                 }
             )
@@ -942,7 +942,7 @@ fun PosScreen(
                     }
                 )
             } else {
-                Toast.makeText(context, "Tidak ada shift kasir yang sedang aktif.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, zokasText("Tidak ada shift kasir yang sedang aktif.", "Tidak ada shift cashier yang sedang aktif."), Toast.LENGTH_SHORT).show()
                 showCloseShiftDialog = false
             }
         }
@@ -1032,7 +1032,7 @@ fun PosScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})",
+                            text = zokasText("Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})", "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})")",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary,
@@ -1043,7 +1043,7 @@ fun PosScreen(
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             modifier = Modifier.height(26.dp)
                         ) {
-                            Text("Ganti Shift", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(zokasText("Ganti Shift", "Ganti Shift")", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -1097,7 +1097,7 @@ fun PosScreen(
                                         onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                         onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
                                         onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
-                                        onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                        onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show() } },
                                         onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
                                         onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
                                         onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },
@@ -1140,7 +1140,7 @@ fun PosScreen(
                                         onClick = {
                                             if (cart.isNotEmpty()) {
                                                 viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan")
-                                                Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
@@ -1181,7 +1181,7 @@ fun PosScreen(
                                     onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                     onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
                                     onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
-                                    onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, "Pesanan diparkir.", Toast.LENGTH_SHORT).show() } },
+                                    onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show() } },
                                     onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
                                     onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
                                     onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },
@@ -1232,7 +1232,7 @@ fun PosScreen(
             ) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("${cart.sumOf { item -> item.quantity }} Item | ${formatRupiah(totalPrice)}", fontWeight = FontWeight.Bold)
+                Text(zokasText("${cart.sumOf { item -> item.quantity }} Item | ${formatRupiah(totalPrice)}", "${cart.sumOf { item -> item.quantity }} Item | ${formatRupiah(totalPrice)}")", fontWeight = FontWeight.Bold)
             }
         }
     }

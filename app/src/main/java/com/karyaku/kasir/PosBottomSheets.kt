@@ -176,7 +176,7 @@ fun ProductFormBottomSheet(
             } else {
                 Toast.makeText(
                     context,
-                    "Teks produk belum jelas terbaca. Coba arahkan kamera lebih dekat atau pilih dari galeri.",
+                    zokasText("Teks produk belum jelas terbaca. Coba arahkan kamera lebih dekat atau pilih dari galeri.", "Teks product belum jelas terbaca. Coba arahkan kamera lebih dekat atau select dari galeri."),
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -206,7 +206,7 @@ fun ProductFormBottomSheet(
             val newList = variantList.toMutableList()
             newList[idx] = newList[idx].copy(barcode = scanned)
             variantList = newList
-            Toast.makeText(context, "Barcode varian terbaca: $scanned", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, zokasText("Barcode varian terbaca: $scanned", "Barcode varian terbaca: $scanned"), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -229,7 +229,7 @@ fun ProductFormBottomSheet(
                 outputStream.close()
                 imagePath = file.absolutePath
             } catch (e: Exception) {
-                Toast.makeText(context, "Gagal memuat gambar", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, zokasText("Gagal memuat gambar", "Failed memuat gambar"), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -241,7 +241,7 @@ fun ProductFormBottomSheet(
             confirmButton = {
                 TextButton(onClick = { expiry = datePickerState.selectedDateMillis ?: 0L; showDatePicker = false }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Batal") } }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(zokasText("Batal", "Cancel")") } }
         ) { DatePicker(state = datePickerState) }
     }
 
@@ -269,14 +269,14 @@ fun ProductFormBottomSheet(
                 },
                 title = {
                     Text(
-                        "Buang Inputan Produk?",
+                        zokasText("Buang Inputan Produk?", "Buang Inputan Product?")",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 text = {
                     Text(
-                        "Data yang sudah Anda ketik/scan belum disimpan. Jika ditutup sekarang, isian akan hilang.",
+                        zokasText("Data yang sudah Anda ketik/scan belum disimpan. Jika ditutup sekarang, isian akan hilang.", "Data yang sudah Anda ketik/scan belum disimpan. Jika ditutup sekarang, isian akan hilang.")",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -293,7 +293,7 @@ fun ProductFormBottomSheet(
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("BUANG & KELUAR", fontWeight = FontWeight.Bold)
+                        Text(zokasText("BUANG & KELUAR", "BUANG & KELUAR")", fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
@@ -301,7 +301,7 @@ fun ProductFormBottomSheet(
                         onClick = { showDiscardConfirm = false },
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("LANJUT EDIT", fontWeight = FontWeight.Bold)
+                        Text(zokasText("LANJUT EDIT", "LANJUT EDIT")", fontWeight = FontWeight.Bold)
                     }
                 }
             )
@@ -340,7 +340,7 @@ fun ProductFormBottomSheet(
                         Button(
                             onClick = {
                         if (name.isBlank()) {
-                            Toast.makeText(context, "Nama produk wajib diisi!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, zokasText("Nama produk wajib diisi!", "Name produk wajib diisi!"), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -351,7 +351,7 @@ fun ProductFormBottomSheet(
 
                         if (hasVariants) {
                             if (variantList.isEmpty() || variantList.any { it.name.isBlank() }) {
-                                Toast.makeText(context, "Nama varian tidak boleh kosong!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, zokasText("Nama varian tidak boleh kosong!", "Name varian tidak boleh kosong!"), Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
 
@@ -380,7 +380,7 @@ fun ProductFormBottomSheet(
                         }
 
                         if (finalPrice <= 0) {
-                            Toast.makeText(context, "Harga jual harus lebih dari 0!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, zokasText("Harga jual harus lebih dari 0!", "Price jual harus lebih dari 0!"), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -416,7 +416,7 @@ fun ProductFormBottomSheet(
 
                     SelectionContainer {
                         Text(
-                            text = "Tips: Tekan lama pada kolom teks untuk Copy / Paste. Tekan Back saat mengetik untuk menutup keyboard.",
+                            text = zokasText("Tips: Tekan lama pada kolom teks untuk Copy / Paste. Tekan Back saat mengetik untuk menutup keyboard.", "Tips: Tekan lama pada kolom teks untuk Copy / Paste. Tekan Back saat mengetik untuk menutup keyboard.")",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -433,7 +433,7 @@ fun ProductFormBottomSheet(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = "1. Informasi Wajib & Isi Cepat",
+                                text = zokasText("1. Informasi Wajib & Isi Cepat", "1. information Wajib & Isi Cepat")",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.primary
@@ -457,7 +457,7 @@ fun ProductFormBottomSheet(
                                 } else {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("Pilih Foto Produk (Opsional)", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                        Text(zokasText("Pilih Foto Produk (Opsional)", "Pilih Foto Product (Opsional)")", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                     }
                                 }
                             }
@@ -475,7 +475,7 @@ fun ProductFormBottomSheet(
                                             pendingCaptureUri = uri
                                             ocrCameraLauncher.launch(uri)
                                         } catch (_: Exception) {
-                                            Toast.makeText(context, "Kamera OCR tidak dapat dibuka. Gunakan Scan dari Foto.", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, zokasText("Kamera OCR tidak dapat dibuka. Gunakan Scan dari Foto.", "Kamera OCR tidak dapat dibuka. Gunakan Scan dari Foto."), Toast.LENGTH_LONG).show()
                                         }
                                     },
                                     enabled = !isScanningOcr,
@@ -505,20 +505,20 @@ fun ProductFormBottomSheet(
                                 ) {
                                     Icon(Icons.Default.ImageSearch, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Scan dari Foto", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                    Text(zokasText("Scan dari Foto", "Scan dari Foto")", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                                 }
                             }
 
                             if (isScanningOcr) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                    Text("Mendeteksi teks nama produk pada label...", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(zokasText("Mendeteksi teks nama produk pada label...", "Mendeteksi teks nama product pada label...")", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
 
                             if (ocrCandidates.size > 1) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Hasil scan terdeteksi (ketuk untuk mengganti nama):", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(zokasText("Hasil scan terdeteksi (ketuk untuk mengganti nama):", "Hasil scan terdeteksi (ketuk untuk mengganti nama):")", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         ocrCandidates.forEach { candidate ->
                                             FilterChip(
@@ -534,8 +534,8 @@ fun ProductFormBottomSheet(
                             OutlinedTextField(
                                 value = name,
                                 onValueChange = { name = it },
-                                label = { Text("Nama Produk *") },
-                                placeholder = { Text("Ketik, paste, scan label, atau ucapkan nama") },
+                                label = { Text(zokasText("Nama Produk *", "Name Product *")") },
+                                placeholder = { Text(zokasText("Ketik, paste, scan label, atau ucapkan nama", "Ketik, paste, scan label, atau ucapkan nama")") },
                                 trailingIcon = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (name.isNotEmpty()) {
@@ -554,7 +554,7 @@ fun ProductFormBottomSheet(
                             OutlinedTextField(
                                 value = category,
                                 onValueChange = { category = it },
-                                label = { Text("Kategori *") },
+                                label = { Text(zokasText("Kategori *", "Category *")") },
                                 trailingIcon = {
                                     VoiceMicButton(promptLabel = "kategori produk", currentValue = category, onResultText = { category = it })
                                 },
@@ -578,7 +578,7 @@ fun ProductFormBottomSheet(
                                     },
                                     colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                                 )
-                                Text("Produk ini memiliki Varian (Ukuran/Rasa, dll)", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                                Text(zokasText("Produk ini memiliki Varian (Ukuran/Rasa, dll)", "Product ini memiliki Varian (Ukuran/Rasa, dll)")", fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                             }
 
                             if (!hasVariants) {
@@ -586,7 +586,7 @@ fun ProductFormBottomSheet(
                                     OutlinedTextField(
                                         value = singleCost,
                                         onValueChange = { singleCost = it.filter { c -> c.isDigit() } },
-                                        label = { Text("Harga Beli") },
+                                        label = { Text(zokasText("Harga Beli", "Price Beli")") },
                                         trailingIcon = {
                                             VoiceMicButton(promptLabel = "harga beli", currentValue = singleCost, onResultText = { singleCost = it.filter { c -> c.isDigit() } })
                                         },
@@ -598,7 +598,7 @@ fun ProductFormBottomSheet(
                                     OutlinedTextField(
                                         value = singlePrice,
                                         onValueChange = { singlePrice = it.filter { c -> c.isDigit() } },
-                                        label = { Text("Harga Jual *") },
+                                        label = { Text(zokasText("Harga Jual *", "Selling Price *")") },
                                         trailingIcon = {
                                             VoiceMicButton(promptLabel = "harga jual", currentValue = singlePrice, onResultText = { singlePrice = it.filter { c -> c.isDigit() } })
                                         },
@@ -617,7 +617,7 @@ fun ProductFormBottomSheet(
                                         OutlinedTextField(
                                             value = singleStock,
                                             onValueChange = { singleStock = it.filter { c -> c.isDigit() } },
-                                            label = { Text("Stok Awal") },
+                                            label = { Text(zokasText("Stok Awal", "Initial Stock")") },
                                             trailingIcon = {
                                                 VoiceMicButton(promptLabel = "jumlah stok", currentValue = singleStock, onResultText = { singleStock = it.filter { c -> c.isDigit() } })
                                             },
@@ -632,7 +632,7 @@ fun ProductFormBottomSheet(
                                                 modifier = Modifier.fillMaxWidth().height(56.dp),
                                                 shape = RoundedCornerShape(12.dp)
                                             ) {
-                                                Text("Satuan: $baseUnit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Text(zokasText("Satuan: $baseUnit", "Unit: $baseUnit")", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                                 Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                                             }
                                             DropdownMenu(
@@ -657,14 +657,14 @@ fun ProductFormBottomSheet(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Daftar Varian & Satuan Terkecil", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text(zokasText("Daftar Varian & Satuan Terkecil", "Daftar Varian & Unit Terkecil")", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                         val previewTotalSmallest = variantList.sumOf {
                                             val q = it.stock.toIntOrNull() ?: 0
                                             val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
                                             q * m
                                         }
                                         if (!isService) {
-                                            Text("Total Stok Gabungan: $previewTotalSmallest $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                                            Text(zokasText("Total Stok Gabungan: $previewTotalSmallest $baseUnit", "Total Stock Gabungan: $previewTotalSmallest $baseUnit")", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
                                         }
                                     }
                                     Box {
@@ -674,7 +674,7 @@ fun ProductFormBottomSheet(
                                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                             modifier = Modifier.height(34.dp)
                                         ) {
-                                            Text("Satuan: $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text(zokasText("Satuan: $baseUnit", "Unit: $baseUnit")", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                             Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                                         }
                                         DropdownMenu(
@@ -704,7 +704,7 @@ fun ProductFormBottomSheet(
                                                         newList[index] = variant.copy(name = newName)
                                                         variantList = newList
                                                     },
-                                                    label = { Text("Nama Varian (cth: Jumbo)") },
+                                                    label = { Text(zokasText("Nama Varian (cth: Jumbo)", "Name Varian (cth: Jumbo)")") },
                                                     trailingIcon = {
                                                         VoiceMicButton(
                                                             promptLabel = "nama varian",
@@ -736,7 +736,7 @@ fun ProductFormBottomSheet(
                                                         newList[index] = variant.copy(costPrice = it.filter { c -> c.isDigit() })
                                                         variantList = newList
                                                     },
-                                                    label = { Text("Harga Beli") },
+                                                    label = { Text(zokasText("Harga Beli", "Price Beli")") },
                                                     trailingIcon = {
                                                         VoiceMicButton(
                                                             promptLabel = "harga beli varian",
@@ -760,7 +760,7 @@ fun ProductFormBottomSheet(
                                                         newList[index] = variant.copy(price = it.filter { c -> c.isDigit() })
                                                         variantList = newList
                                                     },
-                                                    label = { Text("Harga Jual") },
+                                                    label = { Text(zokasText("Harga Jual", "Selling Price")") },
                                                     trailingIcon = {
                                                         VoiceMicButton(
                                                             promptLabel = "harga jual varian",
@@ -787,7 +787,7 @@ fun ProductFormBottomSheet(
                                                             newList[index] = variant.copy(stock = it.filter { c -> c.isDigit() })
                                                             variantList = newList
                                                         },
-                                                        label = { Text("Jumlah Stok") },
+                                                        label = { Text(zokasText("Jumlah Stok", "Stock Qty")") },
                                                         trailingIcon = {
                                                             VoiceMicButton(
                                                                 promptLabel = "stok varian",
@@ -812,7 +812,7 @@ fun ProductFormBottomSheet(
                                                             newList[index] = variant.copy(packMultiplier = digits)
                                                             variantList = newList
                                                         },
-                                                        label = { Text("Isi ($baseUnit)") },
+                                                        label = { Text(zokasText("Isi ($baseUnit)", "Isi ($baseUnit)")") },
                                                         placeholder = { Text("1") },
                                                         trailingIcon = {
                                                             VoiceMicButton(
@@ -835,7 +835,7 @@ fun ProductFormBottomSheet(
                                                 val vQty = variant.stock.toIntOrNull() ?: 0
                                                 val vMult = (variant.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
                                                 if (vMult > 1) {
-                                                    Text("Konversi satuan terkecil: $vQty x $vMult = ${vQty * vMult} $baseUnit", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                                                    Text(zokasText("Konversi satuan terkecil: $vQty x $vMult = ${vQty * vMult} $baseUnit", "Konversi satuan terkecil: $vQty x $vMult = ${vQty * vMult} $baseUnit")", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                                                 }
                                             }
                                             OutlinedTextField(
@@ -845,8 +845,8 @@ fun ProductFormBottomSheet(
                                                     newList[index] = variant.copy(barcode = newCode)
                                                     variantList = newList
                                                 },
-                                                label = { Text("Barcode Varian (Opsional)") },
-                                                placeholder = { Text("Ketik, paste, ucapkan, atau scan barcode") },
+                                                label = { Text(zokasText("Barcode Varian (Opsional)", "Barcode Varian (Opsional)")") },
+                                                placeholder = { Text(zokasText("Ketik, paste, ucapkan, atau scan barcode", "Ketik, paste, ucapkan, atau scan barcode")") },
                                                 trailingIcon = {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         VoiceMicButton(
@@ -902,7 +902,7 @@ fun ProductFormBottomSheet(
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Tambah Baris Varian", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    Text(zokasText("Tambah Baris Varian", "Add Baris Varian")", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -921,8 +921,8 @@ fun ProductFormBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("2. Pengaturan Lanjutan (Opsional)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-                                    Text("SKU, barcode kemasan, tipe jasa/combo, resep BOM, grosir, komisi & expiry", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(zokasText("2. Pengaturan Lanjutan (Opsional)", "2. Settings Lanjutan (Opsional)")", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(zokasText("SKU, barcode kemasan, tipe jasa/combo, resep BOM, grosir, komisi & expiry", "SKU, barcode kemasan, tipe jasa/combo, resep BOM, grosir, komisi & expiry")", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Icon(imageVector = if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle Pengaturan Lanjutan", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -932,18 +932,18 @@ fun ProductFormBottomSheet(
 
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isService = !isService }) {
                                     Checkbox(checked = isService, onCheckedChange = { isService = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
-                                    Text("Produk Jasa (Tanpa Stok)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(zokasText("Produk Jasa (Tanpa Stok)", "Product Service (Tanpa Stock)")", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { isCombo = !isCombo }) {
                                     Checkbox(checked = isCombo, onCheckedChange = { isCombo = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
-                                    Text("Produk Combo/Paket", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(zokasText("Produk Combo/Paket", "Product Combo/Paket")", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                                 }
 
                                 OutlinedTextField(
                                     value = productSku,
                                     onValueChange = { productSku = it.uppercase() },
-                                    label = { Text("Kode Unik / SKU (cth: KOP-01)") },
-                                    placeholder = { Text("Bisa dicari di Kasir") },
+                                    label = { Text(zokasText("Kode Unik / SKU (cth: KOP-01)", "Kode Unik / SKU (cth: KOP-01)")") },
+                                    placeholder = { Text(zokasText("Bisa dicari di Kasir", "Bisa dicari di cashier")") },
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                                     trailingIcon = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -970,14 +970,14 @@ fun ProductFormBottomSheet(
                                     val scanned = result.contents?.trim()
                                     if (!scanned.isNullOrEmpty()) {
                                         barcode = scanned
-                                        Toast.makeText(context, "Barcode kemasan terbaca: $scanned", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, zokasText("Barcode kemasan terbaca: $scanned", "Barcode kemasan terbaca: $scanned"), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                                 OutlinedTextField(
                                     value = barcode,
                                     onValueChange = { barcode = it },
-                                    label = { Text("Barcode Kemasan (Opsional)") },
-                                    placeholder = { Text("Ketik, paste, ucapkan, atau scan barcode") },
+                                    label = { Text(zokasText("Barcode Kemasan (Opsional)", "Barcode Kemasan (Opsional)")") },
+                                    placeholder = { Text(zokasText("Ketik, paste, ucapkan, atau scan barcode", "Ketik, paste, ucapkan, atau scan barcode")") },
                                     trailingIcon = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             VoiceMicButton(promptLabel = "barcode kemasan", currentValue = barcode, onResultText = { barcode = it.replace(" ", "") })
@@ -1020,7 +1020,7 @@ fun ProductFormBottomSheet(
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Default.Science, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Resep (BOM) & Bahan Baku", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                                                Text(zokasText("Resep (BOM) & Bahan Baku", "Recipe (BOM) & Raw Materials")", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
                                             }
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text(
@@ -1043,7 +1043,7 @@ fun ProductFormBottomSheet(
                                                     ) {
                                                         Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
                                                         Spacer(modifier = Modifier.width(6.dp))
-                                                        Text("Atur Resep (BOM)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                        Text(zokasText("Atur Resep (BOM)", "Atur Recipe (BOM)")", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                                     }
                                                 }
                                                 if (onManageRawMaterial != null) {
@@ -1057,7 +1057,7 @@ fun ProductFormBottomSheet(
                                                     ) {
                                                         Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(16.dp))
                                                         Spacer(modifier = Modifier.width(6.dp))
-                                                        Text("Kelola Bahan Baku", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                        Text(zokasText("Kelola Bahan Baku", "Kelola Raw Materials")", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                                     }
                                                 }
                                             }
@@ -1070,7 +1070,7 @@ fun ProductFormBottomSheet(
                                         OutlinedTextField(
                                             value = wholesalePrice,
                                             onValueChange = { wholesalePrice = it.filter { c -> c.isDigit() } },
-                                            label = { Text("Harga Grosir") },
+                                            label = { Text(zokasText("Harga Grosir", "Price Wholesale")") },
                                             trailingIcon = {
                                                 VoiceMicButton(promptLabel = "harga grosir", currentValue = wholesalePrice, onResultText = { wholesalePrice = it.filter { c -> c.isDigit() } })
                                             },
@@ -1082,7 +1082,7 @@ fun ProductFormBottomSheet(
                                         OutlinedTextField(
                                             value = wholesaleMinQty,
                                             onValueChange = { wholesaleMinQty = it.filter { c -> c.isDigit() } },
-                                            label = { Text("Min Qty Grosir") },
+                                            label = { Text(zokasText("Min Qty Grosir", "Min Qty Wholesale")") },
                                             trailingIcon = {
                                                 VoiceMicButton(promptLabel = "minimal jumlah grosir", currentValue = wholesaleMinQty, onResultText = { wholesaleMinQty = it.filter { c -> c.isDigit() } })
                                             },
@@ -1097,7 +1097,7 @@ fun ProductFormBottomSheet(
                                 OutlinedTextField(
                                     value = commission,
                                     onValueChange = { commission = it.filter { c -> c.isDigit() } },
-                                    label = { Text("Komisi Kasir / Item (Rp)") },
+                                    label = { Text(zokasText("Komisi Kasir / Item (Rp)", "Komisi cashier / Item (Rp)")") },
                                     trailingIcon = {
                                         VoiceMicButton(promptLabel = "komisi kasir per item", currentValue = commission, onResultText = { commission = it.filter { c -> c.isDigit() } })
                                     },
@@ -1117,7 +1117,7 @@ fun ProductFormBottomSheet(
                                 ) {
                                     Icon(Icons.Default.DateRange, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Expiry: $expiryText", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(zokasText("Expiry: $expiryText", "Expiry: $expiryText")", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                             }
@@ -1129,7 +1129,7 @@ fun ProductFormBottomSheet(
                     Button(
                         onClick = {
                         if (name.isBlank()) {
-                            Toast.makeText(context, "Nama produk wajib diisi!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, zokasText("Nama produk wajib diisi!", "Name produk wajib diisi!"), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -1140,7 +1140,7 @@ fun ProductFormBottomSheet(
 
                         if (hasVariants) {
                             if (variantList.isEmpty() || variantList.any { it.name.isBlank() }) {
-                                Toast.makeText(context, "Nama varian tidak boleh kosong!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, zokasText("Nama varian tidak boleh kosong!", "Name varian tidak boleh kosong!"), Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
 
@@ -1169,7 +1169,7 @@ fun ProductFormBottomSheet(
                         }
 
                         if (finalPrice <= 0) {
-                            Toast.makeText(context, "Harga jual harus lebih dari 0!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, zokasText("Harga jual harus lebih dari 0!", "Price jual harus lebih dari 0!"), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -1318,21 +1318,21 @@ fun PaymentBottomSheet(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Pembayaran", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
+            Text(zokasText("Pembayaran", "Payment")", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Total Tagihan:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(zokasText("Total Tagihan:", "Total Tagihan:")", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
 
             if (settingsManager.enableMultiCurrency && settingsManager.exchangeRateUsd > 0) {
                 val usdAmount = totalPrice / settingsManager.exchangeRateUsd
                 val formattedUsd = String.format(Locale.US, "$%.2f", usdAmount)
-                Text("≈ $formattedUsd USD", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("≈ $formattedUsd USD", "≈ $formattedUsd USD")", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (totalCommission > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(12.dp)) {
-                    Text("Komisi Kasir: +${formatRupiah(totalCommission)}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp), fontSize = 12.sp)
+                    Text(zokasText("Komisi Kasir: +${formatRupiah(totalCommission)}", "Komisi cashier: +${formatRupiah(totalCommission)}")", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp), fontSize = 12.sp)
                 }
             }
 
@@ -1369,7 +1369,7 @@ fun PaymentBottomSheet(
                 OutlinedTextField(
                     value = cashInput,
                     onValueChange = { if (it.length <= 10) cashInput = it },
-                    label = { Text("Uang Diterima (Rp)") },
+                    label = { Text(zokasText("Uang Diterima (Rp)", "Uang Diterima (Rp)")") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -1377,7 +1377,7 @@ fun PaymentBottomSheet(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Kembalian:", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(zokasText("Kembalian:", "Change:")", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     Text(formatRupiah(change), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (change > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                 }
             } else if (paymentMethod == "QRIS") {
@@ -1386,7 +1386,7 @@ fun PaymentBottomSheet(
                         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Pembayaran Diterima!", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                            Text(zokasText("Pembayaran Diterima!", "Payment Diterima!")", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 } else if (qrisString.isNotEmpty()) {
@@ -1396,14 +1396,14 @@ fun PaymentBottomSheet(
                             Image(bitmap = bitmap.asImageBitmap(), contentDescription = "QR Code", modifier = Modifier.size(250.dp).padding(8.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Scan dengan aplikasi Bank/E-Wallet", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(zokasText("Scan dengan aplikasi Bank/E-Wallet", "Scan dengan aplikasi Bank/E-Wallet")", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        Text("Gagal membuat QR Code. Periksa Payload di Pengaturan.", color = MaterialTheme.colorScheme.error)
+                        Text(zokasText("Gagal membuat QR Code. Periksa Payload di Pengaturan.", "Failed membuat QR Code. Periksa Payload di Settings.")", color = MaterialTheme.colorScheme.error)
                     }
                 } else {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Memuat QRIS...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(zokasText("Memuat QRIS...", "Memuat QRIS...")", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else if (paymentMethod == "Bank Transfer") {
                 if (isTransferPaid) {
@@ -1411,25 +1411,25 @@ fun PaymentBottomSheet(
                         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Transfer Diterima!", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                            Text(zokasText("Transfer Diterima!", "Transfer Diterima!")", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 } else {
                     Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Transfer ke Rekening:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(zokasText("Transfer ke Rekening:", "Transfer ke Rekening:")", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(6.dp))
                             if (settingsManager.bankAccountNumber.isNullOrBlank()) {
-                                Text("Rekening Bank belum diatur oleh Owner di Pengaturan -> Metode Pembayaran.", fontSize = 12.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                                Text(zokasText("Rekening Bank belum diatur oleh Owner di Pengaturan -> Metode Pembayaran.", "Rekening Bank belum diatur oleh Owner di Settings -> Payment Method.")", fontSize = 12.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
                             } else {
                                 Text(settingsManager.bankName?.ifBlank { "-" } ?: "-", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                                 Text(settingsManager.bankAccountNumber?.ifBlank { "-" } ?: "-", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
-                                Text("a/n ${settingsManager.bankAccountName?.ifBlank { "-" } ?: "-"}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text(zokasText("a/n ${settingsManager.bankAccountName?.ifBlank { ", "A/n ${settingsManager.bankAccountName?.ifBlank { ")"-" } ?: "-"}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
-                            Text("Nominal Transfer:", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(zokasText("Nominal Transfer:", "Nominal Transfer:")", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(formatRupiah(if (uniqueTransferAmount > 0) uniqueTransferAmount else totalPrice), fontWeight = FontWeight.Black, fontSize = 26.sp, color = MaterialTheme.colorScheme.tertiary)
                         }
                     }
@@ -1447,7 +1447,7 @@ fun PaymentBottomSheet(
                         Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = manualTransferConfirmed, onCheckedChange = { manualTransferConfirmed = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Saya sudah menerima transfer sesuai nominal", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(zokasText("Saya sudah menerima transfer sesuai nominal", "Saya sudah menerima transfer sesuai nominal")", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -1484,7 +1484,7 @@ fun PaymentBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Pembayaran Kartu (Mesin EDC)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Text(zokasText("Pembayaran Kartu (Mesin EDC)", "Payment Kartu (Mesin EDC)")", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                             OutlinedButton(
                                 onClick = { edcDispatchCounter++ },
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
@@ -1493,11 +1493,11 @@ fun PaymentBottomSheet(
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Kirim Ulang", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(zokasText("Kirim Ulang", "Kirim Ulang")", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
-                        Text("Pilih Jalur Koneksi EDC:", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(zokasText("Pilih Jalur Koneksi EDC:", "select Jalur Koneksi EDC:")", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1519,7 +1519,7 @@ fun PaymentBottomSheet(
                                         edcTcpHost = it
                                         EdcConnectionManager.setTcpHost(context, it)
                                     },
-                                    label = { Text("IP EDC (TCP)", fontSize = 11.sp) },
+                                    label = { Text(zokasText("IP EDC (TCP)", "IP EDC (TCP)")", fontSize = 11.sp) },
                                     modifier = Modifier.weight(2f),
                                     singleLine = true,
                                     shape = RoundedCornerShape(10.dp)
@@ -1531,7 +1531,7 @@ fun PaymentBottomSheet(
                                         edcTcpPort = digits
                                         digits.toIntOrNull()?.let { p -> EdcConnectionManager.setTcpPort(context, p) }
                                     },
-                                    label = { Text("Port", fontSize = 11.sp) },
+                                    label = { Text(zokasText("Port", "Port")", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.weight(1f),
                                     singleLine = true,
@@ -1547,8 +1547,8 @@ fun PaymentBottomSheet(
                                     edcIntentTarget = it
                                     EdcConnectionManager.setIntentPackageOrUri(context, it)
                                 },
-                                label = { Text("Package / URI Aplikasi EDC (Opsional)", fontSize = 11.sp) },
-                                placeholder = { Text("cth: com.bank.ecr atau ecr://pay") },
+                                label = { Text(zokasText("Package / URI Aplikasi EDC (Opsional)", "Package / URI Aplikasi EDC (Opsional)")", fontSize = 11.sp) },
+                                placeholder = { Text(zokasText("cth: com.bank.ecr atau ecr://pay", "Cth: com.bank.ecr atau ecr://pay")") },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
                                 shape = RoundedCornerShape(10.dp)
@@ -1566,24 +1566,24 @@ fun PaymentBottomSheet(
                                 if (isDispatchingEdc) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-                                        Text("Mengirim perintah otomatis ke jalur EDC...", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(zokasText("Mengirim perintah otomatis ke jalur EDC...", "Mengirim perintah otomatis ke jalur EDC...")", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 } else if (edcFeedback != null) {
                                     Text(
-                                        text = "Status: ${edcFeedback!!.message}",
+                                        text = zokasText("Status: ${edcFeedback!!.message}", "status: ${edcFeedback!!.message}")",
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (edcFeedback!!.isApproved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Jalur: ${edcFeedback!!.channelUsed} • RC: ${edcFeedback!!.responseCode}",
+                                        text = zokasText("Jalur: ${edcFeedback!!.channelUsed} • RC: ${edcFeedback!!.responseCode}", "Jalur: ${edcFeedback!!.channelUsed} • RC: ${edcFeedback!!.responseCode}")",
                                         fontSize = 10.5.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                                 if (edcLastCommand != null) {
                                     Text(
-                                        text = "Command: ${edcLastCommand!!.isoStyleMessage}",
+                                        text = zokasText("Command: ${edcLastCommand!!.isoStyleMessage}", "Command: ${edcLastCommand!!.isoStyleMessage}")",
                                         fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -1594,8 +1594,8 @@ fun PaymentBottomSheet(
                         OutlinedTextField(
                             value = edcRefCode,
                             onValueChange = { edcRefCode = it },
-                            label = { Text("No. Trace / Approval EDC") },
-                            placeholder = { Text("Terisi otomatis atau ketik manual") },
+                            label = { Text(zokasText("No. Trace / Approval EDC", "No. Trace / Approval EDC")") },
+                            placeholder = { Text(zokasText("Terisi otomatis atau ketik manual", "Terisi otomatis atau ketik manual")") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp)
@@ -1615,12 +1615,12 @@ fun PaymentBottomSheet(
                     Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = edcConfirmed, onCheckedChange = { edcConfirmed = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Transaksi mesin EDC telah disetujui (Approved)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(zokasText("Transaksi mesin EDC telah disetujui (Approved)", "transaction mesin EDC telah disetujui (Approved)")", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             } else {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    Text("Pembayaran via $paymentMethod belum didukung secara offline.", color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp, modifier = Modifier.padding(12.dp), textAlign = TextAlign.Center)
+                    Text(zokasText("Pembayaran via $paymentMethod belum didukung secara offline.", "Payment via $paymentMethod belum didukung secara offline.")", color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp, modifier = Modifier.padding(12.dp), textAlign = TextAlign.Center)
                 }
             }
 
@@ -1646,7 +1646,7 @@ fun PaymentBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("SELESAIKAN PEMBAYARAN", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(zokasText("SELESAIKAN PEMBAYARAN", "SELESAIKAN payment")", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -1686,45 +1686,45 @@ fun PosActionMenuBottomSheet(
             Text(text = product.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(bottom = 4.dp))
 
             ListItem(
-                headlineContent = { Text("Edit Produk", fontWeight = FontWeight.SemiBold) },
+                headlineContent = { Text(zokasText("Edit Produk", "Edit Product")", fontWeight = FontWeight.SemiBold) },
                 supportingContent = { Text(if (isBomActive) "Ubah detail, harga, varian & resep" else "Ubah detail, harga & varian", fontSize = 11.sp) },
                 leadingContent = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 modifier = Modifier.clickable { onEdit() }
             )
 
             ListItem(
-                headlineContent = { Text("Tambah Stok", fontWeight = FontWeight.SemiBold) },
-                supportingContent = { Text("Restock barang jadi", fontSize = 11.sp) },
+                headlineContent = { Text(zokasText("Tambah Stok", "Add Stock")", fontWeight = FontWeight.SemiBold) },
+                supportingContent = { Text(zokasText("Restock barang jadi", "Restock barang jadi")", fontSize = 11.sp) },
                 leadingContent = { Icon(Icons.Default.AddCircleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 modifier = Modifier.clickable { onRestock() }
             )
 
             ListItem(
-                headlineContent = { Text("Barang Rusak", fontWeight = FontWeight.SemiBold) },
-                supportingContent = { Text("Catat waste/expired", fontSize = 11.sp) },
+                headlineContent = { Text(zokasText("Barang Rusak", "Barang Rusak")", fontWeight = FontWeight.SemiBold) },
+                supportingContent = { Text(zokasText("Catat waste/expired", "Catat waste/expired")", fontSize = 11.sp) },
                 leadingContent = { Icon(Icons.Default.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                 modifier = Modifier.clickable { onWaste() }
             )
 
             if (isBomActive) {
                 ListItem(
-                    headlineContent = { Text("Atur Resep (BOM)", fontWeight = FontWeight.SemiBold) },
-                    supportingContent = { Text("Takaran komposisi & kelola bahan baku", fontSize = 11.sp) },
+                    headlineContent = { Text(zokasText("Atur Resep (BOM)", "Atur Recipe (BOM)")", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text(zokasText("Takaran komposisi & kelola bahan baku", "Takaran komposisi & manage raw materials")", fontSize = 11.sp) },
                     leadingContent = { Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                     modifier = Modifier.clickable { onBom() }
                 )
 
                 ListItem(
-                    headlineContent = { Text("Kelola Bahan Baku", fontWeight = FontWeight.SemiBold) },
-                    supportingContent = { Text("Tambah item & stok bahan mentah", fontSize = 11.sp) },
+                    headlineContent = { Text(zokasText("Kelola Bahan Baku", "Kelola Raw Materials")", fontWeight = FontWeight.SemiBold) },
+                    supportingContent = { Text(zokasText("Tambah item & stok bahan mentah", "Add item & stok bahan mentah")", fontSize = 11.sp) },
                     leadingContent = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                     modifier = Modifier.clickable { onRawMaterial() }
                 )
             }
 
             ListItem(
-                headlineContent = { Text("Simpan Barcode (JPG)", fontWeight = FontWeight.SemiBold) },
-                supportingContent = { Text("Simpan label ke galeri", fontSize = 11.sp) },
+                headlineContent = { Text(zokasText("Simpan Barcode (JPG)", "Save Barcode (JPG)")", fontWeight = FontWeight.SemiBold) },
+                supportingContent = { Text(zokasText("Simpan label ke galeri", "Save label ke galeri")", fontSize = 11.sp) },
                 leadingContent = { Icon(Icons.Default.QrCode, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 modifier = Modifier.clickable { onSaveBarcode() }
             )
@@ -1732,8 +1732,8 @@ fun PosActionMenuBottomSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             ListItem(
-                headlineContent = { Text("Hapus Produk", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
-                supportingContent = { Text("Hapus permanen", fontSize = 11.sp) },
+                headlineContent = { Text(zokasText("Hapus Produk", "Delete Product")", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) },
+                supportingContent = { Text(zokasText("Hapus permanen", "Delete permanen")", fontSize = 11.sp) },
                 leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                 modifier = Modifier.clickable { onDelete() }
             )
