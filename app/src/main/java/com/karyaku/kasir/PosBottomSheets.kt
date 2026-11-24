@@ -704,7 +704,7 @@ fun ProductFormBottomSheet(
                                                         newList[index] = variant.copy(name = newName)
                                                         variantList = newList
                                                     },
-                                                    label = { Text(zokasText("Nama Varian (cth: Jumbo)", "Name Varian (cth: Jumbo"))) },
+                                                    label = { Text(zokasText("Nama Varian (cth: Jumbo)", "Name Varian (cth: Jumbo")) },
                                                     trailingIcon = {
                                                         VoiceMicButton(
                                                             promptLabel = "nama varian",
@@ -812,7 +812,7 @@ fun ProductFormBottomSheet(
                                                             newList[index] = variant.copy(packMultiplier = digits)
                                                             variantList = newList
                                                         },
-                                                        label = { Text(zokasText("Isi ($baseUnit)", "Isi ($baseUnit"))) },
+                                                        label = { Text(zokasText("Isi ($baseUnit)", "Isi ($baseUnit")) },
                                                         placeholder = { Text("1") },
                                                         trailingIcon = {
                                                             VoiceMicButton(
@@ -845,7 +845,7 @@ fun ProductFormBottomSheet(
                                                     newList[index] = variant.copy(barcode = newCode)
                                                     variantList = newList
                                                 },
-                                                label = { Text(zokasText("Barcode Varian (Opsional)", "Barcode Varian (Opsional"))) },
+                                                label = { Text(zokasText("Barcode Varian (Opsional)", "Barcode Varian (Opsional")) },
                                                 placeholder = { Text(zokasText("Ketik, paste, ucapkan, atau scan barcode", "Ketik, paste, ucapkan, atau scan barcode")) },
                                                 trailingIcon = {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -942,7 +942,7 @@ fun ProductFormBottomSheet(
                                 OutlinedTextField(
                                     value = productSku,
                                     onValueChange = { productSku = it.uppercase() },
-                                    label = { Text(zokasText("Kode Unik / SKU (cth: KOP-01)", "Kode Unik / SKU (cth: KOP-01"))) },
+                                    label = { Text(zokasText("Kode Unik / SKU (cth: KOP-01)", "Kode Unik / SKU (cth: KOP-01")) },
                                     placeholder = { Text(zokasText("Bisa dicari di Kasir", "Bisa dicari di cashier")) },
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                                     trailingIcon = {
@@ -976,7 +976,7 @@ fun ProductFormBottomSheet(
                                 OutlinedTextField(
                                     value = barcode,
                                     onValueChange = { barcode = it },
-                                    label = { Text(zokasText("Barcode Kemasan (Opsional)", "Barcode Kemasan (Opsional"))) },
+                                    label = { Text(zokasText("Barcode Kemasan (Opsional)", "Barcode Kemasan (Opsional")) },
                                     placeholder = { Text(zokasText("Ketik, paste, ucapkan, atau scan barcode", "Ketik, paste, ucapkan, atau scan barcode")) },
                                     trailingIcon = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1097,7 +1097,7 @@ fun ProductFormBottomSheet(
                                 OutlinedTextField(
                                     value = commission,
                                     onValueChange = { commission = it.filter { c -> c.isDigit() } },
-                                    label = { Text(zokasText("Komisi Kasir / Item (Rp)", "Komisi cashier / Item (Rp"))) },
+                                    label = { Text(zokasText("Komisi Kasir / Item (Rp)", "Komisi cashier / Item (Rp")) },
                                     trailingIcon = {
                                         VoiceMicButton(promptLabel = "komisi kasir per item", currentValue = commission, onResultText = { commission = it.filter { c -> c.isDigit() } })
                                     },
@@ -1369,7 +1369,7 @@ fun PaymentBottomSheet(
                 OutlinedTextField(
                     value = cashInput,
                     onValueChange = { if (it.length <= 10) cashInput = it },
-                    label = { Text(zokasText("Uang Diterima (Rp)", "Uang Diterima (Rp"))) },
+                    label = { Text(zokasText("Uang Diterima (Rp)", "Uang Diterima (Rp")) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,

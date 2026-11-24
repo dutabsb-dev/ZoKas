@@ -581,7 +581,7 @@ fun SettingsAccountCard(
                         Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            if (currentUser.biometricKey.isNotBlank()) zokasText("Biometrik Terdaftar (Ubah)", "Biometrics Registered (Change")) else zokasText("Daftarkan Sidik Jari/Wajah", "Register Fingerprint/Face"),
+                            if (currentUser.biometricKey.isNotBlank()) zokasText("Biometrik Terdaftar (Ubah)", "Biometrics Registered (Change") else zokasText("Daftarkan Sidik Jari/Wajah", "Register Fingerprint/Face"),
                             fontSize = 12.sp
                         )
                     }
@@ -2793,7 +2793,7 @@ fun PaymentMethodManagementDialog(
                             )
                             Text(
                                 text = when (method) {
-                                    "CASH" -> zokasText("Tunai (CASH)", "Cash (CASH"))
+                                    "CASH" -> zokasText("Tunai (CASH)", "Cash (CASH")
                                     "QRIS" -> zokasText("QRIS Statis / Dinamis", "QRIS Static / Dynamic")
                                     "Bank Transfer" -> zokasText("Transfer Bank Manual", "Manual Bank Transfer")
                                     else -> method
