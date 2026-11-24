@@ -271,7 +271,7 @@ fun PosProductSection(
                 ) {
                     val sortItems = listOf(
                         "DEFAULT" to zokasText("Urutan Default", "Default Order"),
-                        "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis), "Lowest Stock (Low)),
+                        "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis)", "Lowest Stock (Low")),
                         "STOCK_DESC" to zokasText("Stok Paling Banyak", "Highest Stock"),
                         "EXPIRY_ASC" to zokasText("Tanggal Expired Terdekat", "Nearest Expiry Date"),
                         "PRICE_ASC" to zokasText("Harga Termurah", "Lowest Price", if (isEnLang) "en" else "in"),
@@ -490,7 +490,7 @@ private fun ProductGridCard(
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
                 else "${it.name}: ${it.stock} $baseUnit"
             }
-            zokasText("Stok: ${product.stock} $baseUnit ($vSummary), "Stock: ${product.stock} $baseUnit ($vSummary), activeLang)
+            zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary"), activeLang)
         } else {
             zokasText("Stok: ${product.stock} $baseUnit", "Stock: ${product.stock} $baseUnit", activeLang)
         }
@@ -756,7 +756,7 @@ private fun ProductCompactListRow(
     val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit, isEnRow) {
         val activeLang = if (isEnRow) "en" else "in"
         if (product.isService) {
-            zokasText("Layanan Jasa (Tanpa Stok), "Service Item (No Stock), activeLang)
+            zokasText("Layanan Jasa (Tanpa Stok)", "Service Item (No Stock"), activeLang)
         } else if (variantStocks.isNotEmpty()) {
             val details = variantStocks.joinToString("  •  ") {
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
@@ -764,7 +764,7 @@ private fun ProductCompactListRow(
             }
             "${zokasText("Total", "Total", activeLang)}: ${product.stock} $baseUnit  •  $details"
         } else if (isOutOfStock) {
-            zokasText("Stok Habis (0 $baseUnit), "Out of Stock (0 $baseUnit), activeLang)
+            zokasText("Stok Habis (0 $baseUnit)", "Out of Stock (0 $baseUnit"), activeLang)
         } else if (isLowStock) {
             zokasText("STOK MENIPIS: ${product.stock} $baseUnit", "LOW STOCK: ${product.stock} $baseUnit", activeLang)
         } else {
