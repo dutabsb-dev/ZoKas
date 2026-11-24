@@ -3363,11 +3363,14 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        zokasText("1. Ketuk tombol 'Buka @userinfobot' di bawah.\n", "2. Tekan START di chat bot tersebut.\n+"
-                                            3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.,
-                                            1. Tap 'Open @userinfobot in Telegram' below.\n +
-                                            2. Tap START in that bot chat.\n +
-                                            3. Copy the number under 'Id' (e.g., 987654321) and paste it into Owner Phone Chat ID."),
+                                        zokasText(
+                                            "1. Ketuk tombol 'Buka @userinfobot' di bawah.\n" +
+                                                "2. Tekan START di chat bot tersebut.\n" +
+                                                "3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.",
+                                            "1. Tap 'Open @userinfobot in Telegram' below.\n" +
+                                                "2. Tap START in that bot chat.\n" +
+                                                "3. Copy the number under 'Id' (e.g., 987654321) and paste it into Owner Phone Chat ID."
+                                        ),
                                         fontSize = 12.sp,
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface
