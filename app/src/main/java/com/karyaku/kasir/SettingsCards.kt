@@ -90,13 +90,14 @@ fun SettingsSectionLeadingIcon(
     }
 }
 
-// --- 1. CARD TAMPILAN, 50 TEMA INTERAKTIF & BAHASA ---
+// --- 1. CARD TAMPILAN, 50 TEMA INTERAKTIF & BAHASA (SUB-MENU EXPANDABLE) ---
 @Composable
 fun SettingsAppearanceCard(
     isDarkMode: Boolean, onToggleDarkMode: () -> Unit,
     uiScale: Float, onChangeUiScale: (Float) -> Unit,
     language: String, onToggleLanguage: () -> Unit
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
     val lang = language
     val context = LocalContext.current
     ZokasThemeManager.ensureLoaded(context)
@@ -277,170 +278,229 @@ fun SettingsAppearanceCard(
         )
     }
 
+    val activeLangCode = ZokasLocaleManager.currentLanguage
+    val activeLangDisplay = remember(activeLangCode) {
+        SettingsUpgradeOneHelper.supportedLanguageOptions().find { it.first == activeLangCode }?.second
+            ?: if (activeLangCode == "en") "English" else "Indonesia"
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f))
     ) {
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_appearance, tagText = zokasText("Tema & Bahasa", "Theme & Language"))
-            Spacer(modifier = Modifier.height(8.dp))
-            // PILIHAN 50 TEMA INTERAKTIF (GRADASI & TRANSPARANSI)
+        Column {
+            SettingCardArtworkBanner(
+                drawableRes = R.drawable.card_setting_appearance,
+                tagText = zokasText("Tema & Bahasa", "Theme & Language"),
+                modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp)
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { showThemeGalleryDialog = true }
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        Color(activePreset.gradientStartHex),
-                                        Color(activePreset.gradientEndHex)
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Palette,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                    SettingsSectionLeadingIcon(Icons.Default.Palette, MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
                         Text(
-                            text = zokasText("Tema Aplikasi", "App Theme"),
+                            text = zokasText("Tema & Bahasa", "Theme & Language"),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = activePreset.name,
+                            text = "${activePreset.name} • $activeLangDisplay • ${(uiScale * 100).toInt()}%",
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-                OutlinedButton(
-                    onClick = { showThemeGalleryDialog = true },
-                    shape = RoundedCornerShape(6.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    Text(zokasText("Pilih Tema", "Choose Theme"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SettingsMenuHelpIconButton(menuKey = "appearance")
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = "Toggle",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Spacer(modifier = Modifier.width(4.dp))
-                SettingsMenuHelpIconButton(menuKey = "appearance")
             }
 
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(bottom = 10.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
 
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    LanguageManager.tr("mode_gelap", lang),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Switch(
-                    checked = isDarkMode,
-                    onCheckedChange = {
-                        if (currentThemeId != "default_emerald") {
-                            ZokasThemeManager.selectTheme(context, "default_emerald")
+                        // 1. PILIHAN 50 TEMA INTERAKTIF (GRADASI & TRANSPARANSI)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showThemeGalleryDialog = true }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(
+                                            Brush.linearGradient(
+                                                listOf(
+                                                    Color(activePreset.gradientStartHex),
+                                                    Color(activePreset.gradientEndHex)
+                                                )
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Palette,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = zokasText("Tema Aplikasi", "App Theme"),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = activePreset.name,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { showThemeGalleryDialog = true },
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(zokasText("Pilih Tema", "Choose Theme"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
-                        onToggleDarkMode()
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                    )
-                )
-            }
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-            Column {
-                Text(
-                    LanguageManager.tr("ukuran_font", lang),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Slider(
-                    value = uiScale,
-                    onValueChange = { onChangeUiScale(it) },
-                    valueRange = 0.8f..1.5f,
-                    steps = 6,
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-                Text(
-                    "${LanguageManager.tr("skala", lang)}: ${(uiScale * 100).toInt()}%",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    LanguageManager.tr("bahasa", lang),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                val langCycle = remember { listOf("in", "en", "ms", "zh", "ar") }
-                val activeLangCode = ZokasLocaleManager.currentLanguage
-                val activeLangDisplay = remember(activeLangCode) {
-                    SettingsUpgradeOneHelper.supportedLanguageOptions().find { it.first == activeLangCode }?.second
-                        ?: if (activeLangCode == "en") "English" else "Indonesia"
-                }
-                Button(
-                    onClick = {
-                        val idx = langCycle.indexOf(ZokasLocaleManager.currentLanguage)
-                        val nextCode = langCycle[(idx + 1) % langCycle.size]
-                        SettingsUpgradeOneHelper.persistManualLanguage(context, nextCode)
-                        onToggleLanguage()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(activeLangDisplay, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+
+                        // 2. MODE GELAP
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                LanguageManager.tr("mode_gelap", lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Switch(
+                                checked = isDarkMode,
+                                onCheckedChange = {
+                                    if (currentThemeId != "default_emerald") {
+                                        ZokasThemeManager.selectTheme(context, "default_emerald")
+                                    }
+                                    onToggleDarkMode()
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                )
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+
+                        // 3. UKURAN FONT (AKSESIBILITAS)
+                        Column {
+                            Text(
+                                LanguageManager.tr("ukuran_font", lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Slider(
+                                value = uiScale,
+                                onValueChange = { onChangeUiScale(it) },
+                                valueRange = 0.8f..1.5f,
+                                steps = 6,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                            Text(
+                                "${LanguageManager.tr("skala", lang)}: ${(uiScale * 100).toInt()}%",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+
+                        // 4. BAHASA
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                LanguageManager.tr("bahasa", lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            val langCycle = remember { listOf("in", "en", "ms", "zh", "ar") }
+                            Button(
+                                onClick = {
+                                    val idx = langCycle.indexOf(ZokasLocaleManager.currentLanguage)
+                                    val nextCode = langCycle[(idx + 1) % langCycle.size]
+                                    SettingsUpgradeOneHelper.persistManualLanguage(context, nextCode)
+                                    onToggleLanguage()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(activeLangDisplay, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2523,7 +2583,7 @@ fun SettingsBackupCard(
     }
 }
 
-// --- 9. CARD PENGATURAN METODE PEMBAYARAN (TERKONSOLIDASI) ---
+// --- 9. CARD PENGATURAN METODE PEMBAYARAN (TERKONSOLIDASI - FULL BANNER) ---
 @Composable
 fun SettingsPaymentMethodCard(
     currentMethods: Set<String>,
@@ -2540,73 +2600,80 @@ fun SettingsPaymentMethodCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f)),
         shape = RoundedCornerShape(6.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+                .padding(horizontal = 8.dp, vertical = 8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .background(
-                        if (hasWarning) MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        RoundedCornerShape(6.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (hasWarning) Icons.Default.Warning else Icons.Default.Payment,
-                    contentDescription = null,
-                    tint = if (hasWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = zokasText("Metode Pembayaran", "Payment Methods"),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                val pmContext = LocalContext.current
-                val edcActive = remember(pmContext) { EdcConnectionManager.isEdcEnabled(pmContext) }
-                val summaryMethods = remember(currentMethods, edcActive) {
-                    val base = currentMethods.toMutableList()
-                    if (edcActive && !base.contains("EDC")) base.add("EDC")
-                    base.joinToString(", ").ifBlank { zokasText("Belum dipilih", "Not selected") }
-                }
-                Text(
-                    text = summaryMethods,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (hasWarning) {
-                    val warningText = buildList {
-                        if (missingQris) add(zokasText("Payload QRIS belum diisi", "QRIS payload not set"))
-                        if (missingBank) add(zokasText("Nomor rekening belum diisi", "Account number not set"))
-                    }.joinToString(" • ")
-                    Text(
-                        text = warningText,
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
             SettingCardArtworkBanner(
                 drawableRes = R.drawable.card_setting_payment_method,
-                tagText = zokasText("Metode Bayar", "Payment"),
-                modifier = Modifier.width(108.dp).height(58.dp)
+                tagText = zokasText("Metode Bayar", "Payment")
             )
-            Spacer(modifier = Modifier.width(6.dp))
-            SettingsMenuHelpIconButton(menuKey = "payment_method")
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(
+                            if (hasWarning) MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            RoundedCornerShape(6.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (hasWarning) Icons.Default.Warning else Icons.Default.Payment,
+                        contentDescription = null,
+                        tint = if (hasWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = zokasText("Metode Pembayaran", "Payment Methods"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    val pmContext = LocalContext.current
+                    val edcActive = remember(pmContext) { EdcConnectionManager.isEdcEnabled(pmContext) }
+                    val summaryMethods = remember(currentMethods, edcActive) {
+                        val base = currentMethods.toMutableList()
+                        if (edcActive && !base.contains("EDC")) base.add("EDC")
+                        base.joinToString(", ").ifBlank { zokasText("Belum dipilih", "Not selected") }
+                    }
+                    Text(
+                        text = summaryMethods,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (hasWarning) {
+                        val warningText = buildList {
+                            if (missingQris) add(zokasText("Payload QRIS belum diisi", "QRIS payload not set"))
+                            if (missingBank) add(zokasText("Nomor rekening belum diisi", "Account number not set"))
+                        }.joinToString(" • ")
+                        Text(
+                            text = warningText,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                SettingsMenuHelpIconButton(menuKey = "payment_method")
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
