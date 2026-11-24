@@ -171,7 +171,7 @@ fun LiveBarcodeScannerWindow(
                         }
                     } else statusText
                     Text(
-                        text = zokasText("Scan Kamera ($displayStatus)", "Camera Scan ($displayStatus)"),
+                        text = zokasText("Scan Kamera ($displayStatus), "Camera Scan ($displayStatus)"),
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface,

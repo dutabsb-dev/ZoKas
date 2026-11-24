@@ -1080,7 +1080,7 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = zokasText("Buku Pembukuan Lengkap (Universal)", "Complete Bookkeeping Book (Universal)", lang),
+                        text = zokasText("Buku Pembukuan Lengkap (Universal), "Complete Bookkeeping Book (Universal)", lang),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.primary
@@ -1191,7 +1191,7 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        zokasText("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)", "EXPORT SHIFT REPORT EXCEL (CLOSE SHIFT)", lang),
+                        zokasText("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR), "EXPORT SHIFT REPORT EXCEL (CLOSE SHIFT)", lang),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )

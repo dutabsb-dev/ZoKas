@@ -468,7 +468,7 @@ object SettingsTutorialCatalog {
             )
             "owner_monitor" -> MenuTutorialContent(
                 menuKey = "owner_monitor",
-                title = zokasText("Tutorial: Pantauan HP Owner (Bot Telegram)", "Tutorial: Owner Phone Monitor (Telegram Bot)"),
+                title = zokasText("Tutorial: Pantauan HP Owner (Bot Telegram), "Tutorial: Owner Phone Monitor (Telegram Bot)"),
                 subtitle = zokasText("Terima laporan transaksi, tutup shift, dan peringatan void/refund di HP Owner tanpa server.", "Receive transaction reports, shift closings, and void/refund alerts on Owner phone without a server."),
                 steps = listOf(
                     TutorialStepItem(
