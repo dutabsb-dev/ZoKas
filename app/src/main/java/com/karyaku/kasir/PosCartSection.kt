@@ -162,7 +162,7 @@ fun PosCartSection(
                     Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} Poin)" else "Pelanggan Umum",
+                        text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} ${zokasText("Poin", "Pts", lang)})" else zokasText("Pelanggan Umum", "Walk-in Customer", lang),
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.tertiary,
                         fontSize = 11.sp
@@ -342,9 +342,9 @@ fun PosCartSection(
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Diskon:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Diskon:", "Discount:", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = onDiscountClick, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.height(22.dp)) {
-                    Text("Ubah", color = MaterialTheme.colorScheme.tertiary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text(zokasText("Ubah", "Edit", lang), color = MaterialTheme.colorScheme.tertiary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Text("- ${formatRupiah(discount)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
@@ -352,13 +352,13 @@ fun PosCartSection(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = if (appliedVoucher.isNotBlank()) "Voucher ($appliedVoucher):" else "Voucher:",
+                    text = if (appliedVoucher.isNotBlank()) "${zokasText("Voucher", "Voucher", lang)} ($appliedVoucher):" else "${zokasText("Voucher", "Voucher", lang)}:",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 TextButton(onClick = onVoucherClick, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.height(22.dp)) {
                     Text(
-                        text = if (appliedVoucher.isNotBlank()) "Ganti" else "Pakai Kode",
+                        text = if (appliedVoucher.isNotBlank()) zokasText("Ganti", "Change", lang) else zokasText("Pakai Kode", "Use Code", lang),
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
@@ -374,7 +374,7 @@ fun PosCartSection(
         if (taxAmount > 0) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
-                    text = if (isTaxInclusive) "Pajak (Termasuk di Harga):" else "Pajak:",
+                    text = if (isTaxInclusive) zokasText("Pajak (Termasuk di Harga):", "Tax (Included in Price):", lang) else zokasText("Pajak:", "Tax:", lang),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -393,7 +393,7 @@ fun PosCartSection(
         }
         if (roundingDiff != 0L) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Pembulatan Tunai:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Pembulatan Tunai:", "Cash Rounding:", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(formatRupiah(roundingDiff), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
             }
         }
@@ -414,7 +414,7 @@ fun PosCartSection(
             ),
             shape = RoundedCornerShape(10.dp)
         ) {
-            Text("BAYAR (F2)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(zokasText("BAYAR (F2)", "PAY (F2)", lang), fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

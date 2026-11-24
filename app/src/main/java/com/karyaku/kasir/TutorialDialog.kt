@@ -412,13 +412,13 @@ fun TutorialCenterDialog(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                "Pusat Panduan & Tutorial ZoKas",
+                                zokasText("Pusat Panduan & Tutorial ZoKas", "ZoKas Guide & Tutorial Center"),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Panduan mudah langkah demi langkah untuk semua fitur",
+                                zokasText("Panduan mudah langkah demi langkah untuk semua fitur", "Easy step-by-step guide for all features"),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -438,7 +438,7 @@ fun TutorialCenterDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Cari panduan (cth: EDC, QRIS, resep, printer, gaji)...", fontSize = 12.sp) },
+                    placeholder = { Text(zokasText("Cari panduan (cth: EDC, QRIS, resep, printer, gaji)...", "Search guide (e.g. EDC, QRIS, BOM, printer, payroll)..."), fontSize = 12.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -461,9 +461,9 @@ fun TutorialCenterDialog(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     val filters = listOf(
-                        "SEMUA" to "Semua Panduan (${allTutorialTopics.size})",
-                        "DASAR" to "1. Panduan Dasar Kasir (5)",
-                        "LANJUTAN" to "2. Panduan Fitur Lanjutan (5)"
+                        "SEMUA" to zokasText("Semua Panduan (${allTutorialTopics.size})", "All Guides (${allTutorialTopics.size})"),
+                        "DASAR" to zokasText("1. Panduan Dasar Kasir (5)", "1. Basic Cashier Guide (5)"),
+                        "LANJUTAN" to zokasText("2. Panduan Fitur Lanjutan (5)", "2. Advanced Features Guide (5)")
                     )
                     filters.forEach { (key, label) ->
                         val selected = selectedFilter == key
@@ -542,7 +542,7 @@ fun TutorialCenterDialog(
                                                 shape = RoundedCornerShape(4.dp)
                                             ) {
                                                 Text(
-                                                    text = if (topic.category == "DASAR") "DASAR" else "LANJUTAN",
+                                                    text = if (topic.category == "DASAR") zokasText("DASAR", "BASIC") else zokasText("LANJUTAN", "ADVANCED"),
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = accentColor,
@@ -719,7 +719,7 @@ fun TutorialCenterDialog(
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text(
-                                                    "Buka Tampilan Fokus",
+                                                    zokasText("Buka Tampilan Fokus", "Open Focus View"),
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = accentColor
@@ -743,7 +743,7 @@ fun TutorialCenterDialog(
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Mengerti & Tutup Panduan", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(zokasText("Mengerti & Tutup Panduan", "Got It & Close Guide"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }

@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
-                var language by rememberSaveable { mutableStateOf(ZokasLocaleManager.ensureLoaded(this)) }
+                var language by rememberSaveable { mutableStateOf(settingsManager.language) }
                 var storeNameState by remember { mutableStateOf(settingsManager.storeName) }
                 var storeLogoPathState by remember { mutableStateOf(settingsManager.storeLogoPath) }
 
@@ -105,8 +105,9 @@ class MainActivity : AppCompatActivity() {
                             onToggleHighContrast = { isHighContrast = !isHighContrast; settingsManager.isHighContrast = isHighContrast },
                             onChangeUiScale = { uiScale = it; settingsManager.uiScale = it },
                             onToggleLanguage = {
-                                val newLang = ZokasLocaleManager.toggleLanguage(this)
+                                val newLang = if (language == "in") "en" else "in"
                                 language = newLang
+                                settingsManager.language = newLang
                             }
                         )
                     }
@@ -1046,7 +1047,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                     onValueChange = { viewModel.setSearchQuery(it) },
                     placeholder = {
                         Text(
-                            text = "Cari nama, Kode Unik (SKU), atau barcode...",
+                            text = zokasText("Cari nama, Kode Unik (SKU), atau barcode...", "Search name, SKU, or barcode...", settingsManager.language),
                             fontSize = 12.sp,
                             maxLines = 1
                         )
@@ -1145,7 +1146,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "Audit Stok",
+                                text = zokasText("Audit Stok", "Stock Audit", settingsManager.language),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -1170,7 +1171,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "Excel Simpel",
+                                text = zokasText("Excel Simpel", "Simple Excel", settingsManager.language),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -1201,7 +1202,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = if (isBatchDeleteMode) "Batal" else "Hapus",
+                                text = if (isBatchDeleteMode) zokasText("Batal", "Cancel", settingsManager.language) else zokasText("Hapus", "Delete", settingsManager.language),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -1367,7 +1368,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Tambah Produk")
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Tambah Produk", fontWeight = FontWeight.Bold)
+                Text(zokasText("Tambah Produk", "Add Product", settingsManager.language), fontWeight = FontWeight.Bold)
             }
         }
 

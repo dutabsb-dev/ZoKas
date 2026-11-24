@@ -159,8 +159,19 @@ fun LiveBarcodeScannerWindow(
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
+                    val displayStatus = if (ZokasLocaleManager.isEnglish()) {
+                        when {
+                            statusText == "Kamera siap" -> "Camera ready"
+                            statusText == "Scan aktif" -> "Scanning active"
+                            statusText == "Dijeda" -> "Paused"
+                            statusText == "Meminta izin kamera..." -> "Requesting camera permission..."
+                            statusText == "Izin kamera ditolak" -> "Camera permission denied"
+                            statusText.startsWith("Terbaca: ") -> "Scanned: ${statusText.removePrefix("Terbaca: ")}"
+                            else -> statusText
+                        }
+                    } else statusText
                     Text(
-                        text = "Scan Kamera ($statusText)",
+                        text = zokasText("Scan Kamera ($displayStatus)", "Camera Scan ($displayStatus)"),
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -187,7 +198,7 @@ fun LiveBarcodeScannerWindow(
                     )
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = if (enabled) "Matikan" else "Nyalakan",
+                        text = if (enabled) zokasText("Matikan", "Turn Off") else zokasText("Nyalakan", "Turn On"),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary

@@ -578,10 +578,10 @@ fun HistoryScreen(
             }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val filters = listOf(
-                    "TODAY" to "Hari Ini",
-                    "THIS_WEEK" to "Minggu Ini",
-                    "THIS_MONTH" to "Bulan Ini",
-                    "DATE_RANGE" to rangeChipLabel
+                    "TODAY" to zokasText("Hari Ini", "Today", lang),
+                    "THIS_WEEK" to zokasText("Minggu Ini", "This Week", lang),
+                    "THIS_MONTH" to zokasText("Bulan Ini", "This Month", lang),
+                    "DATE_RANGE" to if (dateFilter == "DATE_RANGE" || dateFilter == "CUSTOM_DATE") rangeChipLabel else zokasText("Range Tanggal", "Date Range", lang)
                 )
                 items(filters.size) { index ->
                     val (key, label) = filters[index]
@@ -787,7 +787,7 @@ fun HistoryScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "Detail Laporan",
+                                text = zokasText("Detail Laporan", "Report Details", lang),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -806,7 +806,7 @@ fun HistoryScreen(
                                 Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Reset Rp 0",
+                                    text = zokasText("Reset Rp 0", "Reset to 0", lang),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1,
@@ -1080,13 +1080,17 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Buku Pembukuan Lengkap (Universal)",
+                        text = zokasText("Buku Pembukuan Lengkap (Universal)", "Complete Bookkeeping Book (Universal)", lang),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Satukan Laba Rugi, Kas, Shift, Transaksi, Stok, Bahan Baku, PO, dan Log Audit dalam satu dokumen berlogo & identitas toko.",
+                        text = zokasText(
+                            "Satukan Laba Rugi, Kas, Shift, Transaksi, Stok, Bahan Baku, PO, dan Log Audit dalam satu dokumen berlogo & identitas toko.",
+                            "Combine P&L, Cash, Shifts, Transactions, Stock, Raw Materials, PO, and Audit Logs in one branded document.",
+                            lang
+                        ),
                         fontSize = 11.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 16.sp
@@ -1110,7 +1114,7 @@ fun HistoryScreen(
                         ) {
                             Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("EXCEL LENGKAP", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(zokasText("EXCEL LENGKAP", "FULL EXCEL", lang), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
 
                         Button(
@@ -1128,7 +1132,7 @@ fun HistoryScreen(
                         ) {
                             Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("E-BOOK PDF", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(zokasText("E-BOOK PDF", "PDF E-BOOK", lang), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         }
                     }
                 }
@@ -1151,7 +1155,7 @@ fun HistoryScreen(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         )
-                    ) { Text("EXCEL TRANSAKSI", fontSize = 12.sp) }
+                    ) { Text(zokasText("EXCEL TRANSAKSI", "TX EXCEL", lang), fontSize = 12.sp) }
 
                     Button(
                         onClick = {
@@ -1163,7 +1167,7 @@ fun HistoryScreen(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError
                         )
-                    ) { Text("PDF TRANSAKSI", fontSize = 12.sp) }
+                    ) { Text(zokasText("PDF TRANSAKSI", "TX PDF", lang), fontSize = 12.sp) }
                 }
 
                 Button(
@@ -1187,7 +1191,7 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)",
+                        zokasText("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)", "EXPORT SHIFT REPORT EXCEL (CLOSE SHIFT)", lang),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )

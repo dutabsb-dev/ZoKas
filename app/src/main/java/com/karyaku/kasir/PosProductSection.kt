@@ -480,17 +480,18 @@ private fun ProductGridCard(
     val priceColor = MaterialTheme.colorScheme.primary
     val categoryLabel = if (productSku.isNotEmpty()) "$productSku • ${product.category}" else product.category
 
-    val stockText = remember(product.isService, product.stock, variantStocks, baseUnit) {
+    val stockText = remember(product.isService, product.stock, variantStocks, baseUnit, isEnLang) {
+        val activeLang = if (isEnLang) "en" else "in"
         if (product.isService) {
-            zokasText("Jasa", "Service")
+            zokasText("Jasa", "Service", activeLang)
         } else if (variantStocks.isNotEmpty()) {
             val vSummary = variantStocks.joinToString(" • ") {
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
                 else "${it.name}: ${it.stock} $baseUnit"
             }
-            zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary)")
+            zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary)", activeLang)
         } else {
-            zokasText("Stok: ${product.stock} $baseUnit", "Stock: ${product.stock} $baseUnit")
+            zokasText("Stok: ${product.stock} $baseUnit", "Stock: ${product.stock} $baseUnit", activeLang)
         }
     }
 
@@ -750,21 +751,23 @@ private fun ProductCompactListRow(
     }
     val hasEmptyVariant = variantStocks.any { it.stock <= 0 }
 
-    val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit) {
+    val isEnRow = ZokasLocaleManager.isEnglish()
+    val stockRunningText = remember(product.isService, product.stock, variantStocks, baseUnit, isEnRow) {
+        val activeLang = if (isEnRow) "en" else "in"
         if (product.isService) {
-            zokasText("Layanan Jasa (Tanpa Stok)", "Service Item (No Stock)")
+            zokasText("Layanan Jasa (Tanpa Stok)", "Service Item (No Stock)", activeLang)
         } else if (variantStocks.isNotEmpty()) {
             val details = variantStocks.joinToString("  •  ") {
                 if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
                 else "${it.name}: ${it.stock} $baseUnit"
             }
-            "Total: ${product.stock} $baseUnit  •  $details"
+            "${zokasText("Total", "Total", activeLang)}: ${product.stock} $baseUnit  •  $details"
         } else if (isOutOfStock) {
-            zokasText("Stok Habis (0 $baseUnit)", "Out of Stock (0 $baseUnit)")
+            zokasText("Stok Habis (0 $baseUnit)", "Out of Stock (0 $baseUnit)", activeLang)
         } else if (isLowStock) {
-            zokasText("STOK MENIPIS: ${product.stock} $baseUnit", "LOW STOCK: ${product.stock} $baseUnit")
+            zokasText("STOK MENIPIS: ${product.stock} $baseUnit", "LOW STOCK: ${product.stock} $baseUnit", activeLang)
         } else {
-            zokasText("Stok Tersedia: ${product.stock} $baseUnit", "In Stock: ${product.stock} $baseUnit")
+            zokasText("Stok Tersedia: ${product.stock} $baseUnit", "In Stock: ${product.stock} $baseUnit", activeLang)
         }
     }
 

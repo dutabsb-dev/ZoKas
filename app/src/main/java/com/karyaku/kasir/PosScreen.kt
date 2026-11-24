@@ -1133,7 +1133,7 @@ fun PosScreen(
                                 ) {
                                     Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(15.dp))
                                     Spacer(modifier = Modifier.width(3.dp))
-                                    Text("Katalog", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text(zokasText("Katalog", "Catalog", settingsManager.language), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     OutlinedButton(
@@ -1147,7 +1147,7 @@ fun PosScreen(
                                         modifier = Modifier.height(28.dp),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Text("Parkir", fontSize = 11.sp)
+                                        Text(zokasText("Parkir", "Hold", settingsManager.language), fontSize = 11.sp)
                                     }
                                     OutlinedButton(
                                         onClick = { showHoldDialog = true },
@@ -1155,7 +1155,7 @@ fun PosScreen(
                                         modifier = Modifier.height(28.dp),
                                         shape = RoundedCornerShape(8.dp)
                                     ) {
-                                        Text("Lihat", fontSize = 11.sp)
+                                        Text(zokasText("Lihat", "View", settingsManager.language), fontSize = 11.sp)
                                     }
                                 }
                             }
