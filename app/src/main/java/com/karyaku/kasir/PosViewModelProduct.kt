@@ -464,3 +464,18 @@ fun PosViewModel.importProductsFromExcel(context: Context, uri: Uri, onResult: (
         }
     }
 }
+/**
+ * Kalkulasi susut timbang (misal kulakan ayam potong/daging/ikan dalam kg)
+ * sehingga HPP per kg bersih siap jual tetap akurat di lapangan.
+ */
+fun calculateNetWeightAndCostPerKg(
+    grossWeightKg: Double,
+    shrinkagePercent: Double,
+    totalPurchaseCost: Long
+): Pair<Double, Long> {
+    val safeGross = grossWeightKg.coerceAtLeast(0.01)
+    val safeShrink = shrinkagePercent.coerceIn(0.0, 80.0)
+    val netWeightKg = (safeGross * (1.0 - (safeShrink / 100.0))).coerceAtLeast(0.01)
+    val netCostPerKg = kotlin.math.round(totalPurchaseCost.toDouble() / netWeightKg).toLong()
+    return Pair(netWeightKg, netCostPerKg)
+}

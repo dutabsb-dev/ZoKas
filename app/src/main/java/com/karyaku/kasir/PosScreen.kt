@@ -563,6 +563,12 @@ fun PosScreen(
                         val branchLabel = currentBranch?.name ?: "Cabang #${currentBranchId}"
                         val totalItemsSold = currentCartSnapshot.sumOf { it.quantity }
                         MultiDeviceTransactionSyncManager.recordLocalTransactionToQueue(context, newTransaction, branchLabel)
+                            NotificationCenterManager.pushNotification(
+                                context = context,
+                                category = NotificationCategory.TRANSACTION,
+                                title = "Transaksi #${newTransaction.id} ($method)",
+                                message = "Kasir ${currentUser.name} • $totalItemsSold item • Total ${formatRupiah(paidTotal)}"
+                            )
                         scope.launch {
                             OwnerRemoteMonitorManager.notifyTransactionCompleted(
                                 context = context,
@@ -918,6 +924,12 @@ fun PosScreen(
                             )
                             val branchLabel = currentBranch?.name ?: "Cabang #${currentBranchId}"
                             MultiDeviceTransactionSyncManager.recordLocalShiftToQueue(context, accurateReportShift, branchLabel)
+                                NotificationCenterManager.pushNotification(
+                                    context = context,
+                                    category = NotificationCategory.SHIFT,
+                                    title = "Tutup Kasir - ${currentUser.name}",
+                                    message = "Kas Sistem ${formatRupiah(exactExpectedCash)} • Fisik ${formatRupiah(uangFisik)} • Selisih ${formatRupiah(uangFisik - exactExpectedCash)}"
+                                )
                             AutoBackupDriveManager.triggerAutoBackupOnCloseShift(context)
                             if (MultiDeviceTransactionSyncManager.isAutoExportOnCloseShiftEnabled(context)) {
                                 MultiDeviceTransactionSyncManager.writeAutoSnapshotToCache(context)

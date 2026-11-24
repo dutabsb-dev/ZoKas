@@ -480,6 +480,95 @@ fun MainNavigation(
         }
     }
 
+val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
+    val currentBranchIdForAlerts by viewModel.currentBranchId.collectAsStateWithLifecycle()
+    val notificationsList by NotificationCenterManager.notificationsFlow.collectAsStateWithLifecycle()
+    val categorySettingsMap by NotificationCenterManager.settingsFlow.collectAsStateWithLifecycle()
+    var reminderRules by remember { mutableStateOf(CustomReminderManager.loadRules(context)) }
+    var dismissedReminderKeys by remember { mutableStateOf(CustomReminderManager.loadDismissedKeys(context)) }
+    var showNotificationCenter by remember { mutableStateOf(false) }
+    var showReminderRulesDialog by remember { mutableStateOf(false) }
+    var showNotificationSettingsDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        NotificationCenterManager.ensureInitialized(context)
+    }
+
+    val activeReminders = remember(allProductsForAlerts, currentBranchIdForAlerts, reminderRules, dismissedReminderKeys) {
+        val branchProds = allProductsForAlerts.filter { it.branchId == currentBranchIdForAlerts }
+        CustomReminderManager.evaluateActiveReminders(
+            products = branchProds,
+            rules = reminderRules,
+            dismissedKeys = dismissedReminderKeys
+        )
+    }
+
+    val enabledBellCats = remember(categorySettingsMap) {
+        NotificationCategory.entries.filter { categorySettingsMap[it]?.bellEnabled ?: true }.toSet()
+    }
+    val unreadNotifCount = remember(notificationsList, enabledBellCats, activeReminders) {
+        notificationsList.count { !it.isRead && it.category in enabledBellCats } + activeReminders.size
+    }
+
+    if (showNotificationCenter) {
+        NotificationAndReminderCenterDialog(
+            notifications = notificationsList,
+            activeReminders = activeReminders,
+            categorySettings = categorySettingsMap,
+            onMarkRead = { id -> NotificationCenterManager.markAsRead(context, id) },
+            onMarkAllRead = { NotificationCenterManager.markAllAsRead(context) },
+            onClearAllNotifications = { NotificationCenterManager.clearAll(context) },
+            onDismissReminder = { key ->
+                CustomReminderManager.dismissReminder(context, key)
+                dismissedReminderKeys = CustomReminderManager.loadDismissedKeys(context)
+            },
+            onRestockProduct = { prod ->
+                viewModel.addStock(prod, "", 5, currentUser)
+                Toast.makeText(context, "Restock +5 untuk ${prod.name}", Toast.LENGTH_SHORT).show()
+            },
+            onPromoProduct = { prod, discountPct ->
+                val discountedPrice = ((prod.price * (100 - discountPct)) / 100L).coerceAtLeast(100L)
+                viewModel.updateProduct(prod.copy(price = discountedPrice), currentUser.id, currentUser.name)
+                Toast.makeText(context, "Promo -$discountPct% diterapkan ke ${prod.name}", Toast.LENGTH_SHORT).show()
+            },
+            onWasteProduct = { prod ->
+                viewModel.recordWaste(prod, "", prod.stock.coerceAtLeast(1), currentUser)
+                Toast.makeText(context, "Stok ${prod.name} ditandai waste", Toast.LENGTH_SHORT).show()
+            },
+            onOpenReminderRulesDialog = {
+                showNotificationCenter = false
+                showReminderRulesDialog = true
+            },
+            onOpenNotificationSettingsDialog = {
+                showNotificationCenter = false
+                showNotificationSettingsDialog = true
+            },
+            onDismiss = { showNotificationCenter = false }
+        )
+    }
+
+    if (showReminderRulesDialog) {
+        ReminderRuleManagerDialog(
+            rules = reminderRules,
+            products = allProductsForAlerts.filter { it.branchId == currentBranchIdForAlerts },
+            onSaveRules = { updated ->
+                CustomReminderManager.saveRules(context, updated)
+                reminderRules = updated
+            },
+            onDismiss = { showReminderRulesDialog = false }
+        )
+    }
+
+    if (showNotificationSettingsDialog) {
+        NotificationPreferencesDialog(
+            settingsMap = categorySettingsMap,
+            onUpdateSetting = { setting ->
+                NotificationCenterManager.updateCategorySetting(context, setting)
+            },
+            onDismiss = { showNotificationSettingsDialog = false }
+        )
+    }
+
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -694,6 +783,11 @@ fun MainNavigation(
                             }
                         }
 
+                        NotificationBellButton(
+                            unreadCount = unreadNotifCount,
+                            onClick = { showNotificationCenter = true },
+                            modifier = Modifier.size(36.dp)
+                        )
                         IconButton(onClick = { showTutorialDialog = true }, modifier = Modifier.size(36.dp)) {
                             Icon(
                                 Icons.Default.HelpOutline,

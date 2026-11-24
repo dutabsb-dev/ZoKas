@@ -273,4 +273,31 @@ object OwnerRemoteMonitorManager {
             }
         }
     }
+
+    private fun isCategoryRemoteAllowed(context: Context, category: NotificationCategory): Boolean {
+        val map = NotificationCenterManager.loadCategorySettings(context)
+        return map[category]?.remoteOwnerEnabled ?: true
+    }
+
+    suspend fun notifyDebtOrExpiryAlert(
+        context: Context,
+        storeName: String,
+        branchName: String,
+        category: NotificationCategory,
+        title: String,
+        detail: String
+    ) {
+        val cfg = getConfig(context)
+        if (!cfg.isEnabled || !isCategoryRemoteAllowed(context, category)) return
+        val key = "${category.name}_${branchName}_${title.hashCode()}_${System.currentTimeMillis() / 60000L}"
+        if (sentEventKeys.containsKey(key)) return
+
+        val msg = buildString {
+            appendLine("🔔 *${title.uppercase()} - ${storeName.uppercase()}*")
+            appendLine("Cabang/Device: $branchName")
+            appendLine("Waktu: ${formatTime(System.currentTimeMillis())}")
+            appendLine(detail)
+        }.trim()
+        sendOrQueue(context, key, msg, System.currentTimeMillis())
+    }
 }

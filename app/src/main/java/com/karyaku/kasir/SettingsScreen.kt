@@ -455,6 +455,73 @@ fun SettingsScreen(
                 language = language
             )
         }
+item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                var showLocalRuleDlg by remember { mutableStateOf(false) }
+                var showLocalNotifPrefDlg by remember { mutableStateOf(false) }
+                val setProducts by viewModel.products.collectAsStateWithLifecycle()
+                val setBranchId by viewModel.currentBranchId.collectAsStateWithLifecycle()
+                val setNotifMap by NotificationCenterManager.settingsFlow.collectAsStateWithLifecycle()
+                var setRules by remember { mutableStateOf(CustomReminderManager.loadRules(context)) }
+
+                if (showLocalRuleDlg) {
+                    ReminderRuleManagerDialog(
+                        rules = setRules,
+                        products = setProducts.filter { it.branchId == setBranchId },
+                        onSaveRules = { updated ->
+                            CustomReminderManager.saveRules(context, updated)
+                            setRules = updated
+                        },
+                        onDismiss = { showLocalRuleDlg = false }
+                    )
+                }
+                if (showLocalNotifPrefDlg) {
+                    NotificationPreferencesDialog(
+                        settingsMap = setNotifMap,
+                        onUpdateSetting = { NotificationCenterManager.updateCategorySetting(context, it) },
+                        onDismiss = { showLocalNotifPrefDlg = false }
+                    )
+                }
+
+                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Pengingat Kustom & Notifikasi",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Atur aturan stok & expired date per produk/kategori serta saklar notifikasi lonceng, bar HP, dan HP Owner.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { showLocalRuleDlg = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.AlarmAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Aturan Pengingat", fontSize = 12.sp, maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = { showLocalNotifPrefDlg = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Saklar Notifikasi", fontSize = 12.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
 
         item {
             SettingsAppearanceCard(

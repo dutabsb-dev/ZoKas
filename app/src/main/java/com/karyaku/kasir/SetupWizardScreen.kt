@@ -48,6 +48,65 @@ private data class BusinessTypePreset(
     val enableCrm: Boolean
 )
 
+private data class SpecialBusinessPreset(
+    val key: String,
+    val label: String,
+    val subtitle: String,
+    val baseBusinessType: String,
+    val enableTableMode: Boolean,
+    val enableWholesale: Boolean,
+    val enableSupplier: Boolean,
+    val enableReservation: Boolean,
+    val enableFinance: Boolean
+)
+
+private val specialBusinessPresets = listOf(
+    SpecialBusinessPreset(
+        key = "AYAM_PASAR",
+        label = "Pedagang Ayam Potong / Daging / Ikan Pasar",
+        subtitle = "Fokus jual kg/timbangan, catat susut kulakan, harga fleksibel & bon/hutang.",
+        baseBusinessType = "RETAIL",
+        enableTableMode = false,
+        enableWholesale = true,
+        enableSupplier = true,
+        enableReservation = false,
+        enableFinance = true
+    ),
+    SpecialBusinessPreset(
+        key = "WARUNG_SEMBAKO",
+        label = "Warung / Toko Sembako",
+        subtitle = "Cepat untuk transaksi harian, stok barang, dan catatan bon pelanggan.",
+        baseBusinessType = "RETAIL",
+        enableTableMode = false,
+        enableWholesale = true,
+        enableSupplier = true,
+        enableReservation = false,
+        enableFinance = true
+    ),
+    SpecialBusinessPreset(
+        key = "KAFE_ANGKRINGAN",
+        label = "Kafe / Warung Makan / Angkringan",
+        subtitle = "Mendukung pesanan makan di tempat/bungkus dan rekap kas harian.",
+        baseBusinessType = "KULINER",
+        enableTableMode = true,
+        enableWholesale = false,
+        enableSupplier = false,
+        enableReservation = false,
+        enableFinance = true
+    ),
+    SpecialBusinessPreset(
+        key = "JASA_BENGKEL",
+        label = "Jasa / Bengkel / Laundry",
+        subtitle = "Cocok untuk layanan jasa, catatan biaya operasional, dan pembayaran bertahap.",
+        baseBusinessType = "JASA",
+        enableTableMode = false,
+        enableWholesale = false,
+        enableSupplier = false,
+        enableReservation = false,
+        enableFinance = true
+    )
+)
+
 private val businessTypePresets = listOf(
     BusinessTypePreset(
         key = "KULINER",
@@ -214,6 +273,12 @@ fun SetupWizardScreen(
 
     val activePreset = remember(selectedBusinessType) {
         businessTypePresets.find { it.key == selectedBusinessType } ?: businessTypePresets.first()
+    }
+    var selectedSpecialKey by remember { mutableStateOf("AYAM_PASAR") }
+    var usesScaleOrShrinkage by remember { mutableStateOf(true) }
+    var needsDebtOrTable by remember { mutableStateOf(true) }
+    val activeSpecialPreset = remember(selectedSpecialKey) {
+        specialBusinessPresets.find { it.key == selectedSpecialKey } ?: specialBusinessPresets.first()
     }
 
     if (showFullPolicyDialog) {
@@ -859,6 +924,87 @@ fun SetupWizardScreen(
 
         Spacer(modifier = Modifier.height(22.dp))
 
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Jenis Khusus Usaha (Rekomendasi Otomatis)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(
+                    "Pilih jenis usaha yang paling pas agar menu awal rapi dan mudah dipakai. Semua bisa diubah kapan saja di Pengaturan.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                specialBusinessPresets.forEach { sp ->
+                    val isSelected = selectedSpecialKey == sp.key
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedSpecialKey = sp.key
+                                selectedBusinessType = sp.baseBusinessType
+                                usesScaleOrShrinkage = sp.enableWholesale
+                                needsDebtOrTable = sp.enableFinance || sp.enableTableMode
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                        else MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedSpecialKey = sp.key
+                                    selectedBusinessType = sp.baseBusinessType
+                                    usesScaleOrShrinkage = sp.enableWholesale
+                                    needsDebtOrTable = sp.enableFinance || sp.enableTableMode
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(sp.label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(sp.subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Jual timbangan kg / ada susut atau tawar harga?",
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(checked = usesScaleOrShrinkage, onCheckedChange = { usesScaleOrShrinkage = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Butuh catatan bon/hutang atau nomor meja?",
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(checked = needsDebtOrTable, onCheckedChange = { needsDebtOrTable = it })
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         Button(
             onClick = {
                 if (storeName.isBlank()) {
@@ -896,6 +1042,12 @@ fun SetupWizardScreen(
                 }
 
                 settingsManager.enableHrModule = false
+                
+                settingsManager.enableWholesale = activeSpecialPreset.enableWholesale || usesScaleOrShrinkage
+                settingsManager.enableSupplier = activeSpecialPreset.enableSupplier
+                settingsManager.enableFinance = activeSpecialPreset.enableFinance || needsDebtOrTable
+                settingsManager.isTableModeEnabled = activeSpecialPreset.enableTableMode
+                settingsManager.enableReservation = activeSpecialPreset.enableReservation
                 settingsManager.isSetupCompleted = true
 
                 val adminEntity = UserEntity(
