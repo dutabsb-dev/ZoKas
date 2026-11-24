@@ -460,7 +460,7 @@ fun PosScreen(
             text = {
                 Column {
                     Text(
-                        zokasText("Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:", "Product ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:")",
+                        zokasText("Produk ${productForVariantAction!!.name} memiliki beberapa varian. Pilih varian untuk ${variantActionType.lowercase()}:", "Product ${productForVariantAction!!.name} has multiple variants. Select a variant for ${variantActionType.lowercase()}:"),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -778,7 +778,7 @@ fun PosScreen(
                     if (qty > 0) {
                         val totalSmallestQty = qty * packMult
                         viewModel.addStock(targetRestock, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, zokasText("Stok berhasil ditambahkan (+$totalSmallestQty), "Stock berhasil ditambahkan (+$totalSmallestQty)"), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Stok berhasil ditambahkan (+$totalSmallestQty), "Stock berhasil ditambahkan (+$totalSmallestQty)), Toast.LENGTH_SHORT).show()
                     }
                     productToRestock = null
                     variantToProcess = ""
@@ -810,7 +810,7 @@ fun PosScreen(
                     if (qty > 0 && qty <= maxAvailableStock) {
                         val totalSmallestQty = qty * packMult
                         viewModel.recordWaste(targetProd, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, zokasText("Barang rusak tercatat (-$totalSmallestQty), "Barang rusak tercatat (-$totalSmallestQty)"), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Barang rusak tercatat (-$totalSmallestQty), "Barang rusak tercatat (-$totalSmallestQty)), Toast.LENGTH_SHORT).show()
                         productToWaste = null
                         variantToProcess = ""
                     } else {
@@ -1032,7 +1032,7 @@ fun PosScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = zokasText("Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name}), "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})")",
+                            text = zokasText("Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name}), "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary,
@@ -1232,7 +1232,7 @@ fun PosScreen(
             ) {
                 Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(zokasText("${cart.sumOf { item -> item.quantity }} Item | ${formatRupiah(totalPrice)}", "${cart.sumOf { item -> item.quantity }} Item | ${formatRupiah(totalPrice)}")", fontWeight = FontWeight.Bold)
+                Text(zokasText("${cart.sumOf { item -> item.quantity }} Item | ${formatRupiah(totalPrice)}", "${cart.sumOf { item -> item.quantity }} Items | ${formatRupiah(totalPrice)}"), fontWeight = FontWeight.Bold)
             }
         }
     }

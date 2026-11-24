@@ -414,7 +414,7 @@ fun PosCartSection(
             ),
             shape = RoundedCornerShape(10.dp)
         ) {
-            Text(zokasText("BAYAR (F2), "PAY (F2)", lang), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(zokasText("BAYAR (F2), "PAY (F2), lang), fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
