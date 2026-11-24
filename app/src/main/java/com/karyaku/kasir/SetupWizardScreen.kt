@@ -314,35 +314,33 @@ fun SetupWizardScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
                         loginMethod = "BIOMETRIC"
                         if (activity != null) {
-                            BiometricHelper.authenticate(
-                                activity = activity,
-                                title = "Setting Biometrik ZoKas",
-                                subtitle = "Tempelkan sidik jari untuk mengaktifkan login biometrik",
-                                onSuccess = {
-                                    biometricReady = true
-                                    Toast.makeText(context, "Biometrik berhasil diatur!", Toast.LENGTH_SHORT).show()
-                                },
-                                onError = { err ->
-                                    Toast.makeText(context, "Pengaturan biometrik: $err", Toast.LENGTH_SHORT).show()
-                                }
+                            val tempOwner = UserEntity(
+                                id = 1L,
+                                name = username.trim().ifBlank { "Owner" },
+                                pin = hashPin(pinCode.ifBlank { "0000" }),
+                                role = "OWNER",
+                                branchId = 1L
                             )
+                            viewModel.registerBiometric(activity, tempOwner) { ok, msg ->
+                                biometricReady = ok
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }) {
                         RadioButton(selected = loginMethod == "BIOMETRIC", onClick = {
                             loginMethod = "BIOMETRIC"
                             if (activity != null) {
-                                BiometricHelper.authenticate(
-                                    activity = activity,
-                                    title = "Setting Biometrik ZoKas",
-                                    subtitle = "Tempelkan sidik jari untuk mengaktifkan login biometrik",
-                                    onSuccess = {
-                                        biometricReady = true
-                                        Toast.makeText(context, "Biometrik berhasil diatur!", Toast.LENGTH_SHORT).show()
-                                    },
-                                    onError = { err ->
-                                        Toast.makeText(context, "Pengaturan biometrik: $err", Toast.LENGTH_SHORT).show()
-                                    }
+                                val tempOwner = UserEntity(
+                                    id = 1L,
+                                    name = username.trim().ifBlank { "Owner" },
+                                    pin = hashPin(pinCode.ifBlank { "0000" }),
+                                    role = "OWNER",
+                                    branchId = 1L
                                 )
+                                viewModel.registerBiometric(activity, tempOwner) { ok, msg ->
+                                    biometricReady = ok
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         })
                         Text("Login Biometrik", fontSize = 13.sp)
