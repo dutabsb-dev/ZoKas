@@ -3330,16 +3330,18 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        zokasText("1. Ketuk tombol 'Buka @BotFather' di bawah.\n", "2. Di chat @BotFather", tekan START lalu kirim perintah: /newbot\n+
-                                            3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n +
-                                            4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n +
-                                            5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.,
-                                            1. Tap 'Open @BotFather in Telegram' below.\n +
-                                            2. In @BotFather chat, tap START and send: /newbot\n +
-                                            3. Enter a bot name (e.g., Kasir Toko Berkah).\n +
-                                            4. Enter a bot username ending in 'bot' (e.g., berkah_kasir_bot).\n +
-                                            5. Copy the HTTP API Token (e.g., 7123456789:AAH...) and paste it into Bot Token in ZoKas."),
-                                        fontSize = 12.sp,
+                                        zokasText(
+                                            "1. Ketuk tombol 'Buka @BotFather' di bawah.\n" +
+                                                "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot\n" +
+                                                "3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n" +
+                                                "4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n" +
+                                                "5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.",
+                                            "1. Tap 'Open @BotFather in Telegram' below.\n" +
+                                                "2. In @BotFather chat, tap START and send: /newbot\n" +
+                                                "3. Enter a bot name (e.g., Kasir Toko Berkah).\n" +
+                                                "4. Enter a bot username ending in 'bot' (e.g., berkah_kasir_bot).\n" +
+                                                "5. Copy the HTTP API Token (e.g., 7123456789:AAH...) and paste it into Bot Token in ZoKas."
+                                        ),
                                         lineHeight = 17.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
