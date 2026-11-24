@@ -3124,7 +3124,7 @@ fun PaymentMethodManagementDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(zokasText("Batal", "Cancel", lang), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
