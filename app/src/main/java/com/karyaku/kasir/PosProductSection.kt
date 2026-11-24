@@ -945,9 +945,7 @@ private fun BounceMarqueeText(
         overflow = TextOverflow.Ellipsis,
         textAlign = textAlign,
         modifier = modifier.basicMarquee(
-            iterations = Int.MAX_VALUE,
-            repeatDelayMillis = 800,
-            velocity = 32.dp
+            iterations = Int.MAX_VALUE
         )
     )
 }
