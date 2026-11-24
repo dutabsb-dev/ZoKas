@@ -99,6 +99,9 @@ fun SettingsAppearanceCard(
 ) {
     val lang = language
     val context = LocalContext.current
+    LaunchedEffect(lang) {
+        ZokasLocaleManager.setLanguage(context, lang)
+    }
     ZokasThemeManager.ensureLoaded(context)
     val currentThemeId = ZokasThemeManager.selectedThemeId
     val activePreset = remember(currentThemeId) { ZokasThemeManager.getActivePreset(context) }
@@ -420,14 +423,14 @@ fun SettingsAppearanceCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Button(
-                    onClick = { ZokasLocaleManager.toggleLanguage(context); onToggleLanguage() },
+                    onClick = { onToggleLanguage() },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(6.dp)
                 ) {
-                    Text(if (!ZokasLocaleManager.isEnglish()) "Indonesia" else "English")
+                    Text(if (lang.equals("en", ignoreCase = true)) "English" else "Indonesia")
                 }
             }
         }
@@ -637,7 +640,7 @@ fun SettingsAccountCard(
                                         val promptInfo = BiometricPrompt.PromptInfo.Builder()
                                             .setTitle(zokasText("Aktivasi Sidik Jari", "Fingerprint Activation"))
                                             .setSubtitle(zokasText("Sentuh sensor untuk mengonfirmasi", "Touch sensor to confirm"))
-                                            .setNegativeButtonText(zokasText("Batal", "Cancel"))
+                                            .setNegativeButtonText(zokasText("Batal", "Cancel", lang))
                                             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
                                             .build()
                                         biometricPrompt.authenticate(promptInfo)
@@ -729,7 +732,7 @@ fun SettingsBusinessTypeCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (lang == "in") zokasText("• Mode Meja otomatis DIAKTIFKAN", "• Table Mode automatically ENABLED") else "• Table Mode automatically ENABLED",
+                            if (lang == "in") zokasText("• Mode Meja otomatis DIAKTIFKAN", "• Table Mode automatically ENABLED", lang) else "• Table Mode automatically ENABLED",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -745,14 +748,14 @@ fun SettingsBusinessTypeCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (lang == "in") zokasText("• Mode Meja otomatis DINONAKTIFKAN", "• Table Mode automatically DISABLED") else "• Table Mode automatically DISABLED",
+                            if (lang == "in") zokasText("• Mode Meja otomatis DINONAKTIFKAN", "• Table Mode automatically DISABLED", lang) else "• Table Mode automatically DISABLED",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        if (lang == "in") zokasText("Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh.", "Note: Transaction data, products, customers, and receipts are NOT affected.")
+                        if (lang == "in") zokasText("Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh.", "Note: Transaction data, products, customers, and receipts are NOT affected.", lang)
                         else "Note: Transaction data, products, customers, and receipts are NOT affected.",
                         fontSize = 10.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
@@ -773,14 +776,14 @@ fun SettingsBusinessTypeCard(
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        if (lang == "in") zokasText("GANTI", "CHANGE") else "CHANGE",
+                        if (lang == "in") zokasText("GANTI", "CHANGE", lang) else "CHANGE",
                         fontWeight = FontWeight.Bold
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = null }) {
-                    Text(if (lang == "in") zokasText("Batal", "Cancel") else "Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (lang == "in") zokasText("Batal", "Cancel", lang) else "Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -3121,7 +3124,7 @@ fun PaymentMethodManagementDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel", lang), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )

@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
                 var isDarkMode by rememberSaveable { mutableStateOf(settingsManager.isDarkMode) }
                 var isHighContrast by rememberSaveable { mutableStateOf(settingsManager.isHighContrast) }
                 var uiScale by rememberSaveable { mutableStateOf(settingsManager.uiScale) }
-                var language by rememberSaveable { mutableStateOf(settingsManager.language) }
+                var language by rememberSaveable { mutableStateOf(ZokasLocaleManager.ensureLoaded(this)) }
                 var storeNameState by remember { mutableStateOf(settingsManager.storeName) }
                 var storeLogoPathState by remember { mutableStateOf(settingsManager.storeLogoPath) }
 
@@ -105,9 +105,8 @@ class MainActivity : AppCompatActivity() {
                             onToggleHighContrast = { isHighContrast = !isHighContrast; settingsManager.isHighContrast = isHighContrast },
                             onChangeUiScale = { uiScale = it; settingsManager.uiScale = it },
                             onToggleLanguage = {
-                                val newLang = if (language == "in") "en" else "in"
+                                val newLang = ZokasLocaleManager.toggleLanguage(this)
                                 language = newLang
-                                settingsManager.language = newLang
                             }
                         )
                     }
