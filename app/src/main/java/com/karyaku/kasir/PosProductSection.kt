@@ -480,6 +480,7 @@ private fun ProductGridCard(
     val priceColor = MaterialTheme.colorScheme.primary
     val categoryLabel = if (productSku.isNotEmpty()) "$productSku • ${product.category}" else product.category
 
+    val isEnLang = ZokasLocaleManager.isEnglish()
     val stockText = remember(product.isService, product.stock, variantStocks, baseUnit, isEnLang) {
         val activeLang = if (isEnLang) "en" else "in"
         if (product.isService) {
