@@ -448,7 +448,7 @@ object SettingsTutorialCatalog {
             "payment_method" -> MenuTutorialContent(
                 menuKey = "payment_method",
                 title = zokasText("Tutorial: Metode Pembayaran", "Tutorial: Payment Methods"),
-                subtitle = zokasText("Aktifkan Tunai (CASH", "Aktifkan Tunai (CASH"), QRIS, Transfer Bank Manual, dan Mesin EDC.", "Enable Cash, QRIS, Manual Bank Transfer, and EDC Terminal.""),
+                subtitle = zokasText("Aktifkan Tunai (CASH), QRIS, Transfer Bank Manual, dan Mesin EDC.", "Enable Cash, QRIS, Manual Bank Transfer, and EDC Terminal."),
                 steps = listOf(
                     TutorialStepItem(
                         stepNumber = 1,
@@ -468,7 +468,7 @@ object SettingsTutorialCatalog {
             )
             "owner_monitor" -> MenuTutorialContent(
                 menuKey = "owner_monitor",
-                title = zokasText("Tutorial: Pantauan HP Owner (Bot Telegram)", "Tutorial: Owner Phone Monitor (Telegram Bot")),
+                title = zokasText("Tutorial: Pantauan HP Owner (Bot Telegram)", "Tutorial: Owner Phone Monitor (Telegram Bot"),
                 subtitle = zokasText("Terima laporan transaksi, tutup shift, dan peringatan void/refund di HP Owner tanpa server.", "Receive transaction reports, shift closings, and void/refund alerts on Owner phone without a server."),
                 steps = listOf(
                     TutorialStepItem(

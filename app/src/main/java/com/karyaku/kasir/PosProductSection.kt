@@ -271,7 +271,7 @@ fun PosProductSection(
                 ) {
                     val sortItems = listOf(
                         "DEFAULT" to zokasText("Urutan Default", "Default Order"),
-                        "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis)", "Lowest Stock (Low")),
+                        "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis)", "Lowest Stock (Low"),
                         "STOCK_DESC" to zokasText("Stok Paling Banyak", "Highest Stock"),
                         "EXPIRY_ASC" to zokasText("Tanggal Expired Terdekat", "Nearest Expiry Date"),
                         "PRICE_ASC" to zokasText("Harga Termurah", "Lowest Price, if (isEnLang) en else in"),

@@ -611,7 +611,7 @@ fun SettingsAccountCard(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                zokasText("Login Sidik Jari (Login Screen)", "Fingerprint Login (Login Screen")),
+                                zokasText("Login Sidik Jari (Login Screen)", "Fingerprint Login (Login Screen"),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1048,7 +1048,7 @@ fun SettingsModuleCard(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        zokasText("Multi-Cabang ($totalBranches Cabang)", "Multi-Branch ($totalBranches Branches")),
+                                        zokasText("Multi-Cabang ($totalBranches Cabang)", "Multi-Branch ($totalBranches Branches"),
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -1118,7 +1118,7 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    zokasText("Happy Hour Promo ($hhStart - $hhEnd)", "Happy Hour Promo ($hhStart - $hhEnd")),
+                                    zokasText("Happy Hour Promo ($hhStart - $hhEnd)", "Happy Hour Promo ($hhStart - $hhEnd"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -1160,7 +1160,7 @@ fun SettingsModuleCard(
                                     OutlinedTextField(
                                         value = hhDiscount,
                                         onValueChange = onHhDiscountChange,
-                                        label = { Text(zokasText("Diskon (%)", "Discount (%")), fontSize = 11.sp) },
+                                        label = { Text(zokasText("Diskon (%)", "Discount (%"), fontSize = 11.sp) },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
@@ -1169,7 +1169,7 @@ fun SettingsModuleCard(
                                     OutlinedTextField(
                                         value = maxDiscountCap,
                                         onValueChange = onMaxDiscountCapChange,
-                                        label = { Text(zokasText("Maks. Diskon (Rp)", "Max Discount (Rp")), fontSize = 11.sp) },
+                                        label = { Text(zokasText("Maks. Diskon (Rp)", "Max Discount (Rp"), fontSize = 11.sp) },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
@@ -1198,7 +1198,7 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                zokasText("Modul Kepegawaian (HR)", "Human Resources Module (HR")),
+                                zokasText("Modul Kepegawaian (HR)", "Human Resources Module (HR"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1231,7 +1231,7 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                zokasText("Modul CRM (Pelanggan)", "CRM Module (Customers")),
+                                zokasText("Modul CRM (Pelanggan)", "CRM Module (Customers"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1297,7 +1297,7 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                zokasText("Multi-Mata Uang (USD)", "Multi-Currency (USD")),
+                                zokasText("Multi-Mata Uang (USD)", "Multi-Currency (USD"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1377,7 +1377,7 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                zokasText("Harga Grosir (Retail)", "Wholesale Pricing (Retail")),
+                                zokasText("Harga Grosir (Retail)", "Wholesale Pricing (Retail"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1410,7 +1410,7 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                zokasText("Pre-Order (Pesanan Musiman)", "Pre-Order (Seasonal Orders")),
+                                zokasText("Pre-Order (Pesanan Musiman)", "Pre-Order (Seasonal Orders"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1575,7 +1575,7 @@ fun SettingsModuleCard(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                zokasText("Supplier & Pembelian (PO)", "Suppliers & Purchase Orders (PO")),
+                                zokasText("Supplier & Pembelian (PO)", "Suppliers & Purchase Orders (PO"),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1633,7 +1633,7 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    zokasText("Buat Pembelian (PO)", "Create Purchase Order (PO")),
+                                    zokasText("Buat Pembelian (PO)", "Create Purchase Order (PO"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -1699,7 +1699,7 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    zokasText("Buku Piutang (Bon)", "Receivables Ledger (Credit")),
+                                    zokasText("Buku Piutang (Bon)", "Receivables Ledger (Credit"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -1729,7 +1729,7 @@ fun SettingsModuleCard(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    zokasText("Buku Hutang (Supplier)", "Payables Ledger (Suppliers")),
+                                    zokasText("Buku Hutang (Supplier)", "Payables Ledger (Suppliers"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -2217,7 +2217,7 @@ fun SettingsStoreProfileCard(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    zokasText("Harga Produk Sudah Termasuk Pajak (Inclusive)", "Prices Already Include Tax (Inclusive")),
+                                    zokasText("Harga Produk Sudah Termasuk Pajak (Inclusive)", "Prices Already Include Tax (Inclusive"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -2857,7 +2857,7 @@ fun PaymentMethodManagementDialog(
                                         OutlinedTextField(
                                             value = qrisPayload,
                                             onValueChange = { qrisPayload = it },
-                                            label = { Text(zokasText("Payload QRIS (000201...)", "QRIS Payload (000201...")), fontSize = 11.sp) },
+                                            label = { Text(zokasText("Payload QRIS (000201...)", "QRIS Payload (000201..."), fontSize = 11.sp) },
                                             modifier = Modifier.weight(1f),
                                             maxLines = 3,
                                             isError = qrisPayload.isBlank(),
@@ -2956,7 +2956,7 @@ fun PaymentMethodManagementDialog(
                                     OutlinedTextField(
                                         value = bankName,
                                         onValueChange = { bankName = it },
-                                        label = { Text(zokasText("Nama Bank (cth: BCA / Mandiri)", "Bank Name (e.g., BCA / Mandiri")), fontSize = 11.sp) },
+                                        label = { Text(zokasText("Nama Bank (cth: BCA / Mandiri)", "Bank Name (e.g., BCA / Mandiri"), fontSize = 11.sp) },
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
                                         isError = bankName.isBlank(),
@@ -3107,7 +3107,7 @@ fun PaymentMethodManagementDialog(
                                 OutlinedTextField(
                                     value = edcIntentState,
                                     onValueChange = { edcIntentState = it },
-                                    label = { Text(zokasText("Package / URI EDC (Opsional)", "EDC Package / URI (Optional")), fontSize = 11.sp) },
+                                    label = { Text(zokasText("Package / URI EDC (Opsional)", "EDC Package / URI (Optional"), fontSize = 11.sp) },
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true,
                                     shape = RoundedCornerShape(6.dp)
@@ -3210,7 +3210,7 @@ fun SettingsOwnerMonitorCard() {
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = zokasText("Pantauan HP Owner (Tanpa Server)", "Owner Phone Monitor (Serverless")),
+                            text = zokasText("Pantauan HP Owner (Tanpa Server)", "Owner Phone Monitor (Serverless"),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -3330,7 +3330,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        zokasText("1. Ketuk tombol 'Buka @BotFather' di bawah.\n", "2. Di chat @BotFather, tekan START lalu kirim perintah: /newbot\n+
+                                        zokasText("1. Ketuk tombol 'Buka @BotFather' di bawah.\n", "2. Di chat @BotFather", tekan START lalu kirim perintah: /newbot\n+
                                             3. Masukkan nama bot (contoh: Kasir Toko Berkah).\n +
                                             4. Masukkan username bot berakhiran 'bot' (contoh: berkah_kasir_bot).\n +
                                             5. Salin kode HTTP API Token (contoh: 7123456789:AAH...) lalu tempel ke kolom Bot Token di ZoKas.,
@@ -3363,7 +3363,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Text(
-                                        zokasText("1. Ketuk tombol 'Buka @userinfobot' di bawah.\n", "2. Tekan START di chat bot tersebut.\n+
+                                        zokasText("1. Ketuk tombol 'Buka @userinfobot' di bawah.\n", "2. Tekan START di chat bot tersebut.\n+"
                                             3. Salin angka pada bagian 'Id' (contoh: 987654321) lalu tempel ke kolom Chat ID Penerima.,
                                             1. Tap 'Open @userinfobot in Telegram' below.\n +
                                             2. Tap START in that bot chat.\n +
@@ -3452,7 +3452,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(zokasText("Buka @BotFather (Buat Bot & Ambil Token)", "Open @BotFather (Create Bot & Get Token")), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Buka @BotFather (Buat Bot & Ambil Token)", "Open @BotFather (Create Bot & Get Token"), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -3477,7 +3477,7 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(zokasText("Buka @userinfobot (Cek Chat ID Owner)", "Open @userinfobot (Check Owner Chat ID")), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Buka @userinfobot (Cek Chat ID Owner)", "Open @userinfobot (Check Owner Chat ID)"), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
