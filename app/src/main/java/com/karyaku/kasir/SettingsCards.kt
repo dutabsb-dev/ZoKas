@@ -99,9 +99,6 @@ fun SettingsAppearanceCard(
 ) {
     val lang = language
     val context = LocalContext.current
-    LaunchedEffect(lang) {
-        ZokasLocaleManager.setLanguage(context, lang)
-    }
     ZokasThemeManager.ensureLoaded(context)
     val currentThemeId = ZokasThemeManager.selectedThemeId
     val activePreset = remember(currentThemeId) { ZokasThemeManager.getActivePreset(context) }
@@ -286,6 +283,8 @@ fun SettingsAppearanceCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.22f))
     ) {
         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+            SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_appearance, tagText = zokasText("Tema & Bahasa", "Theme & Language"))
+            Spacer(modifier = Modifier.height(8.dp))
             // PILIHAN 50 TEMA INTERAKTIF (GRADASI & TRANSPARANSI)
             Row(
                 modifier = Modifier
@@ -422,15 +421,26 @@ fun SettingsAppearanceCard(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                val langCycle = remember { listOf("in", "en", "ms", "zh", "ar") }
+                val activeLangCode = ZokasLocaleManager.currentLanguage
+                val activeLangDisplay = remember(activeLangCode) {
+                    SettingsUpgradeOneHelper.supportedLanguageOptions().find { it.first == activeLangCode }?.second
+                        ?: if (activeLangCode == "en") "English" else "Indonesia"
+                }
                 Button(
-                    onClick = { onToggleLanguage() },
+                    onClick = {
+                        val idx = langCycle.indexOf(ZokasLocaleManager.currentLanguage)
+                        val nextCode = langCycle[(idx + 1) % langCycle.size]
+                        SettingsUpgradeOneHelper.persistManualLanguage(context, nextCode)
+                        onToggleLanguage()
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(6.dp)
                 ) {
-                    Text(if (lang.equals("en", ignoreCase = true)) "English" else "Indonesia")
+                    Text(activeLangDisplay, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -500,11 +510,8 @@ fun SettingsAccountCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_account, tagText = zokasText("Akun & Keamanan", "Account & Security"))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         "${LanguageManager.tr("login_sebagai", lang)}: ${currentUser.name} (${currentUser.role})",
                         fontSize = 12.sp,
@@ -640,7 +647,7 @@ fun SettingsAccountCard(
                                         val promptInfo = BiometricPrompt.PromptInfo.Builder()
                                             .setTitle(zokasText("Aktivasi Sidik Jari", "Fingerprint Activation"))
                                             .setSubtitle(zokasText("Sentuh sensor untuk mengonfirmasi", "Touch sensor to confirm"))
-                                            .setNegativeButtonText(zokasText("Batal", "Cancel", lang))
+                                            .setNegativeButtonText(zokasText("Batal", "Cancel"))
                                             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
                                             .build()
                                         biometricPrompt.authenticate(promptInfo)
@@ -732,7 +739,7 @@ fun SettingsBusinessTypeCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (lang == "in") zokasText("• Mode Meja otomatis DIAKTIFKAN", "• Table Mode automatically ENABLED", lang) else "• Table Mode automatically ENABLED",
+                            if (lang == "in") zokasText("• Mode Meja otomatis DIAKTIFKAN", "• Table Mode automatically ENABLED") else "• Table Mode automatically ENABLED",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -748,14 +755,14 @@ fun SettingsBusinessTypeCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (lang == "in") zokasText("• Mode Meja otomatis DINONAKTIFKAN", "• Table Mode automatically DISABLED", lang) else "• Table Mode automatically DISABLED",
+                            if (lang == "in") zokasText("• Mode Meja otomatis DINONAKTIFKAN", "• Table Mode automatically DISABLED") else "• Table Mode automatically DISABLED",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        if (lang == "in") zokasText("Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh.", "Note: Transaction data, products, customers, and receipts are NOT affected.", lang)
+                        if (lang == "in") zokasText("Catatan: Data transaksi, produk, pelanggan, dan struk TIDAK terpengaruh.", "Note: Transaction data, products, customers, and receipts are NOT affected.")
                         else "Note: Transaction data, products, customers, and receipts are NOT affected.",
                         fontSize = 10.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
@@ -776,14 +783,14 @@ fun SettingsBusinessTypeCard(
                     shape = RoundedCornerShape(6.dp)
                 ) {
                     Text(
-                        if (lang == "in") zokasText("GANTI", "CHANGE", lang) else "CHANGE",
+                        if (lang == "in") zokasText("GANTI", "CHANGE") else "CHANGE",
                         fontWeight = FontWeight.Bold
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = null }) {
-                    Text(if (lang == "in") zokasText("Batal", "Cancel", lang) else "Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (lang == "in") zokasText("Batal", "Cancel") else "Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -835,11 +842,8 @@ fun SettingsBusinessTypeCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_business_type, tagText = zokasText("Tipe Usaha", "Business Type"))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         LanguageManager.tr("tipe_usaha_desc", lang),
                         fontSize = 12.sp,
@@ -1017,10 +1021,11 @@ fun SettingsModuleCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(bottom = 12.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_modules, tagText = zokasText("Modul Toko", "Store Modules"))
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // MULTI-CABANG DI DALAM MODUL TOKO
                     if (isOwner) {
@@ -1871,10 +1876,8 @@ fun SettingsPrinterCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_printer, tagText = zokasText("Printer & Kertas", "Printer & Paper"))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         LanguageManager.tr("printer_kasir", lang),
@@ -2016,10 +2019,8 @@ fun SettingsStoreProfileCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_store_profile, tagText = zokasText("Profil Toko", "Store Profile"))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                         Box(
@@ -2333,10 +2334,8 @@ fun SettingsDiscountCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_discount, tagText = zokasText("Happy Hour & Diskon", "Happy Hour & Discounts"))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         LanguageManager.tr("happy_hour_desc", lang),
@@ -2452,10 +2451,8 @@ fun SettingsBackupCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_backup, tagText = zokasText("Data & Backup", "Data & Backup"))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         LanguageManager.tr("data_backup_desc", lang),
@@ -2578,6 +2575,12 @@ fun SettingsPaymentMethodCard(
                     )
                 }
             }
+            SettingCardArtworkBanner(
+                drawableRes = R.drawable.card_setting_payment_method,
+                tagText = zokasText("Metode Bayar", "Payment"),
+                modifier = Modifier.width(108.dp).height(58.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
             SettingsMenuHelpIconButton(menuKey = "payment_method")
             Icon(
                 imageVector = Icons.Default.ChevronRight,
@@ -3218,10 +3221,8 @@ SettingsMenuHelpIconButton(menuKey = "owner_monitor")
                     modifier = Modifier.fillMaxWidth()
                 ) {
                 Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_owner_monitor, tagText = zokasText("Pantauan Owner", "Owner Monitor"))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     if (ownerEmail.isNotBlank()) {
                         Text(
@@ -3790,7 +3791,7 @@ SettingsMenuHelpIconButton(menuKey = "multi_device_sync")
                     modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingCardArtworkBanner(drawableRes = R.drawable.card_setting_multi_device_sync, tagText = zokasText("Sinkronisasi", "Multi-Device Sync"))
 
                     // PANEL STATUS & IDENTITAS AKUN TERVERIFIKASI
                     Surface(
