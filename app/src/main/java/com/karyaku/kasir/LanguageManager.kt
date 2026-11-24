@@ -1,7 +1,21 @@
 package com.karyaku.kasir
 
+import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 object LanguageManager {
-    private val en = mapOf(
+    private const val PREFS_NAME = "zokas_auto_lang_prefs"
+    private const val KEY_LANG = "selected_lang"
+
+    private val _activeLanguage = mutableStateOf("in")
+    val activeLanguage: String get() = _activeLanguage.value
+
+    private val cacheByLang = mutableMapOf<String, MutableMap<String, String>>()
+
+    // Kamus inti bahasa Indonesia & Inggris yang sudah ada di proyek
+    private val enBase = mapOf(
         "selamat_datang" to "Welcome to ZoKas",
         "masukkan_pin" to "Enter your PIN to continue",
         "pin_6" to "6-Digit PIN",
@@ -12,7 +26,6 @@ object LanguageManager {
         "cari_produk" to "Search Product",
         "ketik_produk" to "Type product name...",
         "hapus" to "Delete",
-        
         "kasir" to "Cashier",
         "produk" to "Products",
         "laporan" to "Reports",
@@ -60,10 +73,10 @@ object LanguageManager {
         "data_backup_desc" to "Backup all data to a file.",
         "backup" to "BACKUP",
         "restore" to "RESTORE",
-        "manajemen_produk" to "Bulk Product Management (CSV)",
-        "manajemen_produk_desc" to "Export or import products using a CSV file.",
-        "ekspor_csv" to "EXPORT CSV",
-        "impor_csv" to "IMPORT CSV",
+        "manajemen_produk" to "Bulk Product Management (Excel)",
+        "manajemen_produk_desc" to "Export or import products using a Excel file.",
+        "ekspor_csv" to "EXPORT EXCEL",
+        "impor_csv" to "IMPORT EXCEL",
         "log_aktivitas" to "Activity Log (Audit)",
         "belum_aktivitas" to "No activity yet.",
         "tambah_produk" to "Add New Product",
@@ -85,7 +98,6 @@ object LanguageManager {
         "batal" to "Cancel",
         "pilih" to "Select",
         "tutup" to "Close",
-        
         "today" to "Today",
         "this_month" to "This Month",
         "days_7" to "7 Days",
@@ -122,7 +134,6 @@ object LanguageManager {
         "no_trx_found" to "No transactions found for this period.",
         "receipt" to "Receipt",
         "customer" to "Customer",
-        
         "transaction_details" to "Transaction Details",
         "date" to "Date",
         "loading" to "Loading...",
@@ -147,10 +158,8 @@ object LanguageManager {
         "unpaid_msg" to "THIS TRANSACTION IS UNPAID (BON)",
         "void" to "VOID",
         "bon" to "BON",
-
-        // TAMBAHAN UNTUK SETTING
         "tipe_usaha" to "Business Type",
-        "tipe_usaha_desc" to "Select the most suitable business type. App menus will adapt automatically (Kitchen & Merge Table only for Culinary).",
+        "tipe_usaha_desc" to "Select the most suitable business type. App menus will adapt automatically.",
         "kepegawaian_hr" to "Human Resources (HR)",
         "kepegawaian_hr_desc" to "Manage daily attendance and employee payroll.",
         "absensi" to "Attendance",
@@ -171,11 +180,10 @@ object LanguageManager {
         "log_aktivitas_audit" to "Activity Log (Audit)",
         "aktivitas_tercatat" to "activities recorded",
         "menampilkan_30_aktivitas" to "Showing latest 30 activities.",
-        "toko_pret" to "Store Profile",
-        "pilih_printer" to "SELECT PRINTER"
+        "toko_pret" to "Store Profile"
     )
 
-    private val id = mapOf(
+    private val idBase = mapOf(
         "selamat_datang" to "Selamat Datang di ZoKas",
         "masukkan_pin" to "Masukkan PIN Anda untuk melanjutkan",
         "pin_6" to "PIN 6-Digit",
@@ -186,7 +194,6 @@ object LanguageManager {
         "cari_produk" to "Cari Produk",
         "ketik_produk" to "Ketik nama produk...",
         "hapus" to "Hapus",
-        
         "kasir" to "Kasir",
         "produk" to "Produk",
         "laporan" to "Laporan",
@@ -259,7 +266,6 @@ object LanguageManager {
         "batal" to "Batal",
         "pilih" to "Pilih",
         "tutup" to "Tutup",
-
         "today" to "Hari Ini",
         "this_month" to "Bulan Ini",
         "days_7" to "7 Hari",
@@ -296,7 +302,6 @@ object LanguageManager {
         "no_trx_found" to "Tidak ada transaksi pada periode ini.",
         "receipt" to "Struk",
         "customer" to "Pelanggan",
-
         "transaction_details" to "Rincian Transaksi",
         "date" to "Tanggal",
         "loading" to "Memuat...",
@@ -321,10 +326,8 @@ object LanguageManager {
         "unpaid_msg" to "TRANSAKSI INI BELUM DIBAYAR (BON)",
         "void" to "VOID",
         "bon" to "BON",
-
-        // TAMBAHAN UNTUK SETTING
         "tipe_usaha" to "Tipe Usaha",
-        "tipe_usaha_desc" to "Pilih tipe usaha yang paling sesuai. Menu aplikasi akan menyesuaikan otomatis (Tab Dapur & Gabung Meja hanya muncul untuk Kuliner).",
+        "tipe_usaha_desc" to "Pilih tipe usaha yang paling sesuai. Menu aplikasi akan menyesuaikan otomatis.",
         "kepegawaian_hr" to "Kepegawaian (HR)",
         "kepegawaian_hr_desc" to "Kelola absensi harian dan slip gaji karyawan.",
         "absensi" to "Absensi",
@@ -345,11 +348,125 @@ object LanguageManager {
         "log_aktivitas_audit" to "Log Aktivitas (Audit)",
         "aktivitas_tercatat" to "aktivitas tercatat",
         "menampilkan_30_aktivitas" to "Menampilkan 30 dari %d aktivitas terbaru.",
-        "toko_pret" to "Profil Toko",
-        "pilih_printer" to "PILIH PRINTER"
+        "toko_pret" to "Profil Toko"
     )
 
-    fun tr(key: String, lang: String): String {
-        return if (lang == "en") en[key] ?: key else id[key] ?: key
+    // Aturan translasi otomatis berbasis frasa & kata kunci untuk Bahasa Jawa (jv), Sunda (su), dan Madura (mad)
+    private val phraseRules = listOf(
+        // Frasa umum
+        Triple("Selamat Datang", "Mangga Rawuh", "Wilujeng Sumping") to "Dhateng kalayan slamet",
+        Triple("Masukkan PIN", "Lebokna PIN", "Lebetkeun PIN") to "Mamasok PIN",
+        Triple("Cari Produk", "Goleki Produk", "Milarian Produk") to "Nyare Produk",
+        Triple("Tambah Produk", "Tambah Produk", "Tambah Produk") to "Namba Produk",
+        Triple("Simpan Produk", "Simpen Produk", "Simpen Produk") to "Nyimpen Produk",
+        Triple("Total Omzet", "Total Pendapatan", "Total Panghasilan") to "Total Pangaselan",
+        Triple("Pembayaran Tunai", "Bayar Kontan", "Bayar Tunai") to "Majer Kontan",
+        Triple("Riwayat Transaksi", "Riwayat Transaksi", "Riwayat Transaksi") to "Riwayat Transaksi",
+        Triple("Tutup Kasir", "Tutup Kasir", "Tutup Kasir") to "Notop Kasir",
+        Triple("Buka Laci", "Bukak Laci", "Buka Laci") to "Mbukak Laci",
+        Triple("Log Aktivitas", "Cathetan Kegiatan", "Catetan Kagiatan") to "Catetan Lalakon",
+        Triple("Pengaturan", "Setelan", "Setelan") to "Atoran"
+    )
+
+    private val wordRules = listOf(
+        "kasir" to Triple("Kasir", "Kasir", "Kasir"),
+        "produk" to Triple("Barang", "Barang", "Barang"),
+        "laporan" to Triple("Laporan", "Laporan", "Laporan"),
+        "pengaturan" to Triple("Setelan", "Setelan", "Atoran"),
+        "setting" to Triple("Setelan", "Setelan", "Atoran"),
+        "simpan" to Triple("Simpen", "Simpen", "Simpen"),
+        "batal" to Triple("Batal", "Bolay", "Batal"),
+        "hapus" to Triple("Busak", "Pupus", "Busek"),
+        "bayar" to Triple("Bayar", "Bayar", "Majer"),
+        "stok" to Triple("Stok", "Stok", "Stok"),
+        "harga" to Triple("Rega", "Harga", "Arga"),
+        "jual" to Triple("Didol", "Dijual", "Ejuwal"),
+        "beli" to Triple("Tuku", "Mésér", "Melli"),
+        "modal" to Triple("Modal", "Modal", "Modal"),
+        "total" to Triple("Gunggung", "Jumlah", "Jumla"),
+        "diskon" to Triple("Diskon", "Diskon", "Diskon"),
+        "struk" to Triple("Struk", "Struk", "Struk"),
+        "pelanggan" to Triple("Pelanggan", "Palanggan", "Pelanggan"),
+        "toko" to Triple("Toko", "Toko", "Toko"),
+        "usaha" to Triple("Usaha", "Usaha", "Usaha"),
+        "bahasa" to Triple("Basa", "Basa", "Bhasa"),
+        "keluar" to Triple("Metu", "Kaluar", "Kalowar"),
+        "masuk" to Triple("Mlebu", "Asup", "Tamaso")
+    )
+
+    fun autoTranslateText(sourceText: String, targetLang: String): String {
+        val lang = normalizeLang(targetLang)
+        if (sourceText.isBlank() || lang == "id") return sourceText
+
+        val langCache = cacheByLang.getOrPut(lang) { mutableMapOf() }
+        langCache[sourceText]?.let { return it }
+
+        val translated = when (lang) {
+            "en" -> enBase.entries.find { it.value.equals(sourceText, ignoreCase = true) }?.value
+                ?: enBase.entries.find { sourceText.contains(it.key.replace("_", " "), ignoreCase = true) }?.value
+                ?: sourceText
+            "jv", "su", "mad" -> {
+                var out = sourceText
+                for ((rule, madText) in phraseRules) {
+                    val replacement = when (lang) {
+                        "jv" -> rule.first
+                        "su" -> rule.second
+                        else -> madText
+                    }
+                    if (out.contains(rule.first, ignoreCase = true)) {
+                        out = out.replace(rule.first, replacement, ignoreCase = true)
+                    }
+                }
+                for ((keyWord, tri) in wordRules) {
+                    val replacement = when (lang) {
+                        "jv" -> tri.first
+                        "su" -> tri.second
+                        else -> tri.third
+                    }
+                    out = out.replace(Regex("\b${Regex.escape(keyWord)}\b", RegexOption.IGNORE_CASE), replacement)
+                }
+                out
+            }
+            else -> sourceText
+        }
+
+        langCache[sourceText] = translated
+        return translated
+    }
+
+    fun normalizeLang(raw: String?): String {
+        return when (raw?.trim()?.lowercase()) {
+            "en", "english", "inggris" -> "en"
+            "jv", "jw", "java", "jawa" -> "jv"
+            "su", "sundanese", "sunda" -> "su"
+            "mad", "madura", "madurese" -> "mad"
+            else -> "id"
+        }
+    }
+
+    fun loadSavedLanguage(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val saved = normalizeLang(prefs.getString(KEY_LANG, "id"))
+        _activeLanguage.value = saved
+        return saved
+    }
+
+    fun setLanguage(context: Context, langCode: String) {
+        val norm = normalizeLang(langCode)
+        _activeLanguage.value = norm
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LANG, norm)
+            .apply()
+    }
+
+    fun tr(key: String, lang: String = _activeLanguage.value): String {
+        val norm = normalizeLang(lang)
+        val baseId = idBase[key] ?: key.replace("_", " ")
+        return when (norm) {
+            "en" -> enBase[key] ?: autoTranslateText(baseId, "en")
+            "jv", "su", "mad" -> autoTranslateText(baseId, norm)
+            else -> baseId
+        }
     }
 }

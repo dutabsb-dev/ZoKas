@@ -523,6 +523,42 @@ item {
             }
         }
 
+item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                var currentMode by remember { mutableStateOf(settingsManager.appMode) }
+                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "Mode Tampilan Aplikasi",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Awam (paling ringkas), Mudah (ramah belajar), Standar, atau Lengkap. Bisa diubah kapan saja.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        listOf("AWAM", "MUDAH", "STANDAR", "LENGKAP").forEach { mode ->
+                            FilterChip(
+                                selected = currentMode == mode,
+                                onClick = {
+                                    currentMode = mode
+                                    settingsManager.appMode = mode
+                                    Toast.makeText(context, "Mode diubah ke $mode", Toast.LENGTH_SHORT).show()
+                                },
+                                label = { Text(mode, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         item {
             SettingsAppearanceCard(
                 isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,

@@ -9,21 +9,23 @@ object ZokasLocaleManager {
     private const val PREFS_NAME = "zokas_locale_prefs"
     private const val KEY_LANG = "app_language"
 
-    var currentLanguage by mutableStateOf("in")
+    var currentLanguage by mutableStateOf("id")
         private set
 
     fun ensureLoaded(context: Context): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val saved = prefs.getString(KEY_LANG, null)
-        if (!saved.isNullOrBlank() && currentLanguage != saved) {
-            currentLanguage = saved
-        }
+        val saved = LanguageManager.loadSavedLanguage(context)
+        currentLanguage = saved
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LANG, saved)
+            .apply()
         return currentLanguage
     }
 
     fun setLanguage(context: Context, lang: String) {
-        val norm = if (lang.equals("en", ignoreCase = true)) "en" else "in"
+        val norm = LanguageManager.normalizeLang(lang)
         currentLanguage = norm
+        LanguageManager.setLanguage(context, norm)
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_LANG, norm)
@@ -31,52 +33,36 @@ object ZokasLocaleManager {
     }
 
     fun toggleLanguage(context: Context): String {
-        val next = if (isEnglish()) "in" else "en"
+        val order = listOf("id", "en", "jv", "su", "mad")
+        val next = order[(order.indexOf(currentLanguage) + 1).coerceAtLeast(0) % order.size]
         setLanguage(context, next)
         return next
     }
 
-    fun isEnglish(): Boolean = currentLanguage.equals("en", ignoreCase = true)
+    fun isEnglish(): Boolean = currentLanguage == "en"
 }
 
-fun zokasText(id: String, en: String, lang: String = ZokasLocaleManager.currentLanguage): String {
-    return if (lang.equals("en", ignoreCase = true)) en else id
+fun zokasText(id: String, en: String? = null, lang: String = ZokasLocaleManager.currentLanguage): String {
+    val norm = LanguageManager.normalizeLang(lang)
+    return when (norm) {
+        "id" -> id
+        "en" -> en ?: LanguageManager.autoTranslateText(id, "en")
+        else -> LanguageManager.autoTranslateText(id, norm)
+    }
 }
 
 fun translateBusinessTypeLabel(rawType: String, lang: String = ZokasLocaleManager.currentLanguage): String {
-    if (!lang.equals("en", ignoreCase = true)) {
-        return when (rawType.uppercase()) {
-            "KULINER" -> "Kuliner (Restoran, Cafe, Warung)"
-            "RETAIL" -> "Retail (Toko, Minimarket, Bangunan)"
-            "JASA" -> "Jasa (Salon, Laundry, Servis)"
-            "MUSIMAN" -> "Musiman (Event, Toko Kue)"
-            else -> rawType
-        }
-    }
-    return when (rawType.uppercase()) {
-        "KULINER" -> "Culinary (Restaurant, Cafe, Warung)"
-        "RETAIL" -> "Retail (Store, Minimarket, Hardware)"
-        "JASA" -> "Services (Salon, Laundry, Repair)"
-        "MUSIMAN" -> "Seasonal (Events, Pastry Shop)"
+    val baseLabel = when (rawType.uppercase()) {
+        "KULINER" -> "Kuliner (Restoran, Cafe, Warung)"
+        "RETAIL" -> "Retail (Toko, Minimarket, Bangunan)"
+        "JASA" -> "Jasa (Salon, Laundry, Servis)"
+        "MUSIMAN" -> "Musiman (Event, Toko Kue)"
         else -> rawType
     }
+    return zokasText(baseLabel, null, lang)
 }
 
 fun translateCategoryLabel(category: String, lang: String = ZokasLocaleManager.currentLanguage): String {
-    if (!lang.equals("en", ignoreCase = true)) return category
-    return when (category.trim().lowercase()) {
-        "semua" -> "All"
-        "makanan" -> "Food"
-        "minuman" -> "Beverages"
-        "alat tulis" -> "Stationery"
-        "jasa" -> "Services"
-        "sembako" -> "Groceries"
-        "elektronik" -> "Electronics"
-        "pakaian" -> "Apparel"
-        "kebersihan" -> "Cleaning"
-        "kesehatan" -> "Health"
-        "kecantikan" -> "Beauty"
-        "otomotif" -> "Automotive"
-        else -> category
-    }
+    if (LanguageManager.normalizeLang(lang) == "id") return category
+    return zokasText(category, null, lang)
 }

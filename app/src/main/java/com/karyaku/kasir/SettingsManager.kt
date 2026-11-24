@@ -10,6 +10,8 @@ class SettingsManager(context: Context) {
     var isSetupCompleted: Boolean get() = prefs.getBoolean("is_setup_completed", false); set(value) = prefs.edit().putBoolean("is_setup_completed", value).apply()
     var isBiometricEnabled: Boolean get() = prefs.getBoolean("is_biometric_enabled", false); set(value) = prefs.edit().putBoolean("is_biometric_enabled", value).apply()
     var businessType: String get() = prefs.getString("business_type", "KULINER") ?: "KULINER"; set(value) = prefs.edit().putString("business_type", value).apply()
+    var businessDetailName: String get() = prefs.getString("business_detail_name", "") ?: ""; set(value) = prefs.edit().putString("business_detail_name", value).apply()
+    var appMode: String get() = prefs.getString("app_mode", "LENGKAP") ?: "LENGKAP"; set(value) = prefs.edit().putString("app_mode", value).apply()
 
     var isDarkMode: Boolean get() = prefs.getBoolean("dark_mode", false); set(value) = prefs.edit().putBoolean("dark_mode", value).apply()
     var isHighContrast: Boolean get() = prefs.getBoolean("high_contrast", false); set(value) = prefs.edit().putBoolean("high_contrast", value).apply()
