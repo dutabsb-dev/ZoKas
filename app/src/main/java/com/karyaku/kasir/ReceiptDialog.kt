@@ -169,15 +169,21 @@ private fun buildFormattedReceipt32(
     sb.appendLine(dashLine)
     sb.appendLine(leftRightLine("Subtotal", formatNumPlain(subtotalItems)))
 
-    val effectiveTaxRate = if (isTaxInclusive) 0.0 else taxPercent
-    val totalExtraRate = (effectiveTaxRate + serviceChargePercent) / 100.0
-    val estimatedNetBeforeTax = if (totalExtraRate > 0.0) {
-        Math.round(transaction.totalPrice / (1.0 + totalExtraRate))
+    val savedTaxVal = transaction.taxAmount.coerceAtLeast(0L)
+    val savedScVal = transaction.serviceCharge.coerceAtLeast(0L)
+
+    // Hitung dasar sebelum pajak/service:
+    // Jika pajak/service ditambahkan di atas tagihan (eksklusif), kurangi dari totalPrice.
+    // Jika inklusif (subtotalItems == transaction.totalPrice dan savedTaxVal > 0), netBeforeExtra = transaction.totalPrice.
+    val isExclusiveCharges = (savedTaxVal + savedScVal) > 0L &&
+        (subtotalItems - (transaction.totalPrice - savedTaxVal - savedScVal)) >= 0L
+    val netBeforeExtra = if (isExclusiveCharges) {
+        (transaction.totalPrice - savedTaxVal - savedScVal).coerceAtLeast(0L)
     } else {
         transaction.totalPrice
     }
 
-    val totalDiscountSaved = (subtotalItems - estimatedNetBeforeTax).coerceAtLeast(0L)
+    val totalDiscountSaved = (subtotalItems - netBeforeExtra).coerceAtLeast(0L)
     if (totalDiscountSaved > 0L) {
         val vCode = transaction.voucherCode?.takeIf { it.isNotBlank() }
         val discLabel = if (vCode != null) "Diskon/Voucher ($vCode)" else "Total Diskon"
@@ -185,30 +191,31 @@ private fun buildFormattedReceipt32(
     }
 
     val netBase = (subtotalItems - totalDiscountSaved).coerceAtLeast(0L)
-    val diffCharges = (transaction.totalPrice - netBase).coerceAtLeast(0L)
 
-    if (diffCharges > 0L) {
-        val totalRate = effectiveTaxRate + serviceChargePercent
-        val scVal = if (serviceChargePercent > 0.0 && totalRate > 0.0) {
-            Math.round(diffCharges * (serviceChargePercent / totalRate))
-        } else 0L
-        val taxVal = (diffCharges - scVal).coerceAtLeast(0L)
-
-        if (taxVal > 0L) {
-            val taxLabel = if (taxPercent == 10.0) "PB1 (10%)" else if (taxPercent > 0.0) "Pajak (${taxPercent.toInt()}%)" else "Pajak"
-            sb.appendLine(leftRightLine(taxLabel, "+${formatNumPlain(taxVal)}"))
+    if (isExclusiveCharges) {
+        if (savedTaxVal > 0L) {
+            val inferredTaxPct = if (netBase > 0L) Math.round((savedTaxVal * 100.0) / netBase).toInt() else 0
+            val taxLabel = when {
+                inferredTaxPct == 10 -> "PB1 (10%)"
+                inferredTaxPct > 0 -> "Pajak ($inferredTaxPct%)"
+                else -> "Pajak"
+            }
+            sb.appendLine(leftRightLine(taxLabel, "+${formatNumPlain(savedTaxVal)}"))
         }
-        if (scVal > 0L) {
-            sb.appendLine(leftRightLine("Service (${serviceChargePercent.toInt()}%)", "+${formatNumPlain(scVal)}"))
+        if (savedScVal > 0L) {
+            val inferredScPct = if (netBase > 0L) Math.round((savedScVal * 100.0) / netBase).toInt() else 0
+            val scLabel = if (inferredScPct > 0) "Service ($inferredScPct%)" else "Service"
+            sb.appendLine(leftRightLine(scLabel, "+${formatNumPlain(savedScVal)}"))
         }
-    }
-
-    if (isTaxInclusive && taxPercent > 0.0 && transaction.totalPrice > 0L) {
-        val includedTax = (transaction.totalPrice - (transaction.totalPrice / (1.0 + (taxPercent / 100.0)))).toLong()
-        if (includedTax > 0L) {
-            val taxLabel = if (taxPercent == 10.0) "Termasuk PB1 10%" else "Termasuk Pajak ${taxPercent.toInt()}%"
-            sb.appendLine(leftRightLine(taxLabel, "(${formatNumPlain(includedTax)})"))
+    } else if (savedTaxVal > 0L) {
+        val baseExcl = (transaction.totalPrice - savedTaxVal).coerceAtLeast(1L)
+        val inferredIncPct = Math.round((savedTaxVal * 100.0) / baseExcl).toInt()
+        val taxLabel = when {
+            inferredIncPct == 10 -> "Termasuk PB1 10%"
+            inferredIncPct > 0 -> "Termasuk Pajak $inferredIncPct%"
+            else -> "Termasuk Pajak"
         }
+        sb.appendLine(leftRightLine(taxLabel, "(${formatNumPlain(savedTaxVal)})"))
     }
 
     sb.appendLine(doubleLine)

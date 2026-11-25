@@ -285,11 +285,8 @@ fun HistoryScreen(
     val totalOmzet = validTransactions.sumOf { it.totalPrice }
     val totalHpp = validTransactions.sumOf { it.totalCost }
 
-    val totalPajakTerkumpul = remember(validTransactions, currentTaxRate, isTaxInclusive) {
-        if (currentTaxRate <= 0.0) 0L
-        else validTransactions.sumOf { tx ->
-            (tx.totalPrice - (tx.totalPrice / (1.0 + (currentTaxRate / 100.0)))).toLong()
-        }
+    val totalPajakTerkumpul = remember(validTransactions) {
+        validTransactions.sumOf { tx -> tx.taxAmount.coerceAtLeast(0L) }
     }
     val omzetBersihTanpaPajak = (totalOmzet - totalPajakTerkumpul).coerceAtLeast(0L)
     val labaKotor = omzetBersihTanpaPajak - totalHpp
