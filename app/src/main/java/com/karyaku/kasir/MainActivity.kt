@@ -105,9 +105,13 @@ class MainActivity : AppCompatActivity() {
                             onToggleHighContrast = { isHighContrast = !isHighContrast; settingsManager.isHighContrast = isHighContrast },
                             onChangeUiScale = { uiScale = it; settingsManager.uiScale = it },
                             onToggleLanguage = {
-                                val newLang = if (language == "in") "en" else "in"
-                                language = newLang
-                                settingsManager.language = newLang
+                                val order = listOf("id", "en", "jv", "su", "mad")
+                                val curr = LanguageManager.normalizeLang(language)
+                                val next = order[(order.indexOf(curr).coerceAtLeast(0) + 1) % order.size]
+                                language = next
+                                settingsManager.language = next
+                                LanguageManager.setLanguage(context, next)
+                                ZokasLocaleManager.setLanguage(context, next)
                             }
                         )
                     }

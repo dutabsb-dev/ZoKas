@@ -62,8 +62,8 @@ object SettingsUpgradeOneHelper {
             ZokasLocaleManager.setLanguage(context, detected)
             return detected
         }
-        val saved = prefs.getString(KEY_SELECTED_LANG, null)
-        if (!saved.isNullOrBlank()) {
+        val saved = LanguageManager.normalizeLang(prefs.getString(KEY_SELECTED_LANG, ZokasLocaleManager.currentLanguage))
+        if (saved.isNotBlank()) {
             ZokasLocaleManager.setLanguage(context, saved)
             return saved
         }
@@ -72,11 +72,12 @@ object SettingsUpgradeOneHelper {
 
     fun persistManualLanguage(context: Context, langCode: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val norm = LanguageManager.normalizeLang(langCode)
         prefs.edit()
             .putBoolean(KEY_DETECTED_INITIALIZED, true)
-            .putString(KEY_SELECTED_LANG, langCode)
+            .putString(KEY_SELECTED_LANG, norm)
             .apply()
-        ZokasLocaleManager.setLanguage(context, langCode)
+        ZokasLocaleManager.setLanguage(context, norm)
     }
 
     fun isRtlLanguage(langCode: String = ZokasLocaleManager.currentLanguage): Boolean {

@@ -34,12 +34,13 @@ object ZokasLocaleManager {
 
     fun toggleLanguage(context: Context): String {
         val order = listOf("id", "en", "jv", "su", "mad")
-        val next = order[(order.indexOf(currentLanguage) + 1).coerceAtLeast(0) % order.size]
+        val idx = order.indexOf(LanguageManager.normalizeLang(currentLanguage))
+        val next = order[(if (idx >= 0) idx + 1 else 1) % order.size]
         setLanguage(context, next)
         return next
     }
 
-    fun isEnglish(): Boolean = currentLanguage == "en"
+    fun isEnglish(): Boolean = LanguageManager.normalizeLang(currentLanguage) == "en"
 }
 
 fun zokasText(id: String, en: String? = null, lang: String = ZokasLocaleManager.currentLanguage): String {
