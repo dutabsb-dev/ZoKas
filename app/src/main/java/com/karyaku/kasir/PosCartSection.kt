@@ -261,16 +261,15 @@ fun PosCartSection(
                                     Text("Staf: ${item.assignedStaff}", fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
                                 }
 
-                                val qEff = item.effectiveQty
+                                var qtyTick by remember(item.product.id, item.selectedVariation) { mutableIntStateOf(0) }
+                                val effectiveTick = qtyTick
+                                val qEff = remember(item.qtyFraction, item.quantity, effectiveTick) { item.effectiveQty }
                                 val isWholesale = item.product.wholesaleMinQty > 0 && qEff >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0
                                 val displayPrice = if (item.usedMembershipId != null) 0L else if (isWholesale) item.product.wholesalePrice else getPriceForVariant(item.product, item.selectedVariation)
                                 val lineTotalPreview = Math.round(displayPrice * qEff)
 
                                 Text(
-                                    text = if (Math.abs(qEff - Math.rint(qEff)) > 1e-6)
-                                        "${formatRupiah(displayPrice)} • ${formatQtyDisplay(qEff)} = ${formatRupiah(lineTotalPreview)}"
-                                    else
-                                        formatRupiah(displayPrice),
+                                    text = "${formatRupiah(displayPrice)} • ${formatQtyDisplay(qEff)} = ${formatRupiah(lineTotalPreview)}",
                                     fontSize = 11.sp,
                                     color = if (item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty())
                                         MaterialTheme.colorScheme.primary
@@ -297,13 +296,10 @@ fun PosCartSection(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(4.dp))
                                                     .clickable {
-                                                        if (onSetQuantity != null) {
-                                                            onSetQuantity(item, qVal)
-                                                        } else {
-                                                            item.qtyFraction = qVal
-                                                            item.quantity = Math.ceil(qVal - 1e-6).toInt().coerceAtLeast(1)
-                                                            onAdd(item)
-                                                        }
+                                                        item.qtyFraction = qVal
+                                                        item.quantity = Math.ceil(qVal - 1e-6).toInt().coerceAtLeast(1)
+                                                        qtyTick++
+                                                        onSetQuantity?.invoke(item, qVal)
                                                     },
                                                 color = if (isCur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                                                 border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
@@ -393,13 +389,10 @@ fun PosCartSection(
                                             DropdownMenuItem(
                                                 text = { Text(lbl, fontSize = 12.sp) },
                                                 onClick = {
-                                                    if (onSetQuantity != null) {
-                                                        onSetQuantity(item, valQty)
-                                                    } else {
-                                                        item.qtyFraction = valQty
-                                                        item.quantity = Math.ceil(valQty - 1e-6).toInt().coerceAtLeast(1)
-                                                        onAdd(item)
-                                                    }
+                                                    item.qtyFraction = valQty
+                                                    item.quantity = Math.ceil(valQty - 1e-6).toInt().coerceAtLeast(1)
+                                                    qtyTick++
+                                                    onSetQuantity?.invoke(item, valQty)
                                                     showFractionMenu = false
                                                 }
                                             )

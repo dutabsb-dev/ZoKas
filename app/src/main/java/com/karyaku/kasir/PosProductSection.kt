@@ -52,6 +52,17 @@ import coil.compose.AsyncImage
 import com.karyaku.kasir.data.local.ProductEntity
 import java.io.File
 
+
+private fun formatStockDecimal(stockVal: Double, unit: String): String {
+    val isWeightOrVol = unit.lowercase() in listOf("kg", "gram", "g", "liter", "l", "ml", "ons")
+    val hasFrac = Math.abs(stockVal - Math.rint(stockVal)) > 1e-6
+    return if (isWeightOrVol || hasFrac) {
+        String.format(java.util.Locale("id", "ID"), "%.2f", stockVal)
+    } else {
+        stockVal.toInt().toString()
+    }
+}
+
 private data class ParsedVariantStock(
     val name: String,
     val stock: Int,
@@ -493,7 +504,8 @@ private fun ProductGridCard(
             }
             zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary", activeLang)
         } else {
-            zokasText("Stok: ${product.stock} $baseUnit", "Stock: ${product.stock} $baseUnit", activeLang)
+            val formattedStock = formatStockDecimal(product.stock.toDouble(), baseUnit)
+            zokasText("Stok: $formattedStock $baseUnit", "Stock: $formattedStock $baseUnit", activeLang)
         }
     }
 
@@ -763,7 +775,8 @@ private fun ProductCompactListRow(
         } else if (isLowStock) {
             zokasText("STOK MENIPIS: ${product.stock} $baseUnit", "LOW STOCK: ${product.stock} $baseUnit", activeLang)
         } else {
-            zokasText("Stok Tersedia: ${product.stock} $baseUnit", "In Stock: ${product.stock} $baseUnit", activeLang)
+            val fmtStk = formatStockDecimal(product.stock.toDouble(), baseUnit)
+            zokasText("Stok Tersedia: $fmtStk $baseUnit", "In Stock: $fmtStk $baseUnit", activeLang)
         }
     }
 

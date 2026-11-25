@@ -88,7 +88,7 @@ fun PosViewModel.processPayment(
                 val freshProduct = productDao.getProductById(cartItem.product.id)
                 if (freshProduct != null && !freshProduct.isService) {
                     val packMult = getVariantPackMultiplier(freshProduct.variations, cartItem.selectedVariation)
-                    val totalSmallestDeducted = Math.round(qDouble * packMult).toInt().coerceAtLeast(0)
+                    val totalSmallestDeducted = if (qDouble > 0.0) Math.ceil(qDouble * packMult - 1e-6).toInt().coerceAtLeast(1) else 0
                     val newStock = (freshProduct.stock - totalSmallestDeducted).coerceAtLeast(0)
                     if (cartItem.selectedVariation.isNotBlank()) {
                         val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, totalSmallestDeducted)
