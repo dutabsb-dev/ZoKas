@@ -1,6 +1,17 @@
 package com.karyaku.kasir
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -132,12 +143,12 @@ fun NotificationAndReminderCenterDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Pusat Notifikasi & Pengingat",
+                            text = zokasText("Pusat Notifikasi & Pengingat", "Notification & Reminder Center"),
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp
                         )
                         Text(
-                            text = "Pantau stok menipis, kadaluarsa, & aktivitas toko",
+                            text = zokasText("Pantau stok menipis, kadaluarsa, & aktivitas toko", "Monitor low stock, expiry dates, & store activity"),
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -165,7 +176,7 @@ fun NotificationAndReminderCenterDialog(
                         modifier = Modifier.weight(1f),
                         label = {
                             Text(
-                                "Pengingat Aktif (${activeReminders.size})",
+                                zokasText("Pengingat Aktif (${activeReminders.size})", "Active Reminders (${activeReminders.size})"),
                                 fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -178,7 +189,7 @@ fun NotificationAndReminderCenterDialog(
                         modifier = Modifier.weight(1f),
                         label = {
                             Text(
-                                "Riwayat (${filteredNotifications.size})",
+                                zokasText("Riwayat (${filteredNotifications.size})", "History (${filteredNotifications.size})"),
                                 fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -200,9 +211,9 @@ fun NotificationAndReminderCenterDialog(
                                     modifier = Modifier.size(44.dp)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Semua stok & masa berlaku aman", fontWeight = FontWeight.SemiBold)
+                                Text(zokasText("Semua stok & masa berlaku aman", "All stock & expiry dates are safe"), fontWeight = FontWeight.SemiBold)
                                 Text(
-                                    "Belum ada produk yang memicu aturan pengingat.",
+                                    zokasText("Belum ada produk yang memicu aturan pengingat.", "No products have triggered any reminder rules yet."),
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -264,7 +275,7 @@ fun NotificationAndReminderCenterDialog(
                                                     modifier = Modifier.weight(1f),
                                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                                 ) {
-                                                    Text("Restock +5", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    Text(zokasText("Restock +5", "Restock +5"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             } else {
                                                 OutlinedButton(
@@ -272,14 +283,14 @@ fun NotificationAndReminderCenterDialog(
                                                     modifier = Modifier.weight(1f),
                                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                                 ) {
-                                                    Text("Diskon -${rem.suggestedPromoDiscountPercent}%", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    Text(zokasText("Diskon -${rem.suggestedPromoDiscountPercent}%", "Discount -${rem.suggestedPromoDiscountPercent}%"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
                                                 OutlinedButton(
                                                     onClick = { onWasteProduct(rem.product) },
                                                     modifier = Modifier.weight(1f),
                                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                                 ) {
-                                                    Text("Tandai Waste", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    Text(zokasText("Tandai Waste", "Mark Waste"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -298,13 +309,13 @@ fun NotificationAndReminderCenterDialog(
                         FilterChip(
                             selected = selectedCategoryFilter == null,
                             onClick = { selectedCategoryFilter = null },
-                            label = { Text("Semua", fontSize = 11.sp) }
+                            label = { Text(zokasText("Semua", "All"), fontSize = 11.sp) }
                         )
                         NotificationCategory.entries.forEach { cat ->
                             FilterChip(
                                 selected = selectedCategoryFilter == cat,
                                 onClick = { selectedCategoryFilter = cat },
-                                label = { Text(cat.titleId, fontSize = 11.sp) }
+                                label = { Text(zokasText(cat.titleId, cat.titleEn), fontSize = 11.sp) }
                             )
                         }
                     }
@@ -313,13 +324,13 @@ fun NotificationAndReminderCenterDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = onMarkAllRead) { Text("Tandai Dibaca", fontSize = 11.sp) }
-                        TextButton(onClick = onClearAllNotifications) { Text("Bersihkan", fontSize = 11.sp) }
+                        TextButton(onClick = onMarkAllRead) { Text(zokasText("Tandai Dibaca", "Mark Read"), fontSize = 11.sp) }
+                        TextButton(onClick = onClearAllNotifications) { Text(zokasText("Bersihkan", "Clear All"), fontSize = 11.sp) }
                     }
 
                     if (filteredNotifications.isEmpty()) {
                         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text("Belum ada riwayat notifikasi.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(zokasText("Belum ada riwayat notifikasi.", "No notification history yet."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
                         val fmt = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
@@ -360,7 +371,7 @@ fun NotificationAndReminderCenterDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                    Text("Tutup", fontWeight = FontWeight.Bold)
+                    Text(zokasText("Tutup", "Close"), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -395,7 +406,7 @@ fun ReminderRuleManagerDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Aturan Pengingat Kustom", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(zokasText("Aturan Pengingat Kustom", "Custom Reminder Rules"), fontWeight = FontWeight.Bold, fontSize = 17.sp)
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Tutup") }
                 }
                 Text(
@@ -467,7 +478,7 @@ fun ReminderRuleManagerDialog(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Tambah Aturan Pengingat Baru", fontWeight = FontWeight.Bold)
+                    Text(zokasText("Tambah Aturan Pengingat Baru", "Add New Reminder Rule"), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -898,6 +909,44 @@ fun NotificationPreferencesDialog(
     onUpdateSetting: (CategoryNotificationSetting) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    var pendingSystemBarCat by remember { mutableStateOf<NotificationCategory?>(null) }
+    var hasSystemNotifPerm by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasSystemNotifPerm = granted
+        val targetCat = pendingSystemBarCat
+        pendingSystemBarCat = null
+        if (granted && targetCat != null) {
+            val baseCfg = settingsMap[targetCat] ?: CategoryNotificationSetting(targetCat)
+            onUpdateSetting(baseCfg.copy(systemBarEnabled = true))
+            Toast.makeText(
+                context,
+                zokasText("Notifikasi Bar HP diaktifkan!", "Status bar notifications enabled!"),
+                Toast.LENGTH_SHORT
+            ).show()
+        } else if (!granted) {
+            Toast.makeText(
+                context,
+                zokasText(
+                    "Izin notifikasi Android ditolak. Aktifkan di Setelan Aplikasi > Notifikasi.",
+                    "Android notification permission denied. Enable in App Settings > Notifications."
+                ),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -916,18 +965,67 @@ fun NotificationPreferencesDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Saklar Notifikasi per Kejadian",
+                        text = zokasText("Saklar Notifikasi per Kejadian", "Event Notification Toggles"),
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Tutup") }
+                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = zokasText("Tutup", "Close")) }
                 }
                 Text(
-                    "Aktifkan/nonaktifkan lonceng aplikasi, status bar HP, dan pantauan HP Owner secara mandiri.",
+                    text = zokasText(
+                        "Aktifkan/nonaktifkan lonceng aplikasi, status bar HP, dan pantauan HP Owner secara mandiri.",
+                        "Enable/disable in-app bell, phone status bar, and Owner phone monitoring independently."
+                    ),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (!hasSystemNotifPerm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.NotificationsOff, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = zokasText(
+                                    "Izin notifikasi sistem belum aktif. Ketuk Izin agar Bar HP muncul.",
+                                    "System notification permission is off. Tap Allow so Status Bar alerts appear."
+                                ),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) {
+                                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(zokasText("Izin", "Allow"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 LazyColumn(
@@ -942,13 +1040,12 @@ fun NotificationPreferencesDialog(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text(cat.titleId, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text(cat.descId, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(zokasText(cat.titleId, cat.titleEn), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(zokasText(cat.descId, cat.descEn), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 Spacer(modifier = Modifier.height(6.dp))
 
-                                // 3 kolom seimbang dengan weight(1f) agar label "Owner" & switch tidak pernah terpotong
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -959,7 +1056,7 @@ fun NotificationPreferencesDialog(
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Text(
-                                            text = "Lonceng",
+                                            text = zokasText("Lonceng", "In-App Bell"),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium,
                                             maxLines = 1,
@@ -976,7 +1073,7 @@ fun NotificationPreferencesDialog(
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Text(
-                                            text = "Bar HP",
+                                            text = zokasText("Bar HP", "Status Bar"),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium,
                                             maxLines = 1,
@@ -984,7 +1081,16 @@ fun NotificationPreferencesDialog(
                                         )
                                         Switch(
                                             checked = cfg.systemBarEnabled,
-                                            onCheckedChange = { onUpdateSetting(cfg.copy(systemBarEnabled = it)) },
+                                            onCheckedChange = { checked ->
+                                                if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                                                ) {
+                                                    pendingSystemBarCat = cat
+                                                    notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                } else {
+                                                    onUpdateSetting(cfg.copy(systemBarEnabled = checked))
+                                                }
+                                            },
                                             modifier = Modifier.scale(0.88f)
                                         )
                                     }
@@ -993,7 +1099,7 @@ fun NotificationPreferencesDialog(
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Text(
-                                            text = "HP Owner",
+                                            text = zokasText("HP Owner", "Owner Phone"),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium,
                                             maxLines = 1,
@@ -1017,7 +1123,7 @@ fun NotificationPreferencesDialog(
                     modifier = Modifier.fillMaxWidth().height(46.dp),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Selesai", fontWeight = FontWeight.Bold)
+                    Text(zokasText("Selesai", "Done"), fontWeight = FontWeight.Bold)
                 }
             }
         }

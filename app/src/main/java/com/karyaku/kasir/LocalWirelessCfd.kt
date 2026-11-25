@@ -648,7 +648,7 @@ fun LocalWirelessCfdDialog(
         },
         title = {
             Text(
-                "Layar Pelanggan Nirkabel (Local CFD)",
+                zokasText("Layar Pelanggan Nirkabel (Local CFD)", "Wireless Customer Display (Local CFD)"),
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
@@ -675,16 +675,16 @@ fun LocalWirelessCfdDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isRunning) "Transmisi CFD Aktif" else "Transmisi CFD Nonaktif",
+                                text = if (isRunning) zokasText("Transmisi CFD Aktif", "CFD Transmission Active") else zokasText("Transmisi CFD Nonaktif", "CFD Transmission Inactive"),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (isClientConnected)
-                                    "Perangkat Layar Pelanggan terhubung & terkunci!"
+                                    zokasText("Perangkat Layar Pelanggan terhubung & terkunci!", "Customer Display device connected & locked!")
                                 else
-                                    "Hubungkan perangkat kasir & layar pelanggan ke 1 Wi-Fi / Hotspot",
+                                    zokasText("Hubungkan perangkat kasir & layar pelanggan ke 1 Wi-Fi / Hotspot", "Connect cashier & customer display devices to the same Wi-Fi / Hotspot"),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -707,14 +707,14 @@ fun LocalWirelessCfdDialog(
                 if (isRunning) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "1. Pastikan perangkat kedua (layar pelanggan) terhubung ke jaringan Wi-Fi / Hotspot yang sama.",
+                        text = zokasText("1. Pastikan perangkat kedua (layar pelanggan) terhubung ke jaringan Wi-Fi / Hotspot yang sama.", "1. Ensure the second device (customer display) is connected to the same Wi-Fi / Hotspot network."),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "2. Buka aplikasi ZoKas di perangkat kedua lalu pilih 'Mode Layar Pelanggan (CFD)' untuk memindai QR Code di bawah (otomatis Full-Screen & terkunci PIN Owner):",
+                        text = zokasText("2. Buka aplikasi ZoKas di perangkat kedua lalu pilih 'Mode Layar Pelanggan (CFD)' untuk memindai QR Code di bawah (otomatis Full-Screen & terkunci PIN Owner):", "2. Open ZoKas on the second device and select 'Customer Display Mode (CFD)' to scan the QR Code below (auto Full-Screen & Owner PIN locked):"),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -783,7 +783,7 @@ fun LocalWirelessCfdDialog(
                     ) {
                         Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Keluarkan & Hentikan Layar CFD (PIN Owner)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(zokasText("Keluarkan & Hentikan Layar CFD (PIN Owner)", "Disconnect & Stop CFD Display (Owner PIN)"), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -809,7 +809,7 @@ fun LocalWirelessCfdDialog(
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Pindai / Scan QR Code (Jadikan Layar CFD)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(zokasText("Pindai / Scan QR Code (Jadikan Layar CFD)", "Scan QR Code (Set as CFD Display)"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -820,7 +820,7 @@ fun LocalWirelessCfdDialog(
                 ) {
                     Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Pratinjau Tampilan Pelanggan di Layar Ini", fontSize = 12.sp)
+                    Text(zokasText("Pratinjau Tampilan Pelanggan di Layar Ini", "Preview Customer Display on This Screen"), fontSize = 12.sp)
                 }
             }
         },
@@ -833,7 +833,7 @@ fun LocalWirelessCfdDialog(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Tutup", fontWeight = FontWeight.Bold)
+                Text(zokasText("Tutup", "Close"), fontWeight = FontWeight.Bold)
             }
         }
     )

@@ -588,7 +588,7 @@ fun SettingsMenuHelpIconButton(
                                     onClick = { activeStepIndex = idx },
                                     label = {
                                         Text(
-                                            text = "Langkah ${st.stepNumber}",
+                                            text = zokasText("Langkah ${st.stepNumber}", "Step ${st.stepNumber}"),
                                             fontSize = 11.sp,
                                             fontWeight = if (activeStepIndex == idx) FontWeight.Bold else FontWeight.Normal
                                         )

@@ -12,12 +12,42 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 
-enum class NotificationCategory(val titleId: String, val descId: String) {
-    TRANSACTION("Transaksi", "Transaksi sukses, bon/piutang baru, atau void/refund"),
-    STOCK("Stok & Audit", "Stok menipis/habis atau hasil opname/audit stok"),
-    EXPIRY("Expired Date", "Barang mendekati kadaluarsa atau sudah lewat tanggal"),
-    DEBT("Hutang & Piutang", "Jatuh tempo PO supplier atau bon pelanggan belum lunas"),
-    SHIFT("Tutup Shift / Kas", "Ringkasan tutup kasir, selisih kas, atau kas masuk/keluar")
+enum class NotificationCategory(
+    val titleId: String,
+    val descId: String,
+    val titleEn: String,
+    val descEn: String
+) {
+    TRANSACTION(
+        "Transaksi",
+        "Transaksi sukses, bon/piutang baru, atau void/refund",
+        "Transactions",
+        "Completed sales, new credit/receivables, or void/refund"
+    ),
+    STOCK(
+        "Stok & Audit",
+        "Stok menipis/habis atau hasil opname/audit stok",
+        "Stock & Audit",
+        "Low/out of stock or stock opname/audit results"
+    ),
+    EXPIRY(
+        "Expired Date",
+        "Barang mendekati kadaluarsa atau sudah lewat tanggal",
+        "Expiry Date",
+        "Items nearing expiration or already expired"
+    ),
+    DEBT(
+        "Hutang & Piutang",
+        "Jatuh tempo PO supplier atau bon pelanggan belum lunas",
+        "Payables & Receivables",
+        "Supplier PO due dates or unpaid customer credit"
+    ),
+    SHIFT(
+        "Tutup Shift / Kas",
+        "Ringkasan tutup kasir, selisih kas, atau kas masuk/keluar",
+        "Close Shift / Cash",
+        "Shift closing summary, cash variance, or cash in/out"
+    )
 }
 
 data class CategoryNotificationSetting(

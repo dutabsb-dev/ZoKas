@@ -194,6 +194,14 @@ object CustomReminderManager {
         )
     )
 
+    private fun scopePriority(scopeType: ReminderScopeType): Int {
+        return when (scopeType) {
+            ReminderScopeType.SPECIFIC_PRODUCTS -> 3
+            ReminderScopeType.CATEGORY -> 2
+            ReminderScopeType.ALL -> 1
+        }
+    }
+
     fun evaluateActiveReminders(
         products: List<ProductEntity>,
         rules: List<ReminderRule>,
@@ -203,12 +211,19 @@ object CustomReminderManager {
         val activeRules = rules.filter { it.isEnabled }
         if (activeRules.isEmpty() || products.isEmpty()) return emptyList()
 
+        // Prioritaskan aturan yang paling spesifik (Produk Spesifik > Kategori > Semua Produk),
+        // kemudian aturan kustom di atas aturan bawaan agar tidak terjadi notifikasi ganda untuk produk yang sama.
+        val prioritizedRules = activeRules.sortedWith(
+            compareByDescending<ReminderRule> { scopePriority(it.scopeType) }
+                .thenBy { if (it.id.startsWith("default_")) 1 else 0 }
+        )
+
         val results = mutableListOf<TriggeredReminder>()
         val seenKeys = mutableSetOf<String>()
         val dateFmt = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
         val dayStamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(nowMillis))
 
-        for (rule in activeRules) {
+        for (rule in prioritizedRules) {
             val matchedProducts = products.filter { prod ->
                 if (prod.isService) return@filter false
                 when (rule.scopeType) {
@@ -225,7 +240,8 @@ object CustomReminderManager {
                 val checkExpiry = rule.triggerType == ReminderTriggerType.EXPIRY || rule.triggerType == ReminderTriggerType.BOTH
 
                 if (checkStock && prod.stock <= rule.stockThreshold) {
-                    val key = "STOCK_${rule.id}_${prod.id}_${prod.stock}"
+                    // Deduplikasi berdasarkan produk & level stok (tanpa rule.id) agar tidak muncul kartu ganda
+                    val key = "STOCK_${prod.id}_${prod.stock}"
                     if (!dismissedKeys.contains(key) && seenKeys.add(key)) {
                         results.add(
                             TriggeredReminder(
@@ -255,7 +271,8 @@ object CustomReminderManager {
                     if (withinWindow) {
                         val batchTag = prod.batchNumber.ifBlank { "default" }
                         val repeatSuffix = if (rule.repeatDailyUntilHandled) "_$dayStamp" else ""
-                        val key = "EXPIRY_${rule.id}_${prod.id}_${prod.expiryDate}_$batchTag$repeatSuffix"
+                        // Deduplikasi berdasarkan produk, tanggal expired, & batch (tanpa rule.id)
+                        val key = "EXPIRY_${prod.id}_${prod.expiryDate}_$batchTag$repeatSuffix"
                         if (!dismissedKeys.contains(key) && seenKeys.add(key)) {
                             val expDateStr = dateFmt.format(Date(prod.expiryDate))
                             val statusText = when {

@@ -134,12 +134,12 @@ fun PosProductSection(
 
     val isEnLang = ZokasLocaleManager.isEnglish()
     val sortLabel = when (sortOption) {
-        "STOCK_ASC" -> zokasText("Stok Sedikit", "Low Stock, if (isEnLang) en else in")
-        "STOCK_DESC" -> zokasText("Stok Banyak", "High Stock, if (isEnLang) en else in")
-        "EXPIRY_ASC" -> zokasText("Expired Terdekat", "Nearest Expiry, if (isEnLang) en else in")
-        "PRICE_ASC" -> zokasText("Harga Termurah", "Lowest Price, if (isEnLang) en else in")
-        "PRICE_DESC" -> zokasText("Harga Termahal", "Highest Price, if (isEnLang) en else in")
-        else -> zokasText("Urutkan", "Sort By, if (isEnLang) en else in")
+        "STOCK_ASC" -> zokasText("Stok Sedikit", "Low Stock")
+        "STOCK_DESC" -> zokasText("Stok Banyak", "High Stock")
+        "EXPIRY_ASC" -> zokasText("Expired Terdekat", "Nearest Expiry")
+        "PRICE_ASC" -> zokasText("Harga Termurah", "Lowest Price")
+        "PRICE_DESC" -> zokasText("Harga Termahal", "Highest Price")
+        else -> zokasText("Urutkan", "Sort By")
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -173,7 +173,7 @@ fun PosProductSection(
                         },
                         label = {
                             Text(
-                                category,
+                                translateCategoryLabel(category),
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 fontSize = 12.sp,
                                 color = if (isSelected)
@@ -271,11 +271,11 @@ fun PosProductSection(
                 ) {
                     val sortItems = listOf(
                         "DEFAULT" to zokasText("Urutan Default", "Default Order"),
-                        "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis)", "Lowest Stock (Low"),
+                        "STOCK_ASC" to zokasText("Stok Paling Sedikit (Menipis)", "Lowest Stock (Low)"),
                         "STOCK_DESC" to zokasText("Stok Paling Banyak", "Highest Stock"),
                         "EXPIRY_ASC" to zokasText("Tanggal Expired Terdekat", "Nearest Expiry Date"),
-                        "PRICE_ASC" to zokasText("Harga Termurah", "Lowest Price, if (isEnLang) en else in"),
-                        "PRICE_DESC" to zokasText("Harga Termahal", "Highest Price, if (isEnLang) en else in")
+                        "PRICE_ASC" to zokasText("Harga Termurah", "Lowest Price"),
+                        "PRICE_DESC" to zokasText("Harga Termahal", "Highest Price")
                     )
                     sortItems.forEach { (key, label) ->
                         DropdownMenuItem(
@@ -314,7 +314,7 @@ fun PosProductSection(
                     Icon(Icons.Default.Straighten, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (selectedUnitFilter == "SEMUA") zokasText("Semua Satuan", "All Units, if (isEnLang) en else in") else zokasText("Satuan: $selectedUnitFilter", "Unit: $selectedUnitFilter, if (isEnLang) en else in"),
+                        text = if (selectedUnitFilter == "SEMUA") zokasText("Semua Satuan", "All Units") else zokasText("Satuan: $selectedUnitFilter", "Unit: $selectedUnitFilter"),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -332,7 +332,7 @@ fun PosProductSection(
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    if (unitKey == "SEMUA") zokasText("Semua Satuan", "All Units, if (isEnLang) en else in") else unitKey,
+                                    if (unitKey == "SEMUA") zokasText("Semua Satuan", "All Units") else unitKey,
                                     fontSize = 12.sp,
                                     fontWeight = if (selectedUnitFilter == unitKey) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -653,9 +653,9 @@ private fun ProductGridCard(
                                 else -> Color(0xFF059669)
                             }
                             val badgeText = when {
-                                isOutOfStock -> "STOK HABIS"
-                                isLowStock -> "STOK TIPIS"
-                                isExpiringSoon -> "MAU EXPIRED"
+                                isOutOfStock -> zokasText("STOK HABIS", "OUT OF STOCK")
+                                isLowStock -> zokasText("STOK TIPIS", "LOW STOCK")
+                                isExpiringSoon -> zokasText("MAU EXPIRED", "EXPIRING SOON")
                                 product.promoType == "BOGO" -> "BOGO"
                                 else -> "-${product.promoValue}%"
                             }

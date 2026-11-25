@@ -315,7 +315,7 @@ fun SettingsAppearanceCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${activePreset.name} • $activeLangDisplay • ${(uiScale * 100).toInt()}%",
+                            text = "${zokasText(activePreset.name, null, lang)} • $activeLangDisplay • ${(uiScale * 100).toInt()}%",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -695,7 +695,7 @@ fun SettingsAccountCard(
                         Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            if (currentUser.biometricKey.isNotBlank()) zokasText("Biometrik Terdaftar (Ubah)", "Biometrics Registered (Change") else zokasText("Daftarkan Sidik Jari/Wajah", "Register Fingerprint/Face"),
+                            if (currentUser.biometricKey.isNotBlank()) zokasText("Biometrik Terdaftar (Ubah)", "Biometrics Registered (Change)") else zokasText("Daftarkan Sidik Jari/Wajah", "Register Fingerprint/Face"),
                             fontSize = 12.sp
                         )
                     }
@@ -2336,10 +2336,10 @@ fun SettingsStoreProfileCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val taxPresets = listOf(
-                            "0" to "0% (Non-PKP)",
-                            "10" to "10% (PB1 Resto)",
-                            "11" to "11% (PPN)",
-                            "12" to "12% (PPN)"
+                            "0" to zokasText("0% (Non-PKP)", "0% (Tax-Free)"),
+                            "10" to zokasText("10% (PB1 Resto)", "10% (Resto Tax)"),
+                            "11" to zokasText("11% (PPN)", "11% (VAT)"),
+                            "12" to zokasText("12% (PPN)", "12% (VAT)")
                         )
                         taxPresets.forEach { (rateVal, rateLabel) ->
                             val isSelected = taxPercent.trim() == rateVal || taxPercent.trim() == "$rateVal.0"
@@ -2375,7 +2375,7 @@ fun SettingsStoreProfileCard(
                         OutlinedTextField(
                             value = taxPercent,
                             onValueChange = onTaxPercentChange,
-                            label = { Text(LanguageManager.tr("pajak", lang), fontSize = 11.sp) },
+                            label = { Text(zokasText("Pajak (%) cth: 11", "Tax (%) e.g. 11", lang), fontSize = 11.sp) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f),
                             singleLine = true,
@@ -2408,7 +2408,7 @@ fun SettingsStoreProfileCard(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    zokasText("Harga Produk Sudah Termasuk Pajak (Inclusive)", "Prices Already Include Tax (Inclusive"),
+                                    zokasText("Harga Produk Sudah Termasuk Pajak (Inclusive)", "Prices Already Include Tax (Inclusive)"),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -2991,7 +2991,7 @@ fun PaymentMethodManagementDialog(
                             )
                             Text(
                                 text = when (method) {
-                                    "CASH" -> zokasText("Tunai (CASH)", "Cash (CASH")
+                                    "CASH" -> zokasText("Tunai (CASH)", "Cash (CASH)")
                                     "QRIS" -> zokasText("QRIS Statis / Dinamis", "QRIS Static / Dynamic")
                                     "Bank Transfer" -> zokasText("Transfer Bank Manual", "Manual Bank Transfer")
                                     else -> method

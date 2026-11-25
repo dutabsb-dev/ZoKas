@@ -507,6 +507,21 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
         )
     }
 
+    LaunchedEffect(activeReminders, categorySettingsMap) {
+        activeReminders.forEach { rem ->
+            val targetCat = if (rem.kind == "EXPIRY") NotificationCategory.EXPIRY else NotificationCategory.STOCK
+            NotificationCenterManager.pushNotification(
+                context = context,
+                category = targetCat,
+                title = rem.title,
+                message = rem.detail,
+                productId = rem.product.id,
+                quickAction = if (rem.kind == "EXPIRY") "PROMO" else "RESTOCK",
+                dedupKey = rem.eventKey
+            )
+        }
+    }
+
     val enabledBellCats = remember(categorySettingsMap) {
         NotificationCategory.entries.filter { categorySettingsMap[it]?.bellEnabled ?: true }.toSet()
     }
@@ -631,11 +646,11 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
         var query by remember { mutableStateOf(searchQuery) }
         AlertDialog(
             onDismissRequest = { showSearchDialog = false },
-            title = { Text("Cari Nama / Kode Unik (SKU)") },
+            title = { Text(zokasText("Cari Nama / Kode Unik (SKU)", "Search Name / Unique Code (SKU)", language)) },
             text = {
                 OutlinedTextField(
                     value = query, onValueChange = { query = it; viewModel.setSearchQuery(it) },
-                    placeholder = { Text("Ketik nama produk atau Kode Unik (cth: KOP-01)") },
+                    placeholder = { Text(zokasText("Ketik nama produk atau Kode Unik (cth: KOP-01)", "Type product name or SKU (e.g. KOP-01)", language)) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = {
@@ -668,7 +683,7 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                             },
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Tambah Kode", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(zokasText("Tambah Kode", "Add Code", language), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     TextButton(onClick = { showSearchDialog = false }) {
@@ -814,7 +829,7 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                                 }
                                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                                     DropdownMenuItem(
-                                        text = { Text("Panduan & Tutorial", fontWeight = FontWeight.SemiBold) },
+                                        text = { Text(zokasText("Panduan & Tutorial", "Guide & Tutorials", language), fontWeight = FontWeight.SemiBold) },
                                         leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                                         onClick = { showTutorialDialog = true; showMenu = false }
                                     )
@@ -846,18 +861,18 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                     if (currentUser.role == "OWNER") {
                                         DropdownMenuItem(
-                                            text = { Text("Kelola Cabang") },
+                                            text = { Text(zokasText("Kelola Cabang", "Manage Branches", language)) },
                                             leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                                             onClick = { showBranchManagementDialog = true; showMenu = false }
                                         )
                                         DropdownMenuItem(
-                                            text = { Text("Transfer Stok") },
+                                            text = { Text(zokasText("Transfer Stok", "Stock Transfer", language)) },
                                             leadingIcon = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                                             onClick = { showStockTransferDialog = true; showMenu = false }
                                         )
                                     }
                                     DropdownMenuItem(
-                                        text = { Text("Tutup Kasir (Close Harian)") },
+                                        text = { Text(zokasText("Tutup Kasir (Close Harian)", "Close Shift (Daily Closing)", language)) },
                                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                                         onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }
                                     )

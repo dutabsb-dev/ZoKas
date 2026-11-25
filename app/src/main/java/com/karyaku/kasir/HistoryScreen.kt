@@ -491,7 +491,7 @@ fun HistoryScreen(
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
-                            "Biaya Operasional (Listrik/Gaji/dll)",
+                            zokasText("Biaya Operasional (Listrik/Gaji/dll)", "Operational Expenses (Utilities/Payroll/etc.)", lang),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -504,7 +504,7 @@ fun HistoryScreen(
                     if (totalPajakTerkumpul > 0L) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(
-                                "Titipan Pajak (PB1/PPN)",
+                                zokasText("Titipan Pajak (PB1/PPN)", "Collected Tax (PB1/VAT)", lang),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.tertiary
                             )
@@ -518,7 +518,7 @@ fun HistoryScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(
-                            "Estimasi Saldo Laci Tunai",
+                            zokasText("Estimasi Saldo Laci Tunai", "Estimated Cash Drawer Balance", lang),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface
@@ -727,7 +727,7 @@ fun HistoryScreen(
                     if (totalPajakTerkumpul > 0L) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(
-                                "Titipan Pajak (PB1/PPN):",
+                                zokasText("Titipan Pajak (PB1/PPN):", "Collected Tax (PB1/VAT):", lang),
                                 color = MaterialTheme.colorScheme.tertiary,
                                 fontSize = 12.sp
                             )
@@ -743,7 +743,7 @@ fun HistoryScreen(
                     if (totalOperationalExpenses > 0L) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(
-                                "Biaya Operasional:",
+                                zokasText("Biaya Operasional:", "Operational Expenses:", lang),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
@@ -1077,7 +1077,7 @@ fun HistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = zokasText("Buku Pembukuan Lengkap (Universal)", "Complete Bookkeeping Book (Universal", lang),
+                        text = zokasText("Buku Pembukuan Lengkap (Universal)", "Complete Bookkeeping Book (Universal)", lang),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.primary

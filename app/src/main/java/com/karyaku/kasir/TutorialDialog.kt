@@ -315,7 +315,7 @@ fun TutorialCenterDialog(
             },
             title = {
                 Text(
-                    topic.title,
+                    zokasText(topic.title),
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     color = MaterialTheme.colorScheme.onSurface
@@ -324,7 +324,7 @@ fun TutorialCenterDialog(
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        topic.subtitle,
+                        zokasText(topic.subtitle),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
@@ -554,13 +554,13 @@ fun TutorialCenterDialog(
                                         }
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            topic.title,
+                                            zokasText(topic.title),
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            topic.subtitle,
+                                            zokasText(topic.subtitle),
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 2,
@@ -615,7 +615,7 @@ fun TutorialCenterDialog(
                                                 }
                                                 Spacer(modifier = Modifier.width(10.dp))
                                                 Text(
-                                                    text = stepText,
+                                                    text = zokasText(stepText),
                                                     fontSize = 13.sp,
                                                     lineHeight = 18.sp,
                                                     color = MaterialTheme.colorScheme.onSurface,
@@ -699,7 +699,7 @@ fun TutorialCenterDialog(
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
-                                                    text = topic.importantNote,
+                                                    text = zokasText(topic.importantNote),
                                                     fontSize = 11.sp,
                                                     fontStyle = FontStyle.Italic,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant

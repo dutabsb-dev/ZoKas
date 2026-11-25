@@ -257,6 +257,61 @@ fun ProductFormBottomSheet(
             handleBackOrCloseAttempt(forcePromptIfDirty = true)
         }
 
+        fun validateAndSaveProduct() {
+            if (name.isBlank()) {
+                Toast.makeText(context, zokasText("Nama produk wajib diisi!", "Product name is required!"), Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            var finalPrice = 0L
+            var finalCost = 0L
+            var finalStock = 0
+            var finalVariations = ""
+
+            if (hasVariants) {
+                if (variantList.isEmpty() || variantList.any { it.name.isBlank() }) {
+                    Toast.makeText(context, zokasText("Nama varian tidak boleh kosong!", "Variant name cannot be empty!"), Toast.LENGTH_SHORT).show()
+                    return
+                }
+
+                val variationParts = variantList.map {
+                    val p = it.price.toLongOrNull() ?: 0L
+                    val c = it.costPrice.toLongOrNull() ?: 0L
+                    val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
+                    val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                    val vb = it.barcode.trim()
+                    if (vb.isNotBlank()) "${it.name.trim()}:$p:$c:$s:$m:$vb" else "${it.name.trim()}:$p:$c:$s:$m"
+                }
+                finalVariations = variationParts.joinToString(",")
+
+                finalStock = if (isService) 0 else variantList.sumOf {
+                    val s = it.stock.toIntOrNull() ?: 0
+                    val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                    s * m
+                }
+                finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
+                finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
+            } else {
+                finalPrice = singlePrice.toLongOrNull() ?: 0L
+                finalCost = singleCost.toLongOrNull() ?: 0L
+                finalStock = if (isService) 0 else (singleStock.toIntOrNull() ?: 0)
+                finalVariations = ""
+            }
+
+            if (finalPrice <= 0) {
+                Toast.makeText(context, zokasText("Harga jual harus lebih dari 0!", "Selling price must be greater than 0!"), Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val combinedCode = packSkuAndBarcode(productSku, barcode, baseUnit)
+            onSave(
+                name.trim(), finalPrice, finalStock, category.trim().ifBlank { "Umum" }, finalCost,
+                combinedCode, finalVariations, commission.toLongOrNull() ?: 0L, expiry,
+                isService, isCombo, imagePath,
+                wholesalePrice.toLongOrNull() ?: 0L, wholesaleMinQty.toIntOrNull() ?: 0
+            )
+        }
+
         if (showDiscardConfirm) {
             AlertDialog(
                 onDismissRequest = { showDiscardConfirm = false },
@@ -269,41 +324,79 @@ fun ProductFormBottomSheet(
                 },
                 title = {
                     Text(
-                        zokasText("Buang Inputan Produk?", "Buang Inputan Product?"),
+                        zokasText("Simpan Perubahan Produk?", "Save Product Changes?"),
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 text = {
-                    Text(
-                        zokasText("Data yang sudah Anda ketik/scan belum disimpan. Jika ditutup sekarang, isian akan hilang.", "Data yang sudah Anda ketik/scan belum disimpan. Jika ditutup sekarang, isian akan hilang."),
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showDiscardConfirm = false
-                            onDismiss()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        ),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(zokasText("BUANG & KELUAR", "BUANG & KELUAR"), fontWeight = FontWeight.Bold)
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            zokasText(
+                                "Perubahan yang Anda buat belum disimpan. Pilih tindakan sebelum keluar:",
+                                "Your changes have not been saved yet. Choose an action before leaving:"
+                            ),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = {
+                                showDiscardConfirm = false
+                                validateAndSaveProduct()
+                            },
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = zokasText("SIMPAN & KELUAR", "SAVE & EXIT"),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showDiscardConfirm = false },
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Text(
+                                    text = zokasText("LANJUT EDIT", "CONTINUE EDITING"),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp,
+                                    maxLines = 1
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    showDiscardConfirm = false
+                                    onDismiss()
+                                },
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Text(
+                                    text = zokasText("BUANG & KELUAR", "DISCARD & EXIT"),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                 },
-                dismissButton = {
-                    OutlinedButton(
-                        onClick = { showDiscardConfirm = false },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(zokasText("LANJUT EDIT", "LANJUT EDIT"), fontWeight = FontWeight.Bold)
-                    }
-                }
+                confirmButton = {}
             )
         }
 
@@ -331,7 +424,7 @@ fun ProductFormBottomSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (productToEdit == null) "Tambah Produk Baru" else "Edit Produk",
+                            text = if (productToEdit == null) zokasText("Tambah Produk Baru", "Add New Product") else zokasText("Edit Produk", "Edit Product"),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -401,7 +494,7 @@ fun ProductFormBottomSheet(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = if (productToEdit == null) "Simpan" else "Update",
+                                text = if (productToEdit == null) zokasText("Simpan", "Save") else zokasText("Update", "Update"),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp
                             )
@@ -416,7 +509,7 @@ fun ProductFormBottomSheet(
 
                     SelectionContainer {
                         Text(
-                            text = zokasText("Tips: Tekan lama pada kolom teks untuk Copy / Paste. Tekan Back saat mengetik untuk menutup keyboard.", "Tips: Tekan lama pada kolom teks untuk Copy / Paste. Tekan Back saat mengetik untuk menutup keyboard."),
+                            text = zokasText("Tips: Tekan lama pada kolom teks untuk Copy / Paste. Tekan Back saat mengetik untuk menutup keyboard.", "Tips: Long-press text fields to Copy / Paste. Press Back while typing to hide keyboard."),
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -433,7 +526,7 @@ fun ProductFormBottomSheet(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = zokasText("1. Informasi Wajib & Isi Cepat", "1. information Wajib & Isi Cepat"),
+                                text = zokasText("1. Informasi Wajib & Isi Cepat", "1. Required Info & Quick Fill"),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.primary
@@ -457,7 +550,7 @@ fun ProductFormBottomSheet(
                                 } else {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text(zokasText("Pilih Foto Produk (Opsional)", "Pilih Foto Product (Opsional"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                        Text(zokasText("Pilih Foto Produk (Opsional)", "Choose Product Photo (Optional)"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                     }
                                 }
                             }
@@ -487,7 +580,7 @@ fun ProductFormBottomSheet(
                                     Icon(Icons.Default.DocumentScanner, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (isScanningOcr) "Membaca..." else "Scan Nama (Kamera)",
+                                        text = if (isScanningOcr) zokasText("Membaca...", "Scanning...") else zokasText("Scan Nama (Kamera)", "Scan Name (Camera)"),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1
@@ -505,7 +598,7 @@ fun ProductFormBottomSheet(
                                 ) {
                                     Icon(Icons.Default.ImageSearch, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(zokasText("Scan dari Foto", "Scan dari Foto"), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                    Text(zokasText("Scan dari Foto", "Scan from Photo"), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                                 }
                             }
 
@@ -534,8 +627,8 @@ fun ProductFormBottomSheet(
                             OutlinedTextField(
                                 value = name,
                                 onValueChange = { name = it },
-                                label = { Text(zokasText("Nama Produk *", "Name Product *")) },
-                                placeholder = { Text(zokasText("Ketik, paste, scan label, atau ucapkan nama", "Ketik, paste, scan label, atau ucapkan nama")) },
+                                label = { Text(zokasText("Nama Produk *", "Product Name *")) },
+                                placeholder = { Text(zokasText("Ketik, paste, scan label, atau ucapkan nama", "Type, paste, scan label, or speak name")) },
                                 trailingIcon = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (name.isNotEmpty()) {
@@ -578,7 +671,7 @@ fun ProductFormBottomSheet(
                                     },
                                     colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                                 )
-                                Text(zokasText("Produk ini memiliki Varian (Ukuran/Rasa, dll)", "Product ini memiliki Varian (Ukuran/Rasa, dll"), fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                                Text(zokasText("Produk ini memiliki Varian (Ukuran/Rasa, dll)", "This product has Variants (Size/Flavor, etc.)"), fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                             }
 
                             if (!hasVariants) {
@@ -586,7 +679,7 @@ fun ProductFormBottomSheet(
                                     OutlinedTextField(
                                         value = singleCost,
                                         onValueChange = { singleCost = it.filter { c -> c.isDigit() } },
-                                        label = { Text(zokasText("Harga Beli", "Price Beli")) },
+                                        label = { Text(zokasText("Harga Beli", "Cost Price")) },
                                         trailingIcon = {
                                             VoiceMicButton(promptLabel = "harga beli", currentValue = singleCost, onResultText = { singleCost = it.filter { c -> c.isDigit() } })
                                         },
@@ -736,7 +829,7 @@ fun ProductFormBottomSheet(
                                                         newList[index] = variant.copy(costPrice = it.filter { c -> c.isDigit() })
                                                         variantList = newList
                                                     },
-                                                    label = { Text(zokasText("Harga Beli", "Price Beli")) },
+                                                    label = { Text(zokasText("Harga Beli", "Cost Price")) },
                                                     trailingIcon = {
                                                         VoiceMicButton(
                                                             promptLabel = "harga beli varian",
@@ -921,8 +1014,8 @@ fun ProductFormBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(zokasText("2. Pengaturan Lanjutan (Opsional)", "2. Settings Lanjutan (Opsional"), fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-                                    Text(zokasText("SKU, barcode kemasan, tipe jasa/combo, resep BOM, grosir, komisi & expiry", "SKU, barcode kemasan, tipe jasa/combo, resep BOM, grosir, komisi & expiry"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(zokasText("2. Pengaturan Lanjutan (Opsional)", "2. Advanced Settings (Optional)"), fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(zokasText("SKU, barcode kemasan, tipe jasa/combo, resep BOM, grosir, komisi & expiry", "SKU, packaging barcode, service/combo type, BOM recipe, wholesale, commission & expiry"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Icon(imageVector = if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = "Toggle Pengaturan Lanjutan", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -1189,7 +1282,7 @@ fun ProductFormBottomSheet(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
-                            text = if (productToEdit == null) "SIMPAN PRODUK" else "UPDATE PRODUK",
+                            text = if (productToEdit == null) zokasText("SIMPAN PRODUK", "SAVE PRODUCT") else zokasText("UPDATE PRODUK", "UPDATE PRODUCT"),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
