@@ -61,6 +61,110 @@ private fun wizardText(
     }
 }
 
+
+private fun translateCatalogBusinessName(rawName: String, lang: String): String {
+    if (LanguageManager.normalizeLang(lang) != "en") return rawName
+    val exactMap = mapOf(
+        "Warung Sembako / Kelontong" to "Grocery & Sundry Stall",
+        "Warung Soto & Gulai" to "Soto & Gulai Stall",
+        "Usaha Catering Harian" to "Daily Catering Service",
+        "Pedagang Ayam Potong Pasar" to "Market Fresh Chicken Vendor",
+        "Toko Alat Tulis & Fotokopi" to "Stationery & Copy Shop",
+        "Bengkel Motor" to "Motorcycle Repair Shop",
+        "Bengkel Mobil" to "Auto Repair Shop",
+        "Kedai Kopi & Minuman" to "Coffee & Beverage Shop",
+        "Toko Roti & Kue" to "Bakery & Cake Shop",
+        "Toko Bangunan / Material" to "Building & Hardware Store",
+        "Toko Pakaian / Butik" to "Clothing & Boutique Store",
+        "Salon & Perawatan" to "Salon & Beauty Care",
+        "Laundry Kiloan / Satuan" to "Laundry Service",
+        "Barbershop / Pangkas Rambut" to "Barbershop"
+    )
+    exactMap[rawName]?.let { return it }
+
+    var out = rawName
+    val wordPairs = listOf(
+        "Warung" to "Stall",
+        "Kedai" to "Shop",
+        "Toko" to "Store",
+        "Usaha" to "Business",
+        "Pedagang" to "Vendor",
+        "Bengkel" to "Workshop",
+        "Jasa" to "Service",
+        "Layanan" to "Service",
+        "Ayam Potong" to "Fresh Chicken",
+        "Ayam" to "Chicken",
+        "Pasar" to "Market",
+        "Harian" to "Daily",
+        "Alat Tulis" to "Stationery",
+        "Fotokopi" to "Copy Center",
+        "Motor" to "Motorcycle",
+        "Mobil" to "Car",
+        "Kopi" to "Coffee",
+        "Minuman" to "Beverage",
+        "Makanan" to "Food",
+        "Roti & Kue" to "Bakery & Pastry",
+        "Sembako" to "Groceries",
+        "Kelontong" to "Sundries",
+        "Bangunan" to "Building Materials",
+        "Pakaian" to "Apparel",
+        "Salon" to "Salon",
+        "Cuci" to "Wash",
+        "Servis" to "Repair"
+    )
+    for ((idW, enW) in wordPairs) {
+        out = out.replace(idW, enW, ignoreCase = true)
+    }
+    return out
+}
+
+private fun translateCatalogSectorGroup(rawSector: String, lang: String): String {
+    if (LanguageManager.normalizeLang(lang) != "en") return rawSector
+    val s = rawSector.trim().lowercase()
+    return when {
+        s.contains("kuliner") || s.contains("minuman") || s.contains("makanan") -> "Food & Beverages"
+        s.contains("pasar") || s.contains("bahan segar") || s.contains("sembako") -> "Market & Fresh Produce"
+        s.contains("retail") || s.contains("toko") -> "Retail & Stores"
+        s.contains("jasa") || s.contains("perbaikan") || s.contains("bengkel") -> "Services & Repairs"
+        else -> zokasText(rawSector, "General Business", lang)
+    }
+}
+
+private fun translateOptionalModuleTitle(rawTitle: String, lang: String): String {
+    if (LanguageManager.normalizeLang(lang) != "en") return rawTitle
+    return when (rawTitle.trim()) {
+        "Catatan Kas & Bon / Hutang" -> "Cash Ledger & Credit / Payables"
+        "Harga Grosir / Bertingkat" -> "Wholesale / Tiered Pricing"
+        "Pemasok & Kulakan (PO)" -> "Suppliers & Purchase Orders (PO)"
+        "Mode Meja & Pesanan" -> "Table Mode & Order Types"
+        "Jadwal / Reservasi" -> "Bookings & Reservations"
+        "Data Pelanggan & Poin" -> "Customer Profiles & Points"
+        "Modul Kepegawaian (HR)" -> "Human Resources (HR)"
+        "Resep / BOM & Bahan Baku" -> "Recipes (BOM) & Raw Materials"
+        else -> zokasText(rawTitle, null, lang)
+    }
+}
+
+private fun translateOptionalModuleDesc(rawDesc: String, lang: String): String {
+    if (LanguageManager.normalizeLang(lang) != "en") return rawDesc
+    val d = rawDesc.trim().lowercase()
+    return when {
+        d.contains("kas") && (d.contains("bon") || d.contains("hutang")) ->
+            "Track cash in/out, unpaid customer credit, and supplier bills."
+        d.contains("grosir") ->
+            "Set bulk or minimum-quantity pricing for repeat buyers."
+        d.contains("pemasok") || d.contains("kulakan") || d.contains("po") ->
+            "Record supplier purchases and restock inventory cleanly."
+        d.contains("meja") ->
+            "Enable table selection, dine-in/take-away, and kitchen flow."
+        d.contains("reservasi") || d.contains("jadwal") ->
+            "Manage customer appointment times and table reservations."
+        d.contains("pelanggan") || d.contains("poin") ->
+            "Save regular customer records, loyalty points, and birthday promos."
+        else -> zokasText(rawDesc, null, lang)
+    }
+}
+
 private fun modeDescriptionForLang(lang: String, modeKey: String): String {
     return when (modeKey) {
         "AWAM" -> wizardText(
@@ -537,9 +641,9 @@ fun SetupWizardScreen(
                                         }
                                     ) {
                                         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                                            Text(biz.name, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                            Text(translateCatalogBusinessName(biz.name, selectedLang), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                             Text(
-                                                "${biz.sectorGroup} - ${biz.mappedBusinessType}",
+                                                "${translateCatalogSectorGroup(biz.sectorGroup, selectedLang)} - ${biz.mappedBusinessType}",
                                                 fontSize = 11.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -559,8 +663,8 @@ fun SetupWizardScreen(
                         Text(
                             text = wizardText(
                                 selectedLang,
-                                "Pilih: ${selectedBusiness.name}",
-                                "Selected: ${selectedBusiness.name}",
+                                "Pilih: ${translateCatalogBusinessName(selectedBusiness.name, selectedLang)}",
+                                "Selected: ${translateCatalogBusinessName(selectedBusiness.name, selectedLang)}",
                                 "Pilihan: ${selectedBusiness.name}",
                                 "Kapilih: ${selectedBusiness.name}",
                                 "Peleyan: ${selectedBusiness.name}"
@@ -580,9 +684,9 @@ fun SetupWizardScreen(
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text(biz.name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(translateCatalogBusinessName(biz.name, selectedLang), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                         Text(
-                                            "${biz.sectorGroup} - ${biz.mappedBusinessType}",
+                                            "${translateCatalogSectorGroup(biz.sectorGroup, selectedLang)} - ${biz.mappedBusinessType}",
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -600,11 +704,11 @@ fun SetupWizardScreen(
                 Text(
                     text = wizardText(
                         selectedLang,
-                        "Jenis usaha otomatis terdeteksi: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})",
-                        "Auto-detected type: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})",
-                        "Jinis usaha otomatis: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})",
-                        "Jenis usaha otomatis: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})",
-                        "Macem usaha otomatis: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})"
+                        "Jenis usaha otomatis terdeteksi: ${selectedBusiness.mappedBusinessType} (${translateCatalogSectorGroup(selectedBusiness.sectorGroup, selectedLang)})",
+                        "Auto-detected type: ${selectedBusiness.mappedBusinessType} (${translateCatalogSectorGroup(selectedBusiness.sectorGroup, selectedLang)})",
+                        "Jinis usaha otomatis: ${selectedBusiness.mappedBusinessType} (${translateCatalogSectorGroup(selectedBusiness.sectorGroup, selectedLang)})",
+                        "Jenis usaha otomatis: ${selectedBusiness.mappedBusinessType} (${translateCatalogSectorGroup(selectedBusiness.sectorGroup, selectedLang)})",
+                        "Macem usaha otomatis: ${selectedBusiness.mappedBusinessType} (${translateCatalogSectorGroup(selectedBusiness.sectorGroup, selectedLang)})"
                     ),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -637,8 +741,8 @@ fun SetupWizardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                            Text(mod.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text(mod.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(translateOptionalModuleTitle(mod.title, selectedLang), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(translateOptionalModuleDesc(mod.description, selectedLang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(
                             checked = isOn,
