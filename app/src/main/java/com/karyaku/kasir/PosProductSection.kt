@@ -465,18 +465,12 @@ private fun ProductGridCard(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(dampingRatio = 0.55f, stiffness = 500f),
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
         label = "scale"
     )
 
-    val isExpiringSoon = product.expiryDate > 0 &&
-        (product.expiryDate - System.currentTimeMillis()) < (7L * 24 * 60 * 60 * 1000)
     val isOutOfStock = !product.isService && product.stock <= 0
     val isLowStock = !product.isService && product.stock in 1..5
-    val variantStocks = remember(product.variations, product.stock) {
-        extractVariantStocks(product)
-    }
-    val productSku = remember(product.barcode) { extractProductSku(product.barcode) }
     val baseUnit = remember(product.barcode) { extractProductBaseUnit(product) }
 
     val imageFile = remember(product.imagePath) {
@@ -486,254 +480,123 @@ private fun ProductGridCard(
         imageFile != null && imageFile.exists() && imageFile.length() > 0L
     }
 
-    val errorColor = MaterialTheme.colorScheme.error
-    val containerBg = MaterialTheme.colorScheme.background
-    val titleColor = remember(containerBg) { contrastingTextForBackground(containerBg) }
-    val priceColor = MaterialTheme.colorScheme.primary
-    val categoryLabel = if (productSku.isNotEmpty()) "$productSku • ${product.category}" else product.category
-
     val isEnLang = ZokasLocaleManager.isEnglish()
-    val stockText = remember(product.isService, product.stock, variantStocks, baseUnit, isEnLang) {
+    val stockLabel = remember(product.isService, product.stock, baseUnit, isEnLang) {
         val activeLang = if (isEnLang) "en" else "in"
         if (product.isService) {
             zokasText("Jasa", "Service", activeLang)
-        } else if (variantStocks.isNotEmpty()) {
-            val vSummary = variantStocks.joinToString(" • ") {
-                if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
-                else "${it.name}: ${it.stock} $baseUnit"
-            }
-            zokasText("Stok: ${product.stock} $baseUnit ($vSummary)", "Stock: ${product.stock} $baseUnit ($vSummary", activeLang)
         } else {
-            val formattedStock = formatStockDecimal(product.stock.toDouble(), baseUnit)
-            zokasText("Stok: $formattedStock $baseUnit", "Stock: $formattedStock $baseUnit", activeLang)
+            val fmtStk = formatStockDecimal(product.stock.toDouble(), baseUnit)
+            zokasText("Stok $fmtStk $baseUnit", "Stock $fmtStk $baseUnit", activeLang)
         }
     }
 
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(10.dp))
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        border = BorderStroke(
+            width = if (isOutOfStock || isLowStock) 1.2.dp else 0.8.dp,
+            color = if (isOutOfStock || isLowStock)
+                MaterialTheme.colorScheme.error
+            else
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        // 1. Nama produk di atas card dengan bounce running text sampai ujung teks terlihat
-        BounceMarqueeText(
-            text = product.name,
-            style = TextStyle(
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 12.sp,
-                lineHeight = 14.sp
-            ),
-            color = titleColor,
-            maxLines = 1,
-            softWrap = false,
-            textAlign = TextAlign.Center,
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp)
-        )
-
-        // Card utama: badge kategori vertikal di kiri + gambar full tanpa terpotong + stok di bawah dalam card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.95f)
-                .shadow(2.dp, RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp))
-                .combinedClickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick,
-                    onLongClick = onLongClick
-                ),
-            border = BorderStroke(
-                width = if (isLowStock || isOutOfStock) 1.5.dp else 1.dp,
-                color = when {
-                    isOutOfStock || isLowStock -> errorColor
-                    isExpiringSoon -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.75f)
-                    else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                }
-            ),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Row(modifier = Modifier.fillMaxSize()) {
-                // Badge kategori di sebelah kiri dengan teks vertikal yang berjalan halus tanpa terpotong
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
-                    modifier = Modifier
-                        .width(22.dp)
-                        .fillMaxHeight()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(vertical = 5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Icon(
-                            imageVector = resolveCategoryIcon(product.category, product.isService),
-                            contentDescription = product.category,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .requiredWidth(88.dp)
-                                    .graphicsLayer { rotationZ = -90f },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BounceMarqueeText(
-                                    text = categoryLabel,
-                                    style = TextStyle(
-                                        fontSize = 8.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        lineHeight = 10.sp
-                                    ),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Area kanan di dalam card: gambar full tidak terpotong + info stok di bagian bawah dalam card
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.surface)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .padding(4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (hasValidImage) {
-                            AsyncImage(
-                                model = imageFile,
-                                contentDescription = product.name,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        when {
-                                            isOutOfStock -> Color(0xFFFEE2E2)
-                                            isLowStock -> Color(0xFFFEF2F2)
-                                            isExpiringSoon -> Color(0xFFFEF3C7)
-                                            else -> Color(0xFFECFDF5)
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = resolveCategoryIcon(product.category, product.isService),
-                                    contentDescription = product.name,
-                                    tint = when {
-                                        isOutOfStock || isLowStock -> Color(0xFFB91C1C)
-                                        isExpiringSoon -> Color(0xFFB45309)
-                                        else -> Color(0xFF047857)
-                                    },
-                                    modifier = Modifier.size(34.dp)
-                                )
-                            }
-                        }
-
-                        if (isOutOfStock || isLowStock || isExpiringSoon || product.promoType != "NONE") {
-                            val badgeBg = when {
-                                isOutOfStock -> Color(0xFFDC2626)
-                                isLowStock -> Color(0xFFEA580C)
-                                isExpiringSoon -> Color(0xFFD97706)
-                                else -> Color(0xFF059669)
-                            }
-                            val badgeText = when {
-                                isOutOfStock -> zokasText("STOK HABIS", "OUT OF STOCK")
-                                isLowStock -> zokasText("STOK TIPIS", "LOW STOCK")
-                                isExpiringSoon -> zokasText("MAU EXPIRED", "EXPIRING SOON")
-                                product.promoType == "BOGO" -> "BOGO"
-                                else -> "-${product.promoValue}%"
-                            }
-                            Surface(
-                                color = badgeBg,
-                                shape = RoundedCornerShape(6.dp),
-                                modifier = Modifier.align(Alignment.TopEnd)
-                            ) {
-                                Text(
-                                    text = badgeText,
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // 3. Teks stok tampil di bawah tetapi tetap di dalam card
-                    Surface(
-                        color = if (isOutOfStock || isLowStock)
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        BounceMarqueeText(
-                            text = stockText,
-                            style = TextStyle(
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                lineHeight = 12.sp
-                            ),
-                            color = if (isOutOfStock || isLowStock)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            softWrap = false,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                        )
-                    }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BounceMarqueeText(
+                    text = product.name,
+                    style = TextStyle(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp,
+                        lineHeight = 15.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.weight(1f)
+                )
+                if (isOutOfStock || isLowStock) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isOutOfStock) zokasText("Habis", "Empty") else zokasText("Tipis", "Low"),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1
+                    )
                 }
             }
-        }
 
-        // Harga di bawah card (di luar card)
-        BounceMarqueeText(
-            text = formatRupiah(product.price),
-            style = TextStyle(
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.Black
-            ),
-            color = priceColor,
-            maxLines = 1,
-            softWrap = false,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp)
-        )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(74.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (hasValidImage) {
+                    AsyncImage(
+                        model = imageFile,
+                        contentDescription = product.name,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().padding(4.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = resolveCategoryIcon(product.category, product.isService),
+                        contentDescription = product.name,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stockLabel,
+                    fontSize = 10.sp,
+                    color = if (isOutOfStock || isLowStock)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = formatRupiah(product.price),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+            }
+        }
     }
 }
 

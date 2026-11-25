@@ -93,6 +93,31 @@ fun PosCartSection(
         }
     }
 
+    var fracSyncTick by remember { mutableIntStateOf(0) }
+    val computedLiveSubtotal = remember(cart, fracSyncTick, subtotal) {
+        if (cart.isEmpty()) 0L
+        else if (fracSyncTick == 0) subtotal
+        else cart.sumOf { ci ->
+            val q = ci.effectiveQty
+            if (ci.usedMembershipId != null) 0L
+            else if (ci.product.wholesaleMinQty > 0 && q >= ci.product.wholesaleMinQty && ci.product.wholesalePrice > 0)
+                Math.round(ci.product.wholesalePrice * q)
+            else
+                Math.round(getPriceForVariant(ci.product, ci.selectedVariation) * q)
+        }
+    }
+    val computedLiveTotal = remember(
+        computedLiveSubtotal, fracSyncTick, totalPrice, subtotal,
+        discount, voucherDiscount, taxAmount, serviceCharge, roundingDiff, isTaxInclusive
+    ) {
+        if (cart.isEmpty()) 0L
+        else if (fracSyncTick == 0) totalPrice
+        else {
+            val baseAfterDisc = (computedLiveSubtotal - discount - voucherDiscount).coerceAtLeast(0L)
+            val extraTax = if (isTaxInclusive) 0L else taxAmount
+            (baseAfterDisc + extraTax + serviceCharge + roundingDiff).coerceAtLeast(0L)
+        }
+    }
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp).imePadding()) {
 
         if (enableOrderTypes) {
@@ -299,6 +324,7 @@ fun PosCartSection(
                                                         item.qtyFraction = qVal
                                                         item.quantity = Math.ceil(qVal - 1e-6).toInt().coerceAtLeast(1)
                                                         qtyTick++
+                                                        fracSyncTick++
                                                         onSetQuantity?.invoke(item, qVal)
                                                     },
                                                 color = if (isCur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
@@ -392,6 +418,7 @@ fun PosCartSection(
                                                     item.qtyFraction = valQty
                                                     item.quantity = Math.ceil(valQty - 1e-6).toInt().coerceAtLeast(1)
                                                     qtyTick++
+                                                    fracSyncTick++
                                                     onSetQuantity?.invoke(item, valQty)
                                                     showFractionMenu = false
                                                 }
@@ -415,7 +442,7 @@ fun PosCartSection(
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Subtotal:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(formatRupiah(subtotal), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(formatRupiah(computedLiveSubtotal), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -476,7 +503,7 @@ fun PosCartSection(
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Total:", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
-            Text(formatRupiah(totalPrice), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+            Text(formatRupiah(computedLiveTotal), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
         }
 
         Spacer(modifier = Modifier.height(6.dp))
