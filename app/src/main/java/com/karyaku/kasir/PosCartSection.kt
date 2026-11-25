@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
@@ -259,11 +260,16 @@ fun PosCartSection(
                                     Text("Staf: ${item.assignedStaff}", fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
                                 }
 
-                                val isWholesale = item.product.wholesaleMinQty > 0 && item.quantity >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0
+                                val qEff = item.effectiveQty
+                                val isWholesale = item.product.wholesaleMinQty > 0 && qEff >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0
                                 val displayPrice = if (item.usedMembershipId != null) 0L else if (isWholesale) item.product.wholesalePrice else getPriceForVariant(item.product, item.selectedVariation)
+                                val lineTotalPreview = Math.round(displayPrice * qEff)
 
                                 Text(
-                                    formatRupiah(displayPrice),
+                                    text = if (Math.abs(qEff - Math.rint(qEff)) > 1e-6)
+                                        "${formatRupiah(displayPrice)} • ${formatQtyDisplay(qEff)} = ${formatRupiah(lineTotalPreview)}"
+                                    else
+                                        formatRupiah(displayPrice),
                                     fontSize = 11.sp,
                                     color = if (item.usedMembershipId != null || isWholesale || item.selectedVariation.isNotEmpty())
                                         MaterialTheme.colorScheme.primary
@@ -277,6 +283,43 @@ fun PosCartSection(
 
                                 if (item.notes.isNotEmpty()) {
                                     Text("Cat: ${item.notes}", fontSize = 10.sp, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+
+                                if (!item.product.isService) {
+                                    Row(
+                                        modifier = Modifier.padding(top = 3.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        listOf(0.25 to "¼", 0.5 to "½", 0.75 to "¾", 1.0 to "1").forEach { (qVal, qLbl) ->
+                                            val isCur = Math.abs(item.effectiveQty - qVal) < 1e-4
+                                            Surface(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .clickable {
+                                                        val diff = qVal - item.effectiveQty
+                                                        if (diff >= 0.0) {
+                                                            repeat(Math.round(diff * 4.0).toInt().coerceAtLeast(0)) {
+                                                                onAdd(item)
+                                                            }
+                                                        } else {
+                                                            repeat(Math.round(Math.abs(diff) * 4.0).toInt().coerceAtLeast(0)) {
+                                                                onRemove(item)
+                                                            }
+                                                        }
+                                                    },
+                                                color = if (isCur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                                            ) {
+                                                Text(
+                                                    text = qLbl,
+                                                    fontSize = 9.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isCur) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
 
                                 if (item.usedMembershipId != null) {
@@ -318,10 +361,56 @@ fun PosCartSection(
                                         Icon(Icons.Default.List, contentDescription = "Input SN", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
                                     }
                                 }
+                                var showFractionMenu by remember(item.product.id, item.selectedVariation) { mutableStateOf(false) }
                                 IconButton(onClick = { onRemove(item) }, modifier = Modifier.size(24.dp)) {
                                     Icon(Icons.Default.Remove, contentDescription = "Kurang", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(15.dp))
                                 }
-                                Text(text = "${item.quantity}", modifier = Modifier.padding(horizontal = 3.dp), fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Box {
+                                    Surface(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .clickable { showFractionMenu = true },
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            text = formatQtyDisplay(item.effectiveQty),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = showFractionMenu,
+                                        onDismissRequest = { showFractionMenu = false }
+                                    ) {
+                                        listOf(
+                                            0.25 to "¼ (0.25)",
+                                            0.5 to "½ (0.5)",
+                                            0.75 to "¾ (0.75)",
+                                            1.0 to "1",
+                                            1.5 to "1½ (1.5)",
+                                            2.0 to "2"
+                                        ).forEach { (valQty, lbl) ->
+                                            DropdownMenuItem(
+                                                text = { Text(lbl, fontSize = 12.sp) },
+                                                onClick = {
+                                                    val diff = valQty - item.effectiveQty
+                                                    if (diff >= 0.0) {
+                                                        repeat(Math.round(diff * 4.0).toInt().coerceAtLeast(0)) {
+                                                            onAdd(item)
+                                                        }
+                                                    } else {
+                                                        repeat(Math.round(Math.abs(diff) * 4.0).toInt().coerceAtLeast(0)) {
+                                                            onRemove(item)
+                                                        }
+                                                    }
+                                                    showFractionMenu = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
                                 IconButton(onClick = { onAdd(item) }, modifier = Modifier.size(24.dp)) {
                                     Icon(Icons.Default.Add, contentDescription = "Tambah", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(15.dp))
                                 }

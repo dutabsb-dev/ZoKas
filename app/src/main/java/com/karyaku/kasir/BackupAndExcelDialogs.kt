@@ -268,7 +268,7 @@ fun SimpleProductExcelDialog(
             )
         },
         title = {
-            Text("Excel Produk Simpel (.xlsx)", fontWeight = FontWeight.Bold)
+            Text(zokasText("Excel Produk Simpel (.xlsx)", "Simple Product Excel (.xlsx)"), fontWeight = FontWeight.Bold)
         },
         text = {
             Column(
@@ -278,7 +278,7 @@ fun SimpleProductExcelDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    "Format Excel (.xlsx) dengan 1 kolom = 1 data (Nama, Kategori, Harga Beli, Harga Jual, Stok, Satuan, SKU, Barcode Kemasan, serta Varian di kolom terpisah) agar mudah diedit tanpa typo.",
+                    zokasText("Format Excel (.xlsx) dengan 1 kolom = 1 data (Nama, Kategori, Harga Beli, Harga Jual, Stok, Satuan, SKU, Barcode Kemasan, serta Varian di kolom terpisah) agar mudah diedit tanpa typo.", "Excel (.xlsx) format with 1 column = 1 field (Name, Category, Cost Price, Selling Price, Stock, Unit, SKU, Packaging Barcode, and Variants in separate columns) for easy typo-free editing."),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -295,7 +295,7 @@ fun SimpleProductExcelDialog(
                     Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "Unduh Template Kosong + Contoh (.xlsx)",
+                        zokasText("Unduh Template Kosong + Contoh (.xlsx)", "Download Template + Sample (.xlsx)"),
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -315,7 +315,7 @@ fun SimpleProductExcelDialog(
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "Ekspor Produk Saat Ini (${products.size}) (.xlsx)",
+                        zokasText("Ekspor Produk Saat Ini (${products.size}) (.xlsx)", "Export Current Products (${products.size}) (.xlsx)"),
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -339,7 +339,7 @@ fun SimpleProductExcelDialog(
                     Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "Impor Produk dari File Excel (.xlsx)",
+                        zokasText("Impor Produk dari File Excel (.xlsx)", "Import Products from Excel (.xlsx)"),
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -349,7 +349,7 @@ fun SimpleProductExcelDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Tutup")
+                Text(zokasText("Tutup", "Close"))
             }
         }
     )

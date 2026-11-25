@@ -31,9 +31,10 @@ fun PosViewModel.processPayment(
 
             // 1. Hitung Subtotal
             val subtotal = cartToProcess.sumOf { 
+                val q = it.effectiveQty
                 if (it.usedMembershipId != null) 0L
-                else if (it.product.wholesaleMinQty > 0 && it.quantity >= it.product.wholesaleMinQty && it.product.wholesalePrice > 0) it.product.wholesalePrice * it.quantity
-                else getPriceForVariant(it.product, it.selectedVariation) * it.quantity
+                else if (it.product.wholesaleMinQty > 0 && q >= it.product.wholesaleMinQty && it.product.wholesalePrice > 0) Math.round(it.product.wholesalePrice * q)
+                else Math.round(getPriceForVariant(it.product, it.selectedVariation) * q)
             }
             
             // 2. Hitung Diskon, Pajak, Service
@@ -68,22 +69,29 @@ fun PosViewModel.processPayment(
             for (cartItem in cartToProcess) {
                 val itemPrice = if (cartItem.usedMembershipId != null) 0L else getPriceForVariant(cartItem.product, cartItem.selectedVariation)
                 
+                val qDouble = cartItem.effectiveQty
+                val qtyLabelSuffix = if (Math.abs(qDouble - Math.rint(qDouble)) > 1e-6) {
+                    " [Qty: ${formatQtyDisplay(qDouble)}]"
+                } else ""
+                val mergedNotes = (cartItem.notes + qtyLabelSuffix).trim()
+                val itemSubLong = Math.round(itemPrice * qDouble)
+
                 // Simpan Detail Transaksi
                 itemsToInsert.add(TransactionItemEntity(
                     transactionId = transactionId, productId = cartItem.product.id, productName = cartItem.product.name,
                     quantity = cartItem.quantity, price = itemPrice, costPrice = cartItem.product.costPrice, 
-                    notes = cartItem.notes, serialNumber = cartItem.serialNumber, assignedStaff = cartItem.assignedStaff, 
-                    subtotal = itemPrice * cartItem.quantity, isService = cartItem.product.isService
+                    notes = mergedNotes, serialNumber = cartItem.serialNumber, assignedStaff = cartItem.assignedStaff, 
+                    subtotal = itemSubLong, isService = cartItem.product.isService
                 ))
 
-                // A. Potong Stok Produk (memperhitungkan konversi kemasan varian jika ada, misal Dus isi 24)
+                // A. Potong Stok Produk (memperhitungkan konversi kemasan varian & pecahan seperti 0.25 kg)
                 val freshProduct = productDao.getProductById(cartItem.product.id)
                 if (freshProduct != null && !freshProduct.isService) {
                     val packMult = getVariantPackMultiplier(freshProduct.variations, cartItem.selectedVariation)
-                    val totalSmallestDeducted = cartItem.quantity * packMult
+                    val totalSmallestDeducted = Math.round(qDouble * packMult).toInt().coerceAtLeast(0)
                     val newStock = (freshProduct.stock - totalSmallestDeducted).coerceAtLeast(0)
                     if (cartItem.selectedVariation.isNotBlank()) {
-                        val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, cartItem.quantity)
+                        val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, totalSmallestDeducted)
                         productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newStock))
                     } else {
                         productDao.updateProduct(freshProduct.copy(stock = newStock))

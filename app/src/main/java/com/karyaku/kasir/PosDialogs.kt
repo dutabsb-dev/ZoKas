@@ -236,7 +236,7 @@ fun ProductMatrixDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -295,7 +295,7 @@ fun ProductVariantDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -358,7 +358,7 @@ fun MergeTableDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -404,7 +404,7 @@ fun SerialNumberDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -440,7 +440,7 @@ fun AssignStaffDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -549,7 +549,7 @@ fun PinDiscountDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -566,8 +566,8 @@ fun CashDrawerConfirmDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        title = { Text("Buka Laci Kasir") },
-        text = { Text("Buka laci tanpa transaksi? Aktivitas ini akan dicatat.", color = MaterialTheme.colorScheme.onSurface) },
+        title = { Text(zokasText("Buka Laci Kasir", "Open Cash Drawer")) },
+        text = { Text(zokasText("Buka laci tanpa transaksi? Aktivitas ini akan dicatat.", "Open cash drawer without a transaction? This activity will be logged."), color = MaterialTheme.colorScheme.onSurface) },
         confirmButton = {
             Button(
                 onClick = onConfirm,
@@ -576,11 +576,11 @@ fun CashDrawerConfirmDialog(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(12.dp)
-            ) { Text("BUKA") }
+            ) { Text(zokasText("OPEN", "OPEN")) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -627,7 +627,7 @@ fun WasteRecordDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -673,7 +673,7 @@ fun OrderNotesDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -881,7 +881,7 @@ fun CashFlowDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -927,7 +927,7 @@ fun ManualDiscountDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )
@@ -1067,7 +1067,7 @@ fun DeleteProductConfirmDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     )

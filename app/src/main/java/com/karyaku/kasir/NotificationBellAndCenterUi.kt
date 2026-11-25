@@ -357,11 +357,39 @@ fun NotificationAndReminderCenterDialog(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text(item.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                            val translatedHistTitle = remember(item.title, ZokasLocaleManager.currentLanguage) {
+                                            when {
+                                                item.title.startsWith("Tutup Kasir - ") -> zokasText(item.title, item.title.replace("Tutup Kasir - ", "Close Shift - "))
+                                                item.title.startsWith("Transaksi #") -> zokasText(item.title, item.title.replace("Transaksi #", "Transaction #"))
+                                                item.title.startsWith("Stok Menipis: ") -> zokasText(item.title, item.title.replace("Stok Menipis: ", "Low Stock: "))
+                                                item.title.startsWith("Stok Habis: ") -> zokasText(item.title, item.title.replace("Stok Habis: ", "Out of Stock: "))
+                                                else -> zokasText(item.title)
+                                            }
+                                        }
+                                        Text(translatedHistTitle, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
                                             Text(fmt.format(Date(item.timestamp)), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         Spacer(modifier = Modifier.height(2.dp))
-                                        Text(item.message, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        val translatedHistMsg = remember(item.message, ZokasLocaleManager.currentLanguage) {
+                                            item.message
+                                                .replace("Kas Sistem", zokasText("Kas Sistem", "System Cash"))
+                                                .replace("Fisik", zokasText("Fisik", "Physical"))
+                                                .replace("Selisih", zokasText("Selisih", "Variance"))
+                                                .replace("Kasir", zokasText("Kasir", "Cashier"))
+                                                .replace("item", zokasText("item", "items"))
+                                                .replace("Total", zokasText("Total", "Total"))
+                                                .replace("Sisa stok", zokasText("Sisa stok", "Remaining stock"))
+                                                .replace("batas aturan", zokasText("batas aturan", "rule limit"))
+                                                .replace("Aturan:", zokasText("Aturan:", "Rule:"))
+                                                .replace("Expired dalam", zokasText("Expired dalam", "Expires in"))
+                                                .replace("hari", zokasText("hari", "days"))
+                                                .replace("Tgl:", zokasText("Tgl:", "Date:"))
+                                                .replace("batas H-", zokasText("batas H-", "limit D-"))
+                                                .replace("Stok:", zokasText("Stok:", "Stock:"))
+                                                .replace("Saran:", zokasText("Saran:", "Tip:"))
+                                                .replace("Diskon Cepat / Cuci Gudang", zokasText("Diskon Cepat / Cuci Gudang", "Quick Promo / Clearance"))
+                                        }
+                                        Text(translatedHistMsg, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -410,7 +438,7 @@ fun ReminderRuleManagerDialog(
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Tutup") }
                 }
                 Text(
-                    "Atur target produk, batas stok minimum, dan aturan pengingat kadaluarsa (H-0 sampai H-90+).",
+                    zokasText("Atur target produk, batas stok minimum, dan aturan pengingat kadaluarsa (H-0 sampai H-90+).", "Set target products, minimum stock threshold, and expiry alert rules (D-0 to D-90+)."),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -433,13 +461,13 @@ fun ReminderRuleManagerDialog(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(rule.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     Text(
-                                        "Target: ${rule.scopeType.labelId} • Pemicu: ${rule.triggerType.labelId}",
+                                        zokasText("Target: ${rule.scopeType.localizedLabel()} • Pemicu: ${rule.triggerType.localizedLabel()}", "Target: ${rule.scopeType.localizedLabel()} • Trigger: ${rule.triggerType.localizedLabel()}"),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    val expirySummary = if (rule.expiryDaysBefore == 0) "Hari H (H-0)" else "H-${rule.expiryDaysBefore}"
+                                    val expirySummary = if (rule.expiryDaysBefore == 0) zokasText("Hari H (H-0)", "Due Today (D-0)") else zokasText("H-${rule.expiryDaysBefore}", "D-${rule.expiryDaysBefore}")
                                     Text(
-                                        "Stok <= ${rule.stockThreshold} • Expired <= $expirySummary • ${rule.expiryActionPreset.labelId}",
+                                        zokasText("Stok <= ${rule.stockThreshold} • Expired <= $expirySummary • ${rule.expiryActionPreset.localizedLabel()}", "Stock <= ${rule.stockThreshold} • Expiry <= $expirySummary • ${rule.expiryActionPreset.localizedLabel()}"),
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.primary
                                     )

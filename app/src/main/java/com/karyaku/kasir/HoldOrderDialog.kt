@@ -23,10 +23,10 @@ fun HoldOrderDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Parkir Pesanan (Meja)") },
+        title = { Text(zokasText("Parkir Pesanan (Meja)", "Held Orders (Table)")) },
         text = {
             if (holdOrders.isEmpty()) {
-                Text("Tidak ada pesanan yang diparkir.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(zokasText("Tidak ada pesanan yang diparkir.", "No held orders."), color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                     items(holdOrders) { order ->
@@ -49,13 +49,13 @@ fun HoldOrderDialog(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Text("Nama: ${order.customerName}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Text(zokasText("Nama: ${order.customerName}", "Customer: ${order.customerName}"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Tutup") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(zokasText("Tutup", "Close")) } }
     )
 }

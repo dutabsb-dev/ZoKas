@@ -9,9 +9,41 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+fun parseFractionOrDecimalQty(raw: String): Double {
+    val clean = raw.trim().replace(',', '.')
+    if (clean.isEmpty()) return 0.0
+    // Tangani pecahan campuran seperti "1 1/2"
+    val partsSpace = clean.split(Regex("\s+"))
+    if (partsSpace.size == 2 && partsSpace[1].contains("/")) {
+        val whole = partsSpace[0].toDoubleOrNull() ?: 0.0
+        val frac = parseFractionOrDecimalQty(partsSpace[1])
+        return (whole + frac).coerceAtLeast(0.0)
+    }
+    // Tangani pecahan biasa seperti "1/4", "1/2", "3/4"
+    if (clean.contains("/")) {
+        val fracParts = clean.split("/")
+        if (fracParts.size == 2) {
+            val num = fracParts[0].toDoubleOrNull() ?: return 0.0
+            val den = fracParts[1].toDoubleOrNull() ?: return 0.0
+            if (den != 0.0) return (num / den).coerceAtLeast(0.0)
+        }
+    }
+    return clean.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+}
+
+fun formatQtyDisplay(qty: Double): String {
+    val rounded = Math.round(qty * 1000.0) / 1000.0
+    if (Math.abs(rounded - Math.rint(rounded)) < 1e-6) {
+        return rounded.toInt().toString()
+    }
+    val str = String.format(java.util.Locale.US, "%.3f", rounded).trimEnd('0').trimEnd('.')
+    return str
+}
+
 data class CartItem(
     val product: ProductEntity, 
-    var quantity: Int = 1, 
+    var quantity: Int = 1,
+    var qtyFraction: Double = 1.0,
     var isSelectedForSplit: Boolean = false,
     var notes: String = "",
     var selectedVariation: String = "",
@@ -19,7 +51,10 @@ data class CartItem(
     var assignedStaff: String = "",
     var usedMembershipId: Long? = null,
     var usedMembershipName: String? = null
-)
+) {
+    val effectiveQty: Double
+        get() = if (qtyFraction > 0.0) qtyFraction else quantity.toDouble()
+}
 
 class PosViewModel(
     internal val database: AppDatabase
@@ -256,29 +291,63 @@ class PosViewModel(
         listenToPaymentNotifications()
     }
 
-    fun addToCart(product: ProductEntity, variation: String = "") {
+    fun addToCart(product: ProductEntity, variation: String = "", addQty: Double = 1.0) {
+        val delta = if (addQty > 0.0) addQty else 1.0
         val currentCart = _cart.value
         val existingIndex = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
-        val stockAvailable = getStockForVariant(product, variation)
-        val currentQtyInCart = if (existingIndex != -1) currentCart[existingIndex].quantity else 0
-        if (currentQtyInCart + 1 > stockAvailable && !product.isService) return 
+        val stockAvailable = getStockForVariant(product, variation).toDouble()
+        val currentQtyInCart = if (existingIndex != -1) currentCart[existingIndex].effectiveQty else 0.0
+        if (currentQtyInCart + delta > stockAvailable + 1e-6 && !product.isService) return
         if (existingIndex != -1) {
             val newCart = currentCart.toMutableList()
-            newCart[existingIndex] = newCart[existingIndex].copy(quantity = newCart[existingIndex].quantity + 1)
+            val nextQty = currentQtyInCart + delta
+            newCart[existingIndex] = newCart[existingIndex].copy(
+                qtyFraction = nextQty,
+                quantity = Math.ceil(nextQty - 1e-6).toInt().coerceAtLeast(1)
+            )
             _cart.value = newCart
         } else {
-            _cart.value = currentCart + CartItem(product = product, selectedVariation = variation)
+            _cart.value = currentCart + CartItem(
+                product = product,
+                quantity = Math.ceil(delta - 1e-6).toInt().coerceAtLeast(1),
+                qtyFraction = delta,
+                selectedVariation = variation
+            )
         }
     }
 
-    fun removeFromCart(product: ProductEntity, variation: String) {
+    fun setCartItemQuantity(product: ProductEntity, variation: String, newQty: Double) {
+        if (newQty <= 0.0) {
+            deleteItem(product, variation)
+            return
+        }
+        val currentCart = _cart.value
+        val existingIndex = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
+        val stockAvailable = getStockForVariant(product, variation).toDouble()
+        val clampedQty = if (!product.isService && stockAvailable > 0.0) minOf(newQty, stockAvailable) else newQty
+        if (existingIndex != -1) {
+            val newCart = currentCart.toMutableList()
+            newCart[existingIndex] = newCart[existingIndex].copy(
+                qtyFraction = clampedQty,
+                quantity = Math.ceil(clampedQty - 1e-6).toInt().coerceAtLeast(1)
+            )
+            _cart.value = newCart
+        }
+    }
+
+    fun removeFromCart(product: ProductEntity, variation: String, subQty: Double = 1.0) {
+        val delta = if (subQty > 0.0) subQty else 1.0
         val currentCart = _cart.value
         val existingIndex = currentCart.indexOfFirst { it.product.id == product.id && it.selectedVariation == variation }
         if (existingIndex != -1) {
             val newCart = currentCart.toMutableList()
             val item = newCart[existingIndex]
-            if (item.quantity > 1) {
-                newCart[existingIndex] = item.copy(quantity = item.quantity - 1)
+            val remaining = item.effectiveQty - delta
+            if (remaining > 1e-6) {
+                newCart[existingIndex] = item.copy(
+                    qtyFraction = remaining,
+                    quantity = Math.ceil(remaining - 1e-6).toInt().coerceAtLeast(1)
+                )
                 _cart.value = newCart
             } else {
                 newCart.removeAt(existingIndex)

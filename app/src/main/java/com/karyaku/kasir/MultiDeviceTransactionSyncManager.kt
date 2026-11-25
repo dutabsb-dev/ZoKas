@@ -63,7 +63,7 @@ object MultiDeviceTransactionSyncManager {
     private const val PREFS_SYNC = "zokas_multidevice_sync_prefs"
     private const val MAX_QUEUE_SIZE = 2000
 
-    var lastSyncStatusMessage by mutableStateOf("Siap menyinkronkan antrean transaksi berdasarkan waktu")
+    var lastSyncStatusMessage by mutableStateOf("Multi-Cabang Sync siap (Cabang A, Cabang B & HP Owner)")
         private set
 
     var pendingQueueCount by mutableStateOf(0)
@@ -290,6 +290,12 @@ object MultiDeviceTransactionSyncManager {
 
                 val existingTxs = viewModel.transactionDao.getAllTransactions().first()
                 val existingShifts = viewModel.userDao.getAllShifts().first()
+                val existingTxFingerprints = existingTxs.map {
+                    "${it.branchId}_${it.timestamp}_${it.totalPrice}_${it.cashierName ?: ""}"
+                }.toMutableSet()
+                val existingShiftFingerprints = existingShifts.map {
+                    "${it.branchId}_${it.userId}_${it.startTime}_${it.openingCash}"
+                }.toMutableSet()
 
                 val trxArr = root.optJSONArray("transactions") ?: JSONArray()
                 val parsedTxs = mutableListOf<JSONObject>()

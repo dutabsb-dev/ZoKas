@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -42,8 +41,6 @@ private val usageModes = listOf(
     "LENGKAP" to "Mode Lengkap — Tampilan & seluruh fitur penuh seperti aplikasi saat ini."
 )
 
-private val availableUnits = listOf("pcs", "kg", "gram", "liter", "porsi", "cup", "dus", "zak", "ikat", "jasa")
-
 @Composable
 fun SetupWizardScreen(
     settingsManager: SettingsManager,
@@ -53,7 +50,7 @@ fun SetupWizardScreen(
     val context = LocalContext.current
     val activity = LocalActivity.current as? FragmentActivity
 
-    // 1. Setujui kebijakan (tanpa input email di awal)
+    // 1. Persetujuan Kebijakan (teks kebijakan lengkap tampil jelas)
     var acceptedPolicy by remember { mutableStateOf(false) }
 
     // 2. Pilihan bahasa
@@ -82,7 +79,12 @@ fun SetupWizardScreen(
     // 5. Pilih mode AWAM / MUDAH / STANDAR / LENGKAP
     var selectedMode by remember { mutableStateOf("AWAM") }
 
-    // 6. Username, PIN/Password, dan metode login (PIN atau Biometrik -> langsung setting biometrik jika dipilih)
+    // 6. Nama Toko & turunannya (Alamat, No. Telp, Pesan Struk) + Akun & Metode Login
+    var storeNameInput by remember { mutableStateOf(settingsManager.storeName ?: "") }
+    var storeAddressInput by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
+    var storePhoneInput by remember { mutableStateOf(settingsManager.storePhone ?: "") }
+    var storeFooterInput by remember { mutableStateOf(settingsManager.storeFooter ?: "Terima Kasih atas Kunjungan Anda") }
+
     var username by remember { mutableStateOf("") }
     var pinCode by remember { mutableStateOf("") }
     var pinVisible by remember { mutableStateOf(false) }
@@ -95,16 +97,6 @@ fun SetupWizardScreen(
     var bankNameInput by remember { mutableStateOf(settingsManager.bankName ?: "") }
     var bankAccInput by remember { mutableStateOf(settingsManager.bankAccountNumber ?: "") }
     var bankHolderInput by remember { mutableStateOf(settingsManager.bankAccountName ?: "") }
-
-    // 8. Detail produk (jika produk; jika jasa tidak perlu) & satuan
-    var itemName by remember { mutableStateOf("") }
-    var itemPriceText by remember { mutableStateOf("") }
-    var itemStockText by remember { mutableStateOf("10") }
-    var itemUnit by remember { mutableStateOf(selectedBusiness.defaultUnit) }
-
-    LaunchedEffect(selectedBusiness.id) {
-        itemUnit = selectedBusiness.defaultUnit
-    }
 
     Column(
         modifier = Modifier
@@ -123,21 +115,63 @@ fun SetupWizardScreen(
             fontWeight = FontWeight.ExtraBold
         )
 
-        // 1. KEBIJAKAN
+        // 1. KEBIJAKAN (ISI KEBIJAKAN LENGKAP DITAMPILKAN)
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("1. Persetujuan Kebijakan", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "Aplikasi berjalan offline-first di perangkat Anda dan menyimpan data usaha secara lokal. Lanjutkan dengan menyetujui kebijakan penggunaan.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = zokasText("1. Kebijakan Penggunaan & Privasi", "1. Terms of Use & Privacy Policy", selectedLang),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
                 )
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = zokasText(
+                                "• Penyimpanan Lokal (Offline-First): Seluruh data transaksi, produk, stok, pelanggan, dan pengaturan disimpan langsung di perangkat Anda.",
+                                "• Local Storage (Offline-First): All transaction, product, stock, customer, and settings data are stored directly on your device.",
+                                selectedLang
+                            ),
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = zokasText(
+                                "• Privasi & Kendali Pemilik: Data usaha tidak dikirim ke server pihak ketiga developer. Backup, ekspor, dan notifikasi jarak jauh berjalan sesuai pengaturan Anda sendiri.",
+                                "• Privacy & Owner Control: Business data is not sent to third-party developer servers. Backups, exports, and remote alerts operate under your own configuration.",
+                                selectedLang
+                            ),
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = zokasText(
+                                "• Tanggung Jawab Operasional: Pastikan Anda rutin membuat backup data dan memverifikasi keakuratan stok fisik maupun pembayaran.",
+                                "• Operational Responsibility: Please back up your data regularly and verify physical stock and payment accuracy.",
+                                selectedLang
+                            ),
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { acceptedPolicy = !acceptedPolicy },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(checked = acceptedPolicy, onCheckedChange = { acceptedPolicy = it })
-                    Text("Saya menyetujui kebijakan penggunaan ZoKas", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = zokasText("Saya telah membaca & menyetujui kebijakan penggunaan ZoKas", "I have read & agree to ZoKas terms and privacy policy", selectedLang),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
@@ -145,7 +179,7 @@ fun SetupWizardScreen(
         // 2. PILIHAN BAHASA
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("2. Pilihan Bahasa", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(zokasText("2. Pilihan Bahasa", "2. Language Selection", selectedLang), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 supportedLanguages.forEach { (code, label) ->
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable {
@@ -174,15 +208,15 @@ fun SetupWizardScreen(
         // 3. DETAIL USAHA (DROPDOWN + SEARCH 500+ USAHA) & OTOMATIS TENTUKAN JENIS USAHA
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("3. Detail Jenis Usaha (${BusinessCatalog500.allBusinesses.size} Jenis Usaha)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(zokasText("3. Detail Jenis Usaha (${BusinessCatalog500.allBusinesses.size} Jenis Usaha)", "3. Business Type Details (${BusinessCatalog500.allBusinesses.size} Types)", selectedLang), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 OutlinedTextField(
                     value = businessSearch,
                     onValueChange = {
                         businessSearch = it
                         dropdownExpanded = true
                     },
-                    label = { Text("Cari Jenis Usaha") },
-                    placeholder = { Text("Ketik misal: ayam potong, warung, bengkel, kopi...") },
+                    label = { Text(zokasText("Cari Jenis Usaha", "Search Business Type", selectedLang)) },
+                    placeholder = { Text(zokasText("Ketik misal: ayam potong, warung, bengkel, kopi...", "Type e.g. chicken, warung, workshop, coffee...", selectedLang)) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -193,7 +227,7 @@ fun SetupWizardScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Pilih: ${selectedBusiness.name}",
+                            text = zokasText("Pilih: ${selectedBusiness.name}", "Selected: ${selectedBusiness.name}", selectedLang),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
@@ -222,7 +256,7 @@ fun SetupWizardScreen(
                     }
                 }
                 Text(
-                    text = "Jenis usaha otomatis terdeteksi: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})",
+                    text = zokasText("Jenis usaha otomatis terdeteksi: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})", "Auto-detected business type: ${selectedBusiness.mappedBusinessType} (${selectedBusiness.sectorGroup})", selectedLang),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
@@ -233,9 +267,13 @@ fun SetupWizardScreen(
         // 4. REKOMENDASI MODUL (DEFAULT OFF, BISA DIONKAN & BISA DIUBAH DI SETTING)
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("4. Rekomendasi Modul (Awalnya OFF)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(zokasText("4. Rekomendasi Modul (Awalnya OFF)", "4. Recommended Modules (Default OFF)", selectedLang), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "Semua modul rekomendasi dibuat OFF di awal agar tidak berat. Anda boleh menyalakannya sekarang atau mengaktifkannya kapan saja di menu Setting.",
+                    zokasText(
+                        "Semua modul rekomendasi dibuat OFF di awal agar tidak berat. Anda boleh menyalakannya sekarang atau mengaktifkannya kapan saja di menu Setting.",
+                        "All recommended modules start OFF to stay light. You can enable them now or anytime in Settings.",
+                        selectedLang
+                    ),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -262,7 +300,7 @@ fun SetupWizardScreen(
         // 5. PILIH MODE AWAM / MUDAH / STANDAR / LENGKAP
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("5. Pilih Mode Penggunaan", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(zokasText("5. Pilih Mode Penggunaan", "5. Select Usage Mode", selectedLang), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 usageModes.forEach { (modeKey, modeDesc) ->
                     val active = selectedMode == modeKey
                     Surface(
@@ -281,21 +319,54 @@ fun SetupWizardScreen(
             }
         }
 
-        // 6. USERNAME, PIN/PASSWORD & LOGIN (PIN ATAU BIOMETRIK -> LANGSUNG SETTING BIOMETRIK JIKA DIPILIH)
+        // 6. IDENTITAS TOKO (NAMA TOKO & TURUNANNYA) + AKUN & METODE LOGIN
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("6. Akun & Metode Login", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(zokasText("6. Identitas Toko & Akun Login", "6. Store Identity & Login Account", selectedLang), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                OutlinedTextField(
+                    value = storeNameInput,
+                    onValueChange = { storeNameInput = it },
+                    label = { Text(zokasText("Nama Toko *", "Store Name *", selectedLang)) },
+                    placeholder = { Text(zokasText("Contoh: Toko Berkah / Ayam Potong Bu Sari", "Example: Berkah Store / Fresh Chicken", selectedLang)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = storeAddressInput,
+                    onValueChange = { storeAddressInput = it },
+                    label = { Text(zokasText("Alamat Toko (Opsional)", "Store Address (Optional)", selectedLang)) },
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = storePhoneInput,
+                    onValueChange = { storePhoneInput = it },
+                    label = { Text(zokasText("No. Telepon / WhatsApp Toko (Opsional)", "Store Phone / WhatsApp (Optional)", selectedLang)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = storeFooterInput,
+                    onValueChange = { storeFooterInput = it },
+                    label = { Text(zokasText("Pesan Penutup Struk (Opsional)", "Receipt Footer Message (Optional)", selectedLang)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
-                    label = { Text("Username / Nama Pengguna") },
+                    label = { Text(zokasText("Username / Nama Pengguna *", "Username / Account Name *", selectedLang)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = pinCode,
                     onValueChange = { raw -> if (raw.length <= 6 && raw.all { it.isDigit() }) pinCode = raw },
-                    label = { Text("PIN / Password (4-6 Angka)") },
+                    label = { Text(zokasText("PIN / Password (4-6 Angka) *", "PIN / Passcode (4-6 Digits) *", selectedLang)) },
                     visualTransformation = if (pinVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { pinVisible = !pinVisible }) {
@@ -309,7 +380,7 @@ fun SetupWizardScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { loginMethod = "PIN" }) {
                         RadioButton(selected = loginMethod == "PIN", onClick = { loginMethod = "PIN" })
-                        Text("Login PIN", fontSize = 13.sp)
+                        Text(zokasText("Login PIN", "PIN Login", selectedLang), fontSize = 13.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
                         loginMethod = "BIOMETRIC"
@@ -343,12 +414,15 @@ fun SetupWizardScreen(
                                 }
                             }
                         })
-                        Text("Login Biometrik", fontSize = 13.sp)
+                        Text(zokasText("Login Biometrik", "Biometric Login", selectedLang), fontSize = 13.sp)
                     }
                 }
                 if (loginMethod == "BIOMETRIC") {
                     Text(
-                        text = if (biometricReady) "Status Biometrik: Aktif & siap dipakai" else "Status Biometrik: Ketuk Login Biometrik untuk verifikasi sidik jari sekarang",
+                        text = if (biometricReady)
+                            zokasText("Status Biometrik: Aktif & siap dipakai", "Biometric Status: Active & ready", selectedLang)
+                        else
+                            zokasText("Status Biometrik: Ketuk Login Biometrik untuk verifikasi sidik jari sekarang", "Biometric Status: Tap Biometric Login to verify fingerprint now", selectedLang),
                         fontSize = 11.sp,
                         color = if (biometricReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -359,8 +433,12 @@ fun SetupWizardScreen(
         // 7. PEMBAYARAN + LANGSUNG SETTING QRIS / TRANSFER MANUAL
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("7. Metode Pembayaran", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                listOf("CASH" to "Tunai / Cash", "QRIS" to "QRIS", "TRANSFER" to "Transfer Manual").forEach { (key, label) ->
+                Text(zokasText("7. Metode Pembayaran", "7. Payment Methods", selectedLang), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                listOf(
+                    "CASH" to zokasText("Tunai / Cash", "Cash", selectedLang),
+                    "QRIS" to zokasText("QRIS", "QRIS", selectedLang),
+                    "TRANSFER" to zokasText("Transfer Manual", "Manual Transfer", selectedLang)
+                ).forEach { (key, label) ->
                     val checked = paymentSelection[key] ?: false
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { paymentSelection[key] = !checked },
@@ -374,7 +452,7 @@ fun SetupWizardScreen(
                     OutlinedTextField(
                         value = qrisInput,
                         onValueChange = { qrisInput = it },
-                        label = { Text("Setting Payload / Kode QRIS") },
+                        label = { Text(zokasText("Setting Payload / Kode QRIS", "QRIS Payload / Code", selectedLang)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -383,14 +461,14 @@ fun SetupWizardScreen(
                     OutlinedTextField(
                         value = bankNameInput,
                         onValueChange = { bankNameInput = it },
-                        label = { Text("Nama Bank (cth: BCA, BRI, Mandiri)") },
+                        label = { Text(zokasText("Nama Bank (cth: BCA, BRI, Mandiri)", "Bank Name (e.g. BCA, BRI, Mandiri)", selectedLang)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = bankAccInput,
                         onValueChange = { bankAccInput = it },
-                        label = { Text("Nomor Rekening") },
+                        label = { Text(zokasText("Nomor Rekening", "Account Number", selectedLang)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -398,64 +476,10 @@ fun SetupWizardScreen(
                     OutlinedTextField(
                         value = bankHolderInput,
                         onValueChange = { bankHolderInput = it },
-                        label = { Text("Atas Nama Rekening") },
+                        label = { Text(zokasText("Atas Nama Rekening", "Account Holder Name", selectedLang)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-            }
-        }
-
-        // 8. DETAIL PRODUK (JIKA PRODUK; JIKA JASA TIDAK PERLU) & SATUAN
-        if (!selectedBusiness.isServiceOnly) {
-            Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("8. Detail Produk Awal & Satuan", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    OutlinedTextField(
-                        value = itemName,
-                        onValueChange = { itemName = it },
-                        label = { Text("Nama Produk (Opsional)") },
-                        placeholder = { Text("Contoh: Beras Ramos / Ayam Potong") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = itemPriceText,
-                            onValueChange = { itemPriceText = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("Harga Jual") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = itemStockText,
-                            onValueChange = { itemStockText = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("Stok Awal") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Text("Satuan:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                        availableUnits.take(5).forEach { unit ->
-                            FilterChip(
-                                selected = itemUnit == unit,
-                                onClick = { itemUnit = unit },
-                                label = { Text(unit, fontSize = 11.sp) }
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                        availableUnits.drop(5).forEach { unit ->
-                            FilterChip(
-                                selected = itemUnit == unit,
-                                onClick = { itemUnit = unit },
-                                label = { Text(unit, fontSize = 11.sp) }
-                            )
-                        }
-                    }
                 }
             }
         }
@@ -463,21 +487,31 @@ fun SetupWizardScreen(
         Button(
             onClick = {
                 if (!acceptedPolicy) {
-                    Toast.makeText(context, "Centang persetujuan kebijakan terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, zokasText("Centang persetujuan kebijakan terlebih dahulu.", "Please accept the policy first.", selectedLang), Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (storeNameInput.isBlank()) {
+                    Toast.makeText(context, zokasText("Nama toko wajib diisi.", "Store name is required.", selectedLang), Toast.LENGTH_SHORT).show()
                     return@Button
                 }
                 if (username.isBlank()) {
-                    Toast.makeText(context, "Username wajib diisi.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, zokasText("Username wajib diisi.", "Username is required.", selectedLang), Toast.LENGTH_SHORT).show()
                     return@Button
                 }
                 if (pinCode.length < 4) {
-                    Toast.makeText(context, "PIN minimal 4 angka.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, zokasText("PIN minimal 4 angka.", "PIN must be at least 4 digits.", selectedLang), Toast.LENGTH_SHORT).show()
                     return@Button
                 }
 
                 settingsManager.language = selectedLang
                 LanguageManager.setLanguage(context, selectedLang)
                 ZokasLocaleManager.setLanguage(context, selectedLang)
+
+                val cleanStoreName = storeNameInput.trim()
+                settingsManager.storeName = cleanStoreName
+                settingsManager.storeAddress = storeAddressInput.trim()
+                settingsManager.storePhone = storePhoneInput.trim()
+                settingsManager.storeFooter = storeFooterInput.trim().ifBlank { "Terima Kasih atas Kunjungan Anda" }
 
                 settingsManager.businessType = selectedBusiness.mappedBusinessType
                 settingsManager.businessDetailName = selectedBusiness.name
@@ -504,30 +538,6 @@ fun SetupWizardScreen(
                 settingsManager.isBiometricEnabled = (loginMethod == "BIOMETRIC" && biometricReady)
                 settingsManager.isSetupCompleted = true
 
-                if (!selectedBusiness.isServiceOnly && itemName.isNotBlank()) {
-                    val priceVal = itemPriceText.toLongOrNull() ?: 0L
-                    val stockVal = itemStockText.toIntOrNull() ?: 0
-                    val packedCode = packSkuAndBarcode("", "", itemUnit)
-                    viewModel.addProduct(
-                        name = itemName.trim(),
-                        price = priceVal,
-                        stock = stockVal,
-                        category = selectedBusiness.sectorGroup,
-                        costPrice = 0L,
-                        barcode = packedCode,
-                        variations = "",
-                        commission = 0L,
-                        expiry = 0L,
-                        isService = false,
-                        isCombo = false,
-                        imagePath = "",
-                        wholesalePrice = 0L,
-                        wholesaleMinQty = 0,
-                        userId = 1L,
-                        userName = username.trim()
-                    )
-                }
-
                 val adminEntity = UserEntity(
                     id = 1L,
                     name = username.trim(),
@@ -542,7 +552,7 @@ fun SetupWizardScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(14.dp)
         ) {
-            Text("SIMPAN & MULAI", fontWeight = FontWeight.Bold)
+            Text(zokasText("SIMPAN & MULAI", "SAVE & START", selectedLang), fontWeight = FontWeight.Bold)
         }
     }
 }

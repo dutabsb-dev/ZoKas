@@ -823,10 +823,10 @@ fun HistoryScreen(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             LanguageManager.tr("inventory_value", lang),
                             fontWeight = FontWeight.Bold,
@@ -1184,7 +1184,7 @@ fun HistoryScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        zokasText("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)", "EXPORT SHIFT REPORT EXCEL (CLOSE SHIFT", lang),
+                        zokasText("EKSPOR EXCEL LAPORAN SHIFT (TUTUP KASIR)", "EXPORT SHIFT REPORT EXCEL (CLOSE SHIFT)", lang),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1515,13 +1515,13 @@ fun TransactionDetailDialog(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    "Metode Bayar: ${transaction.paymentMethod} | Status: ${transaction.status}",
+                    zokasText("Metode Bayar: ${transaction.paymentMethod} | Status: ${transaction.status}", "Payment: ${transaction.paymentMethod} | Status: ${transaction.status}", lang),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (transaction.cashReceived > 0L) {
                     Text(
-                        "Uang Diterima: ${formatRupiah(transaction.cashReceived)} | Kembali: ${formatRupiah(transaction.changeAmount)}",
+                        zokasText("Uang Diterima: ${formatRupiah(transaction.cashReceived)} | Kembali: ${formatRupiah(transaction.changeAmount)}", "Paid: ${formatRupiah(transaction.cashReceived)} | Change: ${formatRupiah(transaction.changeAmount)}", lang),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

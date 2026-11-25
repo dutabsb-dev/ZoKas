@@ -9,23 +9,29 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-enum class ReminderScopeType(val labelId: String) {
-    ALL("Semua Produk"),
-    CATEGORY("Kategori Tertentu"),
-    SPECIFIC_PRODUCTS("Produk Spesifik")
+enum class ReminderScopeType(val labelId: String, val labelEn: String) {
+    ALL("Semua Produk", "All Products"),
+    CATEGORY("Kategori Tertentu", "Specific Categories"),
+    SPECIFIC_PRODUCTS("Produk Spesifik", "Specific Products");
+
+    fun localizedLabel(): String = zokasText(labelId, labelEn)
 }
 
-enum class ReminderTriggerType(val labelId: String) {
-    LOW_STOCK("Stok Menipis / Habis"),
-    EXPIRY("Mendekati / Lewat Expired Date"),
-    BOTH("Stok & Expired Date")
+enum class ReminderTriggerType(val labelId: String, val labelEn: String) {
+    LOW_STOCK("Stok Menipis / Habis", "Low / Out of Stock"),
+    EXPIRY("Mendekati / Lewat Expired Date", "Near / Past Expiry Date"),
+    BOTH("Stok & Expired Date", "Stock & Expiry Date");
+
+    fun localizedLabel(): String = zokasText(labelId, labelEn)
 }
 
-enum class ExpiryActionPreset(val labelId: String, val defaultDiscount: Int) {
-    PROMO_DISCOUNT("Diskon Cepat / Cuci Gudang", 20),
-    RETURN_SUPPLIER("Retur ke Supplier", 0),
-    PRIORITY_SELL("Prioritas Jual (FEFO)", 10),
-    WASTE_CHECK("Cek Fisik & Karantina", 0)
+enum class ExpiryActionPreset(val labelId: String, val labelEn: String, val defaultDiscount: Int) {
+    PROMO_DISCOUNT("Diskon Cepat / Cuci Gudang", "Quick Promo / Clearance", 20),
+    RETURN_SUPPLIER("Retur ke Supplier", "Return to Supplier", 0),
+    PRIORITY_SELL("Prioritas Jual (FEFO)", "Priority Sale (FEFO)", 10),
+    WASTE_CHECK("Cek Fisik & Karantina", "Physical Check & Quarantine", 0);
+
+    fun localizedLabel(): String = zokasText(labelId, labelEn)
 }
 
 data class ReminderRule(
@@ -250,8 +256,8 @@ object CustomReminderManager {
                                 ruleName = rule.name,
                                 product = prod,
                                 kind = "STOCK",
-                                title = if (prod.stock <= 0) "Stok Habis: ${prod.name}" else "Stok Menipis: ${prod.name}",
-                                detail = "Sisa stok ${prod.stock} (batas aturan <= ${rule.stockThreshold}) • Aturan: ${rule.name}"
+                                title = if (prod.stock <= 0) zokasText("Stok Habis: ${prod.name}", "Out of Stock: ${prod.name}") else zokasText("Stok Menipis: ${prod.name}", "Low Stock: ${prod.name}"),
+                                detail = zokasText("Sisa stok ${prod.stock} (batas aturan <= ${rule.stockThreshold}) • Aturan: ${rule.name}", "Remaining stock ${prod.stock} (rule limit <= ${rule.stockThreshold}) • Rule: ${rule.name}")
                             )
                         )
                     }
@@ -276,9 +282,9 @@ object CustomReminderManager {
                         if (!dismissedKeys.contains(key) && seenKeys.add(key)) {
                             val expDateStr = dateFmt.format(Date(prod.expiryDate))
                             val statusText = when {
-                                daysLeft < 0L -> "Sudah lewat expired ${kotlin.math.abs(daysLeft)} hari lalu ($expDateStr)"
-                                daysLeft == 0L -> "Jatuh tempo expired HARI INI ($expDateStr)"
-                                else -> "Expired dalam $daysLeft hari • Tgl: $expDateStr (batas H-${rule.expiryDaysBefore})"
+                                daysLeft < 0L -> zokasText("Sudah lewat expired ${kotlin.math.abs(daysLeft)} hari lalu ($expDateStr)", "Expired ${kotlin.math.abs(daysLeft)} days ago ($expDateStr)")
+                                daysLeft == 0L -> zokasText("Jatuh tempo expired HARI INI ($expDateStr)", "Expires TODAY ($expDateStr)")
+                                else -> zokasText("Expired dalam $daysLeft hari • Tgl: $expDateStr (batas H-${rule.expiryDaysBefore})", "Expires in $daysLeft days • Date: $expDateStr (limit D-${rule.expiryDaysBefore})")
                             }
                             val batchInfo = if (prod.batchNumber.isNotBlank()) " • Batch: ${prod.batchNumber}" else ""
                             val suggestedDisc = when {
@@ -286,6 +292,7 @@ object CustomReminderManager {
                                 daysLeft <= 1L -> 25
                                 else -> 15
                             }
+                            val actionLabel = rule.expiryActionPreset.localizedLabel()
                             results.add(
                                 TriggeredReminder(
                                     eventKey = key,
@@ -293,11 +300,11 @@ object CustomReminderManager {
                                     ruleName = rule.name,
                                     product = prod,
                                     kind = "EXPIRY",
-                                    title = "Expired Alert: ${prod.name}",
-                                    detail = "$statusText$batchInfo • Stok: ${prod.stock} • Saran: ${rule.expiryActionPreset.labelId}",
+                                    title = zokasText("Expired Alert: ${prod.name}", "Expired Alert: ${prod.name}"),
+                                    detail = zokasText("$statusText$batchInfo • Stok: ${prod.stock} • Saran: $actionLabel", "$statusText$batchInfo • Stock: ${prod.stock} • Tip: $actionLabel"),
                                     daysToExpiry = daysLeft,
                                     suggestedPromoDiscountPercent = suggestedDisc,
-                                    actionHint = rule.expiryActionPreset.labelId
+                                    actionHint = actionLabel
                                 )
                             )
                         }

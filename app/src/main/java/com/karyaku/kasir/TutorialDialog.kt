@@ -464,8 +464,8 @@ fun TutorialCenterDialog(
                 ) {
                     val filters = listOf(
                         "SEMUA" to zokasText("Semua Panduan (${allTutorialTopics.size})", "All Guides (${allTutorialTopics.size})"),
-                        "DASAR" to zokasText("1. Panduan Dasar Kasir (5)", "1. Basic Cashier Guide (5)"),
-                        "LANJUTAN" to zokasText("2. Panduan Fitur Lanjutan (5)", "2. Advanced Features Guide (5)")
+                        "DASAR" to zokasText("1. Panduan Dasar (5)", "1. Basic (5)"),
+                        "LANJUTAN" to zokasText("2. Fitur Lanjutan (5)", "2. Advanced (5)")
                     )
                     filters.forEach { (key, label) ->
                         val selected = selectedFilter == key

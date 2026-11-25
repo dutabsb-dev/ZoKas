@@ -96,29 +96,29 @@ fun StockAuditDialog(
                     tint = MaterialTheme.colorScheme.primary
                 )
             },
-            title = { Text("Simpan Hasil Audit Stok?", fontWeight = FontWeight.Bold) },
+            title = { Text(zokasText("Simpan Hasil Audit Stok?", "Save Stock Audit Result?"), fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        "Stok produk di sistem akan disesuaikan dengan jumlah stok fisik hasil audit:",
+                        zokasText("Stok produk di sistem akan disesuaikan dengan jumlah stok fisik hasil audit:", "System product stock will be adjusted to match physical audit counts:"),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total Item Diaudit:", fontSize = 12.sp)
-                        Text("$totalCheckedCount produk", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(zokasText("Total Item Diaudit:", "Total Audited Items:"), fontSize = 12.sp)
+                        Text(zokasText("$totalCheckedCount produk", "$totalCheckedCount items"), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Item Berselisih:", fontSize = 12.sp)
-                        Text("$totalDiffItemsCount produk", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
+                        Text(zokasText("Item Berselisih:", "Discrepant Items:"), fontSize = 12.sp)
+                        Text(zokasText("$totalDiffItemsCount produk", "$totalDiffItemsCount items"), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Nilai Selisih Kurang:", fontSize = 12.sp)
+                        Text(zokasText("Nilai Selisih Kurang:", "Shortage Value:"), fontSize = 12.sp)
                         Text("- ${formatRupiah(totalLossRp)}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Nilai Selisih Lebih:", fontSize = 12.sp)
+                        Text(zokasText("Nilai Selisih Lebih:", "Overage Value:"), fontSize = 12.sp)
                         Text("+ ${formatRupiah(totalGainRp)}", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -152,12 +152,12 @@ fun StockAuditDialog(
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("SIMPAN & SESUAIKAN STOK", fontWeight = FontWeight.Bold)
+                    Text(zokasText("SIMPAN & SESUAIKAN STOK", "SAVE & ADJUST STOCK"), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmSave = false }) {
-                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(zokasText("Batal", "Cancel"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -195,13 +195,13 @@ fun StockAuditDialog(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Audit Stok (Stock Opname)",
+                            text = zokasText("Audit Stok (Stock Opname)", "Stock Audit (Stock Opname)"),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "$totalCheckedCount produk fisik • $totalDiffItemsCount item berselisih",
+                            text = zokasText("$totalCheckedCount produk fisik • $totalDiffItemsCount item berselisih", "$totalCheckedCount physical items • $totalDiffItemsCount discrepant"),
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold
@@ -229,7 +229,7 @@ fun StockAuditDialog(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("Selisih Kurang", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(zokasText("Selisih Kurang", "Shortage"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
                                 text = "- ${formatRupiah(totalLossRp)}",
                                 fontSize = 13.sp,
@@ -244,7 +244,7 @@ fun StockAuditDialog(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("Selisih Lebih", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(zokasText("Selisih Lebih", "Overage"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
                                 text = "+ ${formatRupiah(totalGainRp)}",
                                 fontSize = 13.sp,
@@ -261,7 +261,7 @@ fun StockAuditDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Cari nama produk atau Kode Unik (SKU)...", fontSize = 12.sp) },
+                    placeholder = { Text(zokasText("Cari nama produk atau Kode Unik (SKU)...", "Search product name or SKU..."), fontSize = 12.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -282,9 +282,9 @@ fun StockAuditDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val chips = listOf(
-                        "ALL" to "Semua ($totalCheckedCount)",
-                        "DIFF_ONLY" to "Ada Selisih ($totalDiffItemsCount)",
-                        "LOW_STOCK" to "Stok Menipis"
+                        "ALL" to zokasText("Semua ($totalCheckedCount)", "All ($totalCheckedCount)"),
+                        "DIFF_ONLY" to zokasText("Ada Selisih ($totalDiffItemsCount)", "Discrepancy ($totalDiffItemsCount)"),
+                        "LOW_STOCK" to zokasText("Stok Menipis", "Low Stock")
                     )
                     chips.forEach { (key, label) ->
                         val selected = filterMode == key
@@ -311,7 +311,7 @@ fun StockAuditDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "Tidak ada produk yang cocok dengan filter.",
+                            zokasText("Tidak ada produk yang cocok dengan filter.", "No products match this filter."),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
@@ -364,14 +364,14 @@ fun StockAuditDialog(
                                         Text(
                                             text = buildString {
                                                 if (sku.isNotEmpty()) append("[$sku] ")
-                                                append("Sistem: ${prod.stock} $unitLabel")
+                                                append(zokasText("Sistem: ${prod.stock} $unitLabel", "System: ${prod.stock} $unitLabel"))
                                             },
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         if (diff != 0) {
                                             Text(
-                                                text = if (diff > 0) "Selisih: +$diff $unitLabel" else "Selisih: $diff $unitLabel",
+                                                text = if (diff > 0) zokasText("Selisih: +$diff $unitLabel", "Diff: +$diff $unitLabel") else zokasText("Selisih: $diff $unitLabel", "Diff: $diff $unitLabel"),
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.ExtraBold,
                                                 color = if (diff > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
@@ -442,7 +442,7 @@ fun StockAuditDialog(
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Batal", fontWeight = FontWeight.SemiBold)
+                            Text(zokasText("Batal", "Cancel"), fontWeight = FontWeight.SemiBold)
                         }
                         Button(
                             onClick = { showConfirmSave = true },
@@ -456,7 +456,7 @@ fun StockAuditDialog(
                         ) {
                             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("SIMPAN HASIL AUDIT", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(zokasText("SIMPAN HASIL AUDIT", "SAVE AUDIT RESULT"), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
                 }
