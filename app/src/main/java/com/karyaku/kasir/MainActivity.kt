@@ -110,8 +110,8 @@ class MainActivity : AppCompatActivity() {
                                 val next = order[(order.indexOf(curr).coerceAtLeast(0) + 1) % order.size]
                                 language = next
                                 settingsManager.language = next
-                                LanguageManager.setLanguage(context, next)
-                                ZokasLocaleManager.setLanguage(context, next)
+                                LanguageManager.setLanguage(this@MainActivity, next)
+                                ZokasLocaleManager.setLanguage(this@MainActivity, next)
                             }
                         )
                     }
