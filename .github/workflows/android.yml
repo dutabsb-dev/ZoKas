@@ -2,7 +2,9 @@ name: Build APK and AAB
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 jobs:
@@ -16,8 +18,8 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: '17'
-          distribution: 'temurin'
 
       - name: Setup Gradle 8.7 (compatible with AGP 8.2.2)
         uses: gradle/actions/setup-gradle@v4
@@ -25,38 +27,51 @@ jobs:
           gradle-version: '8.7'
           cache-disabled: true
 
-      - name: Decode Keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Ensure Gradle Wrapper 8.7 exists
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/zokas-release.jks"
+          if [ ! -f "./gradlew" ]; then
+            gradle wrapper --gradle-version 8.7 --distribution-type bin --no-daemon
+          fi
+          chmod +x ./gradlew
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Decode Release Keystore (if configured)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_FILE_SECRET: ${{ secrets.KEYSTORE_FILE }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            TARGET_KS="${KEYSTORE_FILE_SECRET:-zokas-release.jks}"
+            echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/$TARGET_KS"
+            echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/app/$TARGET_KS"
+            echo "ACTIVE_KEYSTORE_PATH=$GITHUB_WORKSPACE/$TARGET_KS" >> "$GITHUB_ENV"
+          fi
 
       - name: Build Play Store Release AAB
         env:
-          KEYSTORE_FILE: ${{ secrets.KEYSTORE_BASE64 != '' && format('{0}/zokas-release.jks', github.workspace) || '' }}
+          KEYSTORE_FILE: ${{ env.ACTIVE_KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundlePlayRelease --no-configuration-cache
+        run: ./gradlew bundlePlayRelease --no-daemon --no-configuration-cache
 
       - name: Build Sideload Release APK
         env:
-          KEYSTORE_FILE: ${{ secrets.KEYSTORE_BASE64 != '' && format('{0}/zokas-release.jks', github.workspace) || '' }}
+          KEYSTORE_FILE: ${{ env.ACTIVE_KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleSideloadRelease --no-configuration-cache
+        run: ./gradlew assembleSideloadRelease --no-daemon --no-configuration-cache
 
       - name: Upload Play Store AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ZoKas-PlayStore-AAB
+          name: ZoKas-Play-AAB
           path: app/build/outputs/bundle/playRelease/*.aab
+          if-no-files-found: warn
 
       - name: Upload Sideload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZoKas-Sideload-APK
           path: app/build/outputs/apk/sideload/release/*.apk
+          if-no-files-found: warn
