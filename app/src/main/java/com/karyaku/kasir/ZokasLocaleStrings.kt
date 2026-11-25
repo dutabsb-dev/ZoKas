@@ -41,6 +41,8 @@ object ZokasLocaleManager {
     }
 
     fun isEnglish(): Boolean = LanguageManager.normalizeLang(currentLanguage) == "en"
+
+    fun currentLanguageLabel(): String = LanguageManager.getLanguageDisplayName(currentLanguage)
 }
 
 fun zokasText(id: String, en: String? = null, lang: String = ZokasLocaleManager.currentLanguage): String {

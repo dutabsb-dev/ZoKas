@@ -46,32 +46,24 @@ jobs:
             echo "ACTIVE_KEYSTORE_PATH=$GITHUB_WORKSPACE/$TARGET_KS" >> "$GITHUB_ENV"
           fi
 
-      - name: Build Play Store Release AAB
+      - name: Build Play Store AAB & Sideload APK
         env:
           KEYSTORE_FILE: ${{ env.ACTIVE_KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundlePlayRelease --no-daemon --no-configuration-cache
-
-      - name: Build Sideload Release APK
-        env:
-          KEYSTORE_FILE: ${{ env.ACTIVE_KEYSTORE_PATH }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleSideloadRelease --no-daemon --no-configuration-cache
+        run: ./gradlew bundlePlayRelease assembleSideloadRelease --no-daemon --no-configuration-cache
 
       - name: Upload Play Store AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZoKas-Play-AAB
           path: app/build/outputs/bundle/playRelease/*.aab
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload Sideload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZoKas-Sideload-APK
           path: app/build/outputs/apk/sideload/release/*.apk
-          if-no-files-found: warn
+          if-no-files-found: error
