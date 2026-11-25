@@ -37,7 +37,7 @@ data class ReminderRule(
     val productIds: List<Long> = emptyList(),
     val triggerType: ReminderTriggerType = ReminderTriggerType.BOTH,
     val stockThreshold: Int = 5,
-    val expiryDaysBefore: Int = 7, // Bebas: 0 (Hari H), 1, 3, 7, 14, 30, 60, 90, atau custom hari apa saja
+    val expiryDaysBefore: Int = 7,
     val includeAlreadyExpired: Boolean = true,
     val alertEvenIfZeroStock: Boolean = false,
     val repeatDailyUntilHandled: Boolean = true,
@@ -50,7 +50,7 @@ data class TriggeredReminder(
     val ruleId: String,
     val ruleName: String,
     val product: ProductEntity,
-    val kind: String, // "STOCK" atau "EXPIRY"
+    val kind: String,
     val title: String,
     val detail: String,
     val daysToExpiry: Long? = null,

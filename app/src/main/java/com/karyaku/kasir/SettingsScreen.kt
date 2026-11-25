@@ -264,6 +264,37 @@ fun SettingsScreen(
     if (showShiftHistory) {
         ShiftHistoryDialog(shifts = shifts, onDismiss = { showShiftHistory = false })
     }
+    var showReminderRulesDialog by remember { mutableStateOf(false) }
+    var showNotificationSettingsDialog by remember { mutableStateOf(false) }
+    val reminderRulesState = remember { mutableStateOf(CustomReminderManager.loadRules(context)) }
+    val notifSettingsMap by NotificationCenterManager.settingsFlow.collectAsStateWithLifecycle()
+    val currentBranchIdForRules by viewModel.currentBranchId.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        NotificationCenterManager.ensureInitialized(context)
+    }
+
+    if (showReminderRulesDialog) {
+        ReminderRuleManagerDialog(
+            rules = reminderRulesState.value,
+            products = products.filter { it.branchId == currentBranchIdForRules },
+            onSaveRules = { updated ->
+                CustomReminderManager.saveRules(context, updated)
+                reminderRulesState.value = updated
+            },
+            onDismiss = { showReminderRulesDialog = false }
+        )
+    }
+    if (showNotificationSettingsDialog) {
+        NotificationPreferencesDialog(
+            settingsMap = notifSettingsMap,
+            onUpdateSetting = { setting ->
+                NotificationCenterManager.updateCategorySetting(context, setting)
+            },
+            onDismiss = { showNotificationSettingsDialog = false }
+        )
+    }
+
     if (showRawMaterialDialog) {
         RawMaterialManagementDialog(rawMaterials = rawMaterials, viewModel = viewModel, onDismiss = { showRawMaterialDialog = false })
     }
@@ -456,191 +487,21 @@ fun SettingsScreen(
                 language = language
             )
         }
-        }
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(6.dp)
-            ) {
-                var showLocalRuleDlg by remember { mutableStateOf(false) }
-                var showLocalNotifPrefDlg by remember { mutableStateOf(false) }
-                val setProducts by viewModel.products.collectAsStateWithLifecycle()
-                val setBranchId by viewModel.currentBranchId.collectAsStateWithLifecycle()
-                val setNotifMap by NotificationCenterManager.settingsFlow.collectAsStateWithLifecycle()
-                var setRules by remember { mutableStateOf(CustomReminderManager.loadRules(context)) }
-
-                if (showLocalRuleDlg) {
-                    ReminderRuleManagerDialog(
-                        rules = setRules,
-                        products = setProducts.filter { it.branchId == setBranchId },
-                        onSaveRules = { updated ->
-                            CustomReminderManager.saveRules(context, updated)
-                            setRules = updated
-                        },
-                        onDismiss = { showLocalRuleDlg = false }
-                    )
-                }
-                if (showLocalNotifPrefDlg) {
-                    NotificationPreferencesDialog(
-                        settingsMap = setNotifMap,
-                        onUpdateSetting = { NotificationCenterManager.updateCategorySetting(context, it) },
-                        onDismiss = { showLocalNotifPrefDlg = false }
-                    )
-                }
-
-                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = zokasText("Pengingat Kustom & Notifikasi", "Custom Reminders & Notifications", lang),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = zokasText(
-                            "Atur aturan stok & expired date per produk/kategori serta saklar notifikasi lonceng, bar HP, dan HP Owner.",
-                            "Configure stock & expiry rules per product/category plus bell, phone bar, and Owner phone toggles.",
-                            lang
-                        ),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { showLocalRuleDlg = true },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.AlarmAdd, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = zokasText("Aturan Pengingat", "Reminder Rules", lang),
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = { showLocalNotifPrefDlg = true },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = zokasText("Saklar Notifikasi", "Alert Toggles", lang),
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(6.dp)
-            ) {
-                val modeLabels = listOf(
-                    "AWAM" to zokasText("AWAM", "BEGINNER", lang),
-                    "MUDAH" to zokasText("MUDAH", "EASY", lang),
-                    "STANDAR" to zokasText("STANDAR", "STANDARD", lang),
-                    "LENGKAP" to zokasText("LENGKAP", "FULL", lang)
-                )
-                val modeSummaryText = when (appModeState) {
-                    "AWAM" -> zokasText(
-                        "Aktif: Mode AWAM — Menampilkan pengaturan inti saja (Tema, Toko, Pembayaran, Printer, Backup) agar simpel dan tidak membingungkan.",
-                        "Active: BEGINNER Mode — Shows core settings only (Theme, Store, Payment, Printer, Backup) for simplicity.",
-                        lang
-                    )
-                    "MUDAH" -> zokasText(
-                        "Aktif: Mode MUDAH — Menampilkan pengaturan inti + Tipe Usaha & Akun Karyawan dengan panduan lengkap.",
-                        "Active: EASY Mode — Shows core settings plus Business Type & Staff Accounts with full guides.",
-                        lang
-                    )
-                    "STANDAR" -> zokasText(
-                        "Aktif: Mode STANDAR — Menampilkan fitur operasional toko harian + Modul Toko & Log Aktivitas.",
-                        "Active: STANDARD Mode — Shows daily store operations plus Store Modules & Activity Logs.",
-                        lang
-                    )
-                    else -> zokasText(
-                        "Aktif: Mode LENGKAP — Membuka semua fitur lanjutan (Modul Toko, HR, CRM, Pantauan HP Owner, & Sinkronisasi Multi-Perangkat).",
-                        "Active: FULL Mode — Unlocks all advanced features (Store Modules, HR, CRM, Owner Monitor, & Multi-Device Sync).",
-                        lang
-                    )
-                }
-
-                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = zokasText("Mode Tampilan Aplikasi", "App Display Mode", lang),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = zokasText(
-                            "Awam (paling ringkas), Mudah (ramah belajar), Standar, atau Lengkap. Bisa diubah kapan saja.",
-                            "Beginner (simplest), Easy (guided), Standard, or Full. Can be changed anytime.",
-                            lang
-                        ),
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                        modeLabels.forEach { (modeKey, modeLabel) ->
-                            FilterChip(
-                                selected = appModeState == modeKey,
-                                onClick = {
-                                    appModeState = modeKey
-                                    settingsManager.appMode = modeKey
-                                    val toastMsg = zokasText(
-                                        "Mode tampilan diubah ke $modeLabel",
-                                        "Display mode changed to $modeLabel",
-                                        lang
-                                    )
-                                    Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.weight(1f),
-                                label = {
-                                    Text(
-                                        text = modeLabel,
-                                        fontSize = 10.5.sp,
-                                        maxLines = 1,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            )
-                        }
-                    }
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = modeSummaryText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-        }
-
         item {
             SettingsAppearanceCard(
                 isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
                 uiScale = uiScale, onChangeUiScale = onChangeUiScale,
-                language = language, onToggleLanguage = onToggleLanguage
+                language = language, onToggleLanguage = onToggleLanguage,
+                appMode = appModeState,
+                onAppModeChange = { newMode ->
+                    appModeState = newMode
+                    settingsManager.appMode = newMode
+                    Toast.makeText(
+                        context,
+                        zokasText("Mode tampilan diubah ke $newMode", "Display mode changed to $newMode", lang),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             )
         }
 
@@ -680,87 +541,88 @@ fun SettingsScreen(
                 language = language
             )
         }
-        }
 
         if (appModeState == "STANDAR" || appModeState == "LENGKAP") {
-        item {
-            SettingsModuleCard(
-                enableBomModule = enableBomModule,
-                onBomModuleToggle = { checked ->
-                    enableBomModule = checked
-                    setBomEnabledInContext(context, checked)
-                    Toast.makeText(
-                        context,
-                        if (checked) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
-            onRawMaterialClick = {
-            if (enableBomModule) {
-            showRawMaterialDialog = true
-            } else {
-            Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
+            item {
+                SettingsModuleCard(
+                    enableBomModule = enableBomModule,
+                    onBomModuleToggle = { checked ->
+                        enableBomModule = checked
+                        setBomEnabledInContext(context, checked)
+                        Toast.makeText(
+                            context,
+                            if (checked) "Modul Resep / BOM diaktifkan." else "Modul Resep / BOM dinonaktifkan.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onRawMaterialClick = {
+                        if (enableBomModule) {
+                            showRawMaterialDialog = true
+                        } else {
+                            Toast.makeText(context, "Aktifkan Modul Resep / BOM terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    isTableModeEnabled = isTableModeEnabled,
+                    onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
+                    enableMultiCurrency = enableMultiCurrency,
+                    onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
+                    exchangeRateUsd = exchangeRateUsd,
+                    onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
+                    enableOrderTypes = enableOrderTypes,
+                    onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
+                    enableWholesale = enableWholesale,
+                    onWholesaleToggle = { enableWholesale = it; settingsManager.enableWholesale = it },
+                    enablePreOrder = enablePreOrder,
+                    onPreOrderToggle = { enablePreOrder = it; settingsManager.enablePreOrder = it },
+                    enableMembership = enableMembership,
+                    onMembershipToggle = { enableMembership = it; settingsManager.enableMembership = it },
+                    onManageMembershipClick = { showMembershipDialog = true },
+                    enableSupplier = enableSupplier,
+                    onSupplierToggle = { enableSupplier = it; settingsManager.enableSupplier = it },
+                    onManageSupplierClick = { showSupplierDialog = true },
+                    onCreatePOClick = { showPODialog = true },
+                    enableReservation = enableReservation,
+                    onReservationToggle = { enableReservation = it; settingsManager.enableReservation = it },
+                    onManageReservationClick = { showReservationDialog = true },
+                    enableFinance = enableFinance,
+                    onFinanceToggle = { enableFinance = it; settingsManager.enableFinance = it },
+                    onManageReceivableClick = { showReceivableDialog = true },
+                    onManagePayableClick = { showPayableDialog = true },
+                    onManageExpenseClick = { showExpenseDialog = true },
+                    enableHrModule = enableHrModule,
+                    onHrModuleToggle = {
+                        enableHrModule = it
+                        settingsManager.enableHrModule = it
+                        if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_HR_MODULE)) {
+                            activeProactiveGuide = ProactiveGuideManager.KEY_HR_MODULE
+                        }
+                    },
+                    enableCrmModule = enableCrmModule,
+                    onCrmModuleToggle = {
+                        enableCrmModule = it
+                        settingsManager.enableCrmModule = it
+                        if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_CRM_MODULE)) {
+                            activeProactiveGuide = ProactiveGuideManager.KEY_CRM_MODULE
+                        }
+                    },
+                    isOwner = currentUser.role == "OWNER",
+                    currentBranchName = currentBranch?.name ?: "Cabang Utama",
+                    totalBranches = allBranches.size,
+                    onManageBranchesClick = { showBranchManagementDialog = true },
+                    onTransferStockClick = { showStockTransferDialog = true },
+                    hhStart = hhStart,
+                    onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
+                    hhEnd = hhEnd,
+                    onHhEndChange = { hhEnd = it; settingsManager.happyHourEnd = it },
+                    hhDiscount = hhDiscount,
+                    onHhDiscountChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 },
+                    maxDiscountCap = maxDiscountCap,
+                    onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
+                    onOpenReminderRulesClick = { showReminderRulesDialog = true },
+                    onOpenNotificationSettingsClick = { showNotificationSettingsDialog = true },
+                    language = language
+                )
             }
-            },
-            isTableModeEnabled = isTableModeEnabled,
-            onTableModeToggle = { isTableModeEnabled = it; settingsManager.isTableModeEnabled = it },
-            enableMultiCurrency = enableMultiCurrency,
-            onMultiCurrencyToggle = { enableMultiCurrency = it; settingsManager.enableMultiCurrency = it },
-            exchangeRateUsd = exchangeRateUsd,
-            onExchangeRateChange = { exchangeRateUsd = it; settingsManager.exchangeRateUsd = it.toDoubleOrNull() ?: 15000.0 },
-            enableOrderTypes = enableOrderTypes,
-            onOrderTypesToggle = { enableOrderTypes = it; settingsManager.enableOrderTypes = it },
-            enableWholesale = enableWholesale,
-            onWholesaleToggle = { enableWholesale = it; settingsManager.enableWholesale = it },
-            enablePreOrder = enablePreOrder,
-            onPreOrderToggle = { enablePreOrder = it; settingsManager.enablePreOrder = it },
-            enableMembership = enableMembership,
-            onMembershipToggle = { enableMembership = it; settingsManager.enableMembership = it },
-            onManageMembershipClick = { showMembershipDialog = true },
-            enableSupplier = enableSupplier,
-            onSupplierToggle = { enableSupplier = it; settingsManager.enableSupplier = it },
-            onManageSupplierClick = { showSupplierDialog = true },
-            onCreatePOClick = { showPODialog = true },
-            enableReservation = enableReservation,
-            onReservationToggle = { enableReservation = it; settingsManager.enableReservation = it },
-            onManageReservationClick = { showReservationDialog = true },
-            enableFinance = enableFinance,
-            onFinanceToggle = { enableFinance = it; settingsManager.enableFinance = it },
-            onManageReceivableClick = { showReceivableDialog = true },
-            onManagePayableClick = { showPayableDialog = true },
-            onManageExpenseClick = { showExpenseDialog = true },
-            enableHrModule = enableHrModule,
-            onHrModuleToggle = {
-            enableHrModule = it
-            settingsManager.enableHrModule = it
-            if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_HR_MODULE)) {
-            activeProactiveGuide = ProactiveGuideManager.KEY_HR_MODULE
-            }
-            },
-            enableCrmModule = enableCrmModule,
-            onCrmModuleToggle = {
-            enableCrmModule = it
-            settingsManager.enableCrmModule = it
-            if (it && !ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_CRM_MODULE)) {
-            activeProactiveGuide = ProactiveGuideManager.KEY_CRM_MODULE
-            }
-            },
-            isOwner = currentUser.role == "OWNER",
-            currentBranchName = currentBranch?.name ?: "Cabang Utama",
-            totalBranches = allBranches.size,
-            onManageBranchesClick = { showBranchManagementDialog = true },
-            onTransferStockClick = { showStockTransferDialog = true },
-            hhStart = hhStart,
-            onHhStartChange = { hhStart = it; settingsManager.happyHourStart = it },
-            hhEnd = hhEnd,
-            onHhEndChange = { hhEnd = it; settingsManager.happyHourEnd = it },
-            hhDiscount = hhDiscount,
-            onHhDiscountChange = { hhDiscount = it; settingsManager.happyHourDiscount = it.toDoubleOrNull() ?: 0.0 },
-            maxDiscountCap = maxDiscountCap,
-            onMaxDiscountCapChange = { maxDiscountCap = it; settingsManager.maxDiscountCap = it.toLongOrNull() ?: 0L },
-            language = language
-            )
-        }
         }
 
         if (currentUser.role == "OWNER" && enableHrModule && appModeState == "LENGKAP") {
@@ -872,7 +734,6 @@ fun SettingsScreen(
                 language = language
             )
         }
-        }
 
         item {
             SettingsStoreProfileCard(
@@ -919,16 +780,15 @@ fun SettingsScreen(
                 language = language
             )
         }
-        }
 
         if (appModeState == "STANDAR" || appModeState == "LENGKAP") {
-        item {
-            SettingsAuditLogCard(
-                auditLogs = auditLogs,
-                dateFormat = dateFormat,
-                storeName = storeName ?: "ZoKas Store"
-            )
-        }
+            item {
+                SettingsAuditLogCard(
+                    auditLogs = auditLogs,
+                    dateFormat = dateFormat,
+                    storeName = storeName ?: "ZoKas Store"
+                )
+            }
         }
 
         item {

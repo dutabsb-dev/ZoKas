@@ -95,7 +95,9 @@ fun SettingsSectionLeadingIcon(
 fun SettingsAppearanceCard(
     isDarkMode: Boolean, onToggleDarkMode: () -> Unit,
     uiScale: Float, onChangeUiScale: (Float) -> Unit,
-    language: String, onToggleLanguage: () -> Unit
+    language: String, onToggleLanguage: () -> Unit,
+    appMode: String = "LENGKAP",
+    onAppModeChange: (String) -> Unit = {}
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     val lang = language
@@ -499,6 +501,57 @@ fun SettingsAppearanceCard(
                                 Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(15.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(activeLangDisplay, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+
+                        // 5. MODE TAMPILAN APLIKASI (AWAM, MUDAH, STANDAR, LENGKAP)
+                        val modeOptions = listOf(
+                            "AWAM" to zokasText("AWAM", "BEGINNER", lang),
+                            "MUDAH" to zokasText("MUDAH", "EASY", lang),
+                            "STANDAR" to zokasText("STANDAR", "STANDARD", lang),
+                            "LENGKAP" to zokasText("LENGKAP", "FULL", lang)
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = zokasText("Mode Tampilan Aplikasi", "App Display Mode", lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = zokasText(
+                                    "Awam (paling ringkas), Mudah (ramah belajar), Standar, atau Lengkap.",
+                                    "Beginner (simplest), Easy (guided), Standard, or Full.",
+                                    lang
+                                ),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                modeOptions.forEach { (mKey, mLabel) ->
+                                    FilterChip(
+                                        selected = appMode == mKey,
+                                        onClick = { onAppModeChange(mKey) },
+                                        modifier = Modifier.weight(1f),
+                                        label = {
+                                            Text(
+                                                text = mLabel,
+                                                fontSize = 10.sp,
+                                                maxLines = 1,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -1035,6 +1088,8 @@ fun SettingsModuleCard(
     onHhDiscountChange: (String) -> Unit = {},
     maxDiscountCap: String = "0",
     onMaxDiscountCapChange: (String) -> Unit = {},
+    onOpenReminderRulesClick: () -> Unit = {},
+    onOpenNotificationSettingsClick: () -> Unit = {},
     language: String
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -1094,6 +1149,81 @@ fun SettingsModuleCard(
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    // PENGINGAT KUSTOM & NOTIFIKASI DI DALAM MODUL TOKO
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.NotificationsActive,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = zokasText("Pengingat Kustom & Notifikasi", "Custom Reminders & Notifications", lang),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = zokasText(
+                                        "Atur aturan stok & expired date serta saklar notifikasi lonceng, bar HP, dan HP Owner.",
+                                        "Configure stock & expiry rules plus bell, phone bar, and Owner phone toggles.",
+                                        lang
+                                    ),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onOpenReminderRulesClick,
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.AlarmAdd, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = zokasText("Aturan Pengingat", "Reminder Rules", lang),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = onOpenNotificationSettingsClick,
+                                modifier = Modifier.weight(1f).height(38.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = zokasText("Saklar Notifikasi", "Alert Toggles", lang),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     // MULTI-CABANG DI DALAM MODUL TOKO

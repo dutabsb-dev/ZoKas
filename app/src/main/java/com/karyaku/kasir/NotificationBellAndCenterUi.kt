@@ -2,21 +2,29 @@ package com.karyaku.kasir
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.karyaku.kasir.data.local.ProductEntity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -104,11 +112,14 @@ fun NotificationAndReminderCenterDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.86f),
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.88f),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp
@@ -121,21 +132,21 @@ fun NotificationAndReminderCenterDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Pusat Pengingat & Notifikasi",
+                            text = "Pusat Notifikasi & Pengingat",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
+                            fontSize = 17.sp
                         )
                         Text(
-                            text = "${activeReminders.size} pengingat aktif • ${filteredNotifications.count { !it.isRead }} belum dibaca",
-                            fontSize = 12.sp,
+                            text = "Pantau stok menipis, kadaluarsa, & aktivitas toko",
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     IconButton(onClick = onOpenReminderRulesDialog) {
-                        Icon(Icons.Default.AlarmAdd, contentDescription = "Atur Pengingat Kustom")
+                        Icon(Icons.Default.AlarmAdd, contentDescription = "Aturan Pengingat")
                     }
                     IconButton(onClick = onOpenNotificationSettingsDialog) {
-                        Icon(Icons.Default.Tune, contentDescription = "Pengaturan Notifikasi")
+                        Icon(Icons.Default.Tune, contentDescription = "Saklar Notifikasi")
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Tutup")
@@ -144,16 +155,35 @@ fun NotificationAndReminderCenterDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                TabRow(selectedTabIndex = selectedTab) {
-                    Tab(
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Pengingat (${activeReminders.size})", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        modifier = Modifier.weight(1f),
+                        label = {
+                            Text(
+                                "Pengingat Aktif (${activeReminders.size})",
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     )
-                    Tab(
+                    FilterChip(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("Lonceng (${filteredNotifications.count { !it.isRead }})", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        modifier = Modifier.weight(1f),
+                        label = {
+                            Text(
+                                "Riwayat (${filteredNotifications.size})",
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     )
                 }
 
@@ -163,88 +193,93 @@ fun NotificationAndReminderCenterDialog(
                     if (activeReminders.isEmpty()) {
                         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(44.dp)
+                                )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text("Tidak ada pengingat stok atau expired saat ini.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(modifier = Modifier.height(12.dp))
-                                OutlinedButton(onClick = onOpenReminderRulesDialog) {
-                                    Text("Kelola Aturan Pengingat")
-                                }
+                                Text("Semua stok & masa berlaku aman", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Belum ada produk yang memicu aturan pengingat.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     } else {
                         LazyColumn(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 8.dp)
                         ) {
                             items(activeReminders, key = { it.eventKey }) { rem ->
-                                val isExpiry = rem.kind == "EXPIRY"
                                 Card(
-                                    shape = RoundedCornerShape(14.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isExpiry) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
-                                        else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+                                        containerColor = if (rem.kind == "EXPIRY")
+                                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
                                     ),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                 ) {
                                     Column(modifier = Modifier.padding(12.dp)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
-                                                imageVector = if (isExpiry) Icons.Default.EventBusy else Icons.Default.Inventory2,
+                                                imageVector = if (rem.kind == "EXPIRY") Icons.Default.EventBusy else Icons.Default.Inventory2,
                                                 contentDescription = null,
-                                                tint = if (isExpiry) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                                tint = if (rem.kind == "EXPIRY") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(rem.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                            Text(
+                                                text = rem.title,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(
+                                                onClick = { onDismissReminder(rem.eventKey) },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(Icons.Default.Close, contentDescription = "Abaikan", modifier = Modifier.size(16.dp))
+                                            }
                                         }
                                         Spacer(modifier = Modifier.height(4.dp))
-                                        Text(rem.detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Spacer(modifier = Modifier.height(10.dp))
-
-                                        if (!isExpiry) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Button(
+                                        Text(
+                                            text = rem.detail,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            if (rem.kind == "STOCK") {
+                                                OutlinedButton(
                                                     onClick = { onRestockProduct(rem.product) },
                                                     modifier = Modifier.weight(1f),
-                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                                 ) {
-                                                    Text("Restock / Audit", fontSize = 12.sp, maxLines = 1)
+                                                    Text("Restock +5", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
+                                            } else {
                                                 OutlinedButton(
-                                                    onClick = { onDismissReminder(rem.eventKey) },
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                                ) {
-                                                    Text("Abaikan", fontSize = 12.sp)
-                                                }
-                                            }
-                                        } else {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Button(
                                                     onClick = { onPromoProduct(rem.product, rem.suggestedPromoDiscountPercent) },
                                                     modifier = Modifier.weight(1f),
-                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                                 ) {
-                                                    Text("Promo -${rem.suggestedPromoDiscountPercent}%", fontSize = 11.sp, maxLines = 1)
+                                                    Text("Diskon -${rem.suggestedPromoDiscountPercent}%", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
                                                 OutlinedButton(
                                                     onClick = { onWasteProduct(rem.product) },
                                                     modifier = Modifier.weight(1f),
-                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                                                 ) {
-                                                    Text("Tandai Waste", fontSize = 11.sp, maxLines = 1)
-                                                }
-                                                TextButton(
-                                                    onClick = { onDismissReminder(rem.eventKey) },
-                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
-                                                ) {
-                                                    Text("Abaikan", fontSize = 11.sp)
+                                                    Text("Tandai Waste", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -254,9 +289,10 @@ fun NotificationAndReminderCenterDialog(
                         }
                     }
                 } else {
-                    // Filter kategori cepat
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         FilterChip(
@@ -264,67 +300,67 @@ fun NotificationAndReminderCenterDialog(
                             onClick = { selectedCategoryFilter = null },
                             label = { Text("Semua", fontSize = 11.sp) }
                         )
-                        enabledCategories.take(3).forEach { cat ->
+                        NotificationCategory.entries.forEach { cat ->
                             FilterChip(
                                 selected = selectedCategoryFilter == cat,
-                                onClick = { selectedCategoryFilter = if (selectedCategoryFilter == cat) null else cat },
-                                label = { Text(cat.titleId, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                onClick = { selectedCategoryFilter = cat },
+                                label = { Text(cat.titleId, fontSize = 11.sp) }
                             )
                         }
                     }
                     Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = onMarkAllRead) { Text("Tandai Dibaca", fontSize = 11.sp) }
+                        TextButton(onClick = onClearAllNotifications) { Text("Bersihkan", fontSize = 11.sp) }
+                    }
 
                     if (filteredNotifications.isEmpty()) {
                         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Text("Belum ada notifikasi untuk kategori aktif.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Belum ada riwayat notifikasi.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
+                        val fmt = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
                         LazyColumn(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(bottom = 8.dp)
                         ) {
                             items(filteredNotifications, key = { it.id }) { item ->
-                                val timeStr = remember(item.timestamp) {
-                                    SimpleDateFormat("dd/MM HH:mm", Locale("id", "ID")).format(Date(item.timestamp))
-                                }
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { onMarkRead(item.id) },
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(10.dp),
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (!item.isRead) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                        containerColor = if (item.isRead)
+                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                        else
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                                     )
                                 ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text(
-                                                text = "[${item.category.titleId}] ${item.title}",
-                                                fontWeight = if (!item.isRead) FontWeight.Bold else FontWeight.SemiBold,
-                                                fontSize = 13.sp,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            Text(timeStr, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(item.title, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                            Text(fmt.format(Date(item.timestamp)), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(item.message, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
                         }
                     }
+                }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        TextButton(onClick = onMarkAllRead) { Text("Tandai Semua Dibaca") }
-                        TextButton(onClick = onClearAllNotifications) { Text("Bersihkan", color = MaterialTheme.colorScheme.error) }
-                    }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Tutup", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -342,9 +378,14 @@ fun ReminderRuleManagerDialog(
     var editingRule by remember { mutableStateOf<ReminderRule?>(null) }
     var showCreateEditor by remember { mutableStateOf(false) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.84f),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.86f),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
@@ -358,13 +399,17 @@ fun ReminderRuleManagerDialog(
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Tutup") }
                 }
                 Text(
-                    "Atur target produk, batas stok minimum, dan peringatan expired date (H-7, H-3, H-1).",
+                    "Atur target produk, batas stok minimum, dan aturan pengingat kadaluarsa (H-0 sampai H-90+).",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
                     items(workingRules, key = { it.id }) { rule ->
                         Card(
                             shape = RoundedCornerShape(12.dp),
@@ -381,8 +426,9 @@ fun ReminderRuleManagerDialog(
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    val expirySummary = if (rule.expiryDaysBefore == 0) "Hari H (H-0)" else "H-${rule.expiryDaysBefore}"
                                     Text(
-                                        "Stok <= ${rule.stockThreshold} • Expired <= H-${rule.expiryDaysBefore}",
+                                        "Stok <= ${rule.stockThreshold} • Expired <= $expirySummary • ${rule.expiryActionPreset.labelId}",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -397,6 +443,18 @@ fun ReminderRuleManagerDialog(
                                 IconButton(onClick = { editingRule = rule; showCreateEditor = true }) {
                                     Icon(Icons.Default.Edit, contentDescription = "Edit Aturan")
                                 }
+                                if (workingRules.size > 1) {
+                                    IconButton(onClick = {
+                                        workingRules = workingRules.filterNot { it.id == rule.id }
+                                        onSaveRules(workingRules)
+                                    }) {
+                                        Icon(
+                                            Icons.Default.DeleteOutline,
+                                            contentDescription = "Hapus Aturan",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -409,7 +467,7 @@ fun ReminderRuleManagerDialog(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Tambah Aturan Pengingat Baru")
+                    Text("Tambah Aturan Pengingat Baru", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -447,25 +505,50 @@ private fun ReminderRuleEditorDialog(
     var scopeType by remember(initialRule) { mutableStateOf(initialRule?.scopeType ?: ReminderScopeType.ALL) }
     var triggerType by remember(initialRule) { mutableStateOf(initialRule?.triggerType ?: ReminderTriggerType.BOTH) }
     var stockThresholdText by remember(initialRule) { mutableStateOf((initialRule?.stockThreshold ?: 5).toString()) }
-    var expiryDays by remember(initialRule) { mutableStateOf(initialRule?.expiryDaysBefore ?: 7) }
+    var expiryDaysText by remember(initialRule) { mutableStateOf((initialRule?.expiryDaysBefore ?: 7).toString()) }
+    var includeAlreadyExpired by remember(initialRule) { mutableStateOf(initialRule?.includeAlreadyExpired ?: true) }
+    var alertEvenIfZeroStock by remember(initialRule) { mutableStateOf(initialRule?.alertEvenIfZeroStock ?: false) }
+    var repeatDailyUntilHandled by remember(initialRule) { mutableStateOf(initialRule?.repeatDailyUntilHandled ?: true) }
+    var expiryActionPreset by remember(initialRule) { mutableStateOf(initialRule?.expiryActionPreset ?: ExpiryActionPreset.PROMO_DISCOUNT) }
+    var customDiscountText by remember(initialRule) { mutableStateOf((initialRule?.customPromoDiscountPercent ?: 20).toString()) }
+    var productFilterQuery by remember { mutableStateOf("") }
+
     val selectedCategories = remember(initialRule) { mutableStateListOf<String>().apply { addAll(initialRule?.categories ?: emptyList()) } }
     val selectedProductIds = remember(initialRule) { mutableStateListOf<Long>().apply { addAll(initialRule?.productIds ?: emptyList()) } }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.88f),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.90f),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    if (initialRule == null) "Buat Aturan Pengingat" else "Edit Aturan Pengingat",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp
-                )
-                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        if (initialRule == null) "Buat Aturan Pengingat" else "Edit Aturan Pengingat",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup")
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
 
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
                     item {
                         OutlinedTextField(
                             value = ruleName,
@@ -475,38 +558,97 @@ private fun ReminderRuleEditorDialog(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+
+                    // PEMILIHAN PRODUK (Susun bertingkat agar tidak terpotong menjadi "P")
                     item {
                         Text("Pemilihan Produk", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            ReminderScopeType.entries.forEach { sc ->
-                                FilterChip(
-                                    selected = scopeType == sc,
-                                    onClick = { scopeType = sc },
-                                    label = { Text(sc.labelId, fontSize = 11.sp, maxLines = 1) }
-                                )
-                            }
-                        }
-                    }
-                    if (scopeType == ReminderScopeType.CATEGORY) {
-                        items(allCategories) { cat ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    if (cat in selectedCategories) selectedCategories.remove(cat) else selectedCategories.add(cat)
-                                },
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Checkbox(
-                                    checked = cat in selectedCategories,
-                                    onCheckedChange = { checked ->
-                                        if (checked) selectedCategories.add(cat) else selectedCategories.remove(cat)
-                                    }
+                                listOf(ReminderScopeType.ALL, ReminderScopeType.CATEGORY).forEach { sc ->
+                                    FilterChip(
+                                        selected = scopeType == sc,
+                                        onClick = { scopeType = sc },
+                                        modifier = Modifier.weight(1f),
+                                        label = {
+                                            Text(
+                                                text = sc.labelId,
+                                                fontSize = 11.5.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                            FilterChip(
+                                selected = scopeType == ReminderScopeType.SPECIFIC_PRODUCTS,
+                                onClick = { scopeType = ReminderScopeType.SPECIFIC_PRODUCTS },
+                                modifier = Modifier.fillMaxWidth(),
+                                leadingIcon = {
+                                    Icon(Icons.Default.Checklist, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                label = {
+                                    Text(
+                                        text = if (selectedProductIds.isNotEmpty())
+                                            "Produk Spesifik (${selectedProductIds.size} dipilih)"
+                                        else
+                                            ReminderScopeType.SPECIFIC_PRODUCTS.labelId,
+                                        fontSize = 12.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            )
+                        }
+                    }
+
+                    if (scopeType == ReminderScopeType.CATEGORY) {
+                        if (allCategories.isEmpty()) {
+                            item {
+                                Text(
+                                    "Belum ada kategori produk tersimpan.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(cat, fontSize = 13.sp)
+                            }
+                        } else {
+                            items(allCategories) { cat ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        if (cat in selectedCategories) selectedCategories.remove(cat) else selectedCategories.add(cat)
+                                    },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = cat in selectedCategories,
+                                        onCheckedChange = { checked ->
+                                            if (checked) selectedCategories.add(cat) else selectedCategories.remove(cat)
+                                        }
+                                    )
+                                    Text(cat, fontSize = 13.sp)
+                                }
                             }
                         }
                     }
+
                     if (scopeType == ReminderScopeType.SPECIFIC_PRODUCTS) {
-                        items(products.take(40), key = { it.id }) { prod ->
+                        item {
+                            OutlinedTextField(
+                                value = productFilterQuery,
+                                onValueChange = { productFilterQuery = it },
+                                placeholder = { Text("Cari nama produk...", fontSize = 12.sp) },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        val filteredProds = products.filter {
+                            productFilterQuery.isBlank() || it.name.contains(productFilterQuery, ignoreCase = true)
+                        }.take(50)
+                        items(filteredProds, key = { it.id }) { prod ->
                             Row(
                                 modifier = Modifier.fillMaxWidth().clickable {
                                     if (prod.id in selectedProductIds) selectedProductIds.remove(prod.id) else selectedProductIds.add(prod.id)
@@ -519,40 +661,196 @@ private fun ReminderRuleEditorDialog(
                                         if (checked) selectedProductIds.add(prod.id) else selectedProductIds.remove(prod.id)
                                     }
                                 )
-                                Text("${prod.name} (Stok: ${prod.stock})", fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    "${prod.name} (Stok: ${prod.stock})",
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
+
+                    // JENIS PEMICU (Disusun bertumpuk penuh agar label tidak terpotong "Mendekati / Lewa...")
                     item {
                         Text("Jenis Pemicu (Trigger)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             ReminderTriggerType.entries.forEach { tr ->
                                 FilterChip(
                                     selected = triggerType == tr,
                                     onClick = { triggerType = tr },
-                                    label = { Text(tr.labelId, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = {
+                                        Text(
+                                            text = tr.labelId,
+                                            fontSize = 12.sp,
+                                            maxLines = 1
+                                        )
+                                    }
                                 )
                             }
                         }
                     }
-                    item {
-                        OutlinedTextField(
-                            value = stockThresholdText,
-                            onValueChange = { stockThresholdText = it.filter { ch -> ch.isDigit() } },
-                            label = { Text("Batas Stok Minimum (<=)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+
+                    if (triggerType == ReminderTriggerType.LOW_STOCK || triggerType == ReminderTriggerType.BOTH) {
+                        item {
+                            OutlinedTextField(
+                                value = stockThresholdText,
+                                onValueChange = { stockThresholdText = it.filter { ch -> ch.isDigit() } },
+                                label = { Text("Batas Stok Minimum (<=)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
-                    item {
-                        Text("Peringatan Expired Date", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(1, 3, 7, 14).forEach { days ->
-                                FilterChip(
-                                    selected = expiryDays == days,
-                                    onClick = { expiryDays = days },
-                                    label = { Text("H-$days", fontSize = 12.sp) }
-                                )
+
+                    // PENGATURAN KADALUARSA LEBIH LUAS & CUSTOM
+                    if (triggerType == ReminderTriggerType.EXPIRY || triggerType == ReminderTriggerType.BOTH) {
+                        item {
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        "Aturan Peringatan Kadaluarsa (Custom)",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.5.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        "Pilih preset cepat atau ketik jumlah hari bebas sebelum tanggal expired:",
+                                        fontSize = 11.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    val currentDays = expiryDaysText.toIntOrNull() ?: 7
+                                    val presetRows = listOf(
+                                        listOf(0 to "Hari H", 1 to "H-1", 3 to "H-3", 7 to "H-7"),
+                                        listOf(14 to "H-14", 30 to "H-30", 60 to "H-60", 90 to "H-90")
+                                    )
+                                    presetRows.forEach { rowPresets ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            rowPresets.forEach { (daysVal, label) ->
+                                                FilterChip(
+                                                    selected = currentDays == daysVal,
+                                                    onClick = { expiryDaysText = daysVal.toString() },
+                                                    modifier = Modifier.weight(1f),
+                                                    label = {
+                                                        Text(
+                                                            text = label,
+                                                            fontSize = 11.sp,
+                                                            maxLines = 1,
+                                                            textAlign = TextAlign.Center,
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        )
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    OutlinedTextField(
+                                        value = expiryDaysText,
+                                        onValueChange = { expiryDaysText = it.filter { ch -> ch.isDigit() }.take(4) },
+                                        label = { Text("Custom Hari Sebelum Expired (0 = Hari H)") },
+                                        placeholder = { Text("Contoh: 10, 45, 120") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { includeAlreadyExpired = !includeAlreadyExpired },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = includeAlreadyExpired,
+                                            onCheckedChange = { includeAlreadyExpired = it }
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Sertakan produk yang sudah lewat expired", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text("Tetap bunyikan peringatan jika tanggal expired sudah terlewat.", fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { alertEvenIfZeroStock = !alertEvenIfZeroStock },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = alertEvenIfZeroStock,
+                                            onCheckedChange = { alertEvenIfZeroStock = it }
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Ingatkan meski stok tercatat 0", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text("Berguna untuk audit fisik barang kadaluarsa di rak.", fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { repeatDailyUntilHandled = !repeatDailyUntilHandled },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = repeatDailyUntilHandled,
+                                            onCheckedChange = { repeatDailyUntilHandled = it }
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Ulangi pengingat setiap hari sampai ditindaklanjuti", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text("Jika diabaikan hari ini, besok tetap muncul lagi sampai stok di-promo/waste.", fontSize = 10.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                                    Text("Tindakan Disarankan Saat Muncul Alert", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        ExpiryActionPreset.entries.forEach { preset ->
+                                            FilterChip(
+                                                selected = expiryActionPreset == preset,
+                                                onClick = {
+                                                    expiryActionPreset = preset
+                                                    if (preset.defaultDiscount > 0 && (customDiscountText.toIntOrNull() ?: 0) == 0) {
+                                                        customDiscountText = preset.defaultDiscount.toString()
+                                                    }
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                label = { Text(preset.labelId, fontSize = 11.5.sp, maxLines = 1) }
+                                            )
+                                        }
+                                    }
+
+                                    if (expiryActionPreset == ExpiryActionPreset.PROMO_DISCOUNT || expiryActionPreset == ExpiryActionPreset.PRIORITY_SELL) {
+                                        OutlinedTextField(
+                                            value = customDiscountText,
+                                            onValueChange = { customDiscountText = it.filter { ch -> ch.isDigit() }.take(2) },
+                                            label = { Text("Saran Diskon Promo Cepat (%)") },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -564,6 +862,8 @@ private fun ReminderRuleEditorDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(onClick = {
                         val threshold = stockThresholdText.toIntOrNull() ?: 5
+                        val daysVal = (expiryDaysText.toIntOrNull() ?: 7).coerceAtLeast(0)
+                        val discVal = (customDiscountText.toIntOrNull() ?: expiryActionPreset.defaultDiscount).coerceIn(0, 95)
                         val finalName = ruleName.trim().ifBlank { "Aturan Pengingat" }
                         onSave(
                             ReminderRule(
@@ -575,11 +875,16 @@ private fun ReminderRuleEditorDialog(
                                 productIds = selectedProductIds.toList(),
                                 triggerType = triggerType,
                                 stockThreshold = threshold,
-                                expiryDaysBefore = expiryDays
+                                expiryDaysBefore = daysVal,
+                                includeAlreadyExpired = includeAlreadyExpired,
+                                alertEvenIfZeroStock = alertEvenIfZeroStock,
+                                repeatDailyUntilHandled = repeatDailyUntilHandled,
+                                expiryActionPreset = expiryActionPreset,
+                                customPromoDiscountPercent = discVal
                             )
                         )
                     }) {
-                        Text("Simpan Aturan")
+                        Text("Simpan Aturan", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -593,9 +898,14 @@ fun NotificationPreferencesDialog(
     onUpdateSetting: (CategoryNotificationSetting) -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.82f),
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.86f),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
@@ -605,7 +915,12 @@ fun NotificationPreferencesDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Saklar Notifikasi per Kejadian", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(
+                        text = "Saklar Notifikasi per Kejadian",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        modifier = Modifier.weight(1f)
+                    )
                     IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "Tutup") }
                 }
                 Text(
@@ -615,41 +930,79 @@ fun NotificationPreferencesDialog(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 14.dp)
+                ) {
                     items(NotificationCategory.entries) { cat ->
                         val cfg = settingsMap[cat] ?: CategoryNotificationSetting(cat)
-                        Card(shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text(cat.titleId, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text(cat.descId, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                 Spacer(modifier = Modifier.height(6.dp))
+
+                                // 3 kolom seimbang dengan weight(1f) agar label "Owner" & switch tidak pernah terpotong
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Lonceng", fontSize = 12.sp)
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "Lonceng",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            textAlign = TextAlign.Center
+                                        )
                                         Switch(
                                             checked = cfg.bellEnabled,
-                                            onCheckedChange = { onUpdateSetting(cfg.copy(bellEnabled = it)) }
+                                            onCheckedChange = { onUpdateSetting(cfg.copy(bellEnabled = it)) },
+                                            modifier = Modifier.scale(0.88f)
                                         )
                                     }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Bar HP", fontSize = 12.sp)
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "Bar HP",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            textAlign = TextAlign.Center
+                                        )
                                         Switch(
                                             checked = cfg.systemBarEnabled,
-                                            onCheckedChange = { onUpdateSetting(cfg.copy(systemBarEnabled = it)) }
+                                            onCheckedChange = { onUpdateSetting(cfg.copy(systemBarEnabled = it)) },
+                                            modifier = Modifier.scale(0.88f)
                                         )
                                     }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Owner", fontSize = 12.sp)
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "HP Owner",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            textAlign = TextAlign.Center
+                                        )
                                         Switch(
                                             checked = cfg.remoteOwnerEnabled,
-                                            onCheckedChange = { onUpdateSetting(cfg.copy(remoteOwnerEnabled = it)) }
+                                            onCheckedChange = { onUpdateSetting(cfg.copy(remoteOwnerEnabled = it)) },
+                                            modifier = Modifier.scale(0.88f)
                                         )
                                     }
                                 }
@@ -659,8 +1012,12 @@ fun NotificationPreferencesDialog(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                    Text("Selesai")
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Selesai", fontWeight = FontWeight.Bold)
                 }
             }
         }
