@@ -486,7 +486,7 @@ fun SettingsAppearanceCard(
                             Button(
                                 onClick = {
                                     val idx = langCycle.indexOf(activeLangCode)
-                                    val nextCode = langCycle[(if (idx >= 0) idx + 1 else 0 + 1) % langCycle.size]
+                                    val nextCode = langCycle[(if (idx >= 0) idx + 1 else 1) % langCycle.size]
                                     SettingsUpgradeOneHelper.persistManualLanguage(context, nextCode)
                                     onToggleLanguage()
                                 },

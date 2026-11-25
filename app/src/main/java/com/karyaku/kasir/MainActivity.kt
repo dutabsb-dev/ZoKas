@@ -789,15 +789,15 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
 
                         NotificationBellButton(
                             unreadCount = unreadNotifCount,
-                            onClick = { showNotificationCenter = true },
-                            modifier = Modifier.size(36.dp)
+                            onClick = { showNotificationCenter = true }
                         )
-                        IconButton(onClick = { showTutorialDialog = true }, modifier = Modifier.size(36.dp)) {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        IconButton(onClick = { showTutorialDialog = true }, modifier = Modifier.size(34.dp)) {
                             Icon(
                                 Icons.Default.HelpOutline,
-                                contentDescription = "Panduan & Tutorial",
+                                contentDescription = zokasText("Panduan & Tutorial", "Guide & Tutorials", language),
                                 tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(19.dp)
                             )
                         }
 

@@ -88,6 +88,7 @@ fun SettingsScreen(
     var cashRoundingUnit by remember { mutableStateOf(taxPrefs.getInt("cash_rounding_unit", 0)) }
     var cfdThankYouMessage by remember { mutableStateOf(LocalCfdServerManager.getCustomThankYouMessage(context)) }
 
+    var appModeState by remember { mutableStateOf(settingsManager.appMode) }
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
     var currentPaymentMethods by remember { mutableStateOf(settingsManager.paymentMethods) }
@@ -455,7 +456,8 @@ fun SettingsScreen(
                 language = language
             )
         }
-item {
+        }
+        item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -487,15 +489,19 @@ item {
                     )
                 }
 
-                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Pengingat Kustom & Notifikasi",
+                        text = zokasText("Pengingat Kustom & Notifikasi", "Custom Reminders & Notifications", lang),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Atur aturan stok & expired date per produk/kategori serta saklar notifikasi lonceng, bar HP, dan HP Owner.",
+                        text = zokasText(
+                            "Atur aturan stok & expired date per produk/kategori serta saklar notifikasi lonceng, bar HP, dan HP Owner.",
+                            "Configure stock & expiry rules per product/category plus bell, phone bar, and Owner phone toggles.",
+                            lang
+                        ),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -503,57 +509,128 @@ item {
                         OutlinedButton(
                             onClick = { showLocalRuleDlg = true },
                             modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(Icons.Default.AlarmAdd, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Aturan Pengingat", fontSize = 12.sp, maxLines = 1)
+                            Icon(Icons.Default.AlarmAdd, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = zokasText("Aturan Pengingat", "Reminder Rules", lang),
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                         OutlinedButton(
                             onClick = { showLocalNotifPrefDlg = true },
                             modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Saklar Notifikasi", fontSize = 12.sp, maxLines = 1)
+                            Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = zokasText("Saklar Notifikasi", "Alert Toggles", lang),
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
             }
         }
 
-item {
+        item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(6.dp)
             ) {
-                var currentMode by remember { mutableStateOf(settingsManager.appMode) }
-                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val modeLabels = listOf(
+                    "AWAM" to zokasText("AWAM", "BEGINNER", lang),
+                    "MUDAH" to zokasText("MUDAH", "EASY", lang),
+                    "STANDAR" to zokasText("STANDAR", "STANDARD", lang),
+                    "LENGKAP" to zokasText("LENGKAP", "FULL", lang)
+                )
+                val modeSummaryText = when (appModeState) {
+                    "AWAM" -> zokasText(
+                        "Aktif: Mode AWAM — Menampilkan pengaturan inti saja (Tema, Toko, Pembayaran, Printer, Backup) agar simpel dan tidak membingungkan.",
+                        "Active: BEGINNER Mode — Shows core settings only (Theme, Store, Payment, Printer, Backup) for simplicity.",
+                        lang
+                    )
+                    "MUDAH" -> zokasText(
+                        "Aktif: Mode MUDAH — Menampilkan pengaturan inti + Tipe Usaha & Akun Karyawan dengan panduan lengkap.",
+                        "Active: EASY Mode — Shows core settings plus Business Type & Staff Accounts with full guides.",
+                        lang
+                    )
+                    "STANDAR" -> zokasText(
+                        "Aktif: Mode STANDAR — Menampilkan fitur operasional toko harian + Modul Toko & Log Aktivitas.",
+                        "Active: STANDARD Mode — Shows daily store operations plus Store Modules & Activity Logs.",
+                        lang
+                    )
+                    else -> zokasText(
+                        "Aktif: Mode LENGKAP — Membuka semua fitur lanjutan (Modul Toko, HR, CRM, Pantauan HP Owner, & Sinkronisasi Multi-Perangkat).",
+                        "Active: FULL Mode — Unlocks all advanced features (Store Modules, HR, CRM, Owner Monitor, & Multi-Device Sync).",
+                        lang
+                    )
+                }
+
+                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        "Mode Tampilan Aplikasi",
+                        text = zokasText("Mode Tampilan Aplikasi", "App Display Mode", lang),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Awam (paling ringkas), Mudah (ramah belajar), Standar, atau Lengkap. Bisa diubah kapan saja.",
+                        text = zokasText(
+                            "Awam (paling ringkas), Mudah (ramah belajar), Standar, atau Lengkap. Bisa diubah kapan saja.",
+                            "Beginner (simplest), Easy (guided), Standard, or Full. Can be changed anytime.",
+                            lang
+                        ),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf("AWAM", "MUDAH", "STANDAR", "LENGKAP").forEach { mode ->
+                        modeLabels.forEach { (modeKey, modeLabel) ->
                             FilterChip(
-                                selected = currentMode == mode,
+                                selected = appModeState == modeKey,
                                 onClick = {
-                                    currentMode = mode
-                                    settingsManager.appMode = mode
-                                    Toast.makeText(context, "Mode diubah ke $mode", Toast.LENGTH_SHORT).show()
+                                    appModeState = modeKey
+                                    settingsManager.appMode = modeKey
+                                    val toastMsg = zokasText(
+                                        "Mode tampilan diubah ke $modeLabel",
+                                        "Display mode changed to $modeLabel",
+                                        lang
+                                    )
+                                    Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
                                 },
-                                label = { Text(mode, fontSize = 11.sp) }
+                                modifier = Modifier.weight(1f),
+                                label = {
+                                    Text(
+                                        text = modeLabel,
+                                        fontSize = 10.5.sp,
+                                        maxLines = 1,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             )
                         }
+                    }
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = modeSummaryText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        )
                     }
                 }
             }
@@ -567,7 +644,7 @@ item {
             )
         }
 
-        if (currentUser.role == "OWNER") {
+        if (currentUser.role == "OWNER" && appModeState != "AWAM") {
             item {
                 SettingsBusinessTypeCard(
                     currentBusinessType = businessTypeState,
@@ -603,7 +680,9 @@ item {
                 language = language
             )
         }
+        }
 
+        if (appModeState == "STANDAR" || appModeState == "LENGKAP") {
         item {
             SettingsModuleCard(
                 enableBomModule = enableBomModule,
@@ -682,8 +761,9 @@ item {
             language = language
             )
         }
+        }
 
-        if (currentUser.role == "OWNER" && enableHrModule) {
+        if (currentUser.role == "OWNER" && enableHrModule && appModeState == "LENGKAP") {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -737,7 +817,7 @@ item {
             }
         }
 
-        if (currentUser.role == "OWNER" && enableCrmModule) {
+        if (currentUser.role == "OWNER" && enableCrmModule && appModeState == "LENGKAP") {
             item {
                 SettingsCrmCard(
                     enableBirthdayDiscount = enableBirthdayDiscount,
@@ -756,12 +836,14 @@ item {
             }
         }
 
-        item {
-            SettingsOwnerMonitorCard()
-        }
+        if (appModeState == "LENGKAP") {
+            item {
+                SettingsOwnerMonitorCard()
+            }
 
-        item {
-            SettingsMultiDeviceSyncCard(viewModel = viewModel)
+            item {
+                SettingsMultiDeviceSyncCard(viewModel = viewModel)
+            }
         }
 
         item {
@@ -789,6 +871,7 @@ item {
                 },
                 language = language
             )
+        }
         }
 
         item {
@@ -836,13 +919,16 @@ item {
                 language = language
             )
         }
+        }
 
+        if (appModeState == "STANDAR" || appModeState == "LENGKAP") {
         item {
             SettingsAuditLogCard(
                 auditLogs = auditLogs,
                 dateFormat = dateFormat,
                 storeName = storeName ?: "ZoKas Store"
             )
+        }
         }
 
         item {

@@ -217,8 +217,9 @@ private val allTutorialTopics = listOf(
 @Composable
 fun SettingsTutorialCard(
     onOpenTutorial: () -> Unit,
-    language: String = "in"
+    language: String = "id"
 ) {
+    val normLang = LanguageManager.normalizeLang(language)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -251,16 +252,17 @@ fun SettingsTutorialCard(
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (language == "in") "Buku Panduan & Tutorial Lengkap" else "Complete Guide & Tutorials",
+                    text = zokasText("Buku Panduan & Tutorial Lengkap", "Complete Guide & Tutorials", normLang),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = if (language == "in")
-                        "Cara pakai semua fitur & EDC langkah demi langkah"
-                    else
+                    text = zokasText(
+                        "Cara pakai semua fitur & EDC langkah demi langkah",
                         "Step-by-step guide for all features & EDC",
+                        normLang
+                    ),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
