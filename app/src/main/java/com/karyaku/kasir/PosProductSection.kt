@@ -53,13 +53,14 @@ import com.karyaku.kasir.data.local.ProductEntity
 import java.io.File
 
 
-private fun formatStockDecimal(stockVal: Double, unit: String): String {
+private fun formatStockDecimal(stockVal: Double, unit: String, overrideDecimal: Double? = null): String {
+    val effectiveVal = overrideDecimal ?: stockVal
     val isWeightOrVol = unit.lowercase() in listOf("kg", "gram", "g", "liter", "l", "ml", "ons")
-    val hasFrac = Math.abs(stockVal - Math.rint(stockVal)) > 1e-6
-    return if (isWeightOrVol || hasFrac) {
-        String.format(java.util.Locale("id", "ID"), "%.2f", stockVal)
+    val hasFrac = Math.abs(effectiveVal - Math.rint(effectiveVal)) > 1e-6
+    return if (isWeightOrVol || hasFrac || overrideDecimal != null) {
+        String.format(java.util.Locale("id", "ID"), "%.2f", effectiveVal)
     } else {
-        stockVal.toInt().toString()
+        effectiveVal.toInt().toString()
     }
 }
 

@@ -294,7 +294,14 @@ fun ProductFormBottomSheet(
             } else {
                 finalPrice = singlePrice.toLongOrNull() ?: 0L
                 finalCost = singleCost.toLongOrNull() ?: 0L
-                finalStock = if (isService) 0 else (singleStock.toIntOrNull() ?: 0)
+                val parsedDecStock = singleStock.replace(',', '.').toDoubleOrNull() ?: 0.0
+                finalStock = if (isService) 0 else Math.round(parsedDecStock).toInt().coerceAtLeast(0)
+                if (!isService) {
+                    context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", parsedDecStock))
+                        .apply()
+                }
                 finalVariations = ""
             }
 
@@ -468,7 +475,14 @@ fun ProductFormBottomSheet(
                         } else {
                             finalPrice = singlePrice.toLongOrNull() ?: 0L
                             finalCost = singleCost.toLongOrNull() ?: 0L
-                            finalStock = if (isService) 0 else (singleStock.toIntOrNull() ?: 0)
+                            val parsedDecStock = singleStock.replace(',', '.').toDoubleOrNull() ?: 0.0
+                finalStock = if (isService) 0 else Math.round(parsedDecStock).toInt().coerceAtLeast(0)
+                if (!isService) {
+                    context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", parsedDecStock))
+                        .apply()
+                }
                             finalVariations = ""
                         }
 
@@ -709,12 +723,32 @@ fun ProductFormBottomSheet(
                                     ) {
                                         OutlinedTextField(
                                             value = singleStock,
-                                            onValueChange = { singleStock = it.filter { c -> c.isDigit() } },
-                                            label = { Text(zokasText("Stok Awal", "Initial Stock")) },
-                                            trailingIcon = {
-                                                VoiceMicButton(promptLabel = "jumlah stok", currentValue = singleStock, onResultText = { singleStock = it.filter { c -> c.isDigit() } })
+                                            onValueChange = { raw ->
+                                                val cleaned = raw.replace(',', '.')
+                                                val valid = buildString {
+                                                    var dotSeen = false
+                                                    for (ch in cleaned) {
+                                                        if (ch.isDigit()) append(ch)
+                                                        else if (ch == '.' && !dotSeen) {
+                                                            dotSeen = true
+                                                            append(ch)
+                                                        }
+                                                    }
+                                                }.take(8)
+                                                singleStock = valid
                                             },
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                            label = { Text(zokasText("Stok Awal (Bisa Desimal 0,00)", "Initial Stock (Decimal 0.00)")) },
+                                            placeholder = { Text("cth: 10 atau 0.50") },
+                                            trailingIcon = {
+                                                VoiceMicButton(
+                                                    promptLabel = "jumlah stok",
+                                                    currentValue = singleStock,
+                                                    onResultText = { spoken ->
+                                                        singleStock = spoken.replace(',', '.').filter { it.isDigit() || it == '.' }.take(8)
+                                                    }
+                                                )
+                                            },
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                             modifier = Modifier.weight(1.4f),
                                             singleLine = true,
                                             shape = RoundedCornerShape(12.dp)
@@ -1257,7 +1291,14 @@ fun ProductFormBottomSheet(
                         } else {
                             finalPrice = singlePrice.toLongOrNull() ?: 0L
                             finalCost = singleCost.toLongOrNull() ?: 0L
-                            finalStock = if (isService) 0 else (singleStock.toIntOrNull() ?: 0)
+                            val parsedDecStock = singleStock.replace(',', '.').toDoubleOrNull() ?: 0.0
+                finalStock = if (isService) 0 else Math.round(parsedDecStock).toInt().coerceAtLeast(0)
+                if (!isService) {
+                    context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", parsedDecStock))
+                        .apply()
+                }
                             finalVariations = ""
                         }
 

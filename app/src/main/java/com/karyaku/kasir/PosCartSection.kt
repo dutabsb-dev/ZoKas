@@ -70,7 +70,8 @@ fun PosCartSection(
     onRemoveMembership: (CartItem) -> Unit,
     lang: String,
     isTaxInclusive: Boolean = false,
-    roundingDiff: Long = 0L
+    roundingDiff: Long = 0L,
+    onLiveTotalChange: ((Long, Long) -> Unit)? = null
 ) {
     val dateFormat = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.getDefault())
     var showDatePicker by remember { mutableStateOf(false) }
@@ -499,6 +500,11 @@ fun PosCartSection(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(zokasText("Pembulatan Tunai:", "Cash Rounding:", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(formatRupiah(roundingDiff), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+        LaunchedEffect(computedLiveSubtotal, computedLiveTotal, fracSyncTick) {
+            if (fracSyncTick > 0) {
+                onLiveTotalChange?.invoke(computedLiveSubtotal, computedLiveTotal)
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

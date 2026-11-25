@@ -850,6 +850,8 @@ fun HistoryScreen(
         item {
             var chartPeriod by remember { mutableStateOf("1W") } // "1D", "1W", "1M", "6M", "CUSTOM"
             var chartType by remember { mutableStateOf("BAR") } // "BAR", "LINE", "WATERFALL", "COMBO", "SCATTER", "BULLET"
+            var chartMetric by remember { mutableStateOf("REVENUE") } // "REVENUE", "COGS", "GROSS_PROFIT", "NET_PROFIT"
+            var showChartSettingsWindow by remember { mutableStateOf(false) }
 
             val periodChoices = listOf(
                 "1D" to zokasText("1 Hari", "1 Day", lang),
@@ -866,24 +868,135 @@ fun HistoryScreen(
                 "SCATTER" to zokasText("Sebar", "Scatter", lang),
                 "BULLET" to zokasText("Bullet Chart", "Bullet Chart", lang)
             )
+            val metricChoices = listOf(
+                "REVENUE" to zokasText("Omzet", "Revenue", lang),
+                "COGS" to zokasText("Modal (HPP)", "Cost (COGS)", lang),
+                "GROSS_PROFIT" to zokasText("Laba Kotor", "Gross Profit", lang),
+                "NET_PROFIT" to zokasText("Laba Bersih", "Net Profit", lang)
+            )
+
+            val activePeriodLabel = periodChoices.find { it.first == chartPeriod }?.second ?: chartPeriod
+            val activeTypeLabel = chartTypeChoices.find { it.first == chartType }?.second ?: chartType
+            val activeMetricLabel = metricChoices.find { it.first == chartMetric }?.second ?: chartMetric
+
+            if (showChartSettingsWindow) {
+                AlertDialog(
+                    onDismissRequest = { showChartSettingsWindow = false },
+                    title = {
+                        Text(
+                            text = zokasText("Pengaturan Grafik Laporan", "Report Chart Settings", lang),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = zokasText("Periode Waktu", "Time Period", lang),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(periodChoices.size) { pIdx ->
+                                    val (pKey, pLabel) = periodChoices[pIdx]
+                                    val sel = chartPeriod == pKey
+                                    FilterChip(
+                                        selected = sel,
+                                        onClick = {
+                                            chartPeriod = pKey
+                                            if (pKey == "CUSTOM") {
+                                                showRangeDialog = true
+                                            }
+                                        },
+                                        label = { Text(pLabel, fontSize = 11.sp) }
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = zokasText("Bentuk Grafik", "Chart Type", lang),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(chartTypeChoices.size) { tIdx ->
+                                    val (tKey, tLabel) = chartTypeChoices[tIdx]
+                                    val sel = chartType == tKey
+                                    FilterChip(
+                                        selected = sel,
+                                        onClick = { chartType = tKey },
+                                        label = { Text(tLabel, fontSize = 11.sp) }
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = zokasText("Data yang Ditampilkan", "Displayed Metric", lang),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(metricChoices.size) { mIdx ->
+                                    val (mKey, mLabel) = metricChoices[mIdx]
+                                    val sel = chartMetric == mKey
+                                    FilterChip(
+                                        selected = sel,
+                                        onClick = { chartMetric = mKey },
+                                        label = { Text(mLabel, fontSize = 11.sp) }
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = { showChartSettingsWindow = false },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(zokasText("Terapkan", "Apply", lang), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                )
+            }
 
             data class ChartBucket(val label: String, val value: Long)
 
+            fun txMetricValue(txList: List<com.karyaku.kasir.data.local.TransactionEntity>, startMs: Long, endMs: Long): Long {
+                val subTxs = txList.filter { it.status == "SUCCESS" && it.timestamp in startMs..endMs }
+                val omzet = subTxs.sumOf { it.totalPrice }
+                val hpp = subTxs.sumOf { it.totalCost }
+                val pajak = subTxs.sumOf { it.taxAmount.coerceAtLeast(0L) }
+                val labaKotor = (omzet - pajak - hpp).coerceAtLeast(0L)
+                val opExp = expenses.filter { it.timestamp in startMs..endMs }.sumOf { it.amount }
+                val cashOut = cashFlows.filter { it.type == "OUT" && it.timestamp in startMs..endMs }.sumOf { it.amount }
+                return when (chartMetric) {
+                    "COGS" -> hpp
+                    "GROSS_PROFIT" -> labaKotor
+                    "NET_PROFIT" -> labaKotor - opExp - cashOut
+                    else -> omzet
+                }
+            }
+
             val chartBuckets: List<ChartBucket> = remember(
-                transactions, chartPeriod, normalizedRangeStart, normalizedRangeEnd
+                transactions, expenses, cashFlows, chartPeriod, chartMetric, normalizedRangeStart, normalizedRangeEnd
             ) {
-                val successTxs = transactions.filter { it.status == "SUCCESS" }
                 when (chartPeriod) {
                     "1D" -> {
                         val baseDay = Calendar.getInstance().apply {
                             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                         }.timeInMillis
-                        // Kelompokkan per 4 jam agar muat & jelas di layar HP (00, 04, 08, 12, 16, 20)
                         (0 until 6).map { idx ->
                             val s = baseDay + idx * 4L * 3600000L
                             val e = s + 4L * 3600000L - 1L
-                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
-                            ChartBucket(String.format(Locale.US, "%02d:00", idx * 4), sum)
+                            ChartBucket(String.format(Locale.US, "%02d:00", idx * 4), txMetricValue(transactions, s, e))
                         }
                     }
                     "1W" -> {
@@ -895,13 +1008,11 @@ fun HistoryScreen(
                                 set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                             }.timeInMillis
                             val e = s + 86399999L
-                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
-                            ChartBucket(fmt.format(Date(s)), sum)
+                            ChartBucket(fmt.format(Date(s)), txMetricValue(transactions, s, e))
                         }
                     }
                     "1M" -> {
                         val fmt = SimpleDateFormat("dd/MM", Locale.getDefault())
-                        // 10 titik rentang 3 hari selama 30 hari terakhir agar label sumbu X tidak bertumpuk
                         (0 until 10).map { idx ->
                             val backDays = (9 - idx) * 3
                             val s = Calendar.getInstance().apply {
@@ -912,8 +1023,7 @@ fun HistoryScreen(
                                 add(Calendar.DAY_OF_YEAR, -backDays)
                                 set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
                             }.timeInMillis
-                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
-                            ChartBucket(fmt.format(Date(e)), sum)
+                            ChartBucket(fmt.format(Date(e)), txMetricValue(transactions, s, e))
                         }
                     }
                     "6M" -> {
@@ -929,12 +1039,10 @@ fun HistoryScreen(
                                 set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
                                 set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
                             }
-                            val sum = successTxs.filter { it.timestamp in calStart.timeInMillis..calEnd.timeInMillis }.sumOf { it.totalPrice }
-                            ChartBucket(fmt.format(calStart.time), sum)
+                            ChartBucket(fmt.format(calStart.time), txMetricValue(transactions, calStart.timeInMillis, calEnd.timeInMillis))
                         }
                     }
                     else -> {
-                        // CUSTOM berdasarkan normalizedRangeStart .. normalizedRangeEnd
                         val totalSpan = (normalizedRangeEnd - normalizedRangeStart).coerceAtLeast(86400000L)
                         val segments = 7
                         val step = totalSpan / segments
@@ -942,8 +1050,7 @@ fun HistoryScreen(
                         (0 until segments).map { idx ->
                             val s = normalizedRangeStart + idx * step
                             val e = if (idx == segments - 1) normalizedRangeEnd else (normalizedRangeStart + (idx + 1) * step - 1L)
-                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
-                            ChartBucket(fmt.format(Date(s)), sum)
+                            ChartBucket(fmt.format(Date(s)), txMetricValue(transactions, s, e))
                         }
                     }
                 }
@@ -963,60 +1070,42 @@ fun HistoryScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = zokasText("Grafik Laporan Kustom", "Custom Report Chart", lang),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    // Pemilih Periode: 1 Hari, 1 Minggu, 1 Bulan, 6 Bulan, Custom
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(periodChoices.size) { pIdx ->
-                            val (pKey, pLabel) = periodChoices[pIdx]
-                            val sel = chartPeriod == pKey
-                            FilterChip(
-                                selected = sel,
-                                onClick = {
-                                    chartPeriod = pKey
-                                    if (pKey == "CUSTOM") {
-                                        showRangeDialog = true
-                                    }
-                                },
-                                label = {
-                                    Text(
-                                        text = pLabel,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = zokasText("Grafik Laporan", "Report Chart", lang),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "$activeMetricLabel • $activePeriodLabel • $activeTypeLabel",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showChartSettingsWindow = true },
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Tune,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = zokasText("Pengaturan", "Settings", lang),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
-
-                    // Pemilih Bentuk Grafik: Batang, Garis, Air Terjun, Kombinasi, Sebar, Bullet Chart
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(chartTypeChoices.size) { tIdx ->
-                            val (tKey, tLabel) = chartTypeChoices[tIdx]
-                            val sel = chartType == tKey
-                            FilterChip(
-                                selected = sel,
-                                onClick = { chartType = tKey },
-                                label = {
-                                    Text(
-                                        text = tLabel,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (sel) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.tertiary)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
 
                     Canvas(modifier = Modifier.fillMaxWidth().height(215.dp)) {
                         val count = chartBuckets.size.coerceAtLeast(1)
@@ -1091,7 +1180,6 @@ fun HistoryScreen(
                             strokeWidth = 2f
                         )
 
-                        // Garis acuan target rata-rata pada Bullet Chart
                         if (chartType == "BULLET" && avgVal > 0L) {
                             val targetY = chartHeight - ((avgVal.toFloat() / yAxisMax.toFloat()) * chartHeight)
                             drawLine(
@@ -1177,19 +1265,16 @@ fun HistoryScreen(
                                     )
                                 }
                                 "BULLET" -> {
-                                    // Track latar belakang penuh
                                     drawRect(
                                         color = chartAxisColor.copy(alpha = 0.22f),
                                         topLeft = Offset(leftX, 0f),
                                         size = Size(barWidth, chartHeight)
                                     )
-                                    // Bar realisasi utama
                                     drawRect(
                                         color = chartBarColor,
                                         topLeft = Offset(leftX, topY),
                                         size = Size(barWidth, valHeight)
                                     )
-                                    // Marker target rata-rata pada tiap kolom
                                     if (avgVal > 0L) {
                                         val targetY = chartHeight - ((avgVal.toFloat() / yAxisMax.toFloat()) * chartHeight)
                                         drawLine(
