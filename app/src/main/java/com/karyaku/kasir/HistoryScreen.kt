@@ -848,50 +848,210 @@ fun HistoryScreen(
         }
 
         item {
+            var chartPeriod by remember { mutableStateOf("1W") } // "1D", "1W", "1M", "6M", "CUSTOM"
+            var chartType by remember { mutableStateOf("BAR") } // "BAR", "LINE", "WATERFALL", "COMBO", "SCATTER", "BULLET"
+
+            val periodChoices = listOf(
+                "1D" to zokasText("1 Hari", "1 Day", lang),
+                "1W" to zokasText("1 Minggu", "1 Week", lang),
+                "1M" to zokasText("1 Bulan", "1 Month", lang),
+                "6M" to zokasText("6 Bulan", "6 Months", lang),
+                "CUSTOM" to zokasText("Custom", "Custom", lang)
+            )
+            val chartTypeChoices = listOf(
+                "BAR" to zokasText("Batang", "Bar", lang),
+                "LINE" to zokasText("Garis", "Line", lang),
+                "WATERFALL" to zokasText("Air Terjun", "Waterfall", lang),
+                "COMBO" to zokasText("Kombinasi", "Combo", lang),
+                "SCATTER" to zokasText("Sebar", "Scatter", lang),
+                "BULLET" to zokasText("Bullet Chart", "Bullet Chart", lang)
+            )
+
+            data class ChartBucket(val label: String, val value: Long)
+
+            val chartBuckets: List<ChartBucket> = remember(
+                transactions, chartPeriod, normalizedRangeStart, normalizedRangeEnd
+            ) {
+                val successTxs = transactions.filter { it.status == "SUCCESS" }
+                when (chartPeriod) {
+                    "1D" -> {
+                        val baseDay = Calendar.getInstance().apply {
+                            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                        // Kelompokkan per 4 jam agar muat & jelas di layar HP (00, 04, 08, 12, 16, 20)
+                        (0 until 6).map { idx ->
+                            val s = baseDay + idx * 4L * 3600000L
+                            val e = s + 4L * 3600000L - 1L
+                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
+                            ChartBucket(String.format(Locale.US, "%02d:00", idx * 4), sum)
+                        }
+                    }
+                    "1W" -> {
+                        val fmt = SimpleDateFormat("dd/MM", Locale.getDefault())
+                        (0 until 7).map { i ->
+                            val offsetDays = 6 - i
+                            val s = Calendar.getInstance().apply {
+                                add(Calendar.DAY_OF_YEAR, -offsetDays)
+                                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                            }.timeInMillis
+                            val e = s + 86399999L
+                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
+                            ChartBucket(fmt.format(Date(s)), sum)
+                        }
+                    }
+                    "1M" -> {
+                        val fmt = SimpleDateFormat("dd/MM", Locale.getDefault())
+                        // 10 titik rentang 3 hari selama 30 hari terakhir agar label sumbu X tidak bertumpuk
+                        (0 until 10).map { idx ->
+                            val backDays = (9 - idx) * 3
+                            val s = Calendar.getInstance().apply {
+                                add(Calendar.DAY_OF_YEAR, -backDays - 2)
+                                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                            }.timeInMillis
+                            val e = Calendar.getInstance().apply {
+                                add(Calendar.DAY_OF_YEAR, -backDays)
+                                set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+                            }.timeInMillis
+                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
+                            ChartBucket(fmt.format(Date(e)), sum)
+                        }
+                    }
+                    "6M" -> {
+                        val fmt = SimpleDateFormat("MMM", Locale("id", "ID"))
+                        (0 until 6).map { idx ->
+                            val backMonths = 5 - idx
+                            val calStart = Calendar.getInstance().apply {
+                                add(Calendar.MONTH, -backMonths)
+                                set(Calendar.DAY_OF_MONTH, 1)
+                                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                            }
+                            val calEnd = (calStart.clone() as Calendar).apply {
+                                set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                                set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+                            }
+                            val sum = successTxs.filter { it.timestamp in calStart.timeInMillis..calEnd.timeInMillis }.sumOf { it.totalPrice }
+                            ChartBucket(fmt.format(calStart.time), sum)
+                        }
+                    }
+                    else -> {
+                        // CUSTOM berdasarkan normalizedRangeStart .. normalizedRangeEnd
+                        val totalSpan = (normalizedRangeEnd - normalizedRangeStart).coerceAtLeast(86400000L)
+                        val segments = 7
+                        val step = totalSpan / segments
+                        val fmt = SimpleDateFormat("dd/MM", Locale.getDefault())
+                        (0 until segments).map { idx ->
+                            val s = normalizedRangeStart + idx * step
+                            val e = if (idx == segments - 1) normalizedRangeEnd else (normalizedRangeStart + (idx + 1) * step - 1L)
+                            val sum = successTxs.filter { it.timestamp in s..e }.sumOf { it.totalPrice }
+                            ChartBucket(fmt.format(Date(s)), sum)
+                        }
+                    }
+                }
+            }
+
+            val scatterColor = MaterialTheme.colorScheme.tertiary
+            val lineColor = MaterialTheme.colorScheme.primary
+            val waterfallPosColor = MaterialTheme.colorScheme.primary
+            val waterfallNegColor = MaterialTheme.colorScheme.error
+            val bulletTargetColor = MaterialTheme.colorScheme.error
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text(
-                        LanguageManager.tr("last_7_days_chart", lang),
+                        text = zokasText("Grafik Laporan Kustom", "Custom Report Chart", lang),
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Canvas(modifier = Modifier.fillMaxWidth().height(200.dp)) {
-                        val days = 7
+
+                    // Pemilih Periode: 1 Hari, 1 Minggu, 1 Bulan, 6 Bulan, Custom
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(periodChoices.size) { pIdx ->
+                            val (pKey, pLabel) = periodChoices[pIdx]
+                            val sel = chartPeriod == pKey
+                            FilterChip(
+                                selected = sel,
+                                onClick = {
+                                    chartPeriod = pKey
+                                    if (pKey == "CUSTOM") {
+                                        showRangeDialog = true
+                                    }
+                                },
+                                label = {
+                                    Text(
+                                        text = pLabel,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                    }
+
+                    // Pemilih Bentuk Grafik: Batang, Garis, Air Terjun, Kombinasi, Sebar, Bullet Chart
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(chartTypeChoices.size) { tIdx ->
+                            val (tKey, tLabel) = chartTypeChoices[tIdx]
+                            val sel = chartType == tKey
+                            FilterChip(
+                                selected = sel,
+                                onClick = { chartType = tKey },
+                                label = {
+                                    Text(
+                                        text = tLabel,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (sel) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.tertiary)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Canvas(modifier = Modifier.fillMaxWidth().height(215.dp)) {
+                        val count = chartBuckets.size.coerceAtLeast(1)
                         val paddingLeft = 80f
-                        val paddingBottom = 40f
-                        val chartWidth = size.width - paddingLeft
-                        val chartHeight = size.height - paddingBottom
+                        val paddingBottom = 42f
+                        val chartWidth = (size.width - paddingLeft).coerceAtLeast(1f)
+                        val chartHeight = (size.height - paddingBottom).coerceAtLeast(1f)
 
-                        val slotWidth = chartWidth / days
-                        val barWidth = slotWidth * 0.6f
+                        val slotWidth = chartWidth / count
+                        val barWidth = (slotWidth * 0.56f).coerceAtLeast(8f)
 
-                        val dailySales = (0 until days).map { i ->
-                            val start = Calendar.getInstance().apply {
-                                add(Calendar.DAY_OF_YEAR, -i); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
-                            }.timeInMillis
-                            val end = start + 86400000L
-                            transactions.filter { it.timestamp in start..end && it.status == "SUCCESS" }
-                                .sumOf { it.totalPrice }
-                        }.reversed()
+                        val values = chartBuckets.map { it.value }
+                        val avgVal = if (values.isNotEmpty()) values.average().toLong() else 0L
+                        val cumulativeVals = mutableListOf<Long>()
+                        var runningSum = 0L
+                        values.forEach { v ->
+                            runningSum += v
+                            cumulativeVals.add(runningSum)
+                        }
 
-                        val maxSale = dailySales.maxOrNull() ?: 0L
-                        val yAxisMax = if (maxSale == 0L) 100000L else ((maxSale / 100000) + 1) * 100000L
-
-                        val strokeWidth = 2f
+                        val maxDataVal = when (chartType) {
+                            "COMBO" -> maxOf(values.maxOrNull() ?: 0L, cumulativeVals.maxOrNull() ?: 0L)
+                            "BULLET" -> maxOf(values.maxOrNull() ?: 0L, avgVal)
+                            else -> values.maxOrNull() ?: 0L
+                        }
+                        val yAxisMax = if (maxDataVal <= 0L) 100000L else ((maxDataVal / 100000L) + 1L) * 100000L
 
                         val textPaint = android.graphics.Paint().apply {
                             color = chartTextColorArgb
                             textSize = 24f
                             textAlign = android.graphics.Paint.Align.RIGHT
                         }
-
                         val datePaint = android.graphics.Paint().apply {
                             color = chartTextColorArgb
-                            textSize = 24f
+                            textSize = 22f
                             textAlign = android.graphics.Paint.Align.CENTER
                         }
 
@@ -908,8 +1068,8 @@ fun HistoryScreen(
                             )
 
                             val labelText = if (yValue == 0L) "0"
-                                else if (yValue >= 1000000) "${yValue / 1000000}Jt"
-                                else "${yValue / 1000}rb"
+                            else if (yValue >= 1000000L) "${yValue / 1000000L}Jt"
+                            else "${yValue / 1000L}rb"
                             drawContext.canvas.nativeCanvas.drawText(
                                 labelText,
                                 paddingLeft - 8f,
@@ -922,35 +1082,145 @@ fun HistoryScreen(
                             color = chartAxisColor,
                             start = Offset(paddingLeft, 0f),
                             end = Offset(paddingLeft, chartHeight),
-                            strokeWidth = strokeWidth
+                            strokeWidth = 2f
                         )
                         drawLine(
                             color = chartAxisColor,
                             start = Offset(paddingLeft, chartHeight),
                             end = Offset(size.width, chartHeight),
-                            strokeWidth = strokeWidth
+                            strokeWidth = 2f
                         )
 
-                        val dateFormatShort = SimpleDateFormat("dd/MM", Locale.getDefault())
-
-                        dailySales.forEachIndexed { index, sale ->
-                            val x = paddingLeft + index * slotWidth + (slotWidth - barWidth) / 2f
-                            val barHeight = (sale.toFloat() / yAxisMax.toFloat()) * chartHeight
-
-                            drawRect(
-                                color = chartBarColor,
-                                topLeft = Offset(x, chartHeight - barHeight),
-                                size = Size(barWidth, barHeight)
+                        // Garis acuan target rata-rata pada Bullet Chart
+                        if (chartType == "BULLET" && avgVal > 0L) {
+                            val targetY = chartHeight - ((avgVal.toFloat() / yAxisMax.toFloat()) * chartHeight)
+                            drawLine(
+                                color = bulletTargetColor,
+                                start = Offset(paddingLeft, targetY),
+                                end = Offset(size.width, targetY),
+                                strokeWidth = 2.5f
                             )
+                        }
 
-                            val dateStr = dateFormatShort.format(
-                                Date(System.currentTimeMillis() - (days - 1 - index) * 86400000L)
-                            )
+                        val linePath = androidx.compose.ui.graphics.Path()
+                        val comboPath = androidx.compose.ui.graphics.Path()
+
+                        chartBuckets.forEachIndexed { index, bucket ->
+                            val centerX = paddingLeft + index * slotWidth + slotWidth / 2f
+                            val leftX = centerX - barWidth / 2f
+                            val valHeight = (bucket.value.toFloat() / yAxisMax.toFloat()) * chartHeight
+                            val topY = chartHeight - valHeight
+
+                            when (chartType) {
+                                "BAR" -> {
+                                    drawRect(
+                                        color = chartBarColor,
+                                        topLeft = Offset(leftX, topY),
+                                        size = Size(barWidth, valHeight)
+                                    )
+                                }
+                                "LINE" -> {
+                                    if (index == 0) linePath.moveTo(centerX, topY) else linePath.lineTo(centerX, topY)
+                                    drawCircle(
+                                        color = lineColor,
+                                        radius = 6f,
+                                        center = Offset(centerX, topY)
+                                    )
+                                }
+                                "WATERFALL" -> {
+                                    val prevCum = if (index == 0) 0L else cumulativeVals[index - 1]
+                                    val currCum = cumulativeVals[index]
+                                    val yStart = chartHeight - ((prevCum.toFloat() / yAxisMax.toFloat()) * chartHeight)
+                                    val yEnd = chartHeight - ((currCum.toFloat() / yAxisMax.toFloat()) * chartHeight)
+                                    val rectTop = minOf(yStart, yEnd)
+                                    val rectH = Math.abs(yStart - yEnd).coerceAtLeast(3f)
+                                    val wfColor = if (currCum >= prevCum) waterfallPosColor else waterfallNegColor
+                                    drawRect(
+                                        color = wfColor,
+                                        topLeft = Offset(leftX, rectTop),
+                                        size = Size(barWidth, rectH)
+                                    )
+                                    if (index > 0) {
+                                        drawLine(
+                                            color = chartAxisColor,
+                                            start = Offset(paddingLeft + (index - 1) * slotWidth + slotWidth / 2f, yStart),
+                                            end = Offset(centerX, yStart),
+                                            strokeWidth = 1.5f
+                                        )
+                                    }
+                                }
+                                "COMBO" -> {
+                                    drawRect(
+                                        color = chartBarColor.copy(alpha = 0.75f),
+                                        topLeft = Offset(leftX, topY),
+                                        size = Size(barWidth, valHeight)
+                                    )
+                                    val cumVal = cumulativeVals[index]
+                                    val cumY = chartHeight - ((cumVal.toFloat() / yAxisMax.toFloat()) * chartHeight)
+                                    if (index == 0) comboPath.moveTo(centerX, cumY) else comboPath.lineTo(centerX, cumY)
+                                    drawCircle(
+                                        color = scatterColor,
+                                        radius = 5.5f,
+                                        center = Offset(centerX, cumY)
+                                    )
+                                }
+                                "SCATTER" -> {
+                                    drawCircle(
+                                        color = scatterColor,
+                                        radius = 8f,
+                                        center = Offset(centerX, topY)
+                                    )
+                                    drawCircle(
+                                        color = chartBarColor,
+                                        radius = 3.5f,
+                                        center = Offset(centerX, topY)
+                                    )
+                                }
+                                "BULLET" -> {
+                                    // Track latar belakang penuh
+                                    drawRect(
+                                        color = chartAxisColor.copy(alpha = 0.22f),
+                                        topLeft = Offset(leftX, 0f),
+                                        size = Size(barWidth, chartHeight)
+                                    )
+                                    // Bar realisasi utama
+                                    drawRect(
+                                        color = chartBarColor,
+                                        topLeft = Offset(leftX, topY),
+                                        size = Size(barWidth, valHeight)
+                                    )
+                                    // Marker target rata-rata pada tiap kolom
+                                    if (avgVal > 0L) {
+                                        val targetY = chartHeight - ((avgVal.toFloat() / yAxisMax.toFloat()) * chartHeight)
+                                        drawLine(
+                                            color = bulletTargetColor,
+                                            start = Offset(leftX - 4f, targetY),
+                                            end = Offset(leftX + barWidth + 4f, targetY),
+                                            strokeWidth = 4f
+                                        )
+                                    }
+                                }
+                            }
+
                             drawContext.canvas.nativeCanvas.drawText(
-                                dateStr,
-                                x + (barWidth / 2),
+                                bucket.label,
+                                centerX,
                                 size.height - 10f,
                                 datePaint
+                            )
+                        }
+
+                        if (chartType == "LINE") {
+                            drawPath(
+                                path = linePath,
+                                color = lineColor,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f)
+                            )
+                        } else if (chartType == "COMBO") {
+                            drawPath(
+                                path = comboPath,
+                                color = scatterColor,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.5f)
                             )
                         }
                     }

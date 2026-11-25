@@ -299,10 +299,10 @@ fun PosCartSection(
                                                     .clickable {
                                                         if (onSetQuantity != null) {
                                                             onSetQuantity(item, qVal)
-                                                        } else if (qVal > item.effectiveQty) {
+                                                        } else {
+                                                            item.qtyFraction = qVal
+                                                            item.quantity = Math.ceil(qVal - 1e-6).toInt().coerceAtLeast(1)
                                                             onAdd(item)
-                                                        } else if (qVal < item.effectiveQty && item.effectiveQty > 0.25) {
-                                                            onRemove(item)
                                                         }
                                                     },
                                                 color = if (isCur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
@@ -395,10 +395,10 @@ fun PosCartSection(
                                                 onClick = {
                                                     if (onSetQuantity != null) {
                                                         onSetQuantity(item, valQty)
-                                                    } else if (valQty > item.effectiveQty) {
+                                                    } else {
+                                                        item.qtyFraction = valQty
+                                                        item.quantity = Math.ceil(valQty - 1e-6).toInt().coerceAtLeast(1)
                                                         onAdd(item)
-                                                    } else if (valQty < item.effectiveQty && item.effectiveQty > 0.25) {
-                                                        onRemove(item)
                                                     }
                                                     showFractionMenu = false
                                                 }
