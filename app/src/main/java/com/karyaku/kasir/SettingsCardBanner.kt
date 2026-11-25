@@ -42,11 +42,11 @@ object SettingsUpgradeOneHelper {
         }
         return when (primaryLocale.language.lowercase(Locale.ROOT)) {
             "en" -> "en"
-            "ms" -> "ms"
-            "ar" -> "ar"
-            "zh" -> "zh"
-            "id", "in" -> "in"
-            else -> "en"
+            "jv", "jw" -> "jv"
+            "su" -> "su"
+            "mad" -> "mad"
+            "id", "in" -> "id"
+            else -> "id"
         }
     }
 
@@ -89,11 +89,11 @@ object SettingsUpgradeOneHelper {
     }
 
     fun supportedLanguageOptions(): List<Pair<String, String>> = listOf(
-        "in" to "Indonesia",
+        "id" to "Bahasa Indonesia",
         "en" to "English",
-        "ms" to "Bahasa Melayu",
-        "zh" to "中文 (Mandarin)",
-        "ar" to "العربية (Arabic)"
+        "jv" to "Basa Jawa",
+        "su" to "Basa Sunda",
+        "mad" to "Bhâsa Madhurâ"
     )
 
     fun localizedPhrase(
@@ -104,11 +104,11 @@ object SettingsUpgradeOneHelper {
         ar: String? = null,
         lang: String = ZokasLocaleManager.currentLanguage
     ): String {
-        return when (lang.lowercase(Locale.ROOT)) {
+        return when (LanguageManager.normalizeLang(lang)) {
             "en" -> en
-            "ms" -> ms ?: en
-            "zh" -> zh ?: en
-            "ar" -> ar ?: en
+            "jv" -> LanguageManager.autoTranslateText(id, "jv")
+            "su" -> LanguageManager.autoTranslateText(id, "su")
+            "mad" -> LanguageManager.autoTranslateText(id, "mad")
             else -> id
         }
     }

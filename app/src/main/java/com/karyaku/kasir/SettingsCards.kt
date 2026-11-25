@@ -278,10 +278,9 @@ fun SettingsAppearanceCard(
         )
     }
 
-    val activeLangCode = ZokasLocaleManager.currentLanguage
+    val activeLangCode = LanguageManager.normalizeLang(language.ifBlank { ZokasLocaleManager.currentLanguage })
     val activeLangDisplay = remember(activeLangCode) {
-        SettingsUpgradeOneHelper.supportedLanguageOptions().find { it.first == activeLangCode }?.second
-            ?: if (activeLangCode == "en") "English" else "Indonesia"
+        LanguageManager.getLanguageDisplayName(activeLangCode)
     }
 
     Card(
@@ -483,11 +482,11 @@ fun SettingsAppearanceCard(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            val langCycle = remember { listOf("in", "en", "ms", "zh", "ar") }
+                            val langCycle = remember { listOf("id", "en", "jv", "su", "mad") }
                             Button(
                                 onClick = {
-                                    val idx = langCycle.indexOf(ZokasLocaleManager.currentLanguage)
-                                    val nextCode = langCycle[(idx + 1) % langCycle.size]
+                                    val idx = langCycle.indexOf(activeLangCode)
+                                    val nextCode = langCycle[(if (idx >= 0) idx + 1 else 0 + 1) % langCycle.size]
                                     SettingsUpgradeOneHelper.persistManualLanguage(context, nextCode)
                                     onToggleLanguage()
                                 },
@@ -497,6 +496,8 @@ fun SettingsAppearanceCard(
                                 ),
                                 shape = RoundedCornerShape(6.dp)
                             ) {
+                                Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(activeLangDisplay, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }

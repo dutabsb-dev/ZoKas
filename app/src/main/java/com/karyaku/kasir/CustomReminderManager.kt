@@ -4,6 +4,9 @@ import android.content.Context
 import com.karyaku.kasir.data.local.ProductEntity
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 enum class ReminderScopeType(val labelId: String) {
@@ -18,6 +21,13 @@ enum class ReminderTriggerType(val labelId: String) {
     BOTH("Stok & Expired Date")
 }
 
+enum class ExpiryActionPreset(val labelId: String, val defaultDiscount: Int) {
+    PROMO_DISCOUNT("Diskon Cepat / Cuci Gudang", 20),
+    RETURN_SUPPLIER("Retur ke Supplier", 0),
+    PRIORITY_SELL("Prioritas Jual (FEFO)", 10),
+    WASTE_CHECK("Cek Fisik & Karantina", 0)
+}
+
 data class ReminderRule(
     val id: String,
     val name: String,
@@ -27,7 +37,12 @@ data class ReminderRule(
     val productIds: List<Long> = emptyList(),
     val triggerType: ReminderTriggerType = ReminderTriggerType.BOTH,
     val stockThreshold: Int = 5,
-    val expiryDaysBefore: Int = 7 // H-7, H-3, H-1, atau 0 (hari H / lewat)
+    val expiryDaysBefore: Int = 7, // Bebas: 0 (Hari H), 1, 3, 7, 14, 30, 60, 90, atau custom hari apa saja
+    val includeAlreadyExpired: Boolean = true,
+    val alertEvenIfZeroStock: Boolean = false,
+    val repeatDailyUntilHandled: Boolean = true,
+    val expiryActionPreset: ExpiryActionPreset = ExpiryActionPreset.PROMO_DISCOUNT,
+    val customPromoDiscountPercent: Int = 20
 )
 
 data class TriggeredReminder(
@@ -39,7 +54,8 @@ data class TriggeredReminder(
     val title: String,
     val detail: String,
     val daysToExpiry: Long? = null,
-    val suggestedPromoDiscountPercent: Int = 15
+    val suggestedPromoDiscountPercent: Int = 15,
+    val actionHint: String = ""
 )
 
 object CustomReminderManager {
@@ -62,6 +78,7 @@ object CustomReminderManager {
                 val obj = arr.getJSONObject(i)
                 val scopeStr = obj.optString("scopeType", ReminderScopeType.ALL.name)
                 val trigStr = obj.optString("triggerType", ReminderTriggerType.BOTH.name)
+                val actionStr = obj.optString("expiryActionPreset", ExpiryActionPreset.PROMO_DISCOUNT.name)
                 val catArr = obj.optJSONArray("categories") ?: JSONArray()
                 val prodArr = obj.optJSONArray("productIds") ?: JSONArray()
                 val cats = (0 until catArr.length()).mapNotNull { idx -> catArr.optString(idx, null)?.takeIf { it.isNotBlank() } }
@@ -77,7 +94,12 @@ object CustomReminderManager {
                         productIds = prods,
                         triggerType = runCatching { ReminderTriggerType.valueOf(trigStr) }.getOrDefault(ReminderTriggerType.BOTH),
                         stockThreshold = obj.optInt("stockThreshold", 5).coerceAtLeast(0),
-                        expiryDaysBefore = obj.optInt("expiryDaysBefore", 7).coerceAtLeast(0)
+                        expiryDaysBefore = obj.optInt("expiryDaysBefore", 7).coerceAtLeast(0),
+                        includeAlreadyExpired = obj.optBoolean("includeAlreadyExpired", true),
+                        alertEvenIfZeroStock = obj.optBoolean("alertEvenIfZeroStock", false),
+                        repeatDailyUntilHandled = obj.optBoolean("repeatDailyUntilHandled", true),
+                        expiryActionPreset = runCatching { ExpiryActionPreset.valueOf(actionStr) }.getOrDefault(ExpiryActionPreset.PROMO_DISCOUNT),
+                        customPromoDiscountPercent = obj.optInt("customPromoDiscountPercent", 20).coerceIn(0, 95)
                     )
                 )
             }
@@ -98,6 +120,11 @@ object CustomReminderManager {
                 put("triggerType", rule.triggerType.name)
                 put("stockThreshold", rule.stockThreshold)
                 put("expiryDaysBefore", rule.expiryDaysBefore)
+                put("includeAlreadyExpired", rule.includeAlreadyExpired)
+                put("alertEvenIfZeroStock", rule.alertEvenIfZeroStock)
+                put("repeatDailyUntilHandled", rule.repeatDailyUntilHandled)
+                put("expiryActionPreset", rule.expiryActionPreset.name)
+                put("customPromoDiscountPercent", rule.customPromoDiscountPercent)
                 put("categories", JSONArray(rule.categories))
                 put("productIds", JSONArray(rule.productIds))
             }
@@ -158,7 +185,12 @@ object CustomReminderManager {
             scopeType = ReminderScopeType.ALL,
             triggerType = ReminderTriggerType.EXPIRY,
             stockThreshold = 5,
-            expiryDaysBefore = 7
+            expiryDaysBefore = 7,
+            includeAlreadyExpired = true,
+            alertEvenIfZeroStock = false,
+            repeatDailyUntilHandled = true,
+            expiryActionPreset = ExpiryActionPreset.PROMO_DISCOUNT,
+            customPromoDiscountPercent = 20
         )
     )
 
@@ -173,6 +205,8 @@ object CustomReminderManager {
 
         val results = mutableListOf<TriggeredReminder>()
         val seenKeys = mutableSetOf<String>()
+        val dateFmt = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+        val dayStamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(nowMillis))
 
         for (rule in activeRules) {
             val matchedProducts = products.filter { prod ->
@@ -208,16 +242,32 @@ object CustomReminderManager {
                 }
 
                 if (checkExpiry && prod.expiryDate > 0L) {
+                    if (!rule.alertEvenIfZeroStock && prod.stock <= 0) continue
+
                     val diffMillis = prod.expiryDate - nowMillis
                     val daysLeft = TimeUnit.MILLISECONDS.toDays(diffMillis)
-                    if (daysLeft <= rule.expiryDaysBefore.toLong()) {
+                    val withinWindow = if (rule.includeAlreadyExpired) {
+                        daysLeft <= rule.expiryDaysBefore.toLong()
+                    } else {
+                        daysLeft in 0L..rule.expiryDaysBefore.toLong()
+                    }
+
+                    if (withinWindow) {
                         val batchTag = prod.batchNumber.ifBlank { "default" }
-                        val key = "EXPIRY_${rule.id}_${prod.id}_${prod.expiryDate}_$batchTag"
+                        val repeatSuffix = if (rule.repeatDailyUntilHandled) "_$dayStamp" else ""
+                        val key = "EXPIRY_${rule.id}_${prod.id}_${prod.expiryDate}_$batchTag$repeatSuffix"
                         if (!dismissedKeys.contains(key) && seenKeys.add(key)) {
+                            val expDateStr = dateFmt.format(Date(prod.expiryDate))
                             val statusText = when {
-                                daysLeft < 0L -> "Sudah lewat expired (${kotlin.math.abs(daysLeft)} hari lalu)"
-                                daysLeft == 0L -> "Jatuh tempo expired hari ini"
-                                else -> "Expired dalam $daysLeft hari (batas H-${rule.expiryDaysBefore})"
+                                daysLeft < 0L -> "Sudah lewat expired ${kotlin.math.abs(daysLeft)} hari lalu ($expDateStr)"
+                                daysLeft == 0L -> "Jatuh tempo expired HARI INI ($expDateStr)"
+                                else -> "Expired dalam $daysLeft hari • Tgl: $expDateStr (batas H-${rule.expiryDaysBefore})"
+                            }
+                            val batchInfo = if (prod.batchNumber.isNotBlank()) " • Batch: ${prod.batchNumber}" else ""
+                            val suggestedDisc = when {
+                                rule.customPromoDiscountPercent > 0 -> rule.customPromoDiscountPercent
+                                daysLeft <= 1L -> 25
+                                else -> 15
                             }
                             results.add(
                                 TriggeredReminder(
@@ -227,9 +277,10 @@ object CustomReminderManager {
                                     product = prod,
                                     kind = "EXPIRY",
                                     title = "Expired Alert: ${prod.name}",
-                                    detail = "$statusText • Stok: ${prod.stock} • Aturan: ${rule.name}",
+                                    detail = "$statusText$batchInfo • Stok: ${prod.stock} • Saran: ${rule.expiryActionPreset.labelId}",
                                     daysToExpiry = daysLeft,
-                                    suggestedPromoDiscountPercent = if (daysLeft <= 1L) 25 else 15
+                                    suggestedPromoDiscountPercent = suggestedDisc,
+                                    actionHint = rule.expiryActionPreset.labelId
                                 )
                             )
                         }
@@ -238,6 +289,9 @@ object CustomReminderManager {
             }
         }
 
-        return results.sortedBy { if (it.kind == "EXPIRY") 0 else 1 }
+        return results.sortedWith(
+            compareBy<TriggeredReminder> { if (it.kind == "EXPIRY") 0 else 1 }
+                .thenBy { it.daysToExpiry ?: Long.MAX_VALUE }
+        )
     }
 }

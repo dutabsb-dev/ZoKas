@@ -423,8 +423,9 @@ fun PosProductSection(
                 }
             }
         } else {
+            val gridMinSize = if (sortedAndFilteredProducts.size == 1) 156.dp else 118.dp
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 115.dp),
+                columns = GridCells.Adaptive(minSize = gridMinSize),
                 contentPadding = PaddingValues(bottom = 84.dp, start = 12.dp, end = 12.dp, top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -544,58 +545,52 @@ private fun ProductGridCard(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
-                // Badge kategori di sebelah kiri dengan teks kecil, posisi vertikal & bounce running text
+                // Badge kategori di sebelah kiri dengan teks vertikal yang berjalan halus tanpa terpotong
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
                     modifier = Modifier
-                        .width(20.dp)
+                        .width(22.dp)
                         .fillMaxHeight()
                 ) {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(vertical = 4.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(vertical = 5.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(
+                        Icon(
+                            imageVector = resolveCategoryIcon(product.category, product.isService),
+                            contentDescription = product.category,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(vertical = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.SpaceBetween
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = resolveCategoryIcon(product.category, product.isService),
-                                contentDescription = product.category,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(13.dp)
-                            )
                             Box(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth(),
+                                    .requiredWidth(88.dp)
+                                    .graphicsLayer { rotationZ = -90f },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .requiredWidth(64.dp)
-                                        .graphicsLayer { rotationZ = -90f },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    BounceMarqueeText(
-                                        text = categoryLabel,
-                                        style = TextStyle(
-                                            fontSize = 8.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            lineHeight = 10.sp
-                                        ),
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
+                                BounceMarqueeText(
+                                    text = categoryLabel,
+                                    style = TextStyle(
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        lineHeight = 10.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
                         }
                     }
@@ -658,9 +653,9 @@ private fun ProductGridCard(
                                 else -> Color(0xFF059669)
                             }
                             val badgeText = when {
-                                isOutOfStock -> "HABIS"
-                                isLowStock -> "TIPIS"
-                                isExpiringSoon -> "EXP"
+                                isOutOfStock -> "STOK HABIS"
+                                isLowStock -> "STOK TIPIS"
+                                isExpiringSoon -> "MAU EXPIRED"
                                 product.promoType == "BOGO" -> "BOGO"
                                 else -> "-${product.promoValue}%"
                             }
