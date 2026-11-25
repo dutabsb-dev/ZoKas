@@ -221,6 +221,7 @@ fun PosCartSection(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         shape = RoundedCornerShape(10.dp)
                     ) {
+                        var qtyTick by remember(item.product.id, item.selectedVariation) { mutableIntStateOf(0) }
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -261,7 +262,6 @@ fun PosCartSection(
                                     Text("Staf: ${item.assignedStaff}", fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
                                 }
 
-                                var qtyTick by remember(item.product.id, item.selectedVariation) { mutableIntStateOf(0) }
                                 val effectiveTick = qtyTick
                                 val qEff = remember(item.qtyFraction, item.quantity, effectiveTick) { item.effectiveQty }
                                 val isWholesale = item.product.wholesaleMinQty > 0 && qEff >= item.product.wholesaleMinQty && item.product.wholesalePrice > 0
