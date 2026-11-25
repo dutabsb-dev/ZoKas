@@ -106,13 +106,13 @@ fun PosViewModel.processPayment(
                     }
                 }
 
-                // C. PAKET 1: Potong Stok Bahan Baku (BOM)
+                // C. PAKET 1: Potong Stok Bahan Baku (BOM) memakai kuantitas aktual (termasuk pecahan 0.5)
                 val bomList = productDao.getBomForProduct(cartItem.product.id)
                 if (bomList.isNotEmpty()) {
                     bomList.forEach { bom ->
                         val material = _rawMaterials.value.find { it.id == bom.rawMaterialId }
                         if (material != null) {
-                            val qtyUsed = bom.quantityUsed * cartItem.quantity
+                            val qtyUsed = bom.quantityUsed * qDouble
                             productDao.updateRawMaterialStock(material.id, material.stock - qtyUsed)
                         }
                     }

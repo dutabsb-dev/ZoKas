@@ -146,7 +146,14 @@ private fun buildFormattedReceipt32(
     var subtotalItems = 0L
     items.forEach { item ->
         subtotalItems += item.subtotal
-        val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
+        val fracMatch = Regex("\\[Qty:\\s*([0-9.]+)\\]").find(item.notes)
+        val fracQty = fracMatch?.groupValues?.getOrNull(1)?.toDoubleOrNull()
+        val effectiveQtyForReceipt = if (fracQty != null && fracQty > 0.0) fracQty else item.quantity.toDouble()
+        val unitPrice = if (effectiveQtyForReceipt > 0.0) {
+            Math.round(item.subtotal / effectiveQtyForReceipt)
+        } else {
+            item.price
+        }
         val matchedProduct = products.find { it.id == item.productId }
         val resolvedItemName = resolveVariantDisplayNameForReceipt(matchedProduct, item.productName, unitPrice)
         wrapTextLines(resolvedItemName, RECEIPT_WIDTH).forEach { nameLine ->
@@ -161,7 +168,12 @@ private fun buildFormattedReceipt32(
         if (item.assignedStaff.isNotBlank()) {
             wrapTextLines("  Staf: ${item.assignedStaff}", RECEIPT_WIDTH).forEach { sb.appendLine(it) }
         }
-        val qtyPriceStr = "  ${item.quantity} x ${formatNumPlain(unitPrice)}"
+        val displayQtyStr = if (fracQty != null && fracQty > 0.0) {
+            String.format(java.util.Locale.US, "%.3f", fracQty).trimEnd('0').trimEnd('.')
+        } else {
+            item.quantity.toString()
+        }
+        val qtyPriceStr = "  $displayQtyStr x ${formatNumPlain(unitPrice)}"
         val itemSubStr = formatNumPlain(item.subtotal)
         sb.appendLine(leftRightLine(qtyPriceStr, itemSubStr))
     }

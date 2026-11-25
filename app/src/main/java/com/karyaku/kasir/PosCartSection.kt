@@ -59,6 +59,7 @@ fun PosCartSection(
     onCustomerClick: () -> Unit,
     onAdd: (CartItem) -> Unit,
     onRemove: (CartItem) -> Unit,
+    onSetQuantity: ((CartItem, Double) -> Unit)? = null,
     onDelete: (CartItem) -> Unit,
     onDiscountClick: () -> Unit,
     onCheckout: () -> Unit,
@@ -296,15 +297,12 @@ fun PosCartSection(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(4.dp))
                                                     .clickable {
-                                                        val diff = qVal - item.effectiveQty
-                                                        if (diff >= 0.0) {
-                                                            repeat(Math.round(diff * 4.0).toInt().coerceAtLeast(0)) {
-                                                                onAdd(item)
-                                                            }
-                                                        } else {
-                                                            repeat(Math.round(Math.abs(diff) * 4.0).toInt().coerceAtLeast(0)) {
-                                                                onRemove(item)
-                                                            }
+                                                        if (onSetQuantity != null) {
+                                                            onSetQuantity(item, qVal)
+                                                        } else if (qVal > item.effectiveQty) {
+                                                            onAdd(item)
+                                                        } else if (qVal < item.effectiveQty && item.effectiveQty > 0.25) {
+                                                            onRemove(item)
                                                         }
                                                     },
                                                 color = if (isCur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
@@ -395,15 +393,12 @@ fun PosCartSection(
                                             DropdownMenuItem(
                                                 text = { Text(lbl, fontSize = 12.sp) },
                                                 onClick = {
-                                                    val diff = valQty - item.effectiveQty
-                                                    if (diff >= 0.0) {
-                                                        repeat(Math.round(diff * 4.0).toInt().coerceAtLeast(0)) {
-                                                            onAdd(item)
-                                                        }
-                                                    } else {
-                                                        repeat(Math.round(Math.abs(diff) * 4.0).toInt().coerceAtLeast(0)) {
-                                                            onRemove(item)
-                                                        }
+                                                    if (onSetQuantity != null) {
+                                                        onSetQuantity(item, valQty)
+                                                    } else if (valQty > item.effectiveQty) {
+                                                        onAdd(item)
+                                                    } else if (valQty < item.effectiveQty && item.effectiveQty > 0.25) {
+                                                        onRemove(item)
                                                     }
                                                     showFractionMenu = false
                                                 }
