@@ -194,7 +194,16 @@ object LanguageManager {
         "log_aktivitas_audit" to "Log Aktivitas (Audit)",
         "aktivitas_tercatat" to "aktivitas tercatat",
         "menampilkan_30_aktivitas" to "Menampilkan 30 dari %d aktivitas terbaru.",
-        "toko_pret" to "Profil Toko"
+        "toko_pret" to "Profil Toko",
+"wizard_title" to "Pendaftaran Awal ZoKas",
+        "wizard_sec_policy" to "1. Persetujuan Kebijakan",
+        "wizard_sec_lang" to "2. Pilihan Bahasa",
+        "wizard_sec_business" to "3. Detail Jenis Usaha",
+        "wizard_sec_modules" to "4. Rekomendasi Modul (Awalnya OFF)",
+        "wizard_sec_mode" to "5. Pilih Mode Penggunaan",
+        "wizard_sec_account" to "6. Identitas Toko & Akun Login",
+        "wizard_sec_payment" to "7. Metode Pembayaran",
+        "wizard_save_start" to "SIMPAN & MULAI"
     )
 
     private val enBase = mapOf(
@@ -362,7 +371,16 @@ object LanguageManager {
         "log_aktivitas_audit" to "Activity Log (Audit)",
         "aktivitas_tercatat" to "activities recorded",
         "menampilkan_30_aktivitas" to "Showing latest 30 activities.",
-        "toko_pret" to "Store Profile"
+        "toko_pret" to "Store Profile",
+"wizard_title" to "ZoKas Initial Setup",
+        "wizard_sec_policy" to "1. Terms & Privacy Policy",
+        "wizard_sec_lang" to "2. Language Selection",
+        "wizard_sec_business" to "3. Business Type Details",
+        "wizard_sec_modules" to "4. Recommended Modules (Initially OFF)",
+        "wizard_sec_mode" to "5. Select Usage Mode",
+        "wizard_sec_account" to "6. Store Identity & Login Account",
+        "wizard_sec_payment" to "7. Payment Methods",
+        "wizard_save_start" to "SAVE & START"
     )
 
     // Kamus inti Jawa (jv), Sunda (su), dan Madura (mad) untuk key utama kasir & POS
@@ -531,7 +549,16 @@ object LanguageManager {
         "log_aktivitas_audit" to "Cathetan Kegiatan (Audit)",
         "aktivitas_tercatat" to "kegiatan kecathet",
         "menampilkan_30_aktivitas" to "Nampilake 30 saka %d kegiatan paling anyar.",
-        "toko_pret" to "Profil Toko"
+        "toko_pret" to "Profil Toko",
+"wizard_title" to "Pendaftaran Awal ZoKas",
+        "wizard_sec_policy" to "1. Sarujuk Kebijakan",
+        "wizard_sec_lang" to "2. Pilihan Basa",
+        "wizard_sec_business" to "3. Rincian Jinis Usaha",
+        "wizard_sec_modules" to "4. Saran Modul (Wiwitane OFF)",
+        "wizard_sec_mode" to "5. Pilih Mode Panganggo",
+        "wizard_sec_account" to "6. Identitas Toko & Akun Mlebu",
+        "wizard_sec_payment" to "7. Cara Pembayaran",
+        "wizard_save_start" to "SIMPEN & MIWITI"
     )
 
     private val suBase = mapOf(
@@ -699,7 +726,16 @@ object LanguageManager {
         "log_aktivitas_audit" to "Catetan Kagiatan (Audit)",
         "aktivitas_tercatat" to "kagiatan kacatet",
         "menampilkan_30_aktivitas" to "Nembongkeun 30 tina %d kagiatan panganyarna.",
-        "toko_pret" to "Profil Toko"
+        "toko_pret" to "Profil Toko",
+"wizard_title" to "Pendaptaran Awal ZoKas",
+        "wizard_sec_policy" to "1. Pasatujuan Kabijakan",
+        "wizard_sec_lang" to "2. Pilihan Basa",
+        "wizard_sec_business" to "3. Rincian Jenis Usaha",
+        "wizard_sec_modules" to "4. Saran Modul (Awalna OFF)",
+        "wizard_sec_mode" to "5. Pilih Mode Pamakéan",
+        "wizard_sec_account" to "6. Idéntitas Toko & Akun Asup",
+        "wizard_sec_payment" to "7. Métodeu Pamayaran",
+        "wizard_save_start" to "SIMPEN & MIMTIAN"
     )
 
     private val madBase = mapOf(
@@ -867,7 +903,16 @@ object LanguageManager {
         "log_aktivitas_audit" to "Catetan Lalakon (Audit)",
         "aktivitas_tercatat" to "lalakon kacatet",
         "menampilkan_30_aktivitas" to "Nampilagi 30 dari %d lalakon paleng anyar.",
-        "toko_pret" to "Profil Toko"
+        "toko_pret" to "Profil Toko",
+"wizard_title" to "Pendaptaran Awal ZoKas",
+        "wizard_sec_policy" to "1. Saroju Kabijakan",
+        "wizard_sec_lang" to "2. Peleyan Bhasa",
+        "wizard_sec_business" to "3. Rincian Macem Usaha",
+        "wizard_sec_modules" to "4. Saran Modul (Molaena OFF)",
+        "wizard_sec_mode" to "5. Pele Mode Angghuyan",
+        "wizard_sec_account" to "6. Identitas Toko & Akun Tamaso",
+        "wizard_sec_payment" to "7. Cara Majer",
+        "wizard_save_start" to "SIMPEN & MOLAE"
     )
 
     // Lookup balik teks Indonesia -> key kamus untuk terjemahan hybrid instan pada teks dinamis UI
