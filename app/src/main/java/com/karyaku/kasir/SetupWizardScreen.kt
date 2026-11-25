@@ -77,7 +77,15 @@ private fun translateCatalogBusinessName(rawName: String, lang: String): String 
         "Toko Bangunan / Material" to "Building & Hardware Store",
         "Toko Pakaian / Butik" to "Clothing & Boutique Store",
         "Salon & Perawatan" to "Salon & Beauty Care",
-        "Laundry Kiloan / Satuan" to "Laundry Service",
+        "Salon Kecantikan & Spa" to "Beauty Salon & Spa",
+        "Repair HP & Elektronik" to "Phone & Electronics Repair",
+        "Jahit & Permak Apparel" to "Tailoring & Apparel Alteration",
+        "Service Cetak / Sablon / Percetakan" to "Printing, Screen Print & Press Service",
+        "Shop Es Teh / Beverage Segar" to "Iced Tea & Fresh Drink Shop",
+        "Stall Martabak & Terang Bulan" to "Martabak & Sweet Pancake Stall",
+        "Vendor Daging Sapi Market" to "Market Fresh Beef Vendor",
+        "Vendor Ikan Segar / Laut Market" to "Market Fresh Fish & Seafood Vendor",
+        "Laundry Kiloan / Satuan" to "Laundry & Per-Piece Wash",
         "Barbershop / Pangkas Rambut" to "Barbershop"
     )
     exactMap[rawName]?.let { return it }
@@ -108,6 +116,7 @@ private fun translateCatalogBusinessName(rawName: String, lang: String): String 
         "Kelontong" to "Sundries",
         "Bangunan" to "Building Materials",
         "Pakaian" to "Apparel",
+        "Salon Kecantikan" to "Beauty Salon",
         "Salon" to "Salon",
         "Cuci" to "Wash",
         "Servis" to "Repair"
@@ -151,8 +160,8 @@ private fun translateOptionalModuleDesc(rawDesc: String, lang: String): String {
     return when {
         d.contains("kas") && (d.contains("bon") || d.contains("hutang")) ->
             "Track cash in/out, unpaid customer credit, and supplier bills."
-        d.contains("grosir") ->
-            "Set bulk or minimum-quantity pricing for repeat buyers."
+        d.contains("grosir") || d.contains("timbangan") ->
+            "Special pricing for specific quantities or weighed items."
         d.contains("pemasok") || d.contains("kulakan") || d.contains("po") ->
             "Record supplier purchases and restock inventory cleanly."
         d.contains("meja") ->
@@ -265,7 +274,7 @@ fun SetupWizardScreen(
                     Toast.LENGTH_SHORT
                 ).show()
             } catch (e: Exception) {
-                Toast.makeText(context, "Gagal memuat logo: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, wizardText(selectedLang, "Gagal memuat logo: ${e.message}", "Failed to load logo: ${e.message}", "Gagal ngemot logo: ${e.message}", "Gagal ngamuat logo: ${e.message}", "Gagal mamasok logo: ${e.message}"), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -796,7 +805,7 @@ fun SetupWizardScreen(
                         if (storeLogoPathInput.isNotBlank() && File(storeLogoPathInput).exists()) {
                             AsyncImage(
                                 model = File(storeLogoPathInput),
-                                contentDescription = "Logo Toko",
+                                contentDescription = wizardText(selectedLang, "Logo Toko", "Store Logo", "Logo Toko", "Logo Toko", "Logo Toko"),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -873,7 +882,7 @@ fun SetupWizardScreen(
                             )
                         )
                     },
-                    placeholder = { Text("Contoh: Toko Berkah / Ayam Potong Bu Sari", fontSize = 12.sp) },
+                    placeholder = { Text(wizardText(selectedLang, "Contoh: Toko Berkah / Ayam Potong Bu Sari", "Example: Berkah Store / Fresh Chicken", "Tuladha: Toko Berkah / Pitik Potong", "Conto: Toko Berkah / Hayam Potong", "Conto: Toko Berkah / Ajam Potong"), fontSize = 12.sp) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1097,7 +1106,7 @@ fun SetupWizardScreen(
                                     onClick = {
                                         val opts = ScanOptions().apply {
                                             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                            setPrompt("Scan QRIS Toko")
+                                            setPrompt(wizardText(selectedLang, "Scan QRIS Toko", "Scan Store QRIS", "Scan QRIS Toko", "Scan QRIS Toko", "Scan QRIS Toko"))
                                             setCameraId(0)
                                             setBeepEnabled(false)
                                             setOrientationLocked(true)
@@ -1159,7 +1168,7 @@ fun SetupWizardScreen(
                                 value = bankNameInput,
                                 onValueChange = { bankNameInput = it },
                                 label = { Text(wizardText(selectedLang, "Nama Bank *", "Bank Name *", "Jeneng Bank *", "Nami Bank *", "Nyama Bank *"), fontSize = 12.sp) },
-                                placeholder = { Text("Contoh: BCA, BRI, Mandiri, BNI", fontSize = 11.sp) },
+                                placeholder = { Text(wizardText(selectedLang, "Contoh: BCA, BRI, Mandiri, BNI", "Example: BCA, BRI, Mandiri, BNI", "Tuladha: BCA, BRI, Mandiri, BNI", "Conto: BCA, BRI, Mandiri, BNI", "Conto: BCA, BRI, Mandiri, BNI"), fontSize = 11.sp) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
