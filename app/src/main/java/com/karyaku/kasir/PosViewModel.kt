@@ -13,7 +13,7 @@ fun parseFractionOrDecimalQty(raw: String): Double {
     val clean = raw.trim().replace(',', '.')
     if (clean.isEmpty()) return 0.0
     // Tangani pecahan campuran seperti "1 1/2"
-    val partsSpace = clean.split(Regex("\s+"))
+    val partsSpace = clean.split(Regex("\\s+"))
     if (partsSpace.size == 2 && partsSpace[1].contains("/")) {
         val whole = partsSpace[0].toDoubleOrNull() ?: 0.0
         val frac = parseFractionOrDecimalQty(partsSpace[1])
