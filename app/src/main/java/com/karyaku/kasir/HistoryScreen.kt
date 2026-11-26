@@ -1893,7 +1893,15 @@ fun TransactionDetailDialog(
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
                         items(txItems) { item ->
-                            val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
+                            val fracMatch = Regex("\\[Qty:\\s*([0-9.]+)\\]").find(item.notes)
+                            val fracQty = fracMatch?.groupValues?.getOrNull(1)?.toDoubleOrNull()
+                            val effQty = if (fracQty != null && fracQty > 0.0) fracQty else item.quantity.toDouble()
+                            val unitPrice = if (effQty > 0.0) Math.round(item.subtotal / effQty) else item.price
+                            val displayQty = if (fracQty != null && fracQty > 0.0) {
+                                String.format(java.util.Locale.US, "%.3f", fracQty).trimEnd('0').trimEnd('.')
+                            } else {
+                                item.quantity.toString()
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1906,7 +1914,7 @@ fun TransactionDetailDialog(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        "${item.quantity} x ${formatRupiah(unitPrice)}",
+                                        "$displayQty x ${formatRupiah(unitPrice)}",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

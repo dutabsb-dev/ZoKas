@@ -25,6 +25,28 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+
+object LiveCartFractionState {
+    @Volatile var hasOverride: Boolean = false
+    @Volatile var liveSubtotal: Long = 0L
+    @Volatile var liveTotal: Long = 0L
+    @Volatile var updatedAtMs: Long = 0L
+
+    fun publish(sub: Long, tot: Long) {
+        liveSubtotal = sub
+        liveTotal = tot
+        hasOverride = true
+        updatedAtMs = System.currentTimeMillis()
+    }
+
+    fun clear() {
+        hasOverride = false
+        liveSubtotal = 0L
+        liveTotal = 0L
+        updatedAtMs = 0L
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosCartSection(
@@ -430,7 +452,7 @@ fun PosCartSection(
                                 IconButton(onClick = { onAdd(item) }, modifier = Modifier.size(24.dp)) {
                                     Icon(Icons.Default.Add, contentDescription = "Tambah", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(15.dp))
                                 }
-                                IconButton(onClick = { onDelete(item) }, modifier = Modifier.size(24.dp)) {
+                                IconButton(onClick = { LiveCartFractionState.clear(); onDelete(item) }, modifier = Modifier.size(24.dp)) {
                                     Icon(Icons.Default.Delete, contentDescription = "Hapus", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(15.dp))
                                 }
                             }
@@ -502,8 +524,11 @@ fun PosCartSection(
                 Text(formatRupiah(roundingDiff), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
             }
         }
-        LaunchedEffect(computedLiveSubtotal, computedLiveTotal, fracSyncTick) {
-            if (fracSyncTick > 0) {
+        LaunchedEffect(computedLiveSubtotal, computedLiveTotal, fracSyncTick, cart.size) {
+            if (cart.isEmpty()) {
+                LiveCartFractionState.clear()
+            } else if (fracSyncTick > 0) {
+                LiveCartFractionState.publish(computedLiveSubtotal, computedLiveTotal)
                 onLiveTotalChange?.invoke(computedLiveSubtotal, computedLiveTotal)
             }
         }

@@ -1401,8 +1401,20 @@ fun PaymentBottomSheet(
     var isDispatchingEdc by remember { mutableStateOf(false) }
     var edcDispatchCounter by remember { mutableIntStateOf(0) }
 
+    val activeFractionalTotal = remember(totalPrice) {
+        val now = System.currentTimeMillis()
+        if (LiveCartFractionState.hasOverride &&
+            LiveCartFractionState.liveTotal > 0L &&
+            (now - LiveCartFractionState.updatedAtMs) < 600_000L
+        ) {
+            LiveCartFractionState.liveTotal
+        } else {
+            totalPrice
+        }
+    }
+    val effectiveTotalPrice = if (activeFractionalTotal != totalPrice && activeFractionalTotal > 0L) activeFractionalTotal else totalPrice
     val cashReceived = cashInput.toLongOrNull() ?: 0L
-    val change = if (cashReceived >= totalPrice) cashReceived - totalPrice else 0L
+    val change = if (cashReceived >= effectiveTotalPrice) cashReceived - effectiveTotalPrice else 0L
 
     LaunchedEffect(paymentMethod, qrisString, uniqueTransferAmount, totalPrice, cashReceived, change) {
         if (paymentMethod != "Bank Transfer") {
@@ -1455,10 +1467,10 @@ fun PaymentBottomSheet(
             Text(zokasText("Pembayaran", "Payment"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(16.dp))
             Text(zokasText("Total Tagihan:", "Total Tagihan:"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(formatRupiah(totalPrice), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
+            Text(formatRupiah(effectiveTotalPrice), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black)
 
             if (settingsManager.enableMultiCurrency && settingsManager.exchangeRateUsd > 0) {
-                val usdAmount = totalPrice / settingsManager.exchangeRateUsd
+                val usdAmount = effectiveTotalPrice / settingsManager.exchangeRateUsd
                 val formattedUsd = String.format(Locale.US, "$%.2f", usdAmount)
                 Text(zokasText("≈ $formattedUsd USD", "≈ $formattedUsd USD"), fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1564,7 +1576,7 @@ fun PaymentBottomSheet(
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
                             Text(zokasText("Nominal Transfer:", "Nominal Transfer:"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatRupiah(if (uniqueTransferAmount > 0) uniqueTransferAmount else totalPrice), fontWeight = FontWeight.Black, fontSize = 26.sp, color = MaterialTheme.colorScheme.tertiary)
+                            Text(formatRupiah(if (uniqueTransferAmount > 0) uniqueTransferAmount else effectiveTotalPrice), fontWeight = FontWeight.Black, fontSize = 26.sp, color = MaterialTheme.colorScheme.tertiary)
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -1587,7 +1599,7 @@ fun PaymentBottomSheet(
                 }
             } else if (paymentMethod == "EDC") {
                 LaunchedEffect(paymentMethod, totalPrice, selectedEdcChannel, edcDispatchCounter) {
-                    if (totalPrice > 0L) {
+                    if (effectiveTotalPrice > 0L) {
                         isDispatchingEdc = true
                         EdcConnectionManager.setPreferredChannel(context, selectedEdcChannel)
                         EdcConnectionManager.setTcpHost(context, edcTcpHost)
@@ -1595,7 +1607,7 @@ fun PaymentBottomSheet(
                         EdcConnectionManager.setIntentPackageOrUri(context, edcIntentTarget)
                         val (cmd, fb) = EdcConnectionManager.dispatchAutomaticCommand(
                             context = context,
-                            amount = totalPrice,
+                            amount = effectiveTotalPrice,
                             selectedChannel = selectedEdcChannel,
                             customTrace = edcRefCode
                         )
@@ -1760,10 +1772,10 @@ fun PaymentBottomSheet(
 
             Spacer(modifier = Modifier.height(28.dp))
             val canCompletePayment = when (paymentMethod) {
-                "CASH" -> cashReceived >= totalPrice && totalPrice > 0
+                "CASH" -> cashReceived >= effectiveTotalPrice && effectiveTotalPrice > 0
                 "QRIS" -> isQrisPaid
                 "Bank Transfer" -> isTransferPaid || manualTransferConfirmed
-                "EDC" -> edcConfirmed && totalPrice > 0
+                "EDC" -> edcConfirmed && effectiveTotalPrice > 0
                 else -> true
             }
             Button(
@@ -1773,7 +1785,9 @@ fun PaymentBottomSheet(
                     } else {
                         paymentMethod
                     }
-                    onConfirmPayment(if (paymentMethod == "CASH") cashReceived else totalPrice, finalMethodLabel)
+                    val finalBillToPay = effectiveTotalPrice
+                    LiveCartFractionState.clear()
+                    onConfirmPayment(if (paymentMethod == "CASH") cashReceived else finalBillToPay, finalMethodLabel)
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = canCompletePayment,
