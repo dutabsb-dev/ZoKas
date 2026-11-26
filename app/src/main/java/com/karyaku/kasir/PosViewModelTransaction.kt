@@ -107,8 +107,21 @@ object DecimalStockTracker {
     }
 }
 
+data class ProductYieldProfile(
+    val productId: Long,
+    val rawKg: Double,
+    val rawCostPerKg: Long,
+    val extraProcessCost: Long,
+    val carcassKg: Double,
+    val byproductKg: Double,
+    val wasteKg: Double,
+    val freezerShrinkPct: Double,
+    val carcassHppPerKg: Long
+)
+
 data class YieldBatchRecord(
     val id: String,
+    val productId: Long,
     val timestamp: Long,
     val rawName: String,
     val rawKg: Double,
@@ -126,20 +139,83 @@ object YieldAndLossEngine {
     private const val KEY_FREEZER_LOSS = "freezer_shrink_loss_rp"
     private const val KEY_BELOW_HPP_LOSS = "below_hpp_loss_rp"
     private const val KEY_WASTE_LOSS = "waste_loss_rp"
-    private const val KEY_LATEST_CARCASS_HPP = "latest_carcass_hpp_per_kg"
 
-    @Volatile var lastCalculatedCarcassHppPerKg: Long = 0L
-        private set
+    private val productHppById = java.util.concurrent.ConcurrentHashMap<Long, Long>()
 
     @Volatile private var freezerLossMem: Long = 0L
     @Volatile private var belowHppLossMem: Long = 0L
     @Volatile private var wasteLossMem: Long = 0L
 
+    fun getProductCarcassHpp(productId: Long, fallback: Long = 0L): Long {
+        val h = productHppById[productId] ?: 0L
+        return if (h > 0L) h else fallback
+    }
+
     fun getCarcassHppPerKg(fallback: Long = 0L): Long {
-        return if (lastCalculatedCarcassHppPerKg > 0L) lastCalculatedCarcassHppPerKg else fallback
+        return fallback
+    }
+
+    fun saveProductProfile(context: Context, profile: ProductYieldProfile) {
+        if (profile.productId <= 0L) return
+        if (profile.carcassHppPerKg > 0L) {
+            productHppById[profile.productId] = profile.carcassHppPerKg
+        }
+        val obj = JSONObject().apply {
+            put("productId", profile.productId)
+            put("rawKg", profile.rawKg)
+            put("rawCostPerKg", profile.rawCostPerKg)
+            put("extraProcessCost", profile.extraProcessCost)
+            put("carcassKg", profile.carcassKg)
+            put("byproductKg", profile.byproductKg)
+            put("wasteKg", profile.wasteKg)
+            put("freezerShrinkPct", profile.freezerShrinkPct)
+            put("carcassHppPerKg", profile.carcassHppPerKg)
+        }
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("profile_prod_${profile.productId}", obj.toString())
+            .apply()
+    }
+
+    fun loadProductProfile(context: Context, productId: Long, defaultCostPrice: Long): ProductYieldProfile {
+        if (productId > 0L) {
+            val rawJson = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getString("profile_prod_$productId", null)
+            if (!rawJson.isNullOrBlank()) {
+                try {
+                    val o = JSONObject(rawJson)
+                    val hpp = o.optLong("carcassHppPerKg", defaultCostPrice)
+                    if (hpp > 0L) productHppById[productId] = hpp
+                    return ProductYieldProfile(
+                        productId = productId,
+                        rawKg = o.optDouble("rawKg", 0.0),
+                        rawCostPerKg = o.optLong("rawCostPerKg", defaultCostPrice),
+                        extraProcessCost = o.optLong("extraProcessCost", 0L),
+                        carcassKg = o.optDouble("carcassKg", 0.0),
+                        byproductKg = o.optDouble("byproductKg", 0.0),
+                        wasteKg = o.optDouble("wasteKg", 0.0),
+                        freezerShrinkPct = o.optDouble("freezerShrinkPct", 0.0),
+                        carcassHppPerKg = hpp
+                    )
+                } catch (_: Exception) { }
+            }
+        }
+        return ProductYieldProfile(
+            productId = productId,
+            rawKg = 0.0,
+            rawCostPerKg = defaultCostPrice,
+            extraProcessCost = 0L,
+            carcassKg = 0.0,
+            byproductKg = 0.0,
+            wasteKg = 0.0,
+            freezerShrinkPct = 0.0,
+            carcassHppPerKg = defaultCostPrice
+        )
     }
 
     fun calculateBatch(
+        productId: Long,
+        rawName: String,
         rawKg: Double,
         rawCostPerKg: Long,
         extraProcessCost: Long,
@@ -155,9 +231,10 @@ object YieldAndLossEngine {
             0L
         }
         return YieldBatchRecord(
-            id = "YLD_${System.currentTimeMillis()}",
+            id = "YLD_${productId}_${System.currentTimeMillis()}",
+            productId = productId,
             timestamp = System.currentTimeMillis(),
-            rawName = "Ayam Hidup",
+            rawName = rawName,
             rawKg = rawKg.coerceAtLeast(0.0),
             rawCostPerKg = rawCostPerKg.coerceAtLeast(0L),
             extraProcessCost = extraProcessCost.coerceAtLeast(0L),
@@ -173,6 +250,7 @@ object YieldAndLossEngine {
         val arr = try { JSONArray(prefs.getString(KEY_BATCHES, "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
         val obj = JSONObject().apply {
             put("id", record.id)
+            put("productId", record.productId)
             put("timestamp", record.timestamp)
             put("rawName", record.rawName)
             put("rawKg", record.rawKg)
@@ -189,33 +267,38 @@ object YieldAndLossEngine {
                 put(arr.get(i))
             }
         }
-        lastCalculatedCarcassHppPerKg = record.carcassHppPerKg
+        if (record.productId > 0L && record.carcassHppPerKg > 0L) {
+            productHppById[record.productId] = record.carcassHppPerKg
+        }
         prefs.edit()
             .putString(KEY_BATCHES, nextArr.toString())
-            .putLong(KEY_LATEST_CARCASS_HPP, record.carcassHppPerKg)
             .apply()
     }
 
-    fun getBatches(context: Context): List<YieldBatchRecord> {
+    fun getBatchesForProduct(context: Context, productId: Long): List<YieldBatchRecord> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val arr = try { JSONArray(prefs.getString(KEY_BATCHES, "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
         val out = mutableListOf<YieldBatchRecord>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
-            out.add(
-                YieldBatchRecord(
-                    id = o.optString("id", ""),
-                    timestamp = o.optLong("timestamp", 0L),
-                    rawName = o.optString("rawName", "Ayam Hidup"),
-                    rawKg = o.optDouble("rawKg", 0.0),
-                    rawCostPerKg = o.optLong("rawCostPerKg", 0L),
-                    extraProcessCost = o.optLong("extraProcessCost", 0L),
-                    carcassKg = o.optDouble("carcassKg", 0.0),
-                    byproductKg = o.optDouble("byproductKg", 0.0),
-                    wasteKg = o.optDouble("wasteKg", 0.0),
-                    carcassHppPerKg = o.optLong("carcassHppPerKg", 0L)
+            val pid = o.optLong("productId", 0L)
+            if (productId <= 0L || pid == productId) {
+                out.add(
+                    YieldBatchRecord(
+                        id = o.optString("id", ""),
+                        productId = pid,
+                        timestamp = o.optLong("timestamp", 0L),
+                        rawName = o.optString("rawName", ""),
+                        rawKg = o.optDouble("rawKg", 0.0),
+                        rawCostPerKg = o.optLong("rawCostPerKg", 0L),
+                        extraProcessCost = o.optLong("extraProcessCost", 0L),
+                        carcassKg = o.optDouble("carcassKg", 0.0),
+                        byproductKg = o.optDouble("byproductKg", 0.0),
+                        wasteKg = o.optDouble("wasteKg", 0.0),
+                        carcassHppPerKg = o.optLong("carcassHppPerKg", 0L)
+                    )
                 )
-            )
+            }
         }
         return out
     }
@@ -290,7 +373,7 @@ fun PosViewModel.processPayment(
 
             val computedTotalCost = cartToProcess.sumOf { ci ->
                 val qAct = ci.effectiveQty
-                val unitHpp = if (ci.product.costPrice > 0L) ci.product.costPrice else YieldAndLossEngine.getCarcassHppPerKg(0L)
+                val unitHpp = if (ci.product.costPrice > 0L) ci.product.costPrice else YieldAndLossEngine.getProductCarcassHpp(ci.product.id, 0L)
                 Math.round(unitHpp.toDouble() * qAct)
             }
 
@@ -314,7 +397,7 @@ fun PosViewModel.processPayment(
             // 4. Proses Item & Paket Tambahan
             for (cartItem in cartToProcess) {
                 val itemPrice = if (cartItem.usedMembershipId != null) 0L else getPriceForVariant(cartItem.product, cartItem.selectedVariation)
-                val unitHppRef = if (cartItem.product.costPrice > 0L) cartItem.product.costPrice else YieldAndLossEngine.getCarcassHppPerKg(0L)
+                val unitHppRef = if (cartItem.product.costPrice > 0L) cartItem.product.costPrice else YieldAndLossEngine.getProductCarcassHpp(cartItem.product.id, 0L)
                 
                 val qDouble = cartItem.effectiveQty
                 val qtyLabelSuffix = if (Math.abs(qDouble - Math.rint(qDouble)) > 1e-6) {
