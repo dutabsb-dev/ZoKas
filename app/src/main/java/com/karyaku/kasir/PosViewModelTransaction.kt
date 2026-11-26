@@ -18,6 +18,7 @@ import java.util.Locale
 object DecimalStockTracker {
     private val stockById = java.util.concurrent.ConcurrentHashMap<Long, Double>()
     private val stockByName = java.util.concurrent.ConcurrentHashMap<String, Double>()
+    private val variantStockByKey = java.util.concurrent.ConcurrentHashMap<String, Double>()
 
     fun setStock(productId: Long, productName: String, value: Double) {
         val cleanVal = value.coerceAtLeast(0.0)
@@ -40,6 +41,34 @@ object DecimalStockTracker {
         val base = getStock(productId, productName, currentIntStock)
         val next = (base - delta).coerceAtLeast(0.0)
         setStock(productId, productName, next)
+        return next
+    }
+
+    fun setVariantStock(productId: Long, productName: String, variantName: String, value: Double) {
+        val cleanVal = value.coerceAtLeast(0.0)
+        val vKey = variantName.trim().lowercase()
+        if (vKey.isBlank()) return
+        if (productId > 0L) variantStockByKey["id_${productId}_$vKey"] = cleanVal
+        if (productName.isNotBlank()) variantStockByKey["name_${productName.trim().lowercase()}_$vKey"] = cleanVal
+    }
+
+    fun getVariantStock(productId: Long, productName: String, variantName: String, fallbackInt: Int): Double {
+        val vKey = variantName.trim().lowercase()
+        if (vKey.isBlank()) return fallbackInt.toDouble()
+        if (productId > 0L && variantStockByKey.containsKey("id_${productId}_$vKey")) {
+            return variantStockByKey["id_${productId}_$vKey"] ?: fallbackInt.toDouble()
+        }
+        val nameKey = "name_${productName.trim().lowercase()}_$vKey"
+        if (productName.isNotBlank() && variantStockByKey.containsKey(nameKey)) {
+            return variantStockByKey[nameKey] ?: fallbackInt.toDouble()
+        }
+        return fallbackInt.toDouble()
+    }
+
+    fun deductVariant(productId: Long, productName: String, variantName: String, currentIntStock: Int, delta: Double): Double {
+        val base = getVariantStock(productId, productName, variantName, currentIntStock)
+        val next = (base - delta).coerceAtLeast(0.0)
+        setVariantStock(productId, productName, variantName, next)
         return next
     }
 }
