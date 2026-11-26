@@ -16,9 +16,43 @@ import java.util.Locale
 
 
 object DecimalStockTracker {
+    private const val PREFS_DEC = "zokas_decimal_stock_prefs"
     private val stockById = java.util.concurrent.ConcurrentHashMap<Long, Double>()
     private val stockByName = java.util.concurrent.ConcurrentHashMap<String, Double>()
     private val variantStockByKey = java.util.concurrent.ConcurrentHashMap<String, Double>()
+
+    fun persistStock(context: Context, productId: Long, productName: String, value: Double) {
+        val cleanVal = value.coerceAtLeast(0.0)
+        setStock(productId, productName, cleanVal)
+        val formatted = String.format(java.util.Locale.US, "%.4f", cleanVal)
+        val ed = context.getSharedPreferences(PREFS_DEC, Context.MODE_PRIVATE).edit()
+        if (productId > 0L) ed.putString("id_$productId", formatted)
+        if (productName.isNotBlank()) ed.putString("name_${productName.trim().lowercase()}", formatted)
+        ed.apply()
+    }
+
+    fun loadPersistedStock(context: Context, productId: Long, productName: String, fallbackInt: Int): Double {
+        if (productId > 0L && stockById.containsKey(productId)) {
+            return stockById[productId] ?: fallbackInt.toDouble()
+        }
+        val prefs = context.getSharedPreferences(PREFS_DEC, Context.MODE_PRIVATE)
+        if (productId > 0L) {
+            prefs.getString("id_$productId", null)?.toDoubleOrNull()?.let { loaded ->
+                stockById[productId] = loaded
+                return loaded
+            }
+        }
+        val key = productName.trim().lowercase()
+        if (key.isNotBlank()) {
+            stockByName[key]?.let { return it }
+            prefs.getString("name_$key", null)?.toDoubleOrNull()?.let { loaded ->
+                stockByName[key] = loaded
+                if (productId > 0L) stockById[productId] = loaded
+                return loaded
+            }
+        }
+        return fallbackInt.toDouble()
+    }
 
     fun setStock(productId: Long, productName: String, value: Double) {
         val cleanVal = value.coerceAtLeast(0.0)

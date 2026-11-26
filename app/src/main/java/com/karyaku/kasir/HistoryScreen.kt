@@ -857,7 +857,21 @@ fun HistoryScreen(
             var byproductKgStr by remember { mutableStateOf("15") }
             var wasteKgStr by remember { mutableStateOf("15") }
             var freezerShrinkPctStr by remember { mutableStateOf("5") }
-            var selectedFreezerProdIndex by remember { mutableStateOf(0) }
+            var selectedProductId by remember { mutableStateOf<Long?>(null) }
+            var productMenuExpanded by remember { mutableStateOf(false) }
+
+            LaunchedEffect(products) {
+                if (selectedProductId == null && products.isNotEmpty()) {
+                    selectedProductId = products.first().id
+                }
+                products.forEach { p ->
+                    DecimalStockTracker.loadPersistedStock(context, p.id, p.name, p.stock)
+                }
+            }
+
+            val selectedTargetProduct = remember(products, selectedProductId) {
+                products.find { it.id == selectedProductId } ?: products.firstOrNull()
+            }
 
             val (freezerLossTotal, belowHppLossTotal, wasteLossTotal) = remember(
                 context, transactions, products,
@@ -883,7 +897,7 @@ fun HistoryScreen(
                     onDismissRequest = { showYieldDialog = false },
                     title = {
                         Text(
-                            text = zokasText("Konversi Potong & Susut Freezer", "Yield Conversion & Freezer Shrinkage", lang),
+                            text = zokasText("Rendemen (Yield) & Susut Stok", "Yield & Stock Shrinkage", lang),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -895,8 +909,59 @@ fun HistoryScreen(
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            if (products.isNotEmpty()) {
+                                Text(
+                                    text = zokasText("Produk Target", "Target Product", lang),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(
+                                        onClick = { productMenuExpanded = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        val curStk = selectedTargetProduct?.let {
+                                            DecimalStockTracker.loadPersistedStock(context, it.id, it.name, it.stock)
+                                        } ?: 0.0
+                                        val curUnit = selectedTargetProduct?.let { extractProductBaseUnit(it) } ?: "kg"
+                                        Text(
+                                            text = if (selectedTargetProduct != null)
+                                                "${selectedTargetProduct.name} (${String.format(Locale("id", "ID"), "%.2f", curStk)} $curUnit)"
+                                            else
+                                                zokasText("Pilih Produk", "Select Product", lang),
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1
+                                        )
+                                        Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    }
+                                    DropdownMenu(
+                                        expanded = productMenuExpanded,
+                                        onDismissRequest = { productMenuExpanded = false }
+                                    ) {
+                                        products.forEach { prod ->
+                                            val pStk = DecimalStockTracker.loadPersistedStock(context, prod.id, prod.name, prod.stock)
+                                            val pUnit = extractProductBaseUnit(prod)
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(
+                                                        "${prod.name} (${String.format(Locale("id", "ID"), "%.2f", pStk)} $pUnit)",
+                                                        fontSize = 12.sp
+                                                    )
+                                                },
+                                                onClick = {
+                                                    selectedProductId = prod.id
+                                                    productMenuExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             Text(
-                                text = zokasText("1. Hitung HPP Murni Karkas (100 kg -> 70 kg Karkas + 15 kg Sampingan + 15 kg Susut)", "1. Carcass Net Cost (100 kg -> 70 kg Carcass + 15 kg Byproduct + 15 kg Shrink)", lang),
+                                text = zokasText("1. Kalkulator Rendemen & HPP Hasil Utama", "1. Yield & Main Output COGS Calculator", lang),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.primary
@@ -905,7 +970,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = rawKgStr,
                                     onValueChange = { rawKgStr = it },
-                                    label = { Text(zokasText("Bahan (kg)", "Raw (kg)"), fontSize = 11.sp) },
+                                    label = { Text(zokasText("Bahan Baku", "Raw Input"), fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
                                     modifier = Modifier.weight(1f)
@@ -913,7 +978,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = rawPriceStr,
                                     onValueChange = { rawPriceStr = it.filter { c -> c.isDigit() } },
-                                    label = { Text(zokasText("Harga/kg", "Price/kg"), fontSize = 11.sp) },
+                                    label = { Text(zokasText("Harga/Satuan", "Cost/Unit"), fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true,
                                     modifier = Modifier.weight(1f)
@@ -922,7 +987,7 @@ fun HistoryScreen(
                             OutlinedTextField(
                                 value = processCostStr,
                                 onValueChange = { processCostStr = it.filter { c -> c.isDigit() } },
-                                label = { Text(zokasText("Biaya Potong / Es / Plastik (Rp)", "Cutting / Ice / Bag Cost (Rp)"), fontSize = 11.sp) },
+                                label = { Text(zokasText("Biaya Proses / Kemasan / Jasa (Rp)", "Processing / Packaging / Fee (Rp)"), fontSize = 11.sp) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
@@ -931,7 +996,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = carcassKgStr,
                                     onValueChange = { carcassKgStr = it },
-                                    label = { Text(zokasText("Karkas (kg)", "Carcass (kg)"), fontSize = 11.sp) },
+                                    label = { Text(zokasText("Hasil Utama", "Main Output"), fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
                                     modifier = Modifier.weight(1f)
@@ -939,7 +1004,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = byproductKgStr,
                                     onValueChange = { byproductKgStr = it },
-                                    label = { Text(zokasText("Sampingan (kg)", "Byproduct (kg)"), fontSize = 11.sp) },
+                                    label = { Text(zokasText("Sampingan", "Byproduct"), fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
                                     modifier = Modifier.weight(1f)
@@ -960,41 +1025,52 @@ fun HistoryScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(zokasText("Total Modal Batch: ${formatRupiah(totalModalPreview)}", "Total Batch Cost: ${formatRupiah(totalModalPreview)}"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text(zokasText("HPP Murni Karkas: ${formatRupiah(previewBatch.carcassHppPerKg)} / kg", "Carcass Net COGS: ${formatRupiah(previewBatch.carcassHppPerKg)} / kg"), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                                    Text(zokasText("Produk Sampingan: HPP Rp 0 (stok terpisah)", "Byproduct: COGS Rp 0 (separate stock)"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(zokasText("Total Modal Batch: ${formatRupiah(totalModalPreview)}", "Total Batch Cost: ${formatRupiah(totalModalPreview)}", lang), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(zokasText("HPP Hasil Utama: ${formatRupiah(previewBatch.carcassHppPerKg)} / satuan", "Main Output COGS: ${formatRupiah(previewBatch.carcassHppPerKg)} / unit", lang), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                    Text(zokasText("Produk Sampingan: HPP Rp 0 (terpisah)", "Byproduct: COGS Rp 0 (separate)", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
 
                             Button(
                                 onClick = {
-                                    YieldAndLossEngine.saveBatchRecord(context, previewBatch)
+                                    val batchToSave = previewBatch.copy(
+                                        rawName = selectedTargetProduct?.name ?: "Batch Produksi"
+                                    )
+                                    YieldAndLossEngine.saveBatchRecord(context, batchToSave)
+                                    selectedTargetProduct?.let { target ->
+                                        if (previewBatch.carcassHppPerKg > 0L) {
+                                            viewModel.updateProduct(
+                                                target.copy(costPrice = previewBatch.carcassHppPerKg),
+                                                currentUser.id,
+                                                currentUser.name
+                                            )
+                                        }
+                                    }
                                     Toast.makeText(
                                         context,
-                                        "HPP Karkas tersimpan: ${formatRupiah(previewBatch.carcassHppPerKg)}/kg",
+                                        "HPP tersimpan (${formatRupiah(previewBatch.carcassHppPerKg)})",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text(zokasText("Simpan HPP Karkas Batch Ini", "Save Carcass COGS for Batch"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(zokasText("Simpan HPP & Terapkan ke Produk", "Save COGS & Apply to Product", lang), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                             Text(
-                                text = zokasText("2. Catat Susut Freezer (%)", "2. Record Freezer Shrinkage (%)"),
+                                text = zokasText("2. Catat Susut Penyimpanan / Freezer (%)", "2. Record Storage / Freezer Shrinkage (%)", lang),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.tertiary
                             )
-                            if (products.isNotEmpty()) {
-                                val targetProd = products.getOrElse(selectedFreezerProdIndex) { products.first() }
+                            if (selectedTargetProduct != null) {
                                 OutlinedTextField(
                                     value = freezerShrinkPctStr,
                                     onValueChange = { freezerShrinkPctStr = it },
-                                    label = { Text(zokasText("Persen Susut Freezer (%) - Produk: ${targetProd.name}", "Freezer Shrink (%) - Product: ${targetProd.name}"), fontSize = 11.sp) },
+                                    label = { Text(zokasText("Persen Susut (%) - ${selectedTargetProduct.name}", "Shrinkage (%) - ${selectedTargetProduct.name}", lang), fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth()
@@ -1003,16 +1079,28 @@ fun HistoryScreen(
                                     onClick = {
                                         val pct = freezerShrinkPctStr.replace(',', '.').toDoubleOrNull() ?: 0.0
                                         if (pct > 0.0) {
-                                            val curDec = DecimalStockTracker.getStock(targetProd.id, targetProd.name, targetProd.stock)
-                                            val lostKg = curDec * (pct / 100.0)
-                                            val nextDec = DecimalStockTracker.deduct(targetProd.id, targetProd.name, targetProd.stock, lostKg)
-                                            val hppRef = if (targetProd.costPrice > 0L) targetProd.costPrice else YieldAndLossEngine.getCarcassHppPerKg(0L)
-                                            val lossRp = Math.round(lostKg * hppRef)
+                                            val curDec = DecimalStockTracker.loadPersistedStock(
+                                                context, selectedTargetProduct.id, selectedTargetProduct.name, selectedTargetProduct.stock
+                                            )
+                                            val lostQty = curDec * (pct / 100.0)
+                                            val nextDec = (curDec - lostQty).coerceAtLeast(0.0)
+                                            DecimalStockTracker.persistStock(context, selectedTargetProduct.id, selectedTargetProduct.name, nextDec)
+                                            val nextInt = Math.floor(nextDec + 1e-6).toInt().coerceAtLeast(0)
+                                            viewModel.updateProduct(
+                                                selectedTargetProduct.copy(stock = nextInt),
+                                                currentUser.id,
+                                                currentUser.name
+                                            )
+                                            val hppRef = if (selectedTargetProduct.costPrice > 0L)
+                                                selectedTargetProduct.costPrice
+                                            else
+                                                YieldAndLossEngine.getCarcassHppPerKg(0L)
+                                            val lossRp = Math.round(lostQty * hppRef)
                                             YieldAndLossEngine.addFreezerShrinkageLoss(lossRp)
                                             YieldAndLossEngine.persistAndReadTotals(context)
                                             Toast.makeText(
                                                 context,
-                                                "Susut freezer ${String.format(Locale.US, "%.2f", lostKg)} kg (sisa ${String.format(Locale.US, "%.2f", nextDec)})",
+                                                "Susut ${String.format(Locale.US, "%.2f", lostQty)} (sisa ${String.format(Locale.US, "%.2f", nextDec)})",
                                                 Toast.LENGTH_SHORT
                                             ).show()
                                         }
@@ -1020,14 +1108,14 @@ fun HistoryScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text(zokasText("Terapkan Susut Freezer ke Stok", "Apply Freezer Shrinkage to Stock"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(zokasText("Terapkan Susut ke Stok Produk", "Apply Shrinkage to Product Stock", lang), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     },
                     confirmButton = {
                         TextButton(onClick = { showYieldDialog = false }) {
-                            Text(zokasText("Tutup", "Close"), fontWeight = FontWeight.Bold)
+                            Text(zokasText("Tutup", "Close", lang), fontWeight = FontWeight.Bold)
                         }
                     }
                 )
@@ -1053,9 +1141,9 @@ fun HistoryScreen(
                             )
                             Text(
                                 text = if (latestBatch != null && latestBatch.carcassHppPerKg > 0L)
-                                    zokasText("HPP Karkas Aktif: ${formatRupiah(latestBatch.carcassHppPerKg)}/kg", "Active Carcass COGS: ${formatRupiah(latestBatch.carcassHppPerKg)}/kg", lang)
+                                    zokasText("HPP Hasil Utama: ${formatRupiah(latestBatch.carcassHppPerKg)}/satuan", "Main Output COGS: ${formatRupiah(latestBatch.carcassHppPerKg)}/unit", lang)
                                 else
-                                    zokasText("Hitung HPP potong, susut freezer & selisih jual", "Calculate cutting COGS, freezer shrink & margin gap", lang),
+                                    zokasText("Hitung HPP konversi, susut stok & selisih jual", "Calculate yield COGS, shrinkage & margin gap", lang),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1071,7 +1159,7 @@ fun HistoryScreen(
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(zokasText("Susut Freezer:", "Freezer Shrinkage:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(zokasText("Susut Penyimpanan / Freezer:", "Storage / Freezer Shrinkage:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(formatRupiah(freezerLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
