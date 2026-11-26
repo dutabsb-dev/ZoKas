@@ -713,8 +713,11 @@ fun PosViewModel.voidTransaction(transaction: TransactionEntity, pin: String, cu
             
             val items = transactionItemDao.getItemsByTransaction(transaction.id).first()
             items.forEach { item ->
-                val prod = productDao.getProductById(item.productId)
-                if (prod != null) productDao.updateStock(prod.id, prod.stock + item.quantity)
+                val pid = item.productId
+                if (pid != null) {
+                    val prod = productDao.getProductById(pid)
+                    if (prod != null) productDao.updateStock(prod.id, prod.stock + item.quantity)
+                }
             }
             
             userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "VOID TRANSAKSI #${transaction.id}", actionType = "TRANSACTION"))
@@ -734,8 +737,11 @@ fun PosViewModel.refundTransaction(transaction: TransactionEntity, pin: String, 
             
             val items = transactionItemDao.getItemsByTransaction(transaction.id).first()
             items.forEach { item ->
-                val prod = productDao.getProductById(item.productId)
-                if (prod != null) productDao.updateStock(prod.id, prod.stock + item.quantity)
+                val pid = item.productId
+                if (pid != null) {
+                    val prod = productDao.getProductById(pid)
+                    if (prod != null) productDao.updateStock(prod.id, prod.stock + item.quantity)
+                }
             }
             
             userDao.insertAuditLog(AuditLogEntity(userId = currentUser.id, userName = currentUser.name, action = "REFUND TRANSAKSI #${transaction.id}", actionType = "TRANSACTION"))
