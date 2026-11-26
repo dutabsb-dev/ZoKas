@@ -849,6 +849,246 @@ fun HistoryScreen(
         }
 
         item {
+            var showYieldDialog by remember { mutableStateOf(false) }
+            var rawKgStr by remember { mutableStateOf("100") }
+            var rawPriceStr by remember { mutableStateOf("18000") }
+            var processCostStr by remember { mutableStateOf("150000") }
+            var carcassKgStr by remember { mutableStateOf("70") }
+            var byproductKgStr by remember { mutableStateOf("15") }
+            var wasteKgStr by remember { mutableStateOf("15") }
+            var freezerShrinkPctStr by remember { mutableStateOf("5") }
+            var selectedFreezerProdIndex by remember { mutableStateOf(0) }
+
+            val (freezerLossTotal, belowHppLossTotal, wasteLossTotal) = remember(
+                context, transactions, products,
+                rawKgStr, rawPriceStr, processCostStr, carcassKgStr, byproductKgStr, wasteKgStr
+            ) {
+                YieldAndLossEngine.persistAndReadTotals(context)
+            }
+            val latestBatch = remember(context, freezerLossTotal) {
+                YieldAndLossEngine.getBatches(context).firstOrNull()
+            }
+
+            if (showYieldDialog) {
+                val rKg = rawKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val rCost = rawPriceStr.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                val procCost = processCostStr.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                val cKg = carcassKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val bKg = byproductKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val wKg = wasteKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val previewBatch = YieldAndLossEngine.calculateBatch(rKg, rCost, procCost, cKg, bKg, wKg)
+                val totalModalPreview = Math.round(rKg * rCost) + procCost
+
+                AlertDialog(
+                    onDismissRequest = { showYieldDialog = false },
+                    title = {
+                        Text(
+                            text = zokasText("Konversi Potong & Susut Freezer", "Yield Conversion & Freezer Shrinkage", lang),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = zokasText("1. Hitung HPP Murni Karkas (100 kg -> 70 kg Karkas + 15 kg Sampingan + 15 kg Susut)", "1. Carcass Net Cost (100 kg -> 70 kg Carcass + 15 kg Byproduct + 15 kg Shrink)", lang),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedTextField(
+                                    value = rawKgStr,
+                                    onValueChange = { rawKgStr = it },
+                                    label = { Text(zokasText("Bahan (kg)", "Raw (kg)"), fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = rawPriceStr,
+                                    onValueChange = { rawPriceStr = it.filter { c -> c.isDigit() } },
+                                    label = { Text(zokasText("Harga/kg", "Price/kg"), fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            OutlinedTextField(
+                                value = processCostStr,
+                                onValueChange = { processCostStr = it.filter { c -> c.isDigit() } },
+                                label = { Text(zokasText("Biaya Potong / Es / Plastik (Rp)", "Cutting / Ice / Bag Cost (Rp)"), fontSize = 11.sp) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedTextField(
+                                    value = carcassKgStr,
+                                    onValueChange = { carcassKgStr = it },
+                                    label = { Text(zokasText("Karkas (kg)", "Carcass (kg)"), fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = byproductKgStr,
+                                    onValueChange = { byproductKgStr = it },
+                                    label = { Text(zokasText("Sampingan (kg)", "Byproduct (kg)"), fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = wasteKgStr,
+                                    onValueChange = { wasteKgStr = it },
+                                    label = { Text(zokasText("Susut/Limbah", "Shrink/Waste"), fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(zokasText("Total Modal Batch: ${formatRupiah(totalModalPreview)}", "Total Batch Cost: ${formatRupiah(totalModalPreview)}"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(zokasText("HPP Murni Karkas: ${formatRupiah(previewBatch.carcassHppPerKg)} / kg", "Carcass Net COGS: ${formatRupiah(previewBatch.carcassHppPerKg)} / kg"), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                    Text(zokasText("Produk Sampingan: HPP Rp 0 (stok terpisah)", "Byproduct: COGS Rp 0 (separate stock)"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    YieldAndLossEngine.saveBatchRecord(context, previewBatch)
+                                    Toast.makeText(
+                                        context,
+                                        "HPP Karkas tersimpan: ${formatRupiah(previewBatch.carcassHppPerKg)}/kg",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(zokasText("Simpan HPP Karkas Batch Ini", "Save Carcass COGS for Batch"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                            Text(
+                                text = zokasText("2. Catat Susut Freezer (%)", "2. Record Freezer Shrinkage (%)"),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                            if (products.isNotEmpty()) {
+                                val targetProd = products.getOrElse(selectedFreezerProdIndex) { products.first() }
+                                OutlinedTextField(
+                                    value = freezerShrinkPctStr,
+                                    onValueChange = { freezerShrinkPctStr = it },
+                                    label = { Text(zokasText("Persen Susut Freezer (%) - Produk: ${targetProd.name}", "Freezer Shrink (%) - Product: ${targetProd.name}"), fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        val pct = freezerShrinkPctStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                                        if (pct > 0.0) {
+                                            val curDec = DecimalStockTracker.getStock(targetProd.id, targetProd.name, targetProd.stock)
+                                            val lostKg = curDec * (pct / 100.0)
+                                            val nextDec = DecimalStockTracker.deduct(targetProd.id, targetProd.name, targetProd.stock, lostKg)
+                                            val hppRef = if (targetProd.costPrice > 0L) targetProd.costPrice else YieldAndLossEngine.getCarcassHppPerKg(0L)
+                                            val lossRp = Math.round(lostKg * hppRef)
+                                            YieldAndLossEngine.addFreezerShrinkageLoss(lossRp)
+                                            YieldAndLossEngine.persistAndReadTotals(context)
+                                            Toast.makeText(
+                                                context,
+                                                "Susut freezer ${String.format(Locale.US, "%.2f", lostKg)} kg (sisa ${String.format(Locale.US, "%.2f", nextDec)})",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(zokasText("Terapkan Susut Freezer ke Stok", "Apply Freezer Shrinkage to Stock"), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showYieldDialog = false }) {
+                            Text(zokasText("Tutup", "Close"), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                )
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = zokasText("Rendemen (Yield), Susut & Rugi Jual", "Yield, Shrinkage & Below-Cost Loss", lang),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (latestBatch != null && latestBatch.carcassHppPerKg > 0L)
+                                    zokasText("HPP Karkas Aktif: ${formatRupiah(latestBatch.carcassHppPerKg)}/kg", "Active Carcass COGS: ${formatRupiah(latestBatch.carcassHppPerKg)}/kg", lang)
+                                else
+                                    zokasText("Hitung HPP potong, susut freezer & selisih jual", "Calculate cutting COGS, freezer shrink & margin gap", lang),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showYieldDialog = true },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text(zokasText("Atur Yield", "Yield Setup", lang), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(zokasText("Susut Freezer:", "Freezer Shrinkage:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatRupiah(freezerLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(zokasText("Rugi Jual di Bawah HPP:", "Below-COGS Sale Loss:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatRupiah(belowHppLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                    }
+                    if (wasteLossTotal > 0L) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(zokasText("Kerugian Waste / Rusak:", "Waste Loss:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatRupiah(wasteLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
             var chartPeriod by remember { mutableStateOf("1W") } // "1D", "1W", "1M", "6M", "CUSTOM"
             var chartType by remember { mutableStateOf("BAR") } // "BAR", "LINE", "WATERFALL", "COMBO", "SCATTER", "BULLET"
             var chartMetric by remember { mutableStateOf("REVENUE") } // "REVENUE", "COGS", "GROSS_PROFIT", "NET_PROFIT"
@@ -1893,15 +2133,7 @@ fun TransactionDetailDialog(
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
                         items(txItems) { item ->
-                            val fracMatch = Regex("\\[Qty:\\s*([0-9.]+)\\]").find(item.notes)
-                            val fracQty = fracMatch?.groupValues?.getOrNull(1)?.toDoubleOrNull()
-                            val effQty = if (fracQty != null && fracQty > 0.0) fracQty else item.quantity.toDouble()
-                            val unitPrice = if (effQty > 0.0) Math.round(item.subtotal / effQty) else item.price
-                            val displayQty = if (fracQty != null && fracQty > 0.0) {
-                                String.format(java.util.Locale.US, "%.3f", fracQty).trimEnd('0').trimEnd('.')
-                            } else {
-                                item.quantity.toString()
-                            }
+                            val unitPrice = if (item.quantity > 0) item.subtotal / item.quantity else item.price
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -1914,7 +2146,7 @@ fun TransactionDetailDialog(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        "$displayQty x ${formatRupiah(unitPrice)}",
+                                        "${item.quantity} x ${formatRupiah(unitPrice)}",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

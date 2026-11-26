@@ -18,7 +18,6 @@ import java.util.Locale
 object DecimalStockTracker {
     private val stockById = java.util.concurrent.ConcurrentHashMap<Long, Double>()
     private val stockByName = java.util.concurrent.ConcurrentHashMap<String, Double>()
-    private val variantStockByKey = java.util.concurrent.ConcurrentHashMap<String, Double>()
 
     fun setStock(productId: Long, productName: String, value: Double) {
         val cleanVal = value.coerceAtLeast(0.0)
@@ -43,36 +42,158 @@ object DecimalStockTracker {
         setStock(productId, productName, next)
         return next
     }
-
-    fun setVariantStock(productId: Long, productName: String, variantName: String, value: Double) {
-        val cleanVal = value.coerceAtLeast(0.0)
-        val vKey = variantName.trim().lowercase()
-        if (vKey.isBlank()) return
-        if (productId > 0L) variantStockByKey["id_${productId}_$vKey"] = cleanVal
-        if (productName.isNotBlank()) variantStockByKey["name_${productName.trim().lowercase()}_$vKey"] = cleanVal
-    }
-
-    fun getVariantStock(productId: Long, productName: String, variantName: String, fallbackInt: Int): Double {
-        val vKey = variantName.trim().lowercase()
-        if (vKey.isBlank()) return fallbackInt.toDouble()
-        if (productId > 0L && variantStockByKey.containsKey("id_${productId}_$vKey")) {
-            return variantStockByKey["id_${productId}_$vKey"] ?: fallbackInt.toDouble()
-        }
-        val nameKey = "name_${productName.trim().lowercase()}_$vKey"
-        if (productName.isNotBlank() && variantStockByKey.containsKey(nameKey)) {
-            return variantStockByKey[nameKey] ?: fallbackInt.toDouble()
-        }
-        return fallbackInt.toDouble()
-    }
-
-    fun deductVariant(productId: Long, productName: String, variantName: String, currentIntStock: Int, delta: Double): Double {
-        val base = getVariantStock(productId, productName, variantName, currentIntStock)
-        val next = (base - delta).coerceAtLeast(0.0)
-        setVariantStock(productId, productName, variantName, next)
-        return next
-    }
 }
 
+data class YieldBatchRecord(
+    val id: String,
+    val timestamp: Long,
+    val rawName: String,
+    val rawKg: Double,
+    val rawCostPerKg: Long,
+    val extraProcessCost: Long,
+    val carcassKg: Double,
+    val byproductKg: Double,
+    val wasteKg: Double,
+    val carcassHppPerKg: Long
+)
+
+object YieldAndLossEngine {
+    private const val PREFS_NAME = "zokas_yield_loss_prefs"
+    private const val KEY_BATCHES = "yield_batches_json"
+    private const val KEY_FREEZER_LOSS = "freezer_shrink_loss_rp"
+    private const val KEY_BELOW_HPP_LOSS = "below_hpp_loss_rp"
+    private const val KEY_WASTE_LOSS = "waste_loss_rp"
+    private const val KEY_LATEST_CARCASS_HPP = "latest_carcass_hpp_per_kg"
+
+    @Volatile var lastCalculatedCarcassHppPerKg: Long = 0L
+        private set
+
+    @Volatile private var freezerLossMem: Long = 0L
+    @Volatile private var belowHppLossMem: Long = 0L
+    @Volatile private var wasteLossMem: Long = 0L
+
+    fun getCarcassHppPerKg(fallback: Long = 0L): Long {
+        return if (lastCalculatedCarcassHppPerKg > 0L) lastCalculatedCarcassHppPerKg else fallback
+    }
+
+    fun calculateBatch(
+        rawKg: Double,
+        rawCostPerKg: Long,
+        extraProcessCost: Long,
+        carcassKg: Double,
+        byproductKg: Double,
+        wasteKg: Double
+    ): YieldBatchRecord {
+        val totalRawCost = Math.round(rawKg.coerceAtLeast(0.0) * rawCostPerKg.coerceAtLeast(0L))
+        val totalModal = totalRawCost + extraProcessCost.coerceAtLeast(0L)
+        val hppPerKg = if (carcassKg > 1e-6) {
+            Math.round(totalModal.toDouble() / carcassKg)
+        } else {
+            0L
+        }
+        return YieldBatchRecord(
+            id = "YLD_${System.currentTimeMillis()}",
+            timestamp = System.currentTimeMillis(),
+            rawName = "Ayam Hidup",
+            rawKg = rawKg.coerceAtLeast(0.0),
+            rawCostPerKg = rawCostPerKg.coerceAtLeast(0L),
+            extraProcessCost = extraProcessCost.coerceAtLeast(0L),
+            carcassKg = carcassKg.coerceAtLeast(0.0),
+            byproductKg = byproductKg.coerceAtLeast(0.0),
+            wasteKg = wasteKg.coerceAtLeast(0.0),
+            carcassHppPerKg = hppPerKg
+        )
+    }
+
+    fun saveBatchRecord(context: Context, record: YieldBatchRecord) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val arr = try { JSONArray(prefs.getString(KEY_BATCHES, "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        val obj = JSONObject().apply {
+            put("id", record.id)
+            put("timestamp", record.timestamp)
+            put("rawName", record.rawName)
+            put("rawKg", record.rawKg)
+            put("rawCostPerKg", record.rawCostPerKg)
+            put("extraProcessCost", record.extraProcessCost)
+            put("carcassKg", record.carcassKg)
+            put("byproductKg", record.byproductKg)
+            put("wasteKg", record.wasteKg)
+            put("carcassHppPerKg", record.carcassHppPerKg)
+        }
+        val nextArr = JSONArray().apply {
+            put(obj)
+            for (i in 0 until minOf(arr.length(), 49)) {
+                put(arr.get(i))
+            }
+        }
+        lastCalculatedCarcassHppPerKg = record.carcassHppPerKg
+        prefs.edit()
+            .putString(KEY_BATCHES, nextArr.toString())
+            .putLong(KEY_LATEST_CARCASS_HPP, record.carcassHppPerKg)
+            .apply()
+    }
+
+    fun getBatches(context: Context): List<YieldBatchRecord> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val arr = try { JSONArray(prefs.getString(KEY_BATCHES, "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        val out = mutableListOf<YieldBatchRecord>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            out.add(
+                YieldBatchRecord(
+                    id = o.optString("id", ""),
+                    timestamp = o.optLong("timestamp", 0L),
+                    rawName = o.optString("rawName", "Ayam Hidup"),
+                    rawKg = o.optDouble("rawKg", 0.0),
+                    rawCostPerKg = o.optLong("rawCostPerKg", 0L),
+                    extraProcessCost = o.optLong("extraProcessCost", 0L),
+                    carcassKg = o.optDouble("carcassKg", 0.0),
+                    byproductKg = o.optDouble("byproductKg", 0.0),
+                    wasteKg = o.optDouble("wasteKg", 0.0),
+                    carcassHppPerKg = o.optLong("carcassHppPerKg", 0L)
+                )
+            )
+        }
+        return out
+    }
+
+    fun addFreezerShrinkageLoss(lossRp: Long) {
+        if (lossRp > 0L) {
+            freezerLossMem += lossRp
+        }
+    }
+
+    fun recordBelowHppSaleLoss(lossRp: Long) {
+        if (lossRp > 0L) {
+            belowHppLossMem += lossRp
+        }
+    }
+
+    fun recordWasteLoss(lossRp: Long) {
+        if (lossRp > 0L) {
+            wasteLossMem += lossRp
+        }
+    }
+
+    fun persistAndReadTotals(context: Context): Triple<Long, Long, Long> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedFreezer = prefs.getLong(KEY_FREEZER_LOSS, 0L) + freezerLossMem
+        val savedBelowHpp = prefs.getLong(KEY_BELOW_HPP_LOSS, 0L) + belowHppLossMem
+        val savedWaste = prefs.getLong(KEY_WASTE_LOSS, 0L) + wasteLossMem
+
+        freezerLossMem = 0L
+        belowHppLossMem = 0L
+        wasteLossMem = 0L
+
+        prefs.edit()
+            .putLong(KEY_FREEZER_LOSS, savedFreezer)
+            .putLong(KEY_BELOW_HPP_LOSS, savedBelowHpp)
+            .putLong(KEY_WASTE_LOSS, savedWaste)
+            .apply()
+
+        return Triple(savedFreezer, savedBelowHpp, savedWaste)
+    }
+}
 
 fun PosViewModel.processPayment(
     cashReceived: Long, userId: Long, userName: String, isSplitBill: Boolean, method: String, 
@@ -104,10 +225,16 @@ fun PosViewModel.processPayment(
             
             val totalCommission = cartToProcess.sumOf { it.product.commissionPerItem * it.quantity }
 
+            val computedTotalCost = cartToProcess.sumOf { ci ->
+                val qAct = ci.effectiveQty
+                val unitHpp = if (ci.product.costPrice > 0L) ci.product.costPrice else YieldAndLossEngine.getCarcassHppPerKg(0L)
+                Math.round(unitHpp.toDouble() * qAct)
+            }
+
             // 3. Simpan Transaksi Utama
             val newTransaction = TransactionEntity(
                 timestamp = System.currentTimeMillis(), totalPrice = finalTotalPrice,
-                totalCost = cartToProcess.sumOf { it.product.costPrice * it.quantity },
+                totalCost = computedTotalCost,
                 paymentMethod = method, status = "SUCCESS", cashierName = userName, 
                 customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum",
                 orderType = _selectedOrderType.value, tableName = _selectedTable.value, 
@@ -124,6 +251,7 @@ fun PosViewModel.processPayment(
             // 4. Proses Item & Paket Tambahan
             for (cartItem in cartToProcess) {
                 val itemPrice = if (cartItem.usedMembershipId != null) 0L else getPriceForVariant(cartItem.product, cartItem.selectedVariation)
+                val unitHppRef = if (cartItem.product.costPrice > 0L) cartItem.product.costPrice else YieldAndLossEngine.getCarcassHppPerKg(0L)
                 
                 val qDouble = cartItem.effectiveQty
                 val qtyLabelSuffix = if (Math.abs(qDouble - Math.rint(qDouble)) > 1e-6) {
@@ -131,6 +259,10 @@ fun PosViewModel.processPayment(
                 } else ""
                 val mergedNotes = (cartItem.notes + qtyLabelSuffix).trim()
                 val itemSubLong = Math.round(itemPrice * qDouble)
+                if (cartItem.usedMembershipId == null && unitHppRef > 0L && itemPrice < unitHppRef) {
+                    val lossBelowHpp = Math.round((unitHppRef - itemPrice).toDouble() * qDouble)
+                    YieldAndLossEngine.recordBelowHppSaleLoss(lossBelowHpp)
+                }
 
                 // Simpan Detail Transaksi
                 itemsToInsert.add(TransactionItemEntity(
@@ -155,19 +287,7 @@ fun PosViewModel.processPayment(
                     )
                     val newIntStock = Math.floor(nextDecStock + 1e-6).toInt().coerceAtLeast(0)
                     if (cartItem.selectedVariation.isNotBlank()) {
-                        val currentVarInt = freshProduct.variations.split(",")
-                            .find { it.split(":").firstOrNull()?.trim().equals(cartItem.selectedVariation, ignoreCase = true) }
-                            ?.split(":")?.getOrNull(3)?.trim()?.toIntOrNull() ?: freshProduct.stock
-                        val nextVarDec = DecimalStockTracker.deductVariant(
-                            productId = freshProduct.id,
-                            productName = freshProduct.name,
-                            variantName = cartItem.selectedVariation,
-                            currentIntStock = currentVarInt,
-                            delta = exactDecimalDeduct
-                        )
-                        val varIntTarget = Math.floor(nextVarDec + 1e-6).toInt().coerceAtLeast(0)
-                        val actualIntDelta = (currentVarInt - varIntTarget).coerceAtLeast(0)
-                        val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, actualIntDelta)
+                        val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, intDeductForVariant)
                         productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newIntStock))
                     } else {
                         productDao.updateProduct(freshProduct.copy(stock = newIntStock))
