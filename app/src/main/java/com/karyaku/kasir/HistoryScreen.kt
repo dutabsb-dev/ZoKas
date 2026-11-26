@@ -1150,7 +1150,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = carcassKgStr,
                                     onValueChange = { carcassKgStr = it },
-                                    label = { Text(zokasText("Hasil Utama", "Main Output", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    label = { Text(zokasText("Hasil", "Main", lang), fontSize = 10.5.sp, maxLines = 1, softWrap = false) },
                                     placeholder = { Text("0", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
@@ -1159,7 +1159,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = byproductKgStr,
                                     onValueChange = { byproductKgStr = it },
-                                    label = { Text(zokasText("Sampingan", "Side Output", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    label = { Text(zokasText("Sisa/Side", "Side", lang), fontSize = 10.5.sp, maxLines = 1, softWrap = false) },
                                     placeholder = { Text("0", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
@@ -1168,7 +1168,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = wasteKgStr,
                                     onValueChange = { wasteKgStr = it },
-                                    label = { Text(zokasText("Susut/Sisa", "Shrink/Loss", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    label = { Text(zokasText("Susut", "Loss", lang), fontSize = 10.5.sp, maxLines = 1, softWrap = false) },
                                     placeholder = { Text("0", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
@@ -1203,7 +1203,7 @@ fun HistoryScreen(
                                     listOf(
                                         "ACTUAL_REMAINING" to zokasText("Sisa Aktual", "Actual Left", lang),
                                         "LOST_WEIGHT" to zokasText("Selisih Susut", "Shrink Qty", lang),
-                                        "PERCENT" to zokasText("Persen %", "Percent %", lang)
+                                        "PERCENT" to zokasText("Persen", "Percent", lang)
                                     ).forEach { (mKey, mLbl) ->
                                         FilterChip(
                                             selected = shrinkMode == mKey,
@@ -1377,11 +1377,12 @@ fun HistoryScreen(
                                 text = if (selectedTargetProduct != null && latestProductBatch != null && latestProductBatch.carcassHppPerKg > 0L)
                                     zokasText("HPP ${selectedTargetProduct.name}: ${formatRupiah(latestProductBatch.carcassHppPerKg)}/satuan", "${selectedTargetProduct.name} COGS: ${formatRupiah(latestProductBatch.carcassHppPerKg)}/unit", lang)
                                 else
-                                    zokasText("Atur susut timbangan, restock HPP & rendemen", "Manage scale shrinkage, restock COGS & yield", lang),
+                                    zokasText("Atur stok, HPP & rendemen produk", "Manage stock, COGS & product yield", lang),
                                 fontSize = 11.sp,
+                                lineHeight = 14.sp,
                                 color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                softWrap = false
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         }
                         OutlinedButton(

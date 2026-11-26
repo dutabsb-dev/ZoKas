@@ -67,7 +67,8 @@ private fun formatStockDecimal(stockVal: Double, unit: String, overrideDecimal: 
 private data class ParsedVariantStock(
     val name: String,
     val stock: Int,
-    val multiplier: Int = 1
+    val multiplier: Int = 1,
+    val price: Long = 0L
 )
 
 private fun extractVariantStocks(product: ProductEntity): List<ParsedVariantStock> {
@@ -79,6 +80,7 @@ private fun extractVariantStocks(product: ProductEntity): List<ParsedVariantStoc
         val pieces = part.split(":")
         if (pieces.size >= 2) {
             val vName = pieces[0].trim()
+            val vPrice = pieces.getOrNull(1)?.trim()?.toLongOrNull() ?: product.price
             val stockStr = pieces.getOrNull(3)?.trim()
             val vStock = if (!stockStr.isNullOrEmpty()) {
                 stockStr.toIntOrNull() ?: 0
@@ -87,7 +89,7 @@ private fun extractVariantStocks(product: ProductEntity): List<ParsedVariantStoc
             }
             val mult = (pieces.getOrNull(4)?.trim()?.toIntOrNull() ?: 1).coerceAtLeast(1)
             if (vName.isNotEmpty()) {
-                result.add(ParsedVariantStock(vName, vStock, mult))
+                result.add(ParsedVariantStock(vName, vStock, mult, vPrice))
             }
         }
     }
@@ -435,32 +437,82 @@ fun PosProductSection(
                 }
             }
         } else {
-            val gridMinSize = if (sortedAndFilteredProducts.size == 1) 168.dp else 136.dp
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = gridMinSize),
-                contentPadding = PaddingValues(bottom = 84.dp, start = 12.dp, end = 12.dp, top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+            val groupedByCategory = remember(sortedAndFilteredProducts, selectedCategory) {
+                if (selectedCategory != "Semua") {
+                    listOf(selectedCategory to sortedAndFilteredProducts)
+                } else {
+                    val map = linkedMapOf<String, MutableList<ProductEntity>>()
+                    for (prod in sortedAndFilteredProducts) {
+                        val catKey = prod.category.trim().ifBlank { "Umum" }
+                        map.getOrPut(catKey) { mutableListOf() }.add(prod)
+                    }
+                    map.entries.map { it.key to it.value.toList() }
+                }
+            }
+            LazyColumn(
+                contentPadding = PaddingValues(bottom = 88.dp, top = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ) {
-                items(items = sortedAndFilteredProducts, key = { it.id }) { product ->
-                    ProductGridCard(
-                        product = product,
-                        onClick = { onProductClick(product) },
-                        onLongClick = { onProductLongClick(product) }
-                    )
+                items(items = groupedByCategory, key = { it.first }) { (catTitle, catProducts) ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = translateCategoryLabel(catTitle),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${catProducts.size} ${zokasText("produk", "items")}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(items = catProducts, key = { it.id }) { product ->
+                                ProductGridCard(
+                                    product = product,
+                                    onClick = { onProductClick(product) },
+                                    onLongClick = { onProductLongClick(product) },
+                                    modifier = Modifier.width(156.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+private data class VariantTickerSlide(
+    val label: String,
+    val stockText: String,
+    val priceText: String,
+    val isAlertStock: Boolean
+)
+
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.animation.ExperimentalAnimationApi::class)
 @Composable
 private fun ProductGridCard(
     product: ProductEntity,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -473,6 +525,9 @@ private fun ProductGridCard(
     val isOutOfStock = !product.isService && product.stock <= 0
     val isLowStock = !product.isService && product.stock in 1..5
     val baseUnit = remember(product.barcode) { extractProductBaseUnit(product) }
+    val variantStocks = remember(product.variations, product.stock, product.price) {
+        extractVariantStocks(product)
+    }
 
     val imageFile = remember(product.imagePath) {
         product.imagePath.trim().takeIf { it.isNotEmpty() }?.let { File(it) }
@@ -482,20 +537,61 @@ private fun ProductGridCard(
     }
 
     val isEnLang = ZokasLocaleManager.isEnglish()
-    val stockLabel = remember(product.isService, product.stock, baseUnit, isEnLang) {
+    val tickerSlides: List<VariantTickerSlide> = remember(
+        product.id, product.name, product.isService, product.stock, product.price, variantStocks, baseUnit, isEnLang
+    ) {
         val activeLang = if (isEnLang) "en" else "in"
         if (product.isService) {
-            zokasText("Jasa", "Service", activeLang)
+            listOf(
+                VariantTickerSlide(
+                    label = product.name,
+                    stockText = zokasText("Jasa", "Service", activeLang),
+                    priceText = formatRupiah(product.price),
+                    isAlertStock = false
+                )
+            )
+        } else if (variantStocks.isNotEmpty()) {
+            variantStocks.map { vs ->
+                val vDec = DecimalStockTracker.getVariantStock(product.id, product.name, vs.name, vs.stock)
+                val vFmt = formatStockDecimal(vDec, baseUnit, overrideDecimal = vDec)
+                val vEmpty = vDec <= 0.0
+                val vLow = !vEmpty && vDec <= 5.0
+                VariantTickerSlide(
+                    label = vs.name,
+                    stockText = zokasText("Stok $vFmt $baseUnit", "Stock $vFmt $baseUnit", activeLang),
+                    priceText = formatRupiah(vs.price),
+                    isAlertStock = vEmpty || vLow
+                )
+            }
         } else {
             val exactStk = DecimalStockTracker.getStock(product.id, product.name, product.stock)
             val fmtStk = formatStockDecimal(exactStk, baseUnit, overrideDecimal = exactStk)
-            zokasText("Stok $fmtStk $baseUnit", "Stock $fmtStk $baseUnit", activeLang)
+            listOf(
+                VariantTickerSlide(
+                    label = product.name,
+                    stockText = zokasText("Stok $fmtStk $baseUnit", "Stock $fmtStk $baseUnit", activeLang),
+                    priceText = formatRupiah(product.price),
+                    isAlertStock = isOutOfStock || isLowStock
+                )
+            )
         }
     }
 
+    var tickerIndex by remember(product.id, tickerSlides.size) { mutableIntStateOf(0) }
+    LaunchedEffect(product.id, tickerSlides.size) {
+        tickerIndex = 0
+        if (tickerSlides.size > 1) {
+            while (true) {
+                kotlinx.coroutines.delay(2200L)
+                tickerIndex = (tickerIndex + 1) % tickerSlides.size
+            }
+        }
+    }
+
+    val activeSlide = tickerSlides.getOrElse(tickerIndex) { tickerSlides.first() }
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .scale(scale)
             .clip(RoundedCornerShape(10.dp))
             .combinedClickable(
@@ -505,8 +601,8 @@ private fun ProductGridCard(
                 onLongClick = onLongClick
             ),
         border = BorderStroke(
-            width = if (isOutOfStock || isLowStock) 1.2.dp else 0.8.dp,
-            color = if (isOutOfStock || isLowStock)
+            width = if (activeSlide.isAlertStock || isOutOfStock || isLowStock) 1.2.dp else 0.8.dp,
+            color = if (activeSlide.isAlertStock || isOutOfStock || isLowStock)
                 MaterialTheme.colorScheme.error
             else
                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
@@ -517,41 +613,13 @@ private fun ProductGridCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BounceMarqueeText(
-                    text = product.name,
-                    style = TextStyle(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp,
-                        lineHeight = 15.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.weight(1f)
-                )
-                if (isOutOfStock || isLowStock) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isOutOfStock) zokasText("Habis", "Empty") else zokasText("Tipis", "Low"),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error,
-                        maxLines = 1
-                    )
-                }
-            }
-
+            // Gambar produk diperbesar memanfaatkan ruang bekas nama produk di atas
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(74.dp)
+                    .height(104.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
                 contentAlignment = Alignment.Center
@@ -560,44 +628,86 @@ private fun ProductGridCard(
                     AsyncImage(
                         model = imageFile,
                         contentDescription = product.name,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize().padding(4.dp)
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Icon(
                         imageVector = resolveCategoryIcon(product.category, product.isService),
                         contentDescription = product.name,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(34.dp)
                     )
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stockLabel,
-                    fontSize = 10.sp,
-                    color = if (isOutOfStock || isLowStock)
-                        MaterialTheme.colorScheme.error
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = formatRupiah(product.price),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
+            // Animasi vertikal loop untuk stok & harga per varian (atau produk tunggal)
+            androidx.compose.animation.AnimatedContent(
+                targetState = activeSlide,
+                transitionSpec = {
+                    (androidx.compose.animation.slideInVertically(animationSpec = tween(320)) { h -> h } + fadeIn(animationSpec = tween(260)))
+                        .togetherWith(
+                            androidx.compose.animation.slideOutVertically(animationSpec = tween(320)) { h -> -h } + fadeOut(animationSpec = tween(220))
+                        )
+                },
+                label = "variant_ticker"
+            ) { slide ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    if (variantStocks.isNotEmpty()) {
+                        Text(
+                            text = slide.label,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = slide.stockText,
+                            fontSize = 10.sp,
+                            fontWeight = if (slide.isAlertStock) FontWeight.Bold else FontWeight.Normal,
+                            color = if (slide.isAlertStock)
+                                MaterialTheme.colorScheme.error
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = slide.priceText,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
+
+            // Nama produk dipindah ke bagian bawah kartu
+            BounceMarqueeText(
+                text = product.name,
+                style = TextStyle(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.5.sp,
+                    lineHeight = 15.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
