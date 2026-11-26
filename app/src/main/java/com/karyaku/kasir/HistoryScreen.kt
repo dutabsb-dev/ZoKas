@@ -1018,20 +1018,191 @@ fun HistoryScreen(
                                 }
                             }
 
-                            // BAGIAN 1: SUSUT TIMBANGAN / PENYIMPANAN (PALING SERING DIPAKAI DI PASAR)
+                            // 1. TAMBAH STOK & HPP RATA-RATA (UMUM UNTUK SEMUA USAHA)
                             Text(
-                                text = zokasText("1. Catat Susut Timbangan / Freezer", "1. Scale / Freezer Shrinkage", lang),
+                                text = zokasText("1. Tambah Stok & HPP Rata-Rata", "1. Add Stock & Average COGS", lang),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2
+                            )
+                            if (selectedTargetProduct != null) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    OutlinedTextField(
+                                        value = restockAddQtyStr,
+                                        onValueChange = { restockAddQtyStr = it },
+                                        label = { Text(zokasText("Tambah ($curProdUnit)", "Add ($curProdUnit)", lang), fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                        placeholder = { Text("0", fontSize = 11.sp) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        singleLine = true,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    OutlinedTextField(
+                                        value = restockUnitCostStr,
+                                        onValueChange = { restockUnitCostStr = it.filter { c -> c.isDigit() } },
+                                        label = { Text(zokasText("Modal/$curProdUnit", "Cost/$curProdUnit", lang), fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                        placeholder = { Text("0", fontSize = 11.sp) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        singleLine = true,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                if (addQtyVal > 0.0) {
+                                    Text(
+                                        text = zokasText(
+                                            "Stok Baru: ${String.format(Locale("id", "ID"), "%.2f", curProdStock + addQtyVal)} $curProdUnit • HPP Rata-Rata: ${formatRupiah(previewAvgHpp)}",
+                                            "New Stock: ${String.format(Locale.US, "%.2f", curProdStock + addQtyVal)} $curProdUnit • Avg COGS: ${formatRupiah(previewAvgHpp)}",
+                                            lang
+                                        ),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 2
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        if (addQtyVal > 0.0) {
+                                            val updatedDecStock = curProdStock + addQtyVal
+                                            DecimalStockTracker.persistStock(context, selectedTargetProduct.id, selectedTargetProduct.name, updatedDecStock)
+                                            val nextInt = Math.floor(updatedDecStock + 1e-6).toInt().coerceAtLeast(0)
+                                            viewModel.updateProduct(
+                                                selectedTargetProduct.copy(stock = nextInt, costPrice = previewAvgHpp),
+                                                currentUser.id,
+                                                currentUser.name
+                                            )
+                                            YieldAndLossEngine.saveProductProfile(
+                                                context,
+                                                ProductYieldProfile(
+                                                    productId = selectedTargetProduct.id,
+                                                    rawKg = rKg,
+                                                    rawCostPerKg = rCost,
+                                                    extraProcessCost = procCost,
+                                                    carcassKg = cKg,
+                                                    byproductKg = bKg,
+                                                    wasteKg = wKg,
+                                                    freezerShrinkPct = 0.0,
+                                                    carcassHppPerKg = previewAvgHpp
+                                                )
+                                            )
+                                            restockAddQtyStr = ""
+                                            profileVersion++
+                                            Toast.makeText(
+                                                context,
+                                                "Stok +${String.format(Locale("id", "ID"), "%.2f", addQtyVal)} $curProdUnit, HPP rata-rata ${formatRupiah(previewAvgHpp)}",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = zokasText("Tambah Stok & HPP Rata-Rata", "Add Stock & Avg COGS", lang),
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                            // 2. HITUNG HPP RENDEMEN / OLAHAN
+                            Text(
+                                text = zokasText("2. Hitung HPP Rendemen / Olahan", "2. Yield & Processing COGS", lang),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 2
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedTextField(
+                                    value = rawKgStr,
+                                    onValueChange = { rawKgStr = it },
+                                    label = { Text(zokasText("Bahan Baku", "Raw Input", lang), fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    placeholder = { Text("0", fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = rawPriceStr,
+                                    onValueChange = { rawPriceStr = it.filter { c -> c.isDigit() } },
+                                    label = { Text(zokasText("Harga/Satuan", "Cost/Unit", lang), fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    placeholder = { Text("0", fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            OutlinedTextField(
+                                value = processCostStr,
+                                onValueChange = { processCostStr = it.filter { c -> c.isDigit() } },
+                                label = { Text(zokasText("Biaya Proses & Jasa (Rp)", "Process & Fee (Rp)", lang), fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                placeholder = { Text("0", fontSize = 11.sp) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedTextField(
+                                    value = carcassKgStr,
+                                    onValueChange = { carcassKgStr = it },
+                                    label = { Text(zokasText("Hasil Utama", "Main Output", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    placeholder = { Text("0", fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = byproductKgStr,
+                                    onValueChange = { byproductKgStr = it },
+                                    label = { Text(zokasText("Sampingan", "Side Output", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    placeholder = { Text("0", fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = wasteKgStr,
+                                    onValueChange = { wasteKgStr = it },
+                                    label = { Text(zokasText("Susut/Sisa", "Shrink/Loss", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    placeholder = { Text("0", fontSize = 11.sp) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(zokasText("Total Modal Batch: ${formatRupiah(totalModalPreview)}", "Total Batch Cost: ${formatRupiah(totalModalPreview)}", lang), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                                    Text(zokasText("HPP Hasil Utama: ${formatRupiah(previewBatch.carcassHppPerKg)} / satuan", "Main Output COGS: ${formatRupiah(previewBatch.carcassHppPerKg)} / unit", lang), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                                    Text(zokasText("Produk Sampingan: HPP Rp 0 (terpisah)", "Byproduct: COGS Rp 0 (separate)", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                                }
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                            // 3. PENYESUAIAN SUSUT TIMBANGAN / PENYIMPANAN (OPSIONAL)
+                            Text(
+                                text = zokasText("3. Catat Susut Timbangan / Penyimpanan (Opsional)", "3. Record Scale / Storage Shrinkage (Optional)", lang),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.tertiary,
-                                maxLines = 1,
-                                softWrap = false
+                                maxLines = 2
                             )
                             if (selectedTargetProduct != null) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     listOf(
                                         "ACTUAL_REMAINING" to zokasText("Sisa Aktual", "Actual Left", lang),
-                                        "LOST_WEIGHT" to zokasText("Berat Susut", "Lost Wt", lang),
+                                        "LOST_WEIGHT" to zokasText("Selisih Susut", "Shrink Qty", lang),
                                         "PERCENT" to zokasText("Persen %", "Percent %", lang)
                                     ).forEach { (mKey, mLbl) ->
                                         FilterChip(
@@ -1041,20 +1212,20 @@ fun HistoryScreen(
                                                 shrinkInputStr = ""
                                             },
                                             label = {
-                                                Text(mLbl, fontSize = 10.5.sp, maxLines = 1, softWrap = false)
+                                                Text(mLbl, fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                             }
                                         )
                                     }
                                 }
                                 val shrinkFieldLabel = when (shrinkMode) {
-                                    "ACTUAL_REMAINING" -> zokasText("Berat Sisa di Timbangan ($curProdUnit)", "Actual Remaining ($curProdUnit)", lang)
-                                    "LOST_WEIGHT" -> zokasText("Berat Menyusut ($curProdUnit)", "Lost Weight ($curProdUnit)", lang)
+                                    "ACTUAL_REMAINING" -> zokasText("Sisa Aktual di Timbangan ($curProdUnit)", "Actual Remaining ($curProdUnit)", lang)
+                                    "LOST_WEIGHT" -> zokasText("Jumlah Menyusut ($curProdUnit)", "Shrinkage Qty ($curProdUnit)", lang)
                                     else -> zokasText("Persen Susut (%)", "Shrinkage (%)", lang)
                                 }
                                 OutlinedTextField(
                                     value = shrinkInputStr,
                                     onValueChange = { shrinkInputStr = it },
-                                    label = { Text(shrinkFieldLabel, fontSize = 11.sp, maxLines = 1, softWrap = false) },
+                                    label = { Text(shrinkFieldLabel, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                                     placeholder = { Text("0", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
@@ -1075,16 +1246,14 @@ fun HistoryScreen(
                                                 ),
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.SemiBold,
-                                                maxLines = 1,
-                                                softWrap = false
+                                                maxLines = 2
                                             )
                                             Text(
                                                 text = zokasText("Nilai Rugi Susut: ${formatRupiah(computedShrinkLossRp)}", "Shrinkage Loss: ${formatRupiah(computedShrinkLossRp)}", lang),
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.error,
-                                                maxLines = 1,
-                                                softWrap = false
+                                                maxLines = 2
                                             )
                                         }
                                     }
@@ -1132,183 +1301,8 @@ fun HistoryScreen(
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                            // BAGIAN 2: TAMBAH STOK BARU + HPP RATA-RATA OTOMATIS
-                            Text(
-                                text = zokasText("2. Tambah Stok & HPP Rata-Rata", "2. Add Stock & Avg COGS", lang),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                            if (selectedTargetProduct != null) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    OutlinedTextField(
-                                        value = restockAddQtyStr,
-                                        onValueChange = { restockAddQtyStr = it },
-                                        label = { Text(zokasText("Tambah ($curProdUnit)", "Add ($curProdUnit)", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                                        placeholder = { Text("0", fontSize = 11.sp) },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    OutlinedTextField(
-                                        value = restockUnitCostStr,
-                                        onValueChange = { restockUnitCostStr = it.filter { c -> c.isDigit() } },
-                                        label = { Text(zokasText("Modal/$curProdUnit", "Cost/$curProdUnit", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                                        placeholder = { Text("0", fontSize = 11.sp) },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                if (addQtyVal > 0.0) {
-                                    Text(
-                                        text = zokasText(
-                                            "Stok Baru: ${String.format(Locale("id", "ID"), "%.2f", curProdStock + addQtyVal)} $curProdUnit • HPP Rata-Rata: ${formatRupiah(previewAvgHpp)}",
-                                            "New Stock: ${String.format(Locale.US, "%.2f", curProdStock + addQtyVal)} $curProdUnit • Avg COGS: ${formatRupiah(previewAvgHpp)}",
-                                            lang
-                                        ),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        if (addQtyVal > 0.0) {
-                                            val updatedDecStock = curProdStock + addQtyVal
-                                            DecimalStockTracker.persistStock(context, selectedTargetProduct.id, selectedTargetProduct.name, updatedDecStock)
-                                            val nextInt = Math.floor(updatedDecStock + 1e-6).toInt().coerceAtLeast(0)
-                                            viewModel.updateProduct(
-                                                selectedTargetProduct.copy(stock = nextInt, costPrice = previewAvgHpp),
-                                                currentUser.id,
-                                                currentUser.name
-                                            )
-                                            YieldAndLossEngine.saveProductProfile(
-                                                context,
-                                                ProductYieldProfile(
-                                                    productId = selectedTargetProduct.id,
-                                                    rawKg = rKg,
-                                                    rawCostPerKg = rCost,
-                                                    extraProcessCost = procCost,
-                                                    carcassKg = cKg,
-                                                    byproductKg = bKg,
-                                                    wasteKg = wKg,
-                                                    freezerShrinkPct = 0.0,
-                                                    carcassHppPerKg = previewAvgHpp
-                                                )
-                                            )
-                                            restockAddQtyStr = ""
-                                            profileVersion++
-                                            Toast.makeText(
-                                                context,
-                                                "Stok +${String.format(Locale("id", "ID"), "%.2f", addQtyVal)} $curProdUnit, HPP rata-rata ${formatRupiah(previewAvgHpp)}",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = zokasText("Tambah Stok & HPP Rata2", "Add Stock & Avg COGS", lang),
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
-                                }
-                            }
-
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                            // BAGIAN 3: KALKULATOR RENDEMEN BATCH POTONG
-                            Text(
-                                text = zokasText("3. Hitung HPP Rendemen Potong", "3. Cutting Yield COGS", lang),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                OutlinedTextField(
-                                    value = rawKgStr,
-                                    onValueChange = { rawKgStr = it },
-                                    label = { Text(zokasText("Bahan Baku", "Raw Input", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                                    placeholder = { Text("0", fontSize = 11.sp) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                OutlinedTextField(
-                                    value = rawPriceStr,
-                                    onValueChange = { rawPriceStr = it.filter { c -> c.isDigit() } },
-                                    label = { Text(zokasText("Harga/Satuan", "Cost/Unit", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                                    placeholder = { Text("0", fontSize = 11.sp) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            OutlinedTextField(
-                                value = processCostStr,
-                                onValueChange = { processCostStr = it.filter { c -> c.isDigit() } },
-                                label = { Text(zokasText("Biaya Proses & Jasa (Rp)", "Process & Fee (Rp)", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                                placeholder = { Text("0", fontSize = 11.sp) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                OutlinedTextField(
-                                    value = carcassKgStr,
-                                    onValueChange = { carcassKgStr = it },
-                                    label = { Text(zokasText("Karkas", "Main", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                                    placeholder = { Text("0", fontSize = 11.sp) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                OutlinedTextField(
-                                    value = byproductKgStr,
-                                    onValueChange = { byproductKgStr = it },
-                                    label = { Text(zokasText("Samping", "Side", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
-                                    placeholder = { Text("0", fontSize = 11.sp) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                OutlinedTextField(
-                                    value = wasteKgStr,
-                                    onValueChange = { wasteKgStr = it },
-                                    label = { Text(zokasText("Susut", "Shrink", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
-                                    placeholder = { Text("0", fontSize = 11.sp) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(zokasText("Total Modal Batch: ${formatRupiah(totalModalPreview)}", "Total Batch Cost: ${formatRupiah(totalModalPreview)}", lang), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                                    Text(zokasText("HPP Hasil Utama: ${formatRupiah(previewBatch.carcassHppPerKg)} / satuan", "Main Output COGS: ${formatRupiah(previewBatch.carcassHppPerKg)} / unit", lang), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
-                                    Text(zokasText("Produk Sampingan: HPP Rp 0 (terpisah)", "Byproduct: COGS Rp 0 (separate)", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
                                 }
                             }
 
@@ -1401,12 +1395,12 @@ fun HistoryScreen(
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(zokasText("Susut Penyimpanan / Freezer:", "Storage / Freezer Shrinkage:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
-                        Text(formatRupiah(freezerLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary, maxLines = 1, softWrap = false)
+                        Text(zokasText("Susut Penyimpanan:", "Storage Shrinkage:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.weight(1f), overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(formatRupiah(freezerLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary, maxLines = 1)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(zokasText("Rugi Jual di Bawah HPP:", "Below-COGS Sale Loss:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
-                        Text(formatRupiah(belowHppLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false)
+                        Text(zokasText("Rugi di Bawah HPP:", "Below-COGS Loss:", lang), fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.weight(1f), overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        Text(formatRupiah(belowHppLossTotal), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error, maxLines = 1)
                     }
                     if (wasteLossTotal > 0L) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1419,9 +1413,17 @@ fun HistoryScreen(
         }
 
         item {
-            var chartPeriod by remember { mutableStateOf("1W") } // "1D", "1W", "1M", "6M", "CUSTOM"
-            var chartType by remember { mutableStateOf("BAR") } // "BAR", "LINE", "WATERFALL", "COMBO", "SCATTER", "BULLET"
-            var chartMetric by remember { mutableStateOf("REVENUE") } // "REVENUE", "COGS", "GROSS_PROFIT", "NET_PROFIT"
+            val chartPrefs = remember { context.getSharedPreferences("zokas_report_chart_prefs", Context.MODE_PRIVATE) }
+            var chartPeriod by remember { mutableStateOf(chartPrefs.getString("chart_period", "1W") ?: "1W") } // "1D", "1W", "1M", "6M", "CUSTOM"
+            var chartType by remember { mutableStateOf(chartPrefs.getString("chart_type", "BAR") ?: "BAR") } // "BAR", "LINE", "WATERFALL", "COMBO", "SCATTER", "BULLET"
+            var chartMetric by remember { mutableStateOf(chartPrefs.getString("chart_metric", "REVENUE") ?: "REVENUE") } // "REVENUE", "COGS", "GROSS_PROFIT", "NET_PROFIT"
+            LaunchedEffect(chartPeriod, chartType, chartMetric) {
+                chartPrefs.edit()
+                    .putString("chart_period", chartPeriod)
+                    .putString("chart_type", chartType)
+                    .putString("chart_metric", chartMetric)
+                    .apply()
+            }
             var showChartSettingsWindow by remember { mutableStateOf(false) }
 
             val periodChoices = listOf(
