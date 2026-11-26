@@ -1221,11 +1221,11 @@ fun HistoryScreen(
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = zokasText("Tambah Stok & Update HPP Rata-Rata", "Add Stock & Update Avg COGS", lang),
-                                        fontSize = 12.sp,
+                                        text = zokasText("Tambah Stok & HPP Rata2", "Add Stock & Avg COGS", lang),
+                                        fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
-                                        softWrap = false
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -1283,7 +1283,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = byproductKgStr,
                                     onValueChange = { byproductKgStr = it },
-                                    label = { Text(zokasText("Sampingan", "Side", lang), fontSize = 11.sp, maxLines = 1, softWrap = false) },
+                                    label = { Text(zokasText("Samping", "Side", lang), fontSize = 10.5.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                                     placeholder = { Text("0", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
@@ -1372,12 +1372,12 @@ fun HistoryScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = zokasText("Rendemen (Yield), Susut & Rugi Jual", "Yield, Shrinkage & Below-Cost Loss", lang),
+                                text = zokasText("Rendemen, Susut & Rugi", "Yield, Shrink & Loss", lang),
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
-                                softWrap = false
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                             Text(
                                 text = if (selectedTargetProduct != null && latestProductBatch != null && latestProductBatch.carcassHppPerKg > 0L)

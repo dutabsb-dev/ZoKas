@@ -777,3 +777,13 @@ fun PosViewModel.mergeOrder(tableA: String, tableB: String) {
         } catch (e: Exception) { Log.e("MergeOrder", "Gagal: ${e.message}") }
     }
 }
+
+fun PosViewModel.deleteProductCleanly(product: ProductEntity) {
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            productDao.deleteProduct(product)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}
