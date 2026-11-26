@@ -190,6 +190,10 @@ fun PosViewModel.deleteProduct(product: ProductEntity, userId: Long, userName: S
         try {
             val freshTarget = productDao.getProductById(product.id) ?: product
             productDao.deleteProduct(freshTarget)
+            val remaining = productDao.getProductById(product.id)
+            if (remaining != null) {
+                productDao.deleteProduct(remaining)
+            }
             userDao.insertAuditLog(
                 AuditLogEntity(
                     userId = userId,
