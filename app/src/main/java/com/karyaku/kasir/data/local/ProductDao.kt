@@ -45,6 +45,12 @@ interface ProductDao {
     @Delete
     suspend fun deleteProduct(product: ProductEntity)
 
+    @Query("DELETE FROM products WHERE id = :productId")
+    suspend fun deleteProductById(productId: Long): Int
+
+    @Query("UPDATE transaction_items SET productId = NULL WHERE productId = :productId")
+    suspend fun unlinkProductFromTransactionItems(productId: Long)
+
     // ================================================================
     // PHASE 0 — SESI 3: Barcode lookup aman
     // ================================================================

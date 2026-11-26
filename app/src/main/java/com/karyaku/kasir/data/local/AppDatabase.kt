@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StockTransferItemEntity::class, KitchenTicketEntity::class,
         AttendanceEntity::class, PayrollEntity::class
     ], 
-    version = 37, // NAIKKAN DARI 36 KE 37
+    version = 38, // NAIKKAN DARI 37 KE 38 (productId nullable ON DELETE SET NULL)
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -283,6 +283,49 @@ abstract class AppDatabase : RoomDatabase() {
         // ================================================================
         // MIGRASI BARU (V36 -> V37) UNTUK MULTI-CABANG (SESI 6A & 6B)
         // ================================================================
+        private val MIGRATION_37_38 = object : Migration(37, 38) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("PRAGMA foreign_keys=OFF")
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `transaction_items_new` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `transactionId` INTEGER NOT NULL,
+                        `productId` INTEGER,
+                        `productName` TEXT NOT NULL,
+                        `price` INTEGER NOT NULL,
+                        `costPrice` INTEGER NOT NULL DEFAULT 0,
+                        `quantity` INTEGER NOT NULL,
+                        `subtotal` INTEGER NOT NULL,
+                        `notes` TEXT NOT NULL DEFAULT '',
+                        `serialNumber` TEXT NOT NULL DEFAULT '',
+                        `assignedStaff` TEXT NOT NULL DEFAULT '',
+                        `isService` INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY(`transactionId`) REFERENCES `transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`productId`) REFERENCES `products`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT INTO `transaction_items_new` (
+                        `id`, `transactionId`, `productId`, `productName`, `price`, `costPrice`,
+                        `quantity`, `subtotal`, `notes`, `serialNumber`, `assignedStaff`, `isService`
+                    )
+                    SELECT
+                        `id`, `transactionId`, `productId`, `productName`, `price`, `costPrice`,
+                        `quantity`, `subtotal`, `notes`, `serialNumber`, `assignedStaff`, `isService`
+                    FROM `transaction_items`
+                    """.trimIndent()
+                )
+                database.execSQL("DROP TABLE `transaction_items`")
+                database.execSQL("ALTER TABLE `transaction_items_new` RENAME TO `transaction_items`")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_transaction_items_transactionId` ON `transaction_items` (`transactionId`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_transaction_items_productId` ON `transaction_items` (`productId`)")
+                database.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
         private val MIGRATION_36_37 = object : Migration(36, 37) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 // Sesi 6A: Keuangan & Pembelian
@@ -319,7 +362,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27,
                     MIGRATION_27_28, MIGRATION_28_29, MIGRATION_29_30, MIGRATION_30_31,
                     MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
-                    MIGRATION_35_36, MIGRATION_36_37
+                    MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38
                 )
                 .fallbackToDestructiveMigrationFrom(
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18

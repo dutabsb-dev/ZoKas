@@ -18,7 +18,7 @@ import androidx.room.PrimaryKey
             entity = ProductEntity::class,
             parentColumns = ["id"],
             childColumns = ["productId"],
-            onDelete = ForeignKey.RESTRICT // Cegah hapus produk jika sudah ada di transaksi
+            onDelete = ForeignKey.SET_NULL // Izinkan hapus produk tanpa menghapus riwayat item struk
         )
     ],
     indices = [Index(value = ["transactionId"]), Index(value = ["productId"])]
@@ -26,7 +26,7 @@ import androidx.room.PrimaryKey
 data class TransactionItemEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val transactionId: Long,
-    val productId: Long,
+    val productId: Long? = null,
     val productName: String,
     val price: Long,
     val costPrice: Long = 0,

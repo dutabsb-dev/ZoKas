@@ -188,17 +188,24 @@ fun PosViewModel.updateProduct(product: ProductEntity, userId: Long, userName: S
 fun PosViewModel.deleteProduct(product: ProductEntity, userId: Long, userName: String) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            val freshTarget = productDao.getProductById(product.id) ?: product
-            productDao.deleteProduct(freshTarget)
-            val remaining = productDao.getProductById(product.id)
-            if (remaining != null) {
-                productDao.deleteProduct(remaining)
+            val targetId = product.id
+            val targetName = product.name
+            database.withTransaction {
+                productDao.deleteBomForProduct(targetId)
+                productDao.unlinkProductFromTransactionItems(targetId)
+                val deletedRows = productDao.deleteProductById(targetId)
+                if (deletedRows == 0) {
+                    val fresh = productDao.getProductById(targetId)
+                    if (fresh != null) {
+                        productDao.deleteProduct(fresh)
+                    }
+                }
             }
             userDao.insertAuditLog(
                 AuditLogEntity(
                     userId = userId,
                     userName = userName,
-                    action = "HAPUS PRODUK: ${freshTarget.name}",
+                    action = "HAPUS PRODUK: $targetName",
                     actionType = "INVENTORY"
                 )
             )
