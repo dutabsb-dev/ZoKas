@@ -188,13 +188,13 @@ fun PosViewModel.updateProduct(product: ProductEntity, userId: Long, userName: S
 fun PosViewModel.deleteProduct(product: ProductEntity, userId: Long, userName: String) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            if (product.branchId != _currentBranchId.value) return@launch
-            productDao.deleteProduct(product)
+            val freshTarget = productDao.getProductById(product.id) ?: product
+            productDao.deleteProduct(freshTarget)
             userDao.insertAuditLog(
                 AuditLogEntity(
                     userId = userId,
                     userName = userName,
-                    action = "HAPUS PRODUK: ${product.name}",
+                    action = "HAPUS PRODUK: ${freshTarget.name}",
                     actionType = "INVENTORY"
                 )
             )

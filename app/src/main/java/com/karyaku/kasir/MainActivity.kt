@@ -1634,10 +1634,14 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 }
             )
         }
-        if (productToDelete != null) {
+        val activeDeleteTarget = productToDelete
+        if (activeDeleteTarget != null) {
             DeleteProductConfirmDialog(
-                product = productToDelete!!,
-                onDelete = { viewModel.deleteProduct(productToDelete!!, currentUser.id, currentUser.name); productToDelete = null },
+                product = activeDeleteTarget,
+                onDelete = {
+                    productToDelete = null
+                    viewModel.deleteProduct(activeDeleteTarget, currentUser.id, currentUser.name)
+                },
                 onDismiss = { productToDelete = null }
             )
         }
