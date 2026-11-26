@@ -14,9 +14,65 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// ====================================================================
-// FILE FINAL — IMPLEMENTASI TRANSAKSI (KDS, BOM, MEMBERSHIP, POIN, BON)
-// ====================================================================
+
+object DecimalStockTracker {
+    private val stockById = java.util.concurrent.ConcurrentHashMap<Long, Double>()
+    private val stockByName = java.util.concurrent.ConcurrentHashMap<String, Double>()
+    private val variantStockByKey = java.util.concurrent.ConcurrentHashMap<String, Double>()
+
+    fun setStock(productId: Long, productName: String, value: Double) {
+        val cleanVal = value.coerceAtLeast(0.0)
+        if (productId > 0L) stockById[productId] = cleanVal
+        if (productName.isNotBlank()) stockByName[productName.trim().lowercase()] = cleanVal
+    }
+
+    fun getStock(productId: Long, productName: String, fallbackInt: Int): Double {
+        if (productId > 0L && stockById.containsKey(productId)) {
+            return stockById[productId] ?: fallbackInt.toDouble()
+        }
+        val key = productName.trim().lowercase()
+        if (key.isNotBlank() && stockByName.containsKey(key)) {
+            return stockByName[key] ?: fallbackInt.toDouble()
+        }
+        return fallbackInt.toDouble()
+    }
+
+    fun deduct(productId: Long, productName: String, currentIntStock: Int, delta: Double): Double {
+        val base = getStock(productId, productName, currentIntStock)
+        val next = (base - delta).coerceAtLeast(0.0)
+        setStock(productId, productName, next)
+        return next
+    }
+
+    fun setVariantStock(productId: Long, productName: String, variantName: String, value: Double) {
+        val cleanVal = value.coerceAtLeast(0.0)
+        val vKey = variantName.trim().lowercase()
+        if (vKey.isBlank()) return
+        if (productId > 0L) variantStockByKey["id_${productId}_$vKey"] = cleanVal
+        if (productName.isNotBlank()) variantStockByKey["name_${productName.trim().lowercase()}_$vKey"] = cleanVal
+    }
+
+    fun getVariantStock(productId: Long, productName: String, variantName: String, fallbackInt: Int): Double {
+        val vKey = variantName.trim().lowercase()
+        if (vKey.isBlank()) return fallbackInt.toDouble()
+        if (productId > 0L && variantStockByKey.containsKey("id_${productId}_$vKey")) {
+            return variantStockByKey["id_${productId}_$vKey"] ?: fallbackInt.toDouble()
+        }
+        val nameKey = "name_${productName.trim().lowercase()}_$vKey"
+        if (productName.isNotBlank() && variantStockByKey.containsKey(nameKey)) {
+            return variantStockByKey[nameKey] ?: fallbackInt.toDouble()
+        }
+        return fallbackInt.toDouble()
+    }
+
+    fun deductVariant(productId: Long, productName: String, variantName: String, currentIntStock: Int, delta: Double): Double {
+        val base = getVariantStock(productId, productName, variantName, currentIntStock)
+        val next = (base - delta).coerceAtLeast(0.0)
+        setVariantStock(productId, productName, variantName, next)
+        return next
+    }
+}
+
 
 fun PosViewModel.processPayment(
     cashReceived: Long, userId: Long, userName: String, isSplitBill: Boolean, method: String, 
@@ -84,17 +140,37 @@ fun PosViewModel.processPayment(
                     subtotal = itemSubLong, isService = cartItem.product.isService
                 ))
 
-                // A. Potong Stok Produk (memperhitungkan konversi kemasan varian & pecahan seperti 0.25 kg)
+                // A. Potong Stok Produk secara presisi desimal (contoh: 100,00 - 0,5 = 99,50)
                 val freshProduct = productDao.getProductById(cartItem.product.id)
                 if (freshProduct != null && !freshProduct.isService) {
                     val packMult = getVariantPackMultiplier(freshProduct.variations, cartItem.selectedVariation)
-                    val totalSmallestDeducted = if (qDouble > 0.0) Math.ceil(qDouble * packMult - 1e-6).toInt().coerceAtLeast(1) else 0
-                    val newStock = (freshProduct.stock - totalSmallestDeducted).coerceAtLeast(0)
+                    val exactDecimalDeduct = (qDouble * packMult.toDouble()).coerceAtLeast(0.0)
+                    val intDeductForVariant = if (qDouble > 0.0) Math.ceil(exactDecimalDeduct - 1e-6).toInt().coerceAtLeast(1) else 0
+
+                    val nextDecStock = DecimalStockTracker.deduct(
+                        productId = freshProduct.id,
+                        productName = freshProduct.name,
+                        currentIntStock = freshProduct.stock,
+                        delta = exactDecimalDeduct
+                    )
+                    val newIntStock = Math.floor(nextDecStock + 1e-6).toInt().coerceAtLeast(0)
                     if (cartItem.selectedVariation.isNotBlank()) {
-                        val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, totalSmallestDeducted)
-                        productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newStock))
+                        val currentVarInt = freshProduct.variations.split(",")
+                            .find { it.split(":").firstOrNull()?.trim().equals(cartItem.selectedVariation, ignoreCase = true) }
+                            ?.split(":")?.getOrNull(3)?.trim()?.toIntOrNull() ?: freshProduct.stock
+                        val nextVarDec = DecimalStockTracker.deductVariant(
+                            productId = freshProduct.id,
+                            productName = freshProduct.name,
+                            variantName = cartItem.selectedVariation,
+                            currentIntStock = currentVarInt,
+                            delta = exactDecimalDeduct
+                        )
+                        val varIntTarget = Math.floor(nextVarDec + 1e-6).toInt().coerceAtLeast(0)
+                        val actualIntDelta = (currentVarInt - varIntTarget).coerceAtLeast(0)
+                        val newVariationStr = deductVariantStock(freshProduct.variations, cartItem.selectedVariation, actualIntDelta)
+                        productDao.updateProduct(freshProduct.copy(variations = newVariationStr, stock = newIntStock))
                     } else {
-                        productDao.updateProduct(freshProduct.copy(stock = newStock))
+                        productDao.updateProduct(freshProduct.copy(stock = newIntStock))
                     }
                 }
 

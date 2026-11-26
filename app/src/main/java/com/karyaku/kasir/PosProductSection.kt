@@ -487,7 +487,8 @@ private fun ProductGridCard(
         if (product.isService) {
             zokasText("Jasa", "Service", activeLang)
         } else {
-            val fmtStk = formatStockDecimal(product.stock.toDouble(), baseUnit)
+            val exactStk = DecimalStockTracker.getStock(product.id, product.name, product.stock)
+            val fmtStk = formatStockDecimal(exactStk, baseUnit, overrideDecimal = exactStk)
             zokasText("Stok $fmtStk $baseUnit", "Stock $fmtStk $baseUnit", activeLang)
         }
     }
@@ -630,16 +631,25 @@ private fun ProductCompactListRow(
             zokasText("Layanan Jasa (Tanpa Stok)", "Service Item (No Stock", activeLang)
         } else if (variantStocks.isNotEmpty()) {
             val details = variantStocks.joinToString("  •  ") {
-                if (it.multiplier > 1) "${it.name}: ${it.stock} (=${it.stock * it.multiplier} $baseUnit)"
-                else "${it.name}: ${it.stock} $baseUnit"
+                val vDec = DecimalStockTracker.getVariantStock(product.id, product.name, it.name, it.stock)
+                val vFmt = formatStockDecimal(vDec, baseUnit, overrideDecimal = vDec)
+                if (it.multiplier > 1) {
+                    val multFmt = formatStockDecimal(vDec * it.multiplier, baseUnit, overrideDecimal = vDec * it.multiplier)
+                    "${it.name}: $vFmt (=$multFmt $baseUnit)"
+                } else {
+                    "${it.name}: $vFmt $baseUnit"
+                }
             }
-            "${zokasText("Total", "Total", activeLang)}: ${product.stock} $baseUnit  •  $details"
+            val totDec = DecimalStockTracker.getStock(product.id, product.name, product.stock)
+            val totFmt = formatStockDecimal(totDec, baseUnit, overrideDecimal = totDec)
+            "${zokasText("Total", "Total", activeLang)}: $totFmt $baseUnit  •  $details"
         } else if (isOutOfStock) {
             zokasText("Stok Habis (0 $baseUnit)", "Out of Stock (0 $baseUnit", activeLang)
         } else if (isLowStock) {
             zokasText("STOK MENIPIS: ${product.stock} $baseUnit", "LOW STOCK: ${product.stock} $baseUnit", activeLang)
         } else {
-            val fmtStk = formatStockDecimal(product.stock.toDouble(), baseUnit)
+            val exactStk = DecimalStockTracker.getStock(product.id, product.name, product.stock)
+            val fmtStk = formatStockDecimal(exactStk, baseUnit, overrideDecimal = exactStk)
             zokasText("Stok Tersedia: $fmtStk $baseUnit", "In Stock: $fmtStk $baseUnit", activeLang)
         }
     }

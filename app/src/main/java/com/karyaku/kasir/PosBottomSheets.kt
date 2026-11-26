@@ -274,21 +274,30 @@ fun ProductFormBottomSheet(
                     return
                 }
 
+                val decPrefsVar = context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE).edit()
+                var totalVariantDecimalSmallest = 0.0
                 val variationParts = variantList.map {
                     val p = it.price.toLongOrNull() ?: 0L
                     val c = it.costPrice.toLongOrNull() ?: 0L
-                    val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
+                    val sDec = if (isService) 0.0 else (it.stock.replace(',', '.').toDoubleOrNull() ?: 0.0)
+                    val s = Math.round(sDec).toInt().coerceAtLeast(0)
                     val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                    if (!isService) {
+                        DecimalStockTracker.setVariantStock(productToEdit?.id ?: 0L, name.trim(), it.name.trim(), sDec)
+                        decPrefsVar.putString("var_${name.trim().lowercase()}_${it.name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", sDec))
+                        totalVariantDecimalSmallest += (sDec * m)
+                    }
                     val vb = it.barcode.trim()
                     if (vb.isNotBlank()) "${it.name.trim()}:$p:$c:$s:$m:$vb" else "${it.name.trim()}:$p:$c:$s:$m"
                 }
                 finalVariations = variationParts.joinToString(",")
 
-                finalStock = if (isService) 0 else variantList.sumOf {
-                    val s = it.stock.toIntOrNull() ?: 0
-                    val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                    s * m
+                finalStock = if (isService) 0 else Math.round(totalVariantDecimalSmallest).toInt().coerceAtLeast(0)
+                if (!isService) {
+                    DecimalStockTracker.setStock(productToEdit?.id ?: 0L, name.trim(), totalVariantDecimalSmallest)
+                    decPrefsVar.putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", totalVariantDecimalSmallest))
                 }
+                decPrefsVar.apply()
                 finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
                 finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
             } else {
@@ -297,6 +306,7 @@ fun ProductFormBottomSheet(
                 val parsedDecStock = singleStock.replace(',', '.').toDoubleOrNull() ?: 0.0
                 finalStock = if (isService) 0 else Math.round(parsedDecStock).toInt().coerceAtLeast(0)
                 if (!isService) {
+                    DecimalStockTracker.setStock(productToEdit?.id ?: 0L, name.trim(), parsedDecStock)
                     context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE)
                         .edit()
                         .putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", parsedDecStock))
@@ -455,21 +465,30 @@ fun ProductFormBottomSheet(
                                 return@Button
                             }
 
+                            val decPrefsVar = context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE).edit()
+                            var totalVariantDecimalSmallest = 0.0
                             val variationParts = variantList.map {
                                 val p = it.price.toLongOrNull() ?: 0L
                                 val c = it.costPrice.toLongOrNull() ?: 0L
-                                val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
+                                val sDec = if (isService) 0.0 else (it.stock.replace(',', '.').toDoubleOrNull() ?: 0.0)
+                                val s = Math.round(sDec).toInt().coerceAtLeast(0)
                                 val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                                if (!isService) {
+                                    DecimalStockTracker.setVariantStock(productToEdit?.id ?: 0L, name.trim(), it.name.trim(), sDec)
+                                    decPrefsVar.putString("var_${name.trim().lowercase()}_${it.name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", sDec))
+                                    totalVariantDecimalSmallest += (sDec * m)
+                                }
                                 val vb = it.barcode.trim()
                                 if (vb.isNotBlank()) "${it.name.trim()}:$p:$c:$s:$m:$vb" else "${it.name.trim()}:$p:$c:$s:$m"
                             }
                             finalVariations = variationParts.joinToString(",")
 
-                            finalStock = if (isService) 0 else variantList.sumOf {
-                                val s = it.stock.toIntOrNull() ?: 0
-                                val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                                s * m
+                            finalStock = if (isService) 0 else Math.round(totalVariantDecimalSmallest).toInt().coerceAtLeast(0)
+                            if (!isService) {
+                                DecimalStockTracker.setStock(productToEdit?.id ?: 0L, name.trim(), totalVariantDecimalSmallest)
+                                decPrefsVar.putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", totalVariantDecimalSmallest))
                             }
+                            decPrefsVar.apply()
                             finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
                             finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
                         } else {
@@ -478,6 +497,7 @@ fun ProductFormBottomSheet(
                             val parsedDecStock = singleStock.replace(',', '.').toDoubleOrNull() ?: 0.0
                 finalStock = if (isService) 0 else Math.round(parsedDecStock).toInt().coerceAtLeast(0)
                 if (!isService) {
+                    DecimalStockTracker.setStock(productToEdit?.id ?: 0L, name.trim(), parsedDecStock)
                     context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE)
                         .edit()
                         .putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", parsedDecStock))
@@ -786,12 +806,13 @@ fun ProductFormBottomSheet(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(zokasText("Daftar Varian & Satuan Terkecil", "Daftar Varian & Unit Terkecil"), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                         val previewTotalSmallest = variantList.sumOf {
-                                            val q = it.stock.toIntOrNull() ?: 0
+                                            val q = it.stock.replace(',', '.').toDoubleOrNull() ?: 0.0
                                             val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
                                             q * m
                                         }
                                         if (!isService) {
-                                            Text(zokasText("Total Stok Gabungan: $previewTotalSmallest $baseUnit", "Total Stock Gabungan: $previewTotalSmallest $baseUnit"), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                                            val previewFmt = String.format(java.util.Locale("id", "ID"), "%.2f", previewTotalSmallest)
+                                            Text(zokasText("Total Stok Gabungan: $previewFmt $baseUnit", "Total Stock Gabungan: $previewFmt $baseUnit"), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
                                         }
                                     }
                                     Box {
@@ -909,24 +930,37 @@ fun ProductFormBottomSheet(
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
                                                         value = variant.stock,
-                                                        onValueChange = {
+                                                        onValueChange = { raw ->
+                                                            val cleaned = raw.replace(',', '.')
+                                                            val valid = buildString {
+                                                                var dotSeen = false
+                                                                for (ch in cleaned) {
+                                                                    if (ch.isDigit()) append(ch)
+                                                                    else if (ch == '.' && !dotSeen) {
+                                                                        dotSeen = true
+                                                                        append(ch)
+                                                                    }
+                                                                }
+                                                            }.take(8)
                                                             val newList = variantList.toMutableList()
-                                                            newList[index] = variant.copy(stock = it.filter { c -> c.isDigit() })
+                                                            newList[index] = variant.copy(stock = valid)
                                                             variantList = newList
                                                         },
-                                                        label = { Text(zokasText("Jumlah Stok", "Stock Qty")) },
+                                                        label = { Text(zokasText("Stok (Desimal 0,00)", "Stock (Decimal 0.00)")) },
+                                                        placeholder = { Text("cth: 10 atau 0.50") },
                                                         trailingIcon = {
                                                             VoiceMicButton(
                                                                 promptLabel = "stok varian",
                                                                 currentValue = variant.stock,
                                                                 onResultText = { spoken ->
+                                                                    val cleaned = spoken.replace(',', '.').filter { c -> c.isDigit() || c == '.' }.take(8)
                                                                     val newList = variantList.toMutableList()
-                                                                    newList[index] = variant.copy(stock = spoken.filter { c -> c.isDigit() })
+                                                                    newList[index] = variant.copy(stock = cleaned)
                                                                     variantList = newList
                                                                 }
                                                             )
                                                         },
-                                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                                         modifier = Modifier.weight(1f),
                                                         singleLine = true,
                                                         shape = RoundedCornerShape(8.dp)
@@ -1271,21 +1305,30 @@ fun ProductFormBottomSheet(
                                 return@Button
                             }
 
+                            val decPrefsVar = context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE).edit()
+                            var totalVariantDecimalSmallest = 0.0
                             val variationParts = variantList.map {
                                 val p = it.price.toLongOrNull() ?: 0L
                                 val c = it.costPrice.toLongOrNull() ?: 0L
-                                val s = if (isService) 0 else (it.stock.toIntOrNull() ?: 0)
+                                val sDec = if (isService) 0.0 else (it.stock.replace(',', '.').toDoubleOrNull() ?: 0.0)
+                                val s = Math.round(sDec).toInt().coerceAtLeast(0)
                                 val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
+                                if (!isService) {
+                                    DecimalStockTracker.setVariantStock(productToEdit?.id ?: 0L, name.trim(), it.name.trim(), sDec)
+                                    decPrefsVar.putString("var_${name.trim().lowercase()}_${it.name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", sDec))
+                                    totalVariantDecimalSmallest += (sDec * m)
+                                }
                                 val vb = it.barcode.trim()
                                 if (vb.isNotBlank()) "${it.name.trim()}:$p:$c:$s:$m:$vb" else "${it.name.trim()}:$p:$c:$s:$m"
                             }
                             finalVariations = variationParts.joinToString(",")
 
-                            finalStock = if (isService) 0 else variantList.sumOf {
-                                val s = it.stock.toIntOrNull() ?: 0
-                                val m = (it.packMultiplier.toIntOrNull() ?: 1).coerceAtLeast(1)
-                                s * m
+                            finalStock = if (isService) 0 else Math.round(totalVariantDecimalSmallest).toInt().coerceAtLeast(0)
+                            if (!isService) {
+                                DecimalStockTracker.setStock(productToEdit?.id ?: 0L, name.trim(), totalVariantDecimalSmallest)
+                                decPrefsVar.putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", totalVariantDecimalSmallest))
                             }
+                            decPrefsVar.apply()
                             finalPrice = variantList.firstOrNull()?.price?.toLongOrNull() ?: 0L
                             finalCost = variantList.firstOrNull()?.costPrice?.toLongOrNull() ?: 0L
                         } else {
@@ -1294,6 +1337,7 @@ fun ProductFormBottomSheet(
                             val parsedDecStock = singleStock.replace(',', '.').toDoubleOrNull() ?: 0.0
                 finalStock = if (isService) 0 else Math.round(parsedDecStock).toInt().coerceAtLeast(0)
                 if (!isService) {
+                    DecimalStockTracker.setStock(productToEdit?.id ?: 0L, name.trim(), parsedDecStock)
                     context.getSharedPreferences("zokas_decimal_stock_prefs", android.content.Context.MODE_PRIVATE)
                         .edit()
                         .putString("stock_${name.trim().lowercase()}", String.format(java.util.Locale.US, "%.2f", parsedDecStock))
