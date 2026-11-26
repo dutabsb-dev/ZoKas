@@ -1079,7 +1079,11 @@ fun HistoryScreen(
                                     )
                                     YieldAndLossEngine.saveBatchRecord(context, previewBatch)
                                     if (previewBatch.carcassHppPerKg > 0L) {
-                                        viewModel.updateProduct(target.copy(costPrice = previewBatch.carcassHppPerKg))
+                                        viewModel.updateProduct(
+                                            target.copy(costPrice = previewBatch.carcassHppPerKg),
+                                            currentUser.id,
+                                            currentUser.name
+                                        )
                                     }
                                     profileVersion++
                                     Toast.makeText(
@@ -1123,7 +1127,11 @@ fun HistoryScreen(
                                             val nextDec = (curDec - lostQty).coerceAtLeast(0.0)
                                             DecimalStockTracker.persistStock(context, selectedTargetProduct.id, selectedTargetProduct.name, nextDec)
                                             val nextInt = Math.floor(nextDec + 1e-6).toInt().coerceAtLeast(0)
-                                            viewModel.updateProduct(selectedTargetProduct.copy(stock = nextInt))
+                                            viewModel.updateProduct(
+                                                selectedTargetProduct.copy(stock = nextInt),
+                                                currentUser.id,
+                                                currentUser.name
+                                            )
                                             val hppRef = if (selectedTargetProduct.costPrice > 0L)
                                                 selectedTargetProduct.costPrice
                                             else
