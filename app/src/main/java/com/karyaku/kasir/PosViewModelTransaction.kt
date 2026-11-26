@@ -213,6 +213,23 @@ object YieldAndLossEngine {
         )
     }
 
+    fun computeWeightedAverageHpp(
+        oldStock: Double,
+        oldHpp: Long,
+        addedStock: Double,
+        addedUnitCost: Long
+    ): Long {
+        val safeOldStock = oldStock.coerceAtLeast(0.0)
+        val safeAddedStock = addedStock.coerceAtLeast(0.0)
+        val totalStock = safeOldStock + safeAddedStock
+        if (totalStock <= 1e-6) return addedUnitCost.coerceAtLeast(oldHpp).coerceAtLeast(0L)
+        if (safeOldStock <= 1e-6) return addedUnitCost.coerceAtLeast(0L)
+        if (safeAddedStock <= 1e-6) return oldHpp.coerceAtLeast(0L)
+        val oldVal = safeOldStock * oldHpp.coerceAtLeast(0L).toDouble()
+        val addedVal = safeAddedStock * addedUnitCost.coerceAtLeast(0L).toDouble()
+        return Math.round((oldVal + addedVal) / totalStock)
+    }
+
     fun calculateBatch(
         productId: Long,
         rawName: String,
