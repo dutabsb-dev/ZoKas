@@ -207,19 +207,18 @@ fun PosCartSection(
 
         // Baris Pelanggan & Split Bill (ringkas)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            if (enableCrm) {
-                TextButton(onClick = onCustomerClick, contentPadding = PaddingValues(0.dp), modifier = Modifier.height(30.dp)) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (selectedCustomer != null) "${selectedCustomer.name} (${selectedCustomer.points} ${zokasText("Poin", "Pts", lang)})" else zokasText("Pelanggan Umum", "Walk-in Customer, lang"),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontSize = 11.sp
-                    )
-                }
-            } else {
-                Spacer(modifier = Modifier.width(1.dp))
+            TextButton(onClick = onCustomerClick, contentPadding = PaddingValues(0.dp), modifier = Modifier.height(30.dp)) {
+                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (selectedCustomer != null) {
+                        if (enableCrm) "${selectedCustomer.name} (${selectedCustomer.points} ${zokasText("Poin", "Pts", lang)})"
+                        else selectedCustomer.name
+                    } else zokasText("Pelanggan Umum", "Walk-in Customer", lang),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    fontSize = 11.sp
+                )
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {

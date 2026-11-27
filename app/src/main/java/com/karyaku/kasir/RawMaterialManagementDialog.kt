@@ -403,7 +403,14 @@ fun RawMaterialManagementDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding(),
+            color = MaterialTheme.colorScheme.background
+        ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Header
@@ -491,21 +498,7 @@ fun RawMaterialManagementDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                if (searchQuery.isBlank()) {
-                                    Button(
-                                        onClick = { showAddForm = true },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
-                                        ),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Tambah Bahan Pertama", fontWeight = FontWeight.Bold)
-                                    }
-                                }
+
                             }
                         }
                     } else {
@@ -651,7 +644,9 @@ fun RawMaterialManagementDialog(
                 // FAB
                 ExtendedFloatingActionButton(
                     onClick = { showAddForm = true },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 24.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp)

@@ -1530,11 +1530,12 @@ fun PaymentBottomSheet(
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val isEdcToggleOn = remember(context) { EdcConnectionManager.isEdcEnabled(context) }
                 val availableMethods = remember(settingsManager.paymentMethods, isEdcToggleOn) {
-                    if (isEdcToggleOn) {
+                    val base = if (isEdcToggleOn) {
                         (settingsManager.paymentMethods + "EDC").distinct()
                     } else {
                         settingsManager.paymentMethods.filterNot { it.equals("EDC", ignoreCase = true) }.distinct()
                     }
+                    (base + listOf("DP", "BON")).distinct()
                 }
                 availableMethods.forEach { method ->
                     val isSelected = paymentMethod == method
@@ -1807,6 +1808,85 @@ fun PaymentBottomSheet(
                         Text(zokasText("Transaksi mesin EDC telah disetujui (Approved)", "transaction mesin EDC telah disetujui (Approved"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
+            } else if (paymentMethod == "DP") {
+                val dpAmount = cashInput.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                val remainingBill = (effectiveTotalPrice - dpAmount).coerceAtLeast(0L)
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = zokasText("Pembayaran Uang Muka (Down Payment / DP)", "Down Payment (DP)"),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(20, 30, 50).forEach { pct ->
+                                OutlinedButton(
+                                    onClick = { cashInput = ((effectiveTotalPrice * pct) / 100L).toString() },
+                                    modifier = Modifier.weight(1f).height(34.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text("DP $pct%", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        OutlinedTextField(
+                            value = cashInput,
+                            onValueChange = { if (it.length <= 12) cashInput = it.filter { c -> c.isDigit() } },
+                            label = { Text(zokasText("Nominal DP Diterima (Rp)", "DP Amount Received (Rp)")) },
+                            placeholder = { Text("Masukkan nominal DP (< total tagihan)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(zokasText("DP Dibayar Sekarang:", "DP Paid Now:"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(formatRupiah(dpAmount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(zokasText("Sisa Tagihan (Piutang):", "Remaining Balance:"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(formatRupiah(remainingBill), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            } else if (paymentMethod == "BON") {
+                val initialBonPay = cashInput.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                val remainingBon = (effectiveTotalPrice - initialBonPay).coerceAtLeast(0L)
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = zokasText("Transaksi Kas Bon / Piutang Pelanggan", "Customer Credit / Kas Bon"),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        Text(
+                            text = zokasText(
+                                "Transaksi akan dicatat sebagai BON (Belum Lunas) di Riwayat & Buku Piutang dan dapat dilunasi kapan saja.",
+                                "Transaction will be recorded as BON (Unpaid) in History & Receivables Ledger."
+                            ),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = cashInput,
+                            onValueChange = { if (it.length <= 12) cashInput = it.filter { c -> c.isDigit() } },
+                            label = { Text(zokasText("Bayar Sebagian Awal / Opsional (Rp)", "Optional Initial Payment (Rp)")) },
+                            placeholder = { Text("0 (Kosongkan jika bon penuh)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(zokasText("Total Kas Bon / Sisa Hutang:", "Total Kas Bon / Remaining:"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(formatRupiah(remainingBon), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
             } else {
                 Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
                     Text(zokasText("Pembayaran via $paymentMethod belum didukung secara offline.", "Payment via $paymentMethod belum didukung secara offline."), color = MaterialTheme.colorScheme.onErrorContainer, fontSize = 12.sp, modifier = Modifier.padding(12.dp), textAlign = TextAlign.Center)
@@ -1814,30 +1894,46 @@ fun PaymentBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(28.dp))
+            val dpOrBonInput = cashInput.filter { it.isDigit() }.toLongOrNull() ?: 0L
             val canCompletePayment = when (paymentMethod) {
                 "CASH" -> cashReceived >= effectiveTotalPrice && effectiveTotalPrice > 0
                 "QRIS" -> isQrisPaid
                 "Bank Transfer" -> isTransferPaid || manualTransferConfirmed
                 "EDC" -> edcConfirmed && effectiveTotalPrice > 0
+                "DP" -> dpOrBonInput > 0L && dpOrBonInput < effectiveTotalPrice
+                "BON" -> effectiveTotalPrice > 0L && dpOrBonInput < effectiveTotalPrice
                 else -> true
             }
             Button(
                 onClick = {
-                    val finalMethodLabel = if (paymentMethod == "EDC" && edcRefCode.isNotBlank()) {
-                        "EDC (${edcRefCode.trim()})"
-                    } else {
-                        paymentMethod
+                    val finalMethodLabel = when {
+                        paymentMethod == "EDC" && edcRefCode.isNotBlank() -> "EDC (${edcRefCode.trim()})"
+                        paymentMethod == "DP" -> "DP (Uang Muka)"
+                        else -> paymentMethod
                     }
                     val finalBillToPay = effectiveTotalPrice
+                    val submittedCash = when (paymentMethod) {
+                        "CASH" -> cashReceived
+                        "DP", "BON" -> dpOrBonInput
+                        else -> finalBillToPay
+                    }
                     LiveCartFractionState.clear()
-                    onConfirmPayment(if (paymentMethod == "CASH") cashReceived else finalBillToPay, finalMethodLabel)
+                    onConfirmPayment(submittedCash, finalMethodLabel)
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = canCompletePayment,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(zokasText("SELESAIKAN PEMBAYARAN", "SELESAIKAN payment"), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = when (paymentMethod) {
+                        "DP" -> zokasText("SIMPAN TRANSAKSI DP", "SAVE DP TRANSACTION")
+                        "BON" -> zokasText("CATAT KAS BON", "RECORD KAS BON")
+                        else -> zokasText("SELESAIKAN PEMBAYARAN", "COMPLETE PAYMENT")
+                    },
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
             Spacer(modifier = Modifier.height(24.dp))
         }

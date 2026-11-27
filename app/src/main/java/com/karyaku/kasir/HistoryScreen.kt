@@ -2345,7 +2345,9 @@ fun TransactionDetailDialog(
     }
 
     if (showPayBonDialog) {
-        var cash by remember { mutableStateOf("") }
+        val priorDpPaid = transaction.cashReceived.coerceAtLeast(0L)
+        val remainingBonDue = (transaction.totalPrice - priorDpPaid).coerceAtLeast(0L)
+        var cash by remember { mutableStateOf(remainingBonDue.toString()) }
         AlertDialog(
             onDismissRequest = { showPayBonDialog = false },
             title = { Text(LanguageManager.tr("bon_payment", lang)) },
@@ -2355,10 +2357,22 @@ fun TransactionDetailDialog(
                         "${LanguageManager.tr("total_bill", lang)}: ${formatRupiah(transaction.totalPrice)}",
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    if (priorDpPaid > 0L) {
+                        Text(
+                            "Sudah DP / Dibayar: ${formatRupiah(priorDpPaid)}",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "Sisa Pelunasan: ${formatRupiah(remainingBonDue)}",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = cash,
-                        onValueChange = { cash = it },
+                        onValueChange = { cash = it.filter { ch -> ch.isDigit() } },
                         label = { Text(LanguageManager.tr("cash_received", lang)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
@@ -2368,15 +2382,14 @@ fun TransactionDetailDialog(
                 Button(
                     onClick = {
                         val c = cash.toLongOrNull() ?: 0L
-                        if (c >= transaction.totalPrice) {
-                            viewModel.payUnpaidTransaction(transaction, c) {
-                                viewModel.addCashFlow("IN", transaction.totalPrice, "Pelunasan Bon Struk #${transaction.id}", currentUser)
-                                Toast.makeText(context, "BON Lunas & dicatat ke Kas Masuk", Toast.LENGTH_SHORT).show()
+                        if (c >= remainingBonDue) {
+                            viewModel.payUnpaidTransaction(transaction, c, "CASH", currentUser) {
+                                Toast.makeText(context, "BON/DP Lunas & dicatat ke Kas Masuk", Toast.LENGTH_SHORT).show()
                                 showPayBonDialog = false
                                 onDismiss()
                             }
                         } else {
-                            Toast.makeText(context, "Uang kurang!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Uang kurang dari sisa tagihan (${formatRupiah(remainingBonDue)})!", Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(

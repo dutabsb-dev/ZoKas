@@ -33,8 +33,11 @@ private fun resolveContext(manager: SettingsManager): Context? {
 }
 
 fun isBomEnabledInContext(context: Context): Boolean {
-    return context.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
+    val modEnabled = context.getSharedPreferences(BOM_PREFS_NAME, Context.MODE_PRIVATE)
         .getBoolean(BOM_PREF_KEY, false)
+    val mainEnabled = context.getSharedPreferences("zokas_prefs", Context.MODE_PRIVATE)
+        .getBoolean(BOM_PREF_KEY, false)
+    return modEnabled || mainEnabled
 }
 
 fun setBomEnabledInContext(context: Context, enabled: Boolean) {
@@ -42,15 +45,21 @@ fun setBomEnabledInContext(context: Context, enabled: Boolean) {
         .edit()
         .putBoolean(BOM_PREF_KEY, enabled)
         .commit()
+    context.getSharedPreferences("zokas_prefs", Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(BOM_PREF_KEY, enabled)
+        .commit()
 }
 
 val SettingsManager.isBomModuleEnabled: Boolean
     get() {
+        if (this.enableBomModule) return true
         val ctx = resolveContext(this) ?: return false
         return isBomEnabledInContext(ctx)
     }
 
 fun SettingsManager.setBomModuleEnabled(enabled: Boolean) {
+    this.enableBomModule = enabled
     val ctx = resolveContext(this) ?: return
     setBomEnabledInContext(ctx, enabled)
 }

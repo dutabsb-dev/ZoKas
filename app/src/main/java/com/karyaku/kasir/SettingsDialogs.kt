@@ -752,21 +752,27 @@ fun ReceivableDialog(
     val unpaid = transactions.filter { it.status == "UNPAID" }
     
     if (selectedTx != null) {
+        val priorPaid = selectedTx!!.cashReceived.coerceAtLeast(0L)
+        val remainingDue = (selectedTx!!.totalPrice - priorPaid).coerceAtLeast(0L)
         AlertDialog(
             onDismissRequest = { selectedTx = null },
-            title = { Text("Pelunasan Bon") },
+            title = { Text("Pelunasan Bon / DP") },
             text = {
                 Column {
                     Text("Pelanggan: ${selectedTx!!.customerName}", fontWeight = FontWeight.Bold)
-                    Text("Total Tagihan: ${formatRupiah(selectedTx!!.totalPrice)}", color = ErrorRed, fontWeight = FontWeight.Bold)
+                    Text("Total Tagihan: ${formatRupiah(selectedTx!!.totalPrice)}", color = MaterialTheme.colorScheme.onSurface)
+                    if (priorPaid > 0L) {
+                        Text("Sudah DP: ${formatRupiah(priorPaid)}", color = EmeraldGreen, fontSize = 12.sp)
+                    }
+                    Text("Sisa Tagihan: ${formatRupiah(remainingDue)}", color = ErrorRed, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = cashInput, onValueChange = { cashInput = it }, label = { Text("Uang Diterima (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = cashInput, onValueChange = { cashInput = it.filter { ch -> ch.isDigit() } }, label = { Text("Uang Diterima (Rp)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     val cash = cashInput.toLongOrNull() ?: 0L
-                    if (cash >= selectedTx!!.totalPrice) {
+                    if (cash >= remainingDue) {
                         onPay(selectedTx!!, cash)
                         selectedTx = null
                         cashInput = ""

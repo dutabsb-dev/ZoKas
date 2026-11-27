@@ -69,9 +69,40 @@ fun PosViewModel.loginWithBiometric(activity: FragmentActivity, user: UserEntity
     if (user.biometricKey.isBlank()) { onResult(false, "Belum mendaftarkan biometrik."); return }
 
     val parts = user.biometricKey.split("|")
-    if (parts.size != 2) return onResult(false, "Data biometrik rusak.")
+    if (parts.size != 2) {
+        viewModelScope.launch(Dispatchers.IO) {
+            userDao.updateBiometricKey(user.id, "")
+        }
+        registerBiometric(activity, user, onResult)
+        return
+    }
 
-    val cipher = BiometricCryptoHelper.getCipherForDecryption(parts[0], Base64.decode(parts[1], Base64.NO_WRAP)) ?: return onResult(false, "Kunci kedaluwarsa.")
+    val ivBytes = try {
+        Base64.decode(parts[1], Base64.NO_WRAP)
+    } catch (_: Exception) {
+        ByteArray(0)
+    }
+
+    val cipher = if (ivBytes.isNotEmpty()) {
+        BiometricCryptoHelper.getCipherForDecryption(parts[0], ivBytes)
+    } else null
+
+    if (cipher == null) {
+        BiometricCryptoHelper.deleteKey(parts[0])
+        viewModelScope.launch(Dispatchers.IO) {
+            userDao.updateBiometricKey(user.id, "")
+            withContext(Dispatchers.Main) {
+                registerBiometric(activity, user) { regOk, regMsg ->
+                    if (regOk) {
+                        onResult(true, "Login Berhasil")
+                    } else {
+                        onResult(false, if (regMsg.isNotBlank()) regMsg else "Kunci kedaluwarsa. Silakan daftarkan ulang sidik jari.")
+                    }
+                }
+            }
+        }
+        return
+    }
 
     BiometricCryptoHelper.showBiometricPrompt(
         activity, "Login Biometrik", "Halo ${user.name}", "Gunakan PIN", cipher,
@@ -80,7 +111,15 @@ fun PosViewModel.loginWithBiometric(activity: FragmentActivity, user: UserEntity
                 userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "LOGIN (BIOMETRIC)", actionType = "AUTH"))
                 withContext(Dispatchers.Main) { onResult(true, "Login Berhasil") }
             }
-        }, onError = { onResult(false, "Gagal Login: $it") }
+        }, onError = { err ->
+            if (err.contains("key", ignoreCase = true) || err.contains("invalidat", ignoreCase = true)) {
+                BiometricCryptoHelper.deleteKey(parts[0])
+                viewModelScope.launch(Dispatchers.IO) {
+                    userDao.updateBiometricKey(user.id, "")
+                }
+            }
+            onResult(false, "Gagal Login: $err")
+        }
     )
 }
 

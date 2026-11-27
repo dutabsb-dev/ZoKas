@@ -169,9 +169,7 @@ fun PosScreen(
     LaunchedEffect(Unit) {
         viewModel.setTaxPercent(settingsManager.taxPercent)
         viewModel.setServiceChargePercent(settingsManager.serviceChargePercent)
-        if (!isCrmEnabled && selectedCustomer != null) {
-            viewModel.setCustomer(null)
-        }
+        // Pelanggan tetap dapat dipilih/diinput kapan saja untuk transaksi, DP, dan Kas Bon
     }
 
     var showCartOnPhone by rememberSaveable { mutableStateOf(false) }
@@ -426,7 +424,7 @@ fun PosScreen(
                 storeAddress = settingsManager.storeAddress ?: "",
                 storeFooter = settingsManager.storeFooter?.takeIf { it.isNotBlank() } ?: "Terima Kasih atas Kunjungan Anda",
                 cashierName = currentUser.name,
-                customerName = if (isCrmEnabled && selectedCustomer != null) selectedCustomer!!.name else "Pelanggan Umum",
+                customerName = selectedCustomer?.name ?: "Pelanggan Umum",
                 orderType = orderTypeInfo,
                 items = mappedItems,
                 subtotal = subtotal,
@@ -505,7 +503,7 @@ fun PosScreen(
                 when (event.key) {
                     Key.F1 -> { searchFocusRequester.requestFocus(); true }
                     Key.F2 -> { if (cart.isNotEmpty()) { showPaymentSheet = true; true } else false }
-                    Key.F3 -> { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); true } else false }
+                    Key.F3 -> { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); true } else false }
                     else -> false
                 }
             } else false
@@ -548,9 +546,10 @@ fun PosScreen(
                         if (isSplitBillMode) isSplitBillMode = false
 
                         val customThanks = LocalCfdServerManager.getCustomThankYouMessage(context)
+                        val isUnpaidOrDp = method.equals("BON", ignoreCase = true) || method.startsWith("DP", ignoreCase = true)
                         val paidTotal = if (newTransaction.totalPrice > 0L) newTransaction.totalPrice else totalToPay
-                        val receivedVal = if (cashReceived > 0L) cashReceived else paidTotal
-                        val changeVal = (receivedVal - paidTotal).coerceAtLeast(0L)
+                        val receivedVal = if (isUnpaidOrDp) cashReceived.coerceAtLeast(0L) else if (cashReceived > 0L) cashReceived else paidTotal
+                        val changeVal = if (isUnpaidOrDp) 0L else (receivedVal - paidTotal).coerceAtLeast(0L)
                         LocalCfdServerManager.triggerCompletedStage(
                             totalPaid = paidTotal,
                             cashReceived = receivedVal,
@@ -974,7 +973,7 @@ fun PosScreen(
             )
         }
 
-        if (showCustomerDialog && isCrmEnabled) {
+        if (showCustomerDialog) {
             CustomerDialogV2(
                 viewModel = viewModel,
                 customers = customers, selectedCustomer = selectedCustomer,
@@ -1100,7 +1099,7 @@ fun PosScreen(
                                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                     PosCartSection(
                                         cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
-                                        selectedCustomer = if (isCrmEnabled) selectedCustomer else null, pointsUsed = pointsUsed, selectedTable = selectedTable,
+                                        selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                                         selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher,
                                         voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                         enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
@@ -1109,7 +1108,7 @@ fun PosScreen(
                                         onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                         onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
                                         onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
-                                        onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show() } },
+                                        onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show() } },
                                         onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
                                         onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
                                         onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },
@@ -1151,7 +1150,7 @@ fun PosScreen(
                                     OutlinedButton(
                                         onClick = {
                                             if (cart.isNotEmpty()) {
-                                                viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan")
+                                                viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan")
                                                 Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show()
                                             }
                                         },
@@ -1184,7 +1183,7 @@ fun PosScreen(
                             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                                 PosCartSection(
                                     cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
-                                    selectedCustomer = if (isCrmEnabled) selectedCustomer else null, pointsUsed = pointsUsed, selectedTable = selectedTable,
+                                    selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                                     selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher,
                                     voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
                                     enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
@@ -1193,7 +1192,7 @@ fun PosScreen(
                                     onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                     onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
                                     onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
-                                    onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(if (isCrmEnabled) (selectedCustomer?.name ?: "Pelanggan") else "Pelanggan"); Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show() } },
+                                    onHoldClick = { if (cart.isNotEmpty()) { viewModel.saveHoldOrder(selectedCustomer?.name ?: "Pelanggan"); Toast.makeText(context, zokasText("Pesanan diparkir.", "Order diparkir."), Toast.LENGTH_SHORT).show() } },
                                     onViewHoldClick = { showHoldDialog = true }, onCustomerClick = { showCustomerDialog = true },
                                     onAdd = { item: CartItem -> viewModel.addToCart(item.product, item.selectedVariation) }, onRemove = { item: CartItem -> viewModel.removeFromCart(item.product, item.selectedVariation) },
                                     onDelete = { item: CartItem -> viewModel.deleteItem(item.product, item.selectedVariation) },

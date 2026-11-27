@@ -394,21 +394,40 @@ fun PosViewModel.processPayment(
                 Math.round(unitHpp.toDouble() * qAct)
             }
 
-            // 3. Simpan Transaksi Utama
+            // 3. Simpan Transaksi Utama (Dukung SUCCESS, BON, & DP)
+            val isBonOrDp = method.equals("BON", ignoreCase = true) || method.startsWith("DP", ignoreCase = true)
+            val txStatus = if (isBonOrDp) "UNPAID" else "SUCCESS"
+            val effectiveCashReceived = if (isBonOrDp) cashReceived.coerceIn(0L, finalTotalPrice) else cashReceived
+            val effectiveChange = if (!isBonOrDp && cashReceived > finalTotalPrice) cashReceived - finalTotalPrice else 0L
+
             val newTransaction = TransactionEntity(
                 timestamp = System.currentTimeMillis(), totalPrice = finalTotalPrice,
                 totalCost = computedTotalCost,
-                paymentMethod = method, status = "SUCCESS", cashierName = userName, 
+                paymentMethod = method, status = txStatus, cashierName = userName, 
                 customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum",
                 orderType = _selectedOrderType.value, tableName = _selectedTable.value, 
                 branchId = _currentBranchId.value, 
-                cashReceived = cashReceived, changeAmount = if (cashReceived > finalTotalPrice) cashReceived - finalTotalPrice else 0L,
+                cashReceived = effectiveCashReceived, changeAmount = effectiveChange,
                 taxAmount = taxAmount, serviceCharge = serviceChargeAmount, voucherCode = voucherCode,
                 totalCommission = totalCommission
             )
 
             val transactionId = transactionDao.insertTransaction(newTransaction)
             val savedTransaction = newTransaction.copy(id = transactionId)
+
+            if (isBonOrDp && effectiveCashReceived > 0L) {
+                cashFlowDao.insertCashFlow(
+                    CashFlowEntity(
+                        shiftId = _activeShift.value?.id ?: 0L,
+                        branchId = _currentBranchId.value,
+                        type = "IN",
+                        amount = effectiveCashReceived,
+                        note = "DP/Uang Muka Struk #$transactionId (${savedTransaction.customerName})",
+                        userId = userId,
+                        userName = userName
+                    )
+                )
+            }
             val itemsToInsert = mutableListOf<TransactionItemEntity>()
 
             // 4. Proses Item & Paket Tambahan
@@ -685,17 +704,20 @@ fun PosViewModel.resumeHoldOrder(order: HoldOrderEntity) {
 fun PosViewModel.payUnpaidTransaction(tx: TransactionEntity, cashReceived: Long, paidMethod: String = "CASH", user: UserEntity? = null, onSuccess: () -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            val changeAmount = if (cashReceived > tx.totalPrice) cashReceived - tx.totalPrice else 0L
-            transactionDao.updateTransactionStatus(tx.id, cashReceived, changeAmount, paidMethod, System.currentTimeMillis())
+            val priorPaid = tx.cashReceived.coerceAtLeast(0L)
+            val remainingDue = (tx.totalPrice - priorPaid).coerceAtLeast(0L)
+            val changeAmount = if (cashReceived > remainingDue) cashReceived - remainingDue else 0L
+            val totalPaidAll = priorPaid + cashReceived
+            transactionDao.updateTransactionStatus(tx.id, totalPaidAll, changeAmount, paidMethod, System.currentTimeMillis())
             
             cashFlowDao.insertCashFlow(CashFlowEntity(
                 shiftId = _activeShift.value?.id ?: 0L, branchId = _currentBranchId.value, type = "IN", 
-                amount = tx.totalPrice, note = "Pelunasan BON #${tx.id} (${tx.customerName})", 
+                amount = remainingDue, note = "Pelunasan BON/DP #${tx.id} (${tx.customerName})", 
                 userId = user?.id ?: 0L, userName = user?.name ?: "SYSTEM"
             ))
             
             if (user != null) {
-                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "PELUNASAN BON #${tx.id}: ${formatRupiah(tx.totalPrice)} via $paidMethod", actionType = "TRANSACTION"))
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "PELUNASAN BON/DP #${tx.id}: ${formatRupiah(remainingDue)} via $paidMethod", actionType = "TRANSACTION"))
             }
             withContext(Dispatchers.Main) { onSuccess() }
         } catch (e: Exception) { e.printStackTrace() }

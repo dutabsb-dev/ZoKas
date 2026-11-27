@@ -1490,7 +1490,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                 productToEdit = productToEdit,
                 onDismiss = { showProductForm = false; productToEdit = null },
                 onManageBom = { prod ->
-                    if (settingsManager.isBomModuleEnabled) {
+                    if (settingsManager.isBomModuleEnabled || isBomEnabledInContext(context)) {
                         productToManageBom = prod
                     } else {
                         Toast.makeText(context, "Modul Resep / BOM sedang nonaktif.", Toast.LENGTH_SHORT).show()
@@ -1534,7 +1534,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
                         productToWaste = target
                     }
                 },
-                onBom = if (settingsManager.isBomModuleEnabled) {
+                onBom = if (settingsManager.isBomModuleEnabled || isBomEnabledInContext(context)) {
                     {
                         productToManageBom = showActionDialogFor
                         showActionDialogFor = null
@@ -1566,7 +1566,7 @@ fun ProductManagementScreen(viewModel: PosViewModel, settingsManager: SettingsMa
             )
         }
 
-        if (settingsManager.isBomModuleEnabled && productToManageBom != null) {
+        if ((settingsManager.isBomModuleEnabled || isBomEnabledInContext(context)) && productToManageBom != null) {
             BomManagementDialog(
                 product = productToManageBom!!,
                 rawMaterials = rawMaterials,
