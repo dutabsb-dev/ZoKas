@@ -913,13 +913,19 @@ fun HistoryScreen(
                 val rKg = rawKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
                 val rCost = rawPriceStr.filter { it.isDigit() }.toLongOrNull() ?: 0L
                 val procCost = processCostStr.filter { it.isDigit() }.toLongOrNull() ?: 0L
-                val cKg = carcassKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
-                val bKg = byproductKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
-                val wKg = wasteKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val cKgRaw = carcassKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val bKgRaw = byproductKgStr.replace(',', '.').toDoubleOrNull() ?: 0.0
+                val wKgExplicit = wasteKgStr.replace(',', '.').toDoubleOrNull()
+                val exceedsRawInput = rKg > 0.0 && (cKgRaw + bKgRaw + (wKgExplicit ?: 0.0)) > (rKg + 1e-6)
+                val cKg = if (rKg > 0.0) cKgRaw.coerceAtMost(rKg) else cKgRaw
+                val bKg = if (rKg > 0.0) bKgRaw.coerceAtMost((rKg - cKg).coerceAtLeast(0.0)) else bKgRaw
+                val autoRemainderLoss = if (rKg > 0.0) (rKg - cKg - bKg).coerceAtLeast(0.0) else 0.0
+                val wKg = wKgExplicit?.coerceAtLeast(0.0) ?: autoRemainderLoss
                 val targetId = selectedTargetProduct?.id ?: 0L
                 val targetName = selectedTargetProduct?.name ?: ""
                 val previewBatch = YieldAndLossEngine.calculateBatch(targetId, targetName, rKg, rCost, procCost, cKg, bKg, wKg)
                 val totalModalPreview = Math.round(rKg * rCost) + procCost
+                val batchLossRp = if (rCost > 0L && wKg > 0.0) Math.round(wKg * rCost) else 0L
 
                 val curProdStock = selectedTargetProduct?.let {
                     DecimalStockTracker.loadPersistedStock(context, it.id, it.name, it.stock)
@@ -1150,7 +1156,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = carcassKgStr,
                                     onValueChange = { carcassKgStr = it },
-                                    label = { Text(zokasText("Hasil", "Main", lang), fontSize = 10.5.sp, maxLines = 1, softWrap = false) },
+                                    label = { Text(zokasText("Hasil ($curProdUnit)", "Main ($curProdUnit)", lang), fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                                     placeholder = { Text("0", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
@@ -1159,7 +1165,7 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = byproductKgStr,
                                     onValueChange = { byproductKgStr = it },
-                                    label = { Text(zokasText("Sisa/Side", "Side", lang), fontSize = 10.5.sp, maxLines = 1, softWrap = false) },
+                                    label = { Text(zokasText("Sisa ($curProdUnit)", "Side ($curProdUnit)", lang), fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                                     placeholder = { Text("0", fontSize = 11.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
@@ -1168,11 +1174,24 @@ fun HistoryScreen(
                                 OutlinedTextField(
                                     value = wasteKgStr,
                                     onValueChange = { wasteKgStr = it },
-                                    label = { Text(zokasText("Susut", "Loss", lang), fontSize = 10.5.sp, maxLines = 1, softWrap = false) },
-                                    placeholder = { Text("0", fontSize = 11.sp) },
+                                    label = { Text(zokasText("Susut ($curProdUnit)", "Loss ($curProdUnit)", lang), fontSize = 10.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                    placeholder = { Text(String.format(Locale.US, "%.2f", autoRemainderLoss), fontSize = 10.sp) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     singleLine = true,
                                     modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            if (exceedsRawInput) {
+                                Text(
+                                    text = zokasText(
+                                        "Total output melebihi bahan baku (${String.format(Locale("id", "ID"), "%.2f", rKg)} $curProdUnit); nilai dibatasi otomatis.",
+                                        "Total output exceeds raw input (${String.format(Locale.US, "%.2f", rKg)} $curProdUnit); clamped automatically.",
+                                        lang
+                                    ),
+                                    fontSize = 10.5.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    maxLines = 2
                                 )
                             }
 
@@ -1183,8 +1202,17 @@ fun HistoryScreen(
                             ) {
                                 Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(zokasText("Total Modal Batch: ${formatRupiah(totalModalPreview)}", "Total Batch Cost: ${formatRupiah(totalModalPreview)}", lang), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2)
-                                    Text(zokasText("HPP Hasil Utama: ${formatRupiah(previewBatch.carcassHppPerKg)} / satuan", "Main Output COGS: ${formatRupiah(previewBatch.carcassHppPerKg)} / unit", lang), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, maxLines = 2)
-                                    Text(zokasText("Produk Sampingan: HPP Rp 0 (terpisah)", "Byproduct: COGS Rp 0 (separate)", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                                    Text(zokasText("HPP Hasil Utama: ${formatRupiah(previewBatch.carcassHppPerKg)} / $curProdUnit", "Main Output COGS: ${formatRupiah(previewBatch.carcassHppPerKg)} / $curProdUnit", lang), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                                    Text(
+                                        text = zokasText(
+                                            "Susut Batch: ${String.format(Locale("id", "ID"), "%.2f", wKg)} $curProdUnit (${formatRupiah(batchLossRp)}) • Sampingan: HPP Rp 0",
+                                            "Batch Loss: ${String.format(Locale.US, "%.2f", wKg)} $curProdUnit (${formatRupiah(batchLossRp)}) • Side: COGS Rp 0",
+                                            lang
+                                        ),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2
+                                    )
                                 }
                             }
 
@@ -1323,6 +1351,10 @@ fun HistoryScreen(
                                             carcassHppPerKg = previewBatch.carcassHppPerKg
                                         )
                                     )
+                                    if (batchLossRp > 0L) {
+                                        YieldAndLossEngine.recordWasteLoss(batchLossRp)
+                                        YieldAndLossEngine.persistAndReadTotals(context)
+                                    }
                                     YieldAndLossEngine.saveBatchRecord(context, previewBatch)
                                     if (previewBatch.carcassHppPerKg > 0L) {
                                         viewModel.updateProduct(
