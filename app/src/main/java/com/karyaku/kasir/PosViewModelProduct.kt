@@ -158,12 +158,36 @@ fun PosViewModel.addProduct(
     }
 }
 
+private fun PosViewModel.resolveAppContextForProduct(): Context? {
+    return runCatching {
+        val field = PosViewModel::class.java.declaredFields.firstOrNull {
+            Context::class.java.isAssignableFrom(it.type)
+        }?.apply { isAccessible = true }
+        field?.get(this) as? Context
+    }.getOrNull() ?: runCatching {
+        val appClass = Class.forName("android.app.ActivityThread")
+        appClass.getMethod("currentApplication").invoke(null) as? Context
+    }.getOrNull()
+}
+
 fun PosViewModel.updateProduct(product: ProductEntity, userId: Long, userName: String) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             if (product.branchId != _currentBranchId.value) return@launch
             val oldProduct = _products.value.find { it.id == product.id }
-            productDao.saveProduct(product.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
+            val appCtx = resolveAppContextForProduct()
+            val legacyBoms = runCatching { productDao.getBomForProduct(product.id) }.getOrDefault(emptyList())
+            val syncedProduct = if (appCtx != null) {
+                VariantBomManager.syncProductAndVariantCostsFromRecipes(
+                    context = appCtx,
+                    product = product,
+                    rawMaterials = _rawMaterials.value,
+                    legacyProductBoms = legacyBoms
+                )
+            } else {
+                product
+            }
+            productDao.saveProduct(syncedProduct.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
 
             val skuInfo = extractProductSku(product.barcode).let { if (it.isNotEmpty()) " [Kode: $it]" else "" }
             val action = if (oldProduct != null && oldProduct.price != product.price) {
@@ -190,6 +214,9 @@ fun PosViewModel.deleteProduct(product: ProductEntity, userId: Long, userName: S
         try {
             val targetId = product.id
             val targetName = product.name
+            resolveAppContextForProduct()?.let { appCtx ->
+                VariantBomManager.clearAllRecipesForProduct(appCtx, product)
+            }
             database.withTransaction {
                 productDao.deleteBomForProduct(targetId)
                 productDao.unlinkProductFromTransactionItems(targetId)
@@ -378,7 +405,25 @@ fun PosViewModel.updateRawMaterial(id: Long, name: String, stock: Double, unit: 
         try {
             val material = _rawMaterials.value.find { it.id == id }
             if (material != null) {
-                productDao.insertRawMaterial(material.copy(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit))
+                val updatedMaterial = material.copy(name = name, stock = stock, unit = unit, costPerUnit = costPerUnit)
+                productDao.insertRawMaterial(updatedMaterial)
+                val appCtx = resolveAppContextForProduct()
+                if (appCtx != null && material.costPerUnit != costPerUnit) {
+                    val refreshedMaterials = _rawMaterials.value.map { if (it.id == id) updatedMaterial else it }
+                    val allBranchProds = productDao.getAllProducts().first()
+                    allBranchProds.forEach { prod ->
+                        val legacyBoms = runCatching { productDao.getBomForProduct(prod.id) }.getOrDefault(emptyList())
+                        val synced = VariantBomManager.syncProductAndVariantCostsFromRecipes(
+                            context = appCtx,
+                            product = prod,
+                            rawMaterials = refreshedMaterials,
+                            legacyProductBoms = legacyBoms
+                        )
+                        if (synced.costPrice != prod.costPrice || synced.variations != prod.variations) {
+                            productDao.saveProduct(synced.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
+                        }
+                    }
+                }
                 withContext(Dispatchers.Main) { onSuccess() }
             }
         } catch (e: Exception) {
