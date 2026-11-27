@@ -645,10 +645,12 @@ private fun ProductGridCard(
             androidx.compose.animation.AnimatedContent(
                 targetState = activeSlide,
                 transitionSpec = {
-                    (androidx.compose.animation.slideInVertically(animationSpec = tween(320)) { h -> h } + fadeIn(animationSpec = tween(260)))
-                        .togetherWith(
-                            androidx.compose.animation.slideOutVertically(animationSpec = tween(320)) { h -> -h } + fadeOut(animationSpec = tween(220))
-                        )
+                    androidx.compose.animation.ContentTransform(
+                        targetContentEnter = androidx.compose.animation.slideInVertically(animationSpec = tween(320)) { h -> h } +
+                            androidx.compose.animation.fadeIn(animationSpec = tween(260)),
+                        initialContentExit = androidx.compose.animation.slideOutVertically(animationSpec = tween(320)) { h -> -h } +
+                            androidx.compose.animation.fadeOut(animationSpec = tween(220))
+                    )
                 },
                 label = "variant_ticker"
             ) { slide ->
