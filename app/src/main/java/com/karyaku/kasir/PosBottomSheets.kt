@@ -151,17 +151,13 @@ fun ProductFormBottomSheet(
     }
 
     fun handleBackOrCloseAttempt(forcePromptIfDirty: Boolean) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
         if (showDiscardConfirm) {
             showDiscardConfirm = false
             return
         }
-        keyboardController?.hide()
-        focusManager.clearFocus(force = true)
-        if (forcePromptIfDirty && hasUnsavedInput) {
-            showDiscardConfirm = true
-        } else {
-            onDismiss()
-        }
+        showDiscardConfirm = true
     }
 
     fun runOcrFromUri(uri: Uri) {
@@ -330,6 +326,9 @@ fun ProductFormBottomSheet(
         }
 
         if (showDiscardConfirm) {
+            BackHandler(enabled = true) {
+                showDiscardConfirm = false
+            }
             AlertDialog(
                 onDismissRequest = { showDiscardConfirm = false },
                 icon = {
