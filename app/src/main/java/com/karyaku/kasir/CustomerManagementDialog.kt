@@ -100,7 +100,11 @@ fun CustomerManagementDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding(),
             color = MaterialTheme.colorScheme.background
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
@@ -139,7 +143,7 @@ fun CustomerManagementDialog(
                         contentPadding = PaddingValues(
                             start = 16.dp,
                             end = 16.dp,
-                            bottom = 96.dp
+                            bottom = 140.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -325,7 +329,8 @@ fun CustomerManagementDialog(
                     onClick = { showAddForm = true },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(16.dp),
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, end = 20.dp, top = 16.dp, bottom = 72.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp),

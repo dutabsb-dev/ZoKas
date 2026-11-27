@@ -358,6 +358,57 @@ object YieldAndLossEngine {
     }
 }
 
+
+data class DpPaymentEntry(
+    val timestamp: Long,
+    val amount: Long,
+    val method: String,
+    val note: String,
+    val qtySummary: String
+)
+
+object DpLedgerTracker {
+    private const val PREFS_NAME = "zokas_dp_bon_ledger_v1"
+
+    fun appendEntry(context: Context, txId: Long, entry: DpPaymentEntry) {
+        if (txId <= 0L) return
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val arr = try { JSONArray(prefs.getString("tx_$txId", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        arr.put(JSONObject().apply {
+            put("timestamp", entry.timestamp)
+            put("amount", entry.amount)
+            put("method", entry.method)
+            put("note", entry.note)
+            put("qtySummary", entry.qtySummary)
+        })
+        prefs.edit().putString("tx_$txId", arr.toString()).apply()
+    }
+
+    fun getEntries(context: Context, txId: Long): List<DpPaymentEntry> {
+        if (txId <= 0L) return emptyList()
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val arr = try { JSONArray(prefs.getString("tx_$txId", "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        val list = mutableListOf<DpPaymentEntry>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            list.add(
+                DpPaymentEntry(
+                    timestamp = o.optLong("timestamp", 0L),
+                    amount = o.optLong("amount", 0L),
+                    method = o.optString("method", "DP"),
+                    note = o.optString("note", ""),
+                    qtySummary = o.optString("qtySummary", "")
+                )
+            )
+        }
+        return list
+    }
+
+    fun getTotalDpPaid(context: Context, txId: Long): Long {
+        return getEntries(context, txId).sumOf { it.amount }
+    }
+}
+
 fun PosViewModel.processPayment(
     cashReceived: Long, userId: Long, userName: String, isSplitBill: Boolean, method: String, 
     maxDiscountCap: Long, birthdayDiscountPercent: Double, taxPercent: Double, 
@@ -399,9 +450,10 @@ fun PosViewModel.processPayment(
             val txStatus = if (isBonOrDp) "UNPAID" else "SUCCESS"
             val effectiveCashReceived = if (isBonOrDp) cashReceived.coerceIn(0L, finalTotalPrice) else cashReceived
             val effectiveChange = if (!isBonOrDp && cashReceived > finalTotalPrice) cashReceived - finalTotalPrice else 0L
+            val createdTs = System.currentTimeMillis()
 
             val newTransaction = TransactionEntity(
-                timestamp = System.currentTimeMillis(), totalPrice = finalTotalPrice,
+                timestamp = createdTs, totalPrice = finalTotalPrice,
                 totalCost = computedTotalCost,
                 paymentMethod = method, status = txStatus, cashierName = userName, 
                 customerName = _selectedCustomer.value?.name ?: "Pelanggan Umum",
@@ -415,18 +467,42 @@ fun PosViewModel.processPayment(
             val transactionId = transactionDao.insertTransaction(newTransaction)
             val savedTransaction = newTransaction.copy(id = transactionId)
 
-            if (isBonOrDp && effectiveCashReceived > 0L) {
-                cashFlowDao.insertCashFlow(
-                    CashFlowEntity(
-                        shiftId = _activeShift.value?.id ?: 0L,
-                        branchId = _currentBranchId.value,
-                        type = "IN",
-                        amount = effectiveCashReceived,
-                        note = "DP/Uang Muka Struk #$transactionId (${savedTransaction.customerName})",
-                        userId = userId,
-                        userName = userName
+            if (isBonOrDp) {
+                val qtySummaryText = cartToProcess.joinToString(", ") { ci ->
+                    "${formatQtyDisplay(ci.effectiveQty)}x ${ci.product.name}"
+                }
+                val appCtx = database.openHelper.readableDatabase.let { null } ?: runCatching {
+                    val field = PosViewModel::class.java.declaredFields.firstOrNull {
+                        android.content.Context::class.java.isAssignableFrom(it.type)
+                    }?.apply { isAccessible = true }
+                    field?.get(this) as? android.content.Context
+                }.getOrNull()
+                if (appCtx != null) {
+                    DpLedgerTracker.appendEntry(
+                        appCtx,
+                        transactionId,
+                        DpPaymentEntry(
+                            timestamp = createdTs,
+                            amount = effectiveCashReceived,
+                            method = method,
+                            note = if (effectiveCashReceived > 0L) "DP/Uang Muka Awal" else "Kas Bon Tercatat",
+                            qtySummary = qtySummaryText
+                        )
                     )
-                )
+                }
+                if (effectiveCashReceived > 0L) {
+                    cashFlowDao.insertCashFlow(
+                        CashFlowEntity(
+                            shiftId = _activeShift.value?.id ?: 0L,
+                            branchId = _currentBranchId.value,
+                            type = "IN",
+                            amount = effectiveCashReceived,
+                            note = "DP Struk #$transactionId (${savedTransaction.customerName}) [$qtySummaryText]",
+                            userId = userId,
+                            userName = userName
+                        )
+                    )
+                }
             }
             val itemsToInsert = mutableListOf<TransactionItemEntity>()
 
@@ -706,18 +782,47 @@ fun PosViewModel.payUnpaidTransaction(tx: TransactionEntity, cashReceived: Long,
         try {
             val priorPaid = tx.cashReceived.coerceAtLeast(0L)
             val remainingDue = (tx.totalPrice - priorPaid).coerceAtLeast(0L)
+            val settledAmount = if (cashReceived >= remainingDue) remainingDue else cashReceived.coerceAtLeast(0L)
             val changeAmount = if (cashReceived > remainingDue) cashReceived - remainingDue else 0L
-            val totalPaidAll = priorPaid + cashReceived
-            transactionDao.updateTransactionStatus(tx.id, totalPaidAll, changeAmount, paidMethod, System.currentTimeMillis())
+            val totalPaidAll = priorPaid + settledAmount
+            val settleTs = System.currentTimeMillis()
+            val combinedMethod = if (priorPaid > 0L && !tx.paymentMethod.contains("Lunas", ignoreCase = true)) {
+                "${tx.paymentMethod} + Lunas $paidMethod"
+            } else {
+                "Lunas ($paidMethod)"
+            }
+            transactionDao.updateTransactionStatus(tx.id, totalPaidAll, changeAmount, combinedMethod, settleTs)
+
+            val appCtx = runCatching {
+                val field = PosViewModel::class.java.declaredFields.firstOrNull {
+                    android.content.Context::class.java.isAssignableFrom(it.type)
+                }?.apply { isAccessible = true }
+                field?.get(this) as? android.content.Context
+            }.getOrNull()
+            if (appCtx != null) {
+                val txItems = transactionItemDao.getItemsByTransaction(tx.id).first()
+                val qSum = txItems.joinToString(", ") { "${it.quantity}x ${it.productName}" }
+                DpLedgerTracker.appendEntry(
+                    appCtx,
+                    tx.id,
+                    DpPaymentEntry(
+                        timestamp = settleTs,
+                        amount = settledAmount,
+                        method = "Pelunasan $paidMethod",
+                        note = "Pelunasan Sisa Tagihan",
+                        qtySummary = qSum
+                    )
+                )
+            }
             
             cashFlowDao.insertCashFlow(CashFlowEntity(
                 shiftId = _activeShift.value?.id ?: 0L, branchId = _currentBranchId.value, type = "IN", 
-                amount = remainingDue, note = "Pelunasan BON/DP #${tx.id} (${tx.customerName})", 
+                amount = settledAmount, note = "Pelunasan BON/DP #${tx.id} (${tx.customerName})", 
                 userId = user?.id ?: 0L, userName = user?.name ?: "SYSTEM"
             ))
             
             if (user != null) {
-                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "PELUNASAN BON/DP #${tx.id}: ${formatRupiah(remainingDue)} via $paidMethod", actionType = "TRANSACTION"))
+                userDao.insertAuditLog(AuditLogEntity(userId = user.id, userName = user.name, action = "PELUNASAN BON/DP #${tx.id}: ${formatRupiah(settledAmount)} via $paidMethod", actionType = "TRANSACTION"))
             }
             withContext(Dispatchers.Main) { onSuccess() }
         } catch (e: Exception) { e.printStackTrace() }

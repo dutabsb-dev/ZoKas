@@ -22,6 +22,42 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+
+enum class ReceiptTemplateMode(
+    val key: String,
+    val shortLabel: String,
+    val titleLabel: String,
+    val description: String
+) {
+    STANDARD("STANDARD", "Standar", "Struk Standar / Lengkap", "Rincian item, diskon, pajak & pembayaran lengkap"),
+    COMPACT("COMPACT", "Ringkas", "Struk Ringkas (Hemat Kertas)", "Tanpa header alamat/telp & baris item padat"),
+    INVOICE_A5("INVOICE_A5", "Nota / Invoice", "Nota Besar / Invoice (A5)", "Dokumen nota lengkap + kolom tanda tangan (Grosir/DP/Bon)"),
+    DP_SETTLEMENT("DP_SETTLEMENT", "Nota Pelunasan", "Struk / Nota Pelunasan DP & Bon", "Riwayat DP, waktu bayar, sisa tagihan & status lunas"),
+    SUMMARY("SUMMARY", "Rekap", "Struk Rekap (Summary)", "Jumlah total item & nominal akhir tanpa daftar item"),
+    TAX_INVOICE("TAX_INVOICE", "Faktur Pajak", "Struk Pajak (Tax Invoice)", "Menampilkan identitas NPWP, DPP, PB1/PPN & service"),
+    QUEUE_TICKET("QUEUE_TICKET", "Antrean", "Struk Antrean (Queue Ticket)", "Nomor antrean besar, tipe pesanan & waktu cetak"),
+    GIFT_RECEIPT("GIFT_RECEIPT", "Tanpa Harga", "Gift Receipt / Tanda Terima", "Daftar barang & tanggal tanpa nominal harga"),
+    SHIFT_REPORT("SHIFT_REPORT", "Shift", "Struk Tutup Kasir (Shift)", "Ringkasan modal awal, penjualan, kas & selisih laci");
+
+    companion object {
+        fun fromKey(k: String?): ReceiptTemplateMode {
+            return entries.find { it.key.equals(k, ignoreCase = true) } ?: STANDARD
+        }
+    }
+}
+
+enum class ReceiptShareFormat(val key: String, val label: String) {
+    JPG("JPG", "Gambar JPG (HD)"),
+    PNG("PNG", "Gambar PNG (Tajam)"),
+    PDF("PDF", "Dokumen PDF");
+
+    companion object {
+        fun fromKey(k: String?): ReceiptShareFormat {
+            return entries.find { it.key.equals(k, ignoreCase = true) } ?: JPG
+        }
+    }
+}
+
 enum class PrinterPaperSize(
     val mm: Int,
     val charWidth: Int,
@@ -43,7 +79,10 @@ data class PrinterUpgradeConfig(
     val printLogo: Boolean = true,
     val autoCutPaper: Boolean = false,
     val autoOpenDrawerOnCash: Boolean = false,
-    val feedLines: Int = 0
+    val feedLines: Int = 0,
+    val defaultReceiptMode: ReceiptTemplateMode = ReceiptTemplateMode.STANDARD,
+    val defaultShareFormat: ReceiptShareFormat = ReceiptShareFormat.JPG,
+    val storeTaxNpwp: String = ""
 )
 
 object PrinterUpgradePrefs {
@@ -57,7 +96,10 @@ object PrinterUpgradePrefs {
             printLogo = prefs.getBoolean("print_logo", true),
             autoCutPaper = prefs.getBoolean("auto_cut_paper", false),
             autoOpenDrawerOnCash = prefs.getBoolean("auto_open_drawer_on_cash", false),
-            feedLines = prefs.getInt("feed_lines", 0).coerceIn(0, 3)
+            feedLines = prefs.getInt("feed_lines", 0).coerceIn(0, 3),
+            defaultReceiptMode = ReceiptTemplateMode.fromKey(prefs.getString("default_receipt_mode", "STANDARD")),
+            defaultShareFormat = ReceiptShareFormat.fromKey(prefs.getString("default_share_format", "JPG")),
+            storeTaxNpwp = prefs.getString("store_tax_npwp", "") ?: ""
         )
     }
 
@@ -68,7 +110,10 @@ object PrinterUpgradePrefs {
             .putBoolean("print_logo", config.printLogo)
             .putBoolean("auto_cut_paper", config.autoCutPaper)
             .putBoolean("auto_open_drawer_on_cash", config.autoOpenDrawerOnCash)
-            .putInt("feed_lines", config.feedLines.coerceIn(1, 5))
+            .putInt("feed_lines", config.feedLines.coerceIn(0, 3))
+            .putString("default_receipt_mode", config.defaultReceiptMode.key)
+            .putString("default_share_format", config.defaultShareFormat.key)
+            .putString("store_tax_npwp", config.storeTaxNpwp)
             .apply()
     }
 
@@ -275,6 +320,55 @@ fun PrinterUpgradeSettingsSection(
                 }
             }
         }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        Text(
+            text = "Format Default Struk & Bagikan",
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            ReceiptShareFormat.entries.forEach { fmtOption ->
+                val selected = cfg.defaultShareFormat == fmtOption
+                OutlinedButton(
+                    onClick = { updateCfg(cfg.copy(defaultShareFormat = fmtOption)) },
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 38.dp),
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface,
+                        contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    ),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = fmtOption.key,
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = cfg.storeTaxNpwp,
+            onValueChange = { updateCfg(cfg.copy(storeTaxNpwp = it)) },
+            label = { Text("NPWP / Identitas Pajak Toko (Opsional)", fontSize = 11.sp) },
+            placeholder = { Text("Untuk mode Struk Pajak (Tax Invoice)", fontSize = 11.sp) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(8.dp)
+        )
 
         // Tombol Uji Cetak Printer Kasir
         OutlinedButton(

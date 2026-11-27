@@ -508,7 +508,7 @@ fun RawMaterialManagementDialog(
                                 start = 16.dp,
                                 top = 8.dp,
                                 end = 16.dp,
-                                bottom = 96.dp
+                                bottom = 140.dp
                             ),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
@@ -646,7 +646,8 @@ fun RawMaterialManagementDialog(
                     onClick = { showAddForm = true },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 24.dp),
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, end = 20.dp, top = 16.dp, bottom = 72.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp)

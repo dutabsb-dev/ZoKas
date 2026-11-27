@@ -2025,6 +2025,178 @@ fun HistoryScreen(
             }
         }
 
+        // AKSES CEPAT DP & KAS BON (PIUTANG) LANGSUNG DI TAB LAPORAN
+        item {
+            val dpAndBonList = remember(transactions) {
+                transactions.filter { tx ->
+                    tx.status == "UNPAID" ||
+                        tx.paymentMethod.contains("DP", ignoreCase = true) ||
+                        tx.paymentMethod.contains("BON", ignoreCase = true)
+                }
+            }
+            var showDpBonDialog by remember { mutableStateOf(false) }
+            var txToSettle by remember { mutableStateOf<com.karyaku.kasir.data.local.TransactionEntity?>(null) }
+            var settleCashInput by remember { mutableStateOf("") }
+
+            if (txToSettle != null) {
+                val target = txToSettle!!
+                val alreadyPaid = target.cashReceived.coerceAtLeast(0L)
+                val sisaHarusBayar = (target.totalPrice - alreadyPaid).coerceAtLeast(0L)
+                AlertDialog(
+                    onDismissRequest = { txToSettle = null; settleCashInput = "" },
+                    title = { Text(zokasText("Pelunasan DP / Kas Bon #${target.id}", "Settle DP / Kas Bon #${target.id}", lang), fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(zokasText("Pelanggan: ${target.customerName}", "Customer: ${target.customerName}", lang), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(zokasText("Waktu Transaksi/DP: ${dateFormat.format(Date(target.timestamp))}", "Order/DP Time: ${dateFormat.format(Date(target.timestamp))}", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(zokasText("Total Tagihan: ${formatRupiah(target.totalPrice)}", "Total Bill: ${formatRupiah(target.totalPrice)}", lang), fontSize = 12.sp)
+                            Text(zokasText("Sudah Dibayar (DP): ${formatRupiah(alreadyPaid)}", "Already Paid (DP): ${formatRupiah(alreadyPaid)}", lang), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                            Text(zokasText("Sisa Pelunasan: ${formatRupiah(sisaHarusBayar)}", "Remaining Due: ${formatRupiah(sisaHarusBayar)}", lang), fontSize = 13.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = settleCashInput,
+                                onValueChange = { settleCashInput = it.filter { ch -> ch.isDigit() } },
+                                label = { Text(zokasText("Nominal Pelunasan (Rp)", "Settlement Amount (Rp)", lang)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val paidNow = settleCashInput.toLongOrNull() ?: 0L
+                                if (paidNow >= sisaHarusBayar) {
+                                    viewModel.payUnpaidTransaction(target, paidNow, "CASH", currentUser) {
+                                        Toast.makeText(context, "Pelunasan #${target.id} berhasil & waktu lunas tercatat!", Toast.LENGTH_SHORT).show()
+                                        txToSettle = null
+                                        settleCashInput = ""
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Nominal kurang dari sisa tagihan (${formatRupiah(sisaHarusBayar)})", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text(zokasText("LUNASI", "SETTLE", lang), fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { txToSettle = null; settleCashInput = "" }) {
+                            Text(zokasText("Batal", "Cancel", lang))
+                        }
+                    }
+                )
+            }
+
+            if (showDpBonDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDpBonDialog = false },
+                    title = { Text(zokasText("Riwayat & Daftar DP / Kas Bon", "DP & Kas Bon History", lang), fontWeight = FontWeight.Bold) },
+                    text = {
+                        if (dpAndBonList.isEmpty()) {
+                            Text(zokasText("Belum ada transaksi DP maupun Kas Bon.", "No DP or Kas Bon transactions yet."), fontSize = 12.sp)
+                        } else {
+                            LazyColumn(modifier = Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(dpAndBonList, key = { it.id }) { itemTx ->
+                                    val paidAmt = itemTx.cashReceived.coerceAtLeast(0L)
+                                    val remAmt = (itemTx.totalPrice - paidAmt).coerceAtLeast(0L)
+                                    val isSettled = itemTx.status == "SUCCESS" && remAmt == 0L
+                                    val ledgerEntries = remember(itemTx.id, transactions) {
+                                        DpLedgerTracker.getEntries(context, itemTx.id)
+                                    }
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Text("Struk #${itemTx.id} • ${itemTx.customerName}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                Text(
+                                                    if (isSettled) "LUNAS" else "BELUM LUNAS",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = if (isSettled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                            Text("Waktu DP/Order: ${dateFormat.format(Date(itemTx.timestamp))}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            if (ledgerEntries.isNotEmpty()) {
+                                                ledgerEntries.forEach { le ->
+                                                    val qPart = if (le.qtySummary.isNotBlank()) " • Qty: ${le.qtySummary}" else ""
+                                                    Text(
+                                                        "• [${dateFormat.format(Date(le.timestamp))}] ${le.method}: ${formatRupiah(le.amount)}$qPart",
+                                                        fontSize = 10.5.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                            }
+                                            Text("Total Tagihan: ${formatRupiah(itemTx.totalPrice)} | Dibayar: ${formatRupiah(paidAmt)} | Sisa: ${formatRupiah(remAmt)}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                            if (!isSettled && remAmt > 0L) {
+                                                Button(
+                                                    onClick = {
+                                                        settleCashInput = remAmt.toString()
+                                                        txToSettle = itemTx
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth().height(34.dp),
+                                                    contentPadding = PaddingValues(vertical = 2.dp),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                ) {
+                                                    Text("Lunasi Sisa ${formatRupiah(remAmt)}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showDpBonDialog = false }) { Text(zokasText("Tutup", "Close", lang)) }
+                    }
+                )
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = zokasText("DP & Kas Bon (Piutang)", "DP & Kas Bon (Receivables)", lang),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        val activeUnpaidCount = dpAndBonList.count { it.status == "UNPAID" }
+                        val totalRemBon = dpAndBonList.filter { it.status == "UNPAID" }.sumOf {
+                            (it.totalPrice - it.cashReceived.coerceAtLeast(0L)).coerceAtLeast(0L)
+                        }
+                        Text(
+                            text = zokasText("$activeUnpaidCount belum lunas • Sisa: ${formatRupiah(totalRemBon)}", "$activeUnpaidCount unpaid • Remaining: ${formatRupiah(totalRemBon)}", lang),
+                            fontSize = 11.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { showDpBonDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(zokasText("Lihat (${dpAndBonList.size})", "View (${dpAndBonList.size})", lang), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         // KARTU BUKU PEMBUKUAN UNIVERSAL (E-BOOK PDF & EXCEL MULTI-SHEET)
         item {
             Card(
@@ -2345,9 +2517,7 @@ fun TransactionDetailDialog(
     }
 
     if (showPayBonDialog) {
-        val priorDpPaid = transaction.cashReceived.coerceAtLeast(0L)
-        val remainingBonDue = (transaction.totalPrice - priorDpPaid).coerceAtLeast(0L)
-        var cash by remember { mutableStateOf(remainingBonDue.toString()) }
+        var cash by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showPayBonDialog = false },
             title = { Text(LanguageManager.tr("bon_payment", lang)) },
@@ -2357,22 +2527,10 @@ fun TransactionDetailDialog(
                         "${LanguageManager.tr("total_bill", lang)}: ${formatRupiah(transaction.totalPrice)}",
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    if (priorDpPaid > 0L) {
-                        Text(
-                            "Sudah DP / Dibayar: ${formatRupiah(priorDpPaid)}",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            "Sisa Pelunasan: ${formatRupiah(remainingBonDue)}",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = cash,
-                        onValueChange = { cash = it.filter { ch -> ch.isDigit() } },
+                        onValueChange = { cash = it },
                         label = { Text(LanguageManager.tr("cash_received", lang)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
@@ -2382,14 +2540,15 @@ fun TransactionDetailDialog(
                 Button(
                     onClick = {
                         val c = cash.toLongOrNull() ?: 0L
-                        if (c >= remainingBonDue) {
-                            viewModel.payUnpaidTransaction(transaction, c, "CASH", currentUser) {
-                                Toast.makeText(context, "BON/DP Lunas & dicatat ke Kas Masuk", Toast.LENGTH_SHORT).show()
+                        if (c >= transaction.totalPrice) {
+                            viewModel.payUnpaidTransaction(transaction, c) {
+                                viewModel.addCashFlow("IN", transaction.totalPrice, "Pelunasan Bon Struk #${transaction.id}", currentUser)
+                                Toast.makeText(context, "BON Lunas & dicatat ke Kas Masuk", Toast.LENGTH_SHORT).show()
                                 showPayBonDialog = false
                                 onDismiss()
                             }
                         } else {
-                            Toast.makeText(context, "Uang kurang dari sisa tagihan (${formatRupiah(remainingBonDue)})!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Uang kurang!", Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
