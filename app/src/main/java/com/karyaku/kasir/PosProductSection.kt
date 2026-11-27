@@ -641,7 +641,7 @@ private fun ProductGridCard(
                 }
             }
 
-            // Animasi vertikal loop untuk stok & harga per varian (atau produk tunggal)
+            // Animasi vertikal loop untuk varian, stok, lalu harga di bawah stok
             androidx.compose.animation.AnimatedContent(
                 targetState = activeSlide,
                 transitionSpec = {
@@ -662,52 +662,42 @@ private fun ProductGridCard(
                         Text(
                             text = slide.label,
                             fontSize = 10.sp,
+                            lineHeight = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.tertiary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = slide.stockText,
-                            fontSize = 10.sp,
-                            fontWeight = if (slide.isAlertStock) FontWeight.Bold else FontWeight.Normal,
-                            color = if (slide.isAlertStock)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = slide.priceText,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                    }
+                    Text(
+                        text = slide.stockText,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = if (slide.isAlertStock) FontWeight.Bold else FontWeight.Normal,
+                        color = if (slide.isAlertStock)
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = slide.priceText,
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
-            // Nama produk dipindah ke bagian bawah kartu
-            BounceMarqueeText(
+            // Nama produk di bagian bawah kartu (membungkus ke bawah bila panjang tanpa terpotong)
+            Text(
                 text = product.name,
                 style = TextStyle(
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.5.sp,
-                    lineHeight = 15.sp
+                    lineHeight = 16.sp
                 ),
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                softWrap = false,
                 modifier = Modifier.fillMaxWidth()
             )
         }
