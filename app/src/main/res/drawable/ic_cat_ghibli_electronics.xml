@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Glowing Spirit Lantern Bulb -->
+    <path android:fillColor="#FFEAA7" android:pathData="M12,4C8.4,4 6,6.6 6,9.8C6,12.1 7.3,13.9 8.7,15.2H15.3C16.7,13.9 18,12.1 18,9.8C18,6.6 15.6,4 12,4Z" />
+    <path android:fillColor="#FDCB6E" android:pathData="M12,6.5C10,6.5 8.5,8 8.5,10C8.5,11.6 9.5,12.8 10.6,13.6H13.4C14.5,12.8 15.5,11.6 15.5,10C15.5,8 14,6.5 12,6.5Z" />
+    <path android:fillColor="#636E72" android:pathData="M9,15.5H15V18C15,19.1 14.1,20 13,20H11C9.9,20 9,19.1 9,18Z" />
+    <path android:fillColor="#2D3436" android:pathData="M10.4,10m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+    <path android:fillColor="#2D3436" android:pathData="M13.6,10m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+</vector>

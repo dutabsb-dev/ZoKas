@@ -243,9 +243,13 @@ class PosViewModel(
     }.catch { emit(0L) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     val uniqueCategories: StateFlow<List<String>> = _products.map { productList ->
-        val categories = productList.map { it.category }.distinct()
-        listOf("Semua") + categories
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("Semua"))
+        val baseCats = listOf("Semua", "Fast Moving", "Slow Moving")
+        val categories = productList
+            .map { it.category.trim() }
+            .filter { it.isNotEmpty() && baseCats.none { b -> b.equals(it, ignoreCase = true) } }
+            .distinct()
+        baseCats + categories
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("Semua", "Fast Moving", "Slow Moving"))
 
     val filteredProducts: StateFlow<List<ProductEntity>> = combine(_products, _searchQuery, _selectedCategory) { products, query, category ->
         products.filter { product ->

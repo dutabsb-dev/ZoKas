@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Matcha / Milk Tea Cup with Forest Sprout -->
+    <path android:fillColor="#81ECEC" android:pathData="M6.5,8.5H17.5L16.3,19.2C16.1,20.2 15.2,21 14.2,21H9.8C8.8,21 7.9,20.2 7.7,19.2Z" />
+    <path android:fillColor="#55EFC4" android:pathData="M7.1,12.5H16.9L16.3,19.2C16.1,20.2 15.2,21 14.2,21H9.8C8.8,21 7.9,20.2 7.7,19.2Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M5.5,7.2H18.5V9H5.5Z" />
+    <path android:strokeColor="#00B894" android:strokeWidth="1.5" android:strokeLineCap="round" android:pathData="M12,7.2V3.8" />
+    <path android:fillColor="#00B894" android:pathData="M12,4.4C13.5,2.8 15.8,3.2 15.8,4.6C15.8,5.8 13.6,5.8 12,4.4Z" />
+    <path android:fillColor="#2D3436" android:pathData="M10.2,15.5m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+    <path android:fillColor="#2D3436" android:pathData="M13.8,15.5m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+</vector>

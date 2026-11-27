@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Healing Herb Potion Bottle -->
+    <path android:fillColor="#D4A373" android:pathData="M10.2,3.5H13.8V6H10.2Z" />
+    <path android:fillColor="#81ECEC" android:pathData="M8.5,6.5H15.5L17.8,11.5V18.5C17.8,19.9 16.7,21 15.3,21H8.7C7.3,21 6.2,19.9 6.2,18.5V11.5Z" />
+    <path android:fillColor="#55EFC4" android:pathData="M7,13.5H17V18.5C17,19.4 16.2,20.2 15.3,20.2H8.7C7.8,20.2 7,19.4 7,18.5Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M11.1,14.5H12.9V19H11.1ZM9.8,15.8H14.2V17.6H9.8Z" />
+</vector>

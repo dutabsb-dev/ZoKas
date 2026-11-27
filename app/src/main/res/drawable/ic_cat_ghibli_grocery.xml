@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Wicker Basket with Harvest Fruits -->
+    <path android:strokeColor="#A1662F" android:strokeWidth="1.6" android:fillColor="#00000000" android:pathData="M7.5,11C7.5,7.5 16.5,7.5 16.5,11" />
+    <path android:fillColor="#FF7675" android:pathData="M8.5,10.5m-2.2,0a2.2,2.2 0,1 1,4.4 0a2.2,2.2 0,1 1,-4.4 0" />
+    <path android:fillColor="#FDCB6E" android:pathData="M14.8,10.5m-2.4,0a2.4,2.4 0,1 1,4.8 0a2.4,2.4 0,1 1,-4.8 0" />
+    <path android:fillColor="#55EFC4" android:pathData="M11.6,9.5C12.8,7.8 14.5,8.2 14,9.8Z" />
+    <path android:fillColor="#D4A373" android:pathData="M4.5,11.5H19.5L17.8,19.5C17.6,20.4 16.8,21 15.9,21H8.1C7.2,21 6.4,20.4 6.2,19.5Z" />
+    <path android:strokeColor="#A1662F" android:strokeWidth="1" android:pathData="M5.5,14.8H18.5M6.2,17.8H17.8" />
+</vector>

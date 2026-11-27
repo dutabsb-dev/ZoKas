@@ -164,25 +164,26 @@ fun PosProductSection(
                 .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val displayCategories = remember(categories) {
+                val defaults = listOf("Semua", "Fast Moving", "Slow Moving")
+                val extras = categories.filter { c -> defaults.none { d -> d.equals(c.trim(), ignoreCase = true) } }
+                defaults + extras
+            }
             LazyRow(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(end = 8.dp)
             ) {
-                items(categories) { category ->
+                items(displayCategories) { category ->
                     val isSelected = category == selectedCategory
                     FilterChip(
                         selected = isSelected,
                         onClick = { onCategorySelect(category) },
                         leadingIcon = {
-                            Icon(
-                                imageVector = resolveCategoryIcon(category),
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(id = resolveCategoryIconRes(category)),
                                 contentDescription = null,
-                                modifier = Modifier.size(15.dp),
-                                tint = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimary
-                                else
-                                    MaterialTheme.colorScheme.primary
+                                modifier = Modifier.size(18.dp)
                             )
                         },
                         label = {
@@ -632,11 +633,10 @@ private fun ProductGridCard(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Icon(
-                        imageVector = resolveCategoryIcon(product.category, product.isService),
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = resolveCategoryIconRes(product.category, product.isService)),
                         contentDescription = product.name,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(46.dp)
                     )
                 }
             }
@@ -943,53 +943,59 @@ private fun contrastingTextForBackground(bgColor: Color): Color {
 }
 
 
-private fun resolveCategoryIcon(category: String, isService: Boolean = false): androidx.compose.ui.graphics.vector.ImageVector {
-    if (isService) return Icons.Default.Build
+private fun resolveCategoryIconRes(category: String, isService: Boolean = false): Int {
+    if (isService) return R.drawable.ic_cat_ghibli_service
     val c = category.trim().lowercase(java.util.Locale.getDefault())
-    if (c.isEmpty() || c == "semua") return Icons.Default.Category
+    if (c.isEmpty() || c == "semua") return R.drawable.ic_cat_ghibli_all
 
     return when {
+        c.contains("fast") || c.contains("laris") || c.contains("cepat") ->
+            R.drawable.ic_cat_ghibli_fast_moving
+
+        c.contains("slow") || c.contains("lambat") ->
+            R.drawable.ic_cat_ghibli_slow_moving
+
         c.contains("makanan") || c.contains("snack") || c.contains("ringan") ||
             c.contains("roti") || c.contains("kue") || c.contains("nasi") ||
             c.contains("mie") || c.contains("ayam") || c.contains("kuliner") ||
-            c.contains("food") -> Icons.Default.Fastfood
+            c.contains("food") -> R.drawable.ic_cat_ghibli_food
 
         c.contains("minuman") || c.contains("kopi") || c.contains("coffee") ||
             c.contains("teh") || c.contains("tea") || c.contains("susu") ||
             c.contains("jus") || c.contains("juice") || c.contains("es ") ||
-            c.contains("air") || c.contains("drink") || c.contains("cafe") -> Icons.Default.LocalCafe
+            c.contains("air") || c.contains("drink") || c.contains("cafe") -> R.drawable.ic_cat_ghibli_drink
 
         c.contains("sembako") || c.contains("beras") || c.contains("gula") ||
             c.contains("minyak") || c.contains("bumbu") || c.contains("dapur") ||
-            c.contains("bahan") -> Icons.Default.ShoppingBasket
+            c.contains("bahan") -> R.drawable.ic_cat_ghibli_grocery
 
         c.contains("elektronik") || c.contains("listrik") || c.contains("hp") ||
-            c.contains("gadget") || c.contains("kabel") || c.contains("lampu") -> Icons.Default.ElectricalServices
+            c.contains("gadget") || c.contains("kabel") || c.contains("lampu") -> R.drawable.ic_cat_ghibli_electronics
 
         c.contains("pakaian") || c.contains("baju") || c.contains("kaos") ||
-            c.contains("fashion") || c.contains("celana") || c.contains("hijab") -> Icons.Default.Checkroom
+            c.contains("fashion") || c.contains("celana") || c.contains("hijab") -> R.drawable.ic_cat_ghibli_fashion
 
         c.contains("sepatu") || c.contains("sandal") || c.contains("tas") ||
-            c.contains("aksesoris") || c.contains("belanja") -> Icons.Default.ShoppingBag
+            c.contains("aksesoris") || c.contains("belanja") -> R.drawable.ic_cat_ghibli_bag
 
         c.contains("kebersihan") || c.contains("sabun") || c.contains("shampoo") ||
             c.contains("sampo") || c.contains("deterjen") || c.contains("laundry") ||
-            c.contains("tisu") -> Icons.Default.CleaningServices
+            c.contains("tisu") -> R.drawable.ic_cat_ghibli_cleaning
 
         c.contains("kesehatan") || c.contains("obat") || c.contains("apotek") ||
-            c.contains("medis") || c.contains("vitamin") -> Icons.Default.MedicalServices
+            c.contains("medis") || c.contains("vitamin") -> R.drawable.ic_cat_ghibli_health
 
         c.contains("kecantikan") || c.contains("kosmetik") || c.contains("skincare") ||
-            c.contains("parfum") || c.contains("salon") -> Icons.Default.Spa
+            c.contains("parfum") || c.contains("salon") -> R.drawable.ic_cat_ghibli_beauty
 
         c.contains("otomotif") || c.contains("motor") || c.contains("mobil") ||
-            c.contains("oli") || c.contains("bengkel") || c.contains("sparepart") -> Icons.Default.DirectionsCar
+            c.contains("oli") || c.contains("bengkel") || c.contains("sparepart") -> R.drawable.ic_cat_ghibli_automotive
 
         c.contains("buku") || c.contains("atk") || c.contains("tulis") ||
-            c.contains("kantor") || c.contains("sekolah") -> Icons.Default.MenuBook
+            c.contains("kantor") || c.contains("sekolah") -> R.drawable.ic_cat_ghibli_stationery
 
-        c.contains("rumah") || c.contains("perabot") || c.contains("bangunan") -> Icons.Default.Home
+        c.contains("rumah") || c.contains("perabot") || c.contains("bangunan") -> R.drawable.ic_cat_ghibli_home
 
-        else -> Icons.Default.Category
+        else -> R.drawable.ic_cat_ghibli_all
     }
 }

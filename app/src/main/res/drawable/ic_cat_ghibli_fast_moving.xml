@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Calcifer Flame (Fast Moving) -->
+    <path android:fillColor="#FF7675" android:pathData="M12,2.5C13.8,5.4 18,8.5 18,13.6C18,17.5 15.3,20.5 12,20.5C8.7,20.5 6,17.5 6,13.6C6,11.1 7.2,9.2 8.4,7.7C8.4,9.3 9.3,10.2 10.1,10.2C9.5,7.4 10.6,4.7 12,2.5Z" />
+    <path android:fillColor="#FDCB6E" android:pathData="M12,8.5C13.3,10.5 15.4,12.2 15.4,15C15.4,17.3 13.9,19.1 12,19.1C10.1,19.1 8.6,17.3 8.6,15C8.6,12.8 10.2,10.8 12,8.5Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M10.4,14.2m-1.4,0a1.4,1.4 0,1 1,2.8 0a1.4,1.4 0,1 1,-2.8 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M13.8,14.2m-1.4,0a1.4,1.4 0,1 1,2.8 0a1.4,1.4 0,1 1,-2.8 0" />
+    <path android:fillColor="#2D3436" android:pathData="M10.5,14.2m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#2D3436" android:pathData="M13.7,14.2m-0.6,0a0.6,0.6 0,1 1,1.2 0a0.6,0.6 0,1 1,-1.2 0" />
+    <path android:fillColor="#D63031" android:pathData="M11.1,16.4Q12,17.4 12.9,16.4Z" />
+</vector>

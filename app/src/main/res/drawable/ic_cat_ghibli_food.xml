@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Ghibli Onigiri Rice Ball -->
+    <path android:fillColor="#FFFDF7" android:pathData="M12,4.5C14.8,4.5 18.8,11.2 18.8,14.2C18.8,16.6 16.4,18 12,18C7.6,18 5.2,16.6 5.2,14.2C5.2,11.2 9.2,4.5 12,4.5Z" />
+    <path android:strokeColor="#B2BEC3" android:strokeWidth="1" android:pathData="M12,4.5C14.8,4.5 18.8,11.2 18.8,14.2C18.8,16.6 16.4,18 12,18C7.6,18 5.2,16.6 5.2,14.2C5.2,11.2 9.2,4.5 12,4.5Z" />
+    <path android:fillColor="#2D3436" android:pathData="M9.6,13.6H14.4V18H9.6Z" />
+    <path android:fillColor="#2D3436" android:pathData="M9.4,11.2m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+    <path android:fillColor="#2D3436" android:pathData="M14.6,11.2m-0.7,0a0.7,0.7 0,1 1,1.4 0a0.7,0.7 0,1 1,-1.4 0" />
+    <path android:fillColor="#FF7675" android:pathData="M8.3,12.3m-0.8,0a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0" />
+    <path android:fillColor="#FF7675" android:pathData="M15.7,12.3m-0.8,0a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0" />
+    <path android:fillColor="#55EFC4" android:pathData="M4,18.2Q12,20.6 20,18.2Q12,21.5 4,18.2Z" />
+</vector>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Sakura / Forest Flower -->
+    <path android:fillColor="#FD79A8" android:pathData="M12,4C13.7,4 14.8,6.2 13.5,8.5C15.8,7.2 18,8.3 18,10C18,11.7 15.8,12.8 13.5,11.5C15.8,13.2 15.2,15.8 13.6,16.6C12.2,17.3 10.8,15.5 12,13.2C10.8,15.5 9.4,17.3 8,16.6C6.4,15.8 5.8,13.2 8.1,11.5C5.8,12.8 3.6,11.7 3.6,10C3.6,8.3 5.8,7.2 8.1,8.5C6.8,6.2 7.9,4 9.6,4C10.5,4 11.4,4.8 12,6C12.6,4.8 13.5,4 12,4Z" />
+    <path android:fillColor="#FFEAA7" android:pathData="M10.8,10.5m-2.1,0a2.1,2.1 0,1 1,4.2 0a2.1,2.1 0,1 1,-4.2 0" />
+    <path android:strokeColor="#00B894" android:strokeWidth="1.8" android:strokeLineCap="round" android:pathData="M10.8,13V20.5" />
+</vector>

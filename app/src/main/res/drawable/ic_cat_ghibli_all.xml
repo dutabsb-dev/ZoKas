@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cute Susuwatari / Soot Sprite -->
+    <path android:fillColor="#2D3436" android:pathData="M12,3.5L13.6,5.4L16,4.6L16.3,7.1L18.8,7.6L17.9,10L19.8,11.7L17.9,13.4L18.8,15.8L16.3,16.3L16,18.8L13.6,18L12,19.9L10.4,18L8,18.8L7.7,16.3L5.2,15.8L6.1,13.4L4.2,11.7L6.1,10L5.2,7.6L7.7,7.1L8,4.6L10.4,5.4Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M9.6,11.3m-2.1,0a2.1,2.1 0,1 1,4.2 0a2.1,2.1 0,1 1,-4.2 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M14.4,11.3m-2.1,0a2.1,2.1 0,1 1,4.2 0a2.1,2.1 0,1 1,-4.2 0" />
+    <path android:fillColor="#1E272E" android:pathData="M9.9,11.3m-0.9,0a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0" />
+    <path android:fillColor="#1E272E" android:pathData="M14.1,11.3m-0.9,0a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0" />
+    <path android:fillColor="#FFEAA7" android:pathData="M19.5,4.5L20.1,5.7L21.4,5.9L20.4,6.8L20.7,8.1L19.5,7.4L18.3,8.1L18.6,6.8L17.6,5.9L18.9,5.7Z" />
+</vector>
