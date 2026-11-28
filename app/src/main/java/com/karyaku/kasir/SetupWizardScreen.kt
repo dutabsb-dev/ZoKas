@@ -518,45 +518,20 @@ fun SetupWizardScreen(
                             text = if (showFullPolicyExpanded) {
                                 fullPolicyText + "\n\n" + wizardText(
                                     selectedLang,
-                                    id = (
-                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
-                                        "8.1 Seluruh hak cipta, desain antarmuka, dan struktur sistem aplikasi ZoKas berada pada pengembang resmi (DBSB Studio - dbsb-studio.my.id).\n" +
-                                        "8.2 Fitur cetak struk/nota, ekspor laporan, backup/restore, serta integrasi kanal eksternal beroperasi mengikuti kapasitas perangkat dan layanan pihak ketiga yang dipilih pengguna.\n" +
-                                        "8.3 Kebijakan privasi dan ketentuan layanan versi web resmi tersedia dan diperbarui secara berkala di https://dbsb-studio.my.id."
-                                    ),
-                                    en = (
-                                        "ARTICLE 8 - TECHNICAL SUPPORT, INTELLECTUAL PROPERTY & SUPPORTING SERVICES\n" +
-                                        "8.1 All copyrights, UI designs, and system structures of ZoKas belong to the official developer (DBSB Studio - dbsb-studio.my.id).\n" +
-                                        "8.2 Receipt/note printing, report exports, backup/restore, and external channel integrations operate according to device capabilities and third-party services selected by the user.\n" +
-                                        "8.3 The official web version of the privacy policy and terms is published and updated periodically at https://dbsb-studio.my.id."
-                                    ),
-                                    jv = (
-                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
-                                        "8.1 Kabeh hak cipta, desain tampilan, lan struktur sistem aplikasi ZoKas kagungan pangembang resmi (DBSB Studio - dbsb-studio.my.id).\n" +
-                                        "8.2 Fitur nyithak struk/nota, ekspor laporan, backup/restore, lan sambungan layanan njaba mlaku manut kemampuan HP lan layanan sing dipilih panganggo.\n" +
-                                        "8.3 Kebijakan privasi lan katemtuan versi web resmi kasedhiya ing https://dbsb-studio.my.id."
-                                    ),
-                                    su = (
-                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
-                                        "8.1 Sadaya hak cipta, desain tampilan, sareng struktur sistem aplikasi ZoKas kagungan pamekar resmi (DBSB Studio - dbsb-studio.my.id).\n" +
-                                        "8.2 Fitur nyitak struk/nota, ekspor laporan, backup/restore, sareng sambungan layanan luar jalan saluyu kamampuan alat sareng layanan anu dipilih pamake.\n" +
-                                        "8.3 Kabijakan privasi sareng katangtuan versi wéb resmi sayogi di https://dbsb-studio.my.id."
-                                    ),
-                                    mad = (
-                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
-                                        "8.1 Sakabbhina hak cipta, desain tampilan, ban struktur sistem aplikasi ZoKas andhi'na pangembang resmi (DBSB Studio - dbsb-studio.my.id).\n" +
-                                        "8.2 Fitur nyetak struk/nota, ekspor laporan, backup/restore, ban sambungan layanan lowar ajhalan asessuae kamampuan HP ban layanan se epele angghuy.\n" +
-                                        "8.3 Kabijakan privasi ban katantoan versi web resmi bada e https://dbsb-studio.my.id."
-                                    )
+                                    "PASAL 8 - DUKUNGAN TEKNIS & HAK CIPTA\n8.1 Hak cipta dan sistem resmi aplikasi ZoKas berada pada DBSB Studio (dbsb-studio.my.id).\n8.2 Kebijakan privasi dan ketentuan layanan versi web resmi tersedia di https://dbsb-studio.my.id.",
+                                    "ARTICLE 8 - TECHNICAL SUPPORT & COPYRIGHT\n8.1 Copyright and official ZoKas app system belong to DBSB Studio (dbsb-studio.my.id).\n8.2 The official web privacy policy and terms are available at https://dbsb-studio.my.id.",
+                                    "PASAL 8 - DUKUNGAN TEKNIS & HAK CIPTA\n8.1 Hak cipta lan sistem ZoKas kagungan DBSB Studio (dbsb-studio.my.id).\n8.2 Kebijakan lan katemtuan resmi kasedhiya ing https://dbsb-studio.my.id.",
+                                    "PASAL 8 - DUKUNGAN TEKNIS & HAK CIPTA\n8.1 Hak cipta sareng sistem ZoKas kagungan DBSB Studio (dbsb-studio.my.id).\n8.2 Kabijakan resmi sayogi di https://dbsb-studio.my.id.",
+                                    "PASAL 8 - DUKUNGAN TEKNIS & HAK CIPTA\n8.1 Hak cipta ban sistem ZoKas andhi'na DBSB Studio (dbsb-studio.my.id).\n8.2 Kabijakan resmi bada e https://dbsb-studio.my.id."
                                 )
                             } else {
                                 wizardText(
                                     selectedLang,
-                                    "Ringkasan Kebijakan Privasi & Ketentuan ZoKas (diminimalkan). Ketuk 'Baca Lengkap' untuk membuka seluruh pasal atau buka tautan resmi di dbsb-studio.my.id.",
-                                    "ZoKas Privacy Policy & Terms summary (minimized). Tap 'Read Full' to expand all clauses or open the official link at dbsb-studio.my.id.",
-                                    "Ringkesan Kebijakan & Katemtuan ZoKas (diminimalkan). Tutul 'Baca Lengkap' kanggo mbukak kabeh pasal utawa bukak tautan ing dbsb-studio.my.id.",
-                                    "Ringkesan Kabijakan & Katangtuan ZoKas (diminimalkan). Toel 'Baca Lengkap' kanggo muka sadaya pasal atanapi buka tautan di dbsb-studio.my.id.",
-                                    "Ringkesan Kabijakan & Katantoan ZoKas (diminimalkan). Teken 'Baca Lengkap' kaangguy mbukak sakabbhina pasal otaba bukak tautan e dbsb-studio.my.id."
+                                    "Ringkasan Kebijakan Privasi & Ketentuan ZoKas (diminimalkan). Ketuk 'Baca Lengkap' untuk membuka seluruh pasal atau buka dbsb-studio.my.id.",
+                                    "ZoKas Privacy Policy & Terms summary (minimized). Tap 'Read Full' to expand or open dbsb-studio.my.id.",
+                                    "Ringkesan Kebijakan ZoKas (diminimalkan). Tutul 'Baca Lengkap' utawa bukak dbsb-studio.my.id.",
+                                    "Ringkesan Kabijakan ZoKas (diminimalkan). Toel 'Baca Lengkap' atanapi buka dbsb-studio.my.id.",
+                                    "Ringkesan Kabijakan ZoKas (diminimalkan). Teken 'Baca Lengkap' otaba buka dbsb-studio.my.id."
                                 )
                             },
                             fontSize = 11.sp,
@@ -943,31 +918,11 @@ fun SetupWizardScreen(
                         Text(
                             text = wizardText(
                                 selectedLang,
-                                "• Jika hanya butuh cetak/kirim nota atau struk: cukup pilih mode/kebutuhan nota dan biarkan fitur lain tetap OFF.
-" +
-                                    "• Jika masih ragu: ketik jenis usaha Anda pada kolom pencarian di atas untuk mendapat saran otomatis.
-" +
-                                    "• Pilihan ini tidak mengunci data—kapan saja bisa diubah di menu Pengaturan.",
-                                "• If you only need to create/print/share notes or receipts: keep only note/receipt needs active and leave extra modules OFF.
-" +
-                                    "• If unsure: search your business type above for tailored suggestions.
-" +
-                                    "• Nothing is permanently locked—you can adjust it anytime in Settings.",
-                                "• Yen mung butuh nota/struk: cukup aktifake kabutuhan nota lan fitur liyane tetep OFF.
-" +
-                                    "• Yen isih bingung: goleki jinis usaha sampeyan ing kolom panelusuran.
-" +
-                                    "• Pilihan bisa diowahi kapan wae ing menu Setelan.",
-                                "• Upami mung peryogi nota/struk: cekap aktipkeun kabutuhan nota sareng fitur sanes tetep OFF.
-" +
-                                    "• Upami masih ragu: pilarian jenis usaha anjeun dina kolom milarian.
-" +
-                                    "• Tiasa dirobah iraha wae dina menu Setelan.",
-                                "• Mon coma parlo nota/struk: cokop aktifaghi kabutohan nota ban fitur laen pagghun OFF.
-" +
-                                    "• Mon gita yakin: sare macem usaha sampeyan e kolom panyareyan.
-" +
-                                    "• Bisa eoba bila bhai e menu Atoran."
+                                "• Jika hanya butuh cetak/kirim nota atau struk: cukup pilih mode/kebutuhan nota dan biarkan fitur lain tetap OFF.\n• Jika masih ragu: ketik jenis usaha Anda pada kolom pencarian di atas untuk mendapat saran otomatis.\n• Pilihan ini tidak mengunci data—kapan saja bisa diubah di menu Pengaturan.",
+                                "• If you only need to create/print/share notes or receipts: keep only note/receipt needs active and leave extra modules OFF.\n• If unsure: search your business type above for tailored suggestions.\n• Nothing is permanently locked—you can adjust it anytime in Settings.",
+                                "• Yen mung butuh nota/struk: cukup aktifake kabutuhan nota lan fitur liyane tetep OFF.\n• Yen isih bingung: goleki jinis usaha sampeyan ing kolom panelusuran.\n• Pilihan bisa diowahi kapan wae ing menu Setelan.",
+                                "• Upami mung peryogi nota/struk: cekap aktipkeun kabutuhan nota sareng fitur sanes tetep OFF.\n• Upami masih ragu: pilarian jenis usaha anjeun dina kolom milarian.\n• Tiasa dirobah iraha wae dina menu Setelan.",
+                                "• Mon coma parlo nota/struk: cokop aktifaghi kabutohan nota ban fitur laen pagghun OFF.\n• Mon gita yakin: sare macem usaha sampeyan e kolom panyareyan.\n• Bisa eoba bila bhai e menu Atoran."
                             ),
                             fontSize = 11.5.sp,
                             lineHeight = 16.sp,
@@ -1034,7 +989,6 @@ fun SetupWizardScreen(
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // Pilihan Preset Fokus & Khusus (Upgrade A)
                 Text(
                     text = wizardText(
                         selectedLang,
@@ -1113,20 +1067,6 @@ fun SetupWizardScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
-                Text(
-                    text = wizardText(
-                        selectedLang,
-                        "Sesuaikan Kelompok Fitur yang Ditampilkan:",
-                        "Customize Visible Feature Groups:",
-                        "Atur Kelompok Fitur sing Ditampilake:",
-                        "Saluyukeun Kelompok Fitur anu Ditembongkeun:",
-                        "Ator Kalompok Fitur se Etampilaghi:"
-                    ),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
                 val groupItems = listOf(
                     Triple(
                         wizardText(selectedLang, "Hanya Nota & Struk (Tanpa Shift/Stok Wajib)", "Notes & Receipts Only (No Shift/Stock Lock)", "Mung Nota & Struk", "Mung Nota & Struk", "Coma Nota & Struk"),
@@ -1175,7 +1115,7 @@ fun SetupWizardScreen(
                         visibilityConfig = visibilityConfig.copy(presetKey = ZokasUsagePreset.CUSTOM.key, reportsAndProfitEnabled = v, bookkeepingExportEnabled = v)
                     },
                     Triple(
-                        wizardText(selectedLang, "Pelanggan (CRM), Karyawan (HR), Cabang & Pantauan Owner", "CRM, Staff HR, Multi-Branch & Owner Monitor", "CRM, HR, Cabang & Owner", "CRM, HR, Cabang & Owner", "CRM, HR, Cabang & Owner"),
+                        wizardText(selectedLang, "CRM Pelanggan, HR Karyawan, Cabang & Pantauan Owner", "CRM, Staff HR, Multi-Branch & Owner Monitor", "CRM, HR, Cabang & Owner", "CRM, HR, Cabang & Owner", "CRM, HR, Cabang & Owner"),
                         visibilityConfig.crmEnabled || visibilityConfig.hrPayrollEnabled || visibilityConfig.multiBranchEnabled
                     ) { v: Boolean ->
                         selectedPreset = ZokasUsagePreset.CUSTOM

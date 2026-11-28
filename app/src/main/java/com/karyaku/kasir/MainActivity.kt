@@ -884,6 +884,11 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                                     }
                                     if (featureConfig.shiftAndDrawerEnabled) {
                                         DropdownMenuItem(
+                                            text = { Text(zokasText("Target Sebelum Tutup Kasir", "Shift Target Before Closing", language)) },
+                                            leadingIcon = { Icon(Icons.Default.TrackChanges, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { posActionTrigger = "TARGET_SHIFT"; showMenu = false }
+                                        )
+                                        DropdownMenuItem(
                                             text = { Text(zokasText("Tutup Kasir (Close Harian)", "Close Shift (Daily Closing)", language)) },
                                             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                                             onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }

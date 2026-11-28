@@ -303,6 +303,7 @@ fun PosScreen(
                 "DRAWER" -> showDrawerConfirm = true
                 "HOLD" -> showHoldDialog = true
                 "CASHFLOW" -> showCashFlowDialog = true
+                "TARGET_SHIFT" -> showEditTargetDialog = true
                 "CLOSE_SHIFT" -> showCloseShiftDialog = true
             }
             onActionHandled()
@@ -789,7 +790,7 @@ fun PosScreen(
                     if (qty > 0) {
                         val totalSmallestQty = qty * packMult
                         viewModel.addStock(targetRestock, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, zokasText("Stok berhasil ditambahkan (+$totalSmallestQty)", "Stock berhasil ditambahkan (+$totalSmallestQty"), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Stok berhasil ditambahkan (+$totalSmallestQty)", "Stock berhasil ditambahkan (+$totalSmallestQty"), Toast.LENGTH_SHORT).show())
                     }
                     productToRestock = null
                     variantToProcess = ""
@@ -821,7 +822,7 @@ fun PosScreen(
                     if (qty > 0 && qty <= maxAvailableStock) {
                         val totalSmallestQty = qty * packMult
                         viewModel.recordWaste(targetProd, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, zokasText("Barang rusak tercatat (-$totalSmallestQty)", "Barang rusak tercatat (-$totalSmallestQty"), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, zokasText("Barang rusak tercatat (-$totalSmallestQty)", "Barang rusak tercatat (-$totalSmallestQty"), Toast.LENGTH_SHORT).show())
                         productToWaste = null
                         variantToProcess = ""
                     } else {
@@ -866,7 +867,56 @@ fun PosScreen(
             )
         }
 
-        if (showCloseShiftDialog) {
+        var showPreCloseTargetDialog by remember { mutableStateOf(false) }
+        var showEditTargetDialog by remember { mutableStateOf(false) }
+        var targetCheckpointApproved by remember { mutableStateOf(false) }
+
+        LaunchedEffect(showCloseShiftDialog, currentOpenShift) {
+            if (showCloseShiftDialog && currentOpenShift != null && !targetCheckpointApproved) {
+                val tCfg = ClosingTargetManager.loadTarget(context)
+                if (tCfg.isEnabled && (tCfg.targetOmzet > 0L || tCfg.targetTrxCount > 0)) {
+                    showPreCloseTargetDialog = true
+                } else {
+                    targetCheckpointApproved = true
+                }
+            } else if (!showCloseShiftDialog) {
+                showPreCloseTargetDialog = false
+                targetCheckpointApproved = false
+            }
+        }
+
+        if (showEditTargetDialog) {
+            ShiftTargetSetupDialog(
+                onDismiss = { showEditTargetDialog = false },
+                onSaved = {
+                    showEditTargetDialog = false
+                    showPreCloseTargetDialog = true
+                }
+            )
+        }
+
+        if (showPreCloseTargetDialog && currentOpenShift != null) {
+            PreCloseTargetCheckpointDialog(
+                shift = currentOpenShift!!,
+                transactions = transactions,
+                cashFlows = cashFlows,
+                onEditTarget = {
+                    showPreCloseTargetDialog = false
+                    showEditTargetDialog = true
+                },
+                onProceedCloseShift = {
+                    showPreCloseTargetDialog = false
+                    targetCheckpointApproved = true
+                },
+                onDismiss = {
+                    showPreCloseTargetDialog = false
+                    targetCheckpointApproved = false
+                    showCloseShiftDialog = false
+                }
+            )
+        }
+
+        if (showCloseShiftDialog && (targetCheckpointApproved || currentOpenShift == null)) {
             val shiftToClose = currentOpenShift
             if (shiftToClose != null) {
                 val effectiveStartTime = maxOf(shiftToClose.startTime, trackedShiftStart)
@@ -1049,7 +1099,7 @@ fun PosScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = zokasText("Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})", "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name}"),
+                            text = zokasText("Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})", "Shift aktif dibuka oleh: ${currentOpenShift.userName} (Login: ${currentUser.name})"),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary,
