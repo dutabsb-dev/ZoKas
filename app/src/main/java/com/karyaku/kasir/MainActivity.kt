@@ -1885,6 +1885,7 @@ fun ReceiptHistoryDialog(
 
 
 
+
 @Composable
 fun NotaKontanViewDialog(
     transaction: com.karyaku.kasir.data.local.TransactionEntity,
@@ -1911,7 +1912,7 @@ fun NotaKontanViewDialog(
             minRows = minRows
         )
     }
-    val formattedText = remember(doc) { NotaKontanFormatter.renderFormattedText(doc) }
+    val thermalText = remember(doc) { NotaKontanFormatter.renderThermalPrintText(doc) }
 
     if (showPrinterError) {
         PrinterErrorDialog { showPrinterError = false }
@@ -1981,7 +1982,7 @@ fun NotaKontanViewDialog(
                     }
                 }
 
-                // Footer: Hormat kami + Kotak syarat retur | JUMLAH Rp. + Bayar + Kembalian
+                // Footer: Hormat kami + Kotak syarat retur | JUMLAH Rp. + Bayar + Kembali
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2016,41 +2017,18 @@ fun NotaKontanViewDialog(
         },
         confirmButton = {
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Button(
+                    onClick = { NotaKontanFormatter.sendJpgViaWhatsApp(context, doc) },
+                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Button(
-                        onClick = { NotaKontanFormatter.sendViaWhatsApp(context, formattedText) },
-                        modifier = Modifier.weight(1f).height(42.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("KIRIM WA (TEKS)", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            NotaKontanFormatter.sharePdfViaWhatsApp(
-                                context = context,
-                                formattedText = formattedText,
-                                transactionId = transaction.id,
-                                storeName = doc.storeName
-                            )
-                        },
-                        modifier = Modifier.weight(1f).height(42.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("KIRIM PDF / WA", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("KIRIM NOTA KE WA (JPG)", fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -2059,7 +2037,7 @@ fun NotaKontanViewDialog(
                         NotaKontanFormatter.printNotaKontan(
                             context = context,
                             settingsManager = settingsManager,
-                            formattedText = formattedText,
+                            doc = doc,
                             isCashPayment = isCash
                         ) { success, msg ->
                             if (success) {
@@ -2091,7 +2069,7 @@ fun NotaKontanViewDialog(
                     OutlinedButton(
                         onClick = {
                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nota Kontan", formattedText))
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nota Kontan", thermalText))
                             Toast.makeText(context, "Teks Nota Kontan disalin!", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.weight(1f).height(38.dp),

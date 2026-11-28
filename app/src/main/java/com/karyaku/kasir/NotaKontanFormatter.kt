@@ -1,13 +1,14 @@
 package com.karyaku.kasir
 
 import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
-import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -137,151 +138,309 @@ object NotaKontanFormatter {
         )
     }
 
-    // Format teks/tabel murni tanpa gambar raster/bitmap
-    fun renderFormattedText(doc: NotaKontanDocument): String {
+    // Format cetak thermal ESC/POS yang rapi tanpa garis vertikal putus-putus acak
+    fun renderThermalPrintText(doc: NotaKontanDocument): String {
         val sb = StringBuilder()
         sb.appendLine(doc.storeName.uppercase(Locale.getDefault()))
         if (doc.storeAddress.isNotBlank()) sb.appendLine(doc.storeAddress)
         if (doc.storePhone.isNotBlank()) sb.appendLine("Telp: ${doc.storePhone}")
-        sb.appendLine("------------------------------------------------")
-        sb.appendLine("${doc.dateLine}   ${doc.recipientLine}")
-        sb.appendLine("${doc.title}   ${doc.noteNumber}")
-        sb.appendLine("================================================")
-        sb.appendLine("NO | BANYAKNYA | NAMA BARANG       | HARGA    | JUMLAH")
-        sb.appendLine("------------------------------------------------")
-        doc.rows.forEach { r ->
-            val noCol = r.no.toString().padEnd(2, ' ')
-            val qtyCol = r.qtyText.take(9).padEnd(9, ' ')
-            val nameCol = r.itemName.take(17).padEnd(17, ' ')
-            val priceCol = r.unitPriceText.take(8).padStart(8, ' ')
-            val sumCol = r.lineTotalText.take(9).padStart(9, ' ')
-            sb.appendLine("$noCol | $qtyCol | $nameCol | $priceCol | $sumCol")
+        sb.appendLine("========================================")
+        sb.appendLine("${doc.title}          ${doc.noteNumber}")
+        sb.appendLine("${doc.dateLine}")
+        sb.appendLine("${doc.recipientLine}")
+        sb.appendLine("----------------------------------------")
+        sb.appendLine("NO  QTY    NAMA BARANG       HARGA   JUMLAH")
+        sb.appendLine("----------------------------------------")
+        doc.rows.filter { it.itemName.isNotBlank() || it.qtyText.isNotBlank() }.forEach { r ->
+            val noCol = "${r.no}.".padEnd(3, ' ')
+            val qtyCol = r.qtyText.take(5).padEnd(5, ' ')
+            val nameCol = r.itemName.take(15).padEnd(15, ' ')
+            val priceCol = r.unitPriceText.replace("Rp", "").trim().take(7).padStart(7, ' ')
+            val sumCol = r.lineTotalText.replace("Rp", "").trim().take(8).padStart(8, ' ')
+            sb.appendLine("$noCol $qtyCol $nameCol $priceCol $sumCol")
         }
-        sb.appendLine("================================================")
-        sb.appendLine("JUMLAH Rp. ${doc.totalAmountText}")
-        sb.appendLine("Metode     : ${doc.paymentMethodText}")
-        sb.appendLine("Tunai/Bayar: ${doc.cashReceivedText}")
-        sb.appendLine("Kembalian  : ${doc.changeAmountText}")
-        sb.appendLine("------------------------------------------------")
+        sb.appendLine("----------------------------------------")
+        sb.appendLine("JUMLAH Rp.       : ${doc.totalAmountText}")
+        sb.appendLine("Metode           : ${doc.paymentMethodText}")
+        sb.appendLine("Tunai/Bayar      : ${doc.cashReceivedText}")
+        sb.appendLine("Kembalian        : ${doc.changeAmountText}")
+        sb.appendLine("========================================")
         sb.appendLine("${doc.signOffLabel}: ${doc.signOffName}")
-        sb.appendLine("[ ${doc.disclaimerBoxText} ]")
+        sb.appendLine(doc.disclaimerBoxText)
         return sb.toString().trimEnd()
     }
 
-    fun sendViaWhatsApp(context: Context, formattedText: String) {
-        val waIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, formattedText)
-            setPackage("com.whatsapp")
-        }
-        val waBusinessIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, formattedText)
-            setPackage("com.whatsapp.w4b")
-        }
-        try {
-            context.startActivity(waIntent)
-        } catch (_: Exception) {
-            try {
-                context.startActivity(waBusinessIntent)
-            } catch (_: Exception) {
-                val fallback = Intent.createChooser(
-                    Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, formattedText)
-                    },
-                    "Kirim Nota Kontan via..."
-                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                runCatching { context.startActivity(fallback) }
-                    .onFailure {
-                        Toast.makeText(context, "Gagal membuka WhatsApp.", Toast.LENGTH_SHORT).show()
-                    }
-            }
-        }
-    }
-
-    fun generateNotaKontanPdf(
-        context: Context,
-        formattedText: String,
-        transactionId: Long
-    ): File? {
-        val document = PdfDocument()
-        val lines = formattedText.lines()
-        val paint = Paint().apply {
-            color = AndroidColor.BLACK
-            textSize = 10.5f
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
-            isAntiAlias = true
-        }
-        val sampleWidth = paint.measureText("W".repeat(58))
-        val padding = 24f
-        val pageWidth = (sampleWidth + padding * 2).toInt().coerceAtLeast(420)
-        val lineHeight = 15f
-        val pageHeight = (lines.size * lineHeight + padding * 2 + 24f).toInt().coerceAtLeast(360)
-
-        val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
-        val page = document.startPage(pageInfo)
-        val canvas = page.canvas
-        canvas.drawColor(AndroidColor.WHITE)
-
-        var y = padding + 10f
-        for (line in lines) {
-            val isBold = line.startsWith("NOTA KONTAN") ||
-                line.startsWith("JUMLAH Rp.") ||
-                line.startsWith("Kembalian")
-            paint.typeface = Typeface.create(
-                Typeface.MONOSPACE,
-                if (isBold) Typeface.BOLD else Typeface.NORMAL
-            )
-            canvas.drawText(line, padding, y, paint)
-            y += lineHeight
-        }
-        document.finishPage(page)
-
-        val pdfDir = File(context.getExternalFilesDir(null), "receipts")
-        pdfDir.mkdirs()
-        val pdfFile = File(pdfDir, "NotaKontan_${transactionId}.pdf")
+    // Merender JPG HD berwarna persis tampilan kartu NOTA KONTAN di aplikasi untuk dikirim ke WA
+    fun generateNotaKontanJpg(context: Context, doc: NotaKontanDocument): File? {
         return try {
-            FileOutputStream(pdfFile).use { stream ->
-                document.writeTo(stream)
+            val width = 900
+            val pad = 36f
+            val headerH = 155f
+            val metaH = 54f
+            val tableHeaderH = 54f
+            val rowH = 44f
+            val rowsCount = doc.rows.size.coerceAtLeast(1)
+            val footerH = 195f
+            val totalH = (pad * 2f + headerH + metaH + tableHeaderH + rowsCount * rowH + footerH + 24f).toInt()
+
+            val bitmap = Bitmap.createBitmap(width, totalH, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+
+            // Latar hijau lembut khas kartu dialog nota kontan
+            canvas.drawColor(AndroidColor.parseColor("#E8F5EE"))
+
+            // Kartu putih utama dengan sudut membulat & border halus
+            val cardRect = RectF(18f, 18f, width - 18f, totalH - 18f)
+            val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.WHITE
+                style = Paint.Style.FILL
             }
-            document.close()
-            pdfFile
+            canvas.drawRoundRect(cardRect, 28f, 28f, cardPaint)
+
+            val cardBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#A7D7C5")
+                style = Paint.Style.STROKE
+                strokeWidth = 2.5f
+            }
+            canvas.drawRoundRect(cardRect, 28f, 28f, cardBorder)
+
+            var y = pad + 26f
+
+            // Judul NOTA KONTAN (kiri) & No. X (kanan hijau)
+            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#0F172A")
+                textSize = 30f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            }
+            val noPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#059669")
+                textSize = 24f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                textAlign = Paint.Align.RIGHT
+            }
+            canvas.drawText(doc.title, pad + 8f, y, titlePaint)
+            canvas.drawText(doc.noteNumber, width - pad - 8f, y, noPaint)
+
+            // Nama & alamat toko ringkas di bawah judul
+            y += 28f
+            val storePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#334155")
+                textSize = 18f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            }
+            canvas.drawText(
+                if (doc.storeAddress.isNotBlank()) "${doc.storeName} • ${doc.storeAddress}" else doc.storeName,
+                pad + 8f,
+                y,
+                storePaint
+            )
+
+            // Baris Tanggal & Tuan/Toko
+            y += 42f
+            val metaLeftPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#1E293B")
+                textSize = 20f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            }
+            val metaRightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#1E293B")
+                textSize = 20f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+                textAlign = Paint.Align.RIGHT
+            }
+            canvas.drawText(doc.dateLine, pad + 8f, y, metaLeftPaint)
+            canvas.drawText(doc.recipientLine, width - pad - 8f, y, metaRightPaint)
+
+            // Header Tabel (NO | BANYAKNYA | NAMA BARANG | HARGA | JUMLAH)
+            y += 18f
+            val tableLeft = pad + 8f
+            val tableRight = width - pad - 8f
+            val tableW = tableRight - tableLeft
+
+            val thBg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#ECFDF5")
+                style = Paint.Style.FILL
+            }
+            val thRect = RectF(tableLeft, y, tableRight, y + tableHeaderH)
+            canvas.drawRoundRect(thRect, 10f, 10f, thBg)
+
+            val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#94A3B8")
+                style = Paint.Style.STROKE
+                strokeWidth = 1.6f
+            }
+            canvas.drawRoundRect(thRect, 10f, 10f, gridPaint)
+
+            val colNoW = 62f
+            val colQtyW = 148f
+            val colPriceW = 152f
+            val colSumW = 166f
+            val colNameX = tableLeft + colNoW + colQtyW + 10f
+            val colPriceRight = tableLeft + colNoW + colQtyW + (tableW - colNoW - colQtyW - colPriceW - colSumW) + colPriceW - 8f
+            val colSumRight = tableRight - 8f
+
+            val thTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#0F172A")
+                textSize = 16.5f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            }
+            val thRightPaint = Paint(thTextPaint).apply {
+                textAlign = Paint.Align.RIGHT
+            }
+            val thCenterPaint = Paint(thTextPaint).apply {
+                textAlign = Paint.Align.CENTER
+            }
+
+            val thTextY = y + 33f
+            canvas.drawText("NO", tableLeft + 10f, thTextY, thTextPaint)
+            canvas.drawText("BANYAKNYA", tableLeft + colNoW + colQtyW / 2f, thTextY, thCenterPaint)
+            canvas.drawText("NAMA BARANG", colNameX, thTextY, thTextPaint)
+            canvas.drawText("HARGA", colPriceRight, thTextY, thRightPaint)
+            canvas.drawText("JUMLAH", colSumRight, thTextY, thRightPaint)
+
+            // Baris Data 1..N
+            var rowTop = y + tableHeaderH
+            val cellPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#1E293B")
+                textSize = 18f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+            }
+            val cellBoldPaint = Paint(cellPaint).apply {
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                color = AndroidColor.parseColor("#0F172A")
+            }
+            val cellRightPaint = Paint(cellPaint).apply {
+                textAlign = Paint.Align.RIGHT
+            }
+            val cellSumPaint = Paint(cellBoldPaint).apply {
+                textAlign = Paint.Align.RIGHT
+            }
+            val cellCenterPaint = Paint(cellPaint).apply {
+                textAlign = Paint.Align.CENTER
+            }
+            val rowLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#E2E8F0")
+                style = Paint.Style.STROKE
+                strokeWidth = 1.2f
+            }
+
+            doc.rows.forEach { r ->
+                val rBottom = rowTop + rowH
+                canvas.drawLine(tableLeft, rBottom, tableRight, rBottom, rowLinePaint)
+                val ty = rowTop + 28f
+                canvas.drawText("${r.no}.", tableLeft + 10f, ty, cellPaint)
+                if (r.qtyText.isNotBlank()) {
+                    canvas.drawText(r.qtyText, tableLeft + colNoW + colQtyW / 2f, ty, cellCenterPaint)
+                }
+                if (r.itemName.isNotBlank()) {
+                    canvas.drawText(r.itemName.take(22), colNameX, ty, cellBoldPaint)
+                }
+                if (r.unitPriceText.isNotBlank()) {
+                    canvas.drawText(r.unitPriceText, colPriceRight, ty, cellRightPaint)
+                }
+                if (r.lineTotalText.isNotBlank()) {
+                    canvas.drawText(r.lineTotalText, colSumRight, ty, cellSumPaint)
+                }
+                rowTop = rBottom
+            }
+
+            // Footer: Kiri (Hormat kami + kotak disclaimer) | Kanan (JUMLAH Rp., Bayar, Kembali)
+            val footTop = rowTop + 24f
+            val signPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#0F172A")
+                textSize = 19f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            }
+            canvas.drawText(doc.signOffLabel, tableLeft, footTop + 14f, signPaint)
+
+            val boxRect = RectF(tableLeft, footTop + 28f, tableLeft + 430f, footTop + 102f)
+            val boxBg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#F1F5F9")
+                style = Paint.Style.FILL
+            }
+            val boxStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#64748B")
+                style = Paint.Style.STROKE
+                strokeWidth = 2f
+            }
+            canvas.drawRoundRect(boxRect, 8f, 8f, boxBg)
+            canvas.drawRoundRect(boxRect, 8f, 8f, boxStroke)
+
+            val discPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#1E293B")
+                textSize = 15.5f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+            }
+            canvas.drawText("Barang yang sudah dibeli tidak dapat", boxRect.left + 12f, boxRect.top + 30f, discPaint)
+            canvas.drawText("ditukar / dikembalikan", boxRect.left + 12f, boxRect.top + 54f, discPaint)
+
+            val rightLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#0F172A")
+                textSize = 18f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                textAlign = Paint.Align.RIGHT
+            }
+            val totalValPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#059669")
+                textSize = 26f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                textAlign = Paint.Align.RIGHT
+            }
+            val payDetailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#475569")
+                textSize = 18f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+                textAlign = Paint.Align.RIGHT
+            }
+            val changePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#D97706")
+                textSize = 19.5f
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                textAlign = Paint.Align.RIGHT
+            }
+
+            canvas.drawText("JUMLAH Rp.", tableRight, footTop + 14f, rightLabelPaint)
+            canvas.drawText(doc.totalAmountText, tableRight, footTop + 46f, totalValPaint)
+            canvas.drawText("Bayar: ${doc.cashReceivedText}", tableRight, footTop + 74f, payDetailPaint)
+            canvas.drawText("Kembali: ${doc.changeAmountText}", tableRight, footTop + 100f, changePaint)
+
+            val outDir = File(context.getExternalFilesDir(null), "receipts")
+            outDir.mkdirs()
+            val jpgFile = File(outDir, "NotaKontan_${doc.noteNumber.filter { it.isDigit() }.ifBlank { "1" }}.jpg")
+            FileOutputStream(jpgFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 94, out)
+            }
+            bitmap.recycle()
+            jpgFile
         } catch (e: Exception) {
             e.printStackTrace()
-            document.close()
             null
         }
     }
 
-    fun sharePdfViaWhatsApp(
-        context: Context,
-        formattedText: String,
-        transactionId: Long,
-        storeName: String
-    ) {
+    fun sendJpgViaWhatsApp(context: Context, doc: NotaKontanDocument) {
         CoroutineScope(Dispatchers.IO).launch {
-            val pdfFile = generateNotaKontanPdf(context, formattedText, transactionId)
+            val jpgFile = generateNotaKontanJpg(context, doc)
             withContext(Dispatchers.Main) {
-                if (pdfFile != null) {
+                if (jpgFile != null) {
                     try {
                         val authority = "${context.packageName}.fileprovider"
-                        val uri: Uri = FileProvider.getUriForFile(context, authority, pdfFile)
+                        val uri: Uri = FileProvider.getUriForFile(context, authority, jpgFile)
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/pdf"
-                            putExtra(Intent.EXTRA_TEXT, "Nota Kontan #$transactionId - $storeName")
+                            type = "image/jpeg"
                             putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_TEXT, "${doc.title} ${doc.noteNumber} - ${doc.storeName} (Total: ${doc.totalAmountText}, Kembali: ${doc.changeAmountText})")
                             clipData = ClipData.newRawUri("NotaKontan", uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        val chooser = Intent.createChooser(shareIntent, "Kirim Nota Kontan (PDF / WA)")
+                        val chooser = Intent.createChooser(shareIntent, "Kirim Nota Kontan (JPG) via...")
                             .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
                         context.startActivity(chooser)
                     } catch (e: Exception) {
-                        sendViaWhatsApp(context, formattedText)
+                        Toast.makeText(context, "Gagal mengirim JPG: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    sendViaWhatsApp(context, formattedText)
+                    Toast.makeText(context, "Gagal membuat gambar JPG Nota Kontan.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -290,7 +449,7 @@ object NotaKontanFormatter {
     fun printNotaKontan(
         context: Context,
         settingsManager: SettingsManager,
-        formattedText: String,
+        doc: NotaKontanDocument,
         isCashPayment: Boolean = true,
         onDone: (Boolean, String) -> Unit
     ) {
@@ -299,6 +458,7 @@ object NotaKontanFormatter {
             onDone(false, "Printer Bluetooth belum diatur di Pengaturan.")
             return
         }
+        val printText = renderThermalPrintText(doc)
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val printerManager = BluetoothPrinterManager(context)
@@ -306,7 +466,7 @@ object NotaKontanFormatter {
                 val out = ByteArrayOutputStream()
                 out.write(EscPosCommands.INIT)
                 out.write(EscPosCommands.ALIGN_LEFT)
-                out.write(formattedText.toByteArray(charset("GBK")))
+                out.write(printText.toByteArray(charset("GBK")))
                 val feed = cfg.feedLines.coerceIn(0, 3)
                 if (feed > 0) {
                     out.write(byteArrayOf(0x1B, 0x64, feed.toByte()))
