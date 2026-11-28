@@ -80,6 +80,7 @@ enum class ZokasUsagePreset(
 data class FeatureVisibilityConfig(
     val presetKey: String = ZokasUsagePreset.LENGKAP_MULTI_UNIT.key,
     val receiptOnlyMode: Boolean = false,
+    val receiptHistoryEnabled: Boolean = true,
     val posCheckoutEnabled: Boolean = true,
     val splitBillEnabled: Boolean = true,
     val discountVoucherEnabled: Boolean = true,
@@ -159,6 +160,7 @@ object FeatureVisibilityManager {
             ZokasUsagePreset.NOTA_SAJA -> FeatureVisibilityConfig(
                 presetKey = preset.key,
                 receiptOnlyMode = true,
+                receiptHistoryEnabled = true,
                 posCheckoutEnabled = true,
                 splitBillEnabled = false,
                 discountVoucherEnabled = true,
@@ -354,6 +356,7 @@ object FeatureVisibilityManager {
         return JSONObject().apply {
             put("presetKey", c.presetKey)
             put("receiptOnlyMode", c.receiptOnlyMode)
+            put("receiptHistoryEnabled", c.receiptHistoryEnabled)
             put("posCheckoutEnabled", c.posCheckoutEnabled)
             put("splitBillEnabled", c.splitBillEnabled)
             put("discountVoucherEnabled", c.discountVoucherEnabled)
@@ -380,6 +383,7 @@ object FeatureVisibilityManager {
             FeatureVisibilityConfig(
                 presetKey = o.optString("presetKey", ZokasUsagePreset.LENGKAP_MULTI_UNIT.key),
                 receiptOnlyMode = o.optBoolean("receiptOnlyMode", false),
+                receiptHistoryEnabled = o.optBoolean("receiptHistoryEnabled", true),
                 posCheckoutEnabled = o.optBoolean("posCheckoutEnabled", true),
                 splitBillEnabled = o.optBoolean("splitBillEnabled", true),
                 discountVoucherEnabled = o.optBoolean("discountVoucherEnabled", true),

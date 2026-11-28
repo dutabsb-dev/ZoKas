@@ -1124,9 +1124,10 @@ fun PosScreen(
                                 products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
                                 onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) },
                                 onProductClick = { prod: ProductEntity ->
-                                    if (prod.variations.contains("|")) productToSelectMatrix = prod
-                                    else if (prod.variations.isNotEmpty()) productToSelectVariant = prod
-                                    else viewModel.addToCart(prod)
+                                    val clickProd = if (featureConfig.receiptOnlyMode && prod.stock <= 0 && !prod.isService) prod.copy(stock = 999999) else prod
+                                    if (clickProd.variations.contains("|")) productToSelectMatrix = clickProd
+                                    else if (clickProd.variations.isNotEmpty()) productToSelectVariant = clickProd
+                                    else viewModel.addToCart(clickProd)
                                 },
                                 onProductLongClick = { prod: ProductEntity -> if (canOpenProductMenu) showActionDialogFor = prod },
                                 onBarcodeScan = { barcode: String -> viewModel.processBarcodeScan(barcode) { success, msg -> Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); if (success) keyboardController?.hide() } },

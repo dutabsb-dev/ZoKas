@@ -441,8 +441,7 @@ fun PosViewModel.processPayment(
 
             val computedTotalCost = cartToProcess.sumOf { ci ->
                 val qAct = ci.effectiveQty
-                val variantCost = getCostForVariant(ci.product, ci.selectedVariation)
-                val unitHpp = if (variantCost > 0L) variantCost else YieldAndLossEngine.getProductCarcassHpp(ci.product.id, 0L)
+                val unitHpp = if (ci.product.costPrice > 0L) ci.product.costPrice else YieldAndLossEngine.getProductCarcassHpp(ci.product.id, 0L)
                 Math.round(unitHpp.toDouble() * qAct)
             }
 
@@ -510,8 +509,7 @@ fun PosViewModel.processPayment(
             // 4. Proses Item & Paket Tambahan
             for (cartItem in cartToProcess) {
                 val itemPrice = if (cartItem.usedMembershipId != null) 0L else getPriceForVariant(cartItem.product, cartItem.selectedVariation)
-                val variantCostRef = getCostForVariant(cartItem.product, cartItem.selectedVariation)
-                val unitHppRef = if (variantCostRef > 0L) variantCostRef else YieldAndLossEngine.getProductCarcassHpp(cartItem.product.id, 0L)
+                val unitHppRef = if (cartItem.product.costPrice > 0L) cartItem.product.costPrice else YieldAndLossEngine.getProductCarcassHpp(cartItem.product.id, 0L)
                 
                 val qDouble = cartItem.effectiveQty
                 val qtyLabelSuffix = if (Math.abs(qDouble - Math.rint(qDouble)) > 1e-6) {
@@ -527,13 +525,21 @@ fun PosViewModel.processPayment(
                 // Simpan Detail Transaksi
                 itemsToInsert.add(TransactionItemEntity(
                     transactionId = transactionId, productId = cartItem.product.id, productName = cartItem.product.name,
-                    quantity = cartItem.quantity, price = itemPrice, costPrice = unitHppRef, 
+                    quantity = cartItem.quantity, price = itemPrice, costPrice = cartItem.product.costPrice, 
                     notes = mergedNotes, serialNumber = cartItem.serialNumber, assignedStaff = cartItem.assignedStaff, 
                     subtotal = itemSubLong, isService = cartItem.product.isService
                 ))
 
-                // A. Potong Stok Produk secara presisi desimal (contoh: 100,00 - 0,5 = 99,50)
-                val freshProduct = productDao.getProductById(cartItem.product.id)
+                val isReceiptOnlyActive = runCatching {
+                    val ctxField = PosViewModel::class.java.declaredFields.firstOrNull {
+                        android.content.Context::class.java.isAssignableFrom(it.type)
+                    }?.apply { isAccessible = true }
+                    val ctx = ctxField?.get(this) as? android.content.Context
+                    ctx?.let { FeatureVisibilityManager.getConfig(it).receiptOnlyMode } ?: false
+                }.getOrDefault(false)
+
+                // A. Potong Stok Produk secara presisi desimal (dilewati pada Mode Hanya Nota agar stok tidak berkurang)
+                val freshProduct = if (!isReceiptOnlyActive) productDao.getProductById(cartItem.product.id) else null
                 if (freshProduct != null && !freshProduct.isService) {
                     val packMult = getVariantPackMultiplier(freshProduct.variations, cartItem.selectedVariation)
                     val exactDecimalDeduct = (qDouble * packMult.toDouble()).coerceAtLeast(0.0)
@@ -562,31 +568,10 @@ fun PosViewModel.processPayment(
                     }
                 }
 
-                // C. PAKET 1: Potong Stok Bahan Baku (BOM) per varian (atau resep utama) memakai kuantitas aktual
-                val legacyBomList = productDao.getBomForProduct(cartItem.product.id)
-                val bomAppCtx = runCatching {
-                    val field = PosViewModel::class.java.declaredFields.firstOrNull {
-                        android.content.Context::class.java.isAssignableFrom(it.type)
-                    }?.apply { isAccessible = true }
-                    field?.get(this) as? android.content.Context
-                }.getOrNull() ?: runCatching {
-                    val appClass = Class.forName("android.app.ActivityThread")
-                    appClass.getMethod("currentApplication").invoke(null) as? android.content.Context
-                }.getOrNull()
-
-                val activeBomEntries = if (bomAppCtx != null) {
-                    VariantBomManager.resolveBomEntriesForSale(
-                        context = bomAppCtx,
-                        productId = cartItem.product.id,
-                        selectedVariation = cartItem.selectedVariation,
-                        legacyProductBoms = legacyBomList
-                    )
-                } else {
-                    legacyBomList.map { VariantBomEntry(it.rawMaterialId, it.quantityUsed) }
-                }
-
-                if (activeBomEntries.isNotEmpty()) {
-                    activeBomEntries.forEach { bom ->
+                // C. PAKET 1: Potong Stok Bahan Baku (BOM) memakai kuantitas aktual (dilewati pada Mode Hanya Nota)
+                val bomList = if (!isReceiptOnlyActive) productDao.getBomForProduct(cartItem.product.id) else emptyList()
+                if (bomList.isNotEmpty()) {
+                    bomList.forEach { bom ->
                         val material = _rawMaterials.value.find { it.id == bom.rawMaterialId }
                         if (material != null) {
                             val qtyUsed = bom.quantityUsed * qDouble

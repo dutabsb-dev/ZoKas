@@ -458,6 +458,7 @@ fun MainNavigation(
     var showMenu by remember { mutableStateOf(false) }
     var showSearchDialog by remember { mutableStateOf(false) }
     var showTutorialDialog by remember { mutableStateOf(false) }
+    var showReceiptHistoryDialog by remember { mutableStateOf(false) }
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
@@ -646,6 +647,19 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
         TutorialCenterDialog(
             initialCategory = "SEMUA",
             onDismiss = { showTutorialDialog = false }
+        )
+    }
+
+    if (showReceiptHistoryDialog) {
+        ReceiptHistoryDialog(
+            transactions = transactions,
+            viewModel = viewModel,
+            settingsManager = settingsManager,
+            storeName = storeName ?: settingsManager.storeName ?: "ZoKas Store",
+            storeAddress = settingsManager.storeAddress ?: "",
+            storePhone = settingsManager.storePhone ?: "",
+            storeFooter = settingsManager.storeFooter ?: "",
+            onDismiss = { showReceiptHistoryDialog = false }
         )
     }
 
@@ -840,6 +854,13 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                                         leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                                         onClick = { showTutorialDialog = true; showMenu = false }
                                     )
+                                    if (featureConfig.receiptOnlyMode || featureConfig.receiptHistoryEnabled) {
+                                        DropdownMenuItem(
+                                            text = { Text(zokasText("Riwayat Nota Tercetak", "Printed Receipts History", language), fontWeight = FontWeight.SemiBold) },
+                                            leadingIcon = { Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { showReceiptHistoryDialog = true; showMenu = false }
+                                        )
+                                    }
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                     if (isKuliner) {
                                         DropdownMenuItem(
@@ -1706,4 +1727,111 @@ fun SystemImmersiveModeEffect(immersive: Boolean) {
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
     }
+}
+
+
+@Composable
+fun ReceiptHistoryDialog(
+    transactions: List<com.karyaku.kasir.data.local.TransactionEntity>,
+    viewModel: PosViewModel,
+    settingsManager: SettingsManager,
+    storeName: String,
+    storeAddress: String,
+    storePhone: String,
+    storeFooter: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    var selectedReceiptTx by remember { mutableStateOf<com.karyaku.kasir.data.local.TransactionEntity?>(null) }
+    val dateFmt = remember { java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()) }
+
+    val filtered = remember(transactions, query) {
+        val sorted = transactions.sortedByDescending { it.timestamp }
+        if (query.isBlank()) sorted
+        else {
+            val q = query.trim()
+            sorted.filter { tx ->
+                tx.id.toString().contains(q, ignoreCase = true) ||
+                    (tx.customerName ?: "").contains(q, ignoreCase = true) ||
+                    (tx.cashierName ?: "").contains(q, ignoreCase = true)
+            }
+        }
+    }
+
+    if (selectedReceiptTx != null) {
+        ReceiptDialog(
+            transaction = selectedReceiptTx!!,
+            viewModel = viewModel,
+            storeName = storeName,
+            storeAddress = storeAddress,
+            storePhone = storePhone,
+            storeFooter = storeFooter,
+            settingsManager = settingsManager,
+            onDismiss = { selectedReceiptTx = null }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        title = { Text("Riwayat Nota Tercetak", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Cari no. nota, pelanggan, atau kasir...", fontSize = 12.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                if (filtered.isEmpty()) {
+                    Text(
+                        "Belum ada nota tersimpan.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 360.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(filtered, key = { it.id }) { tx ->
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedReceiptTx = tx }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Nota #${tx.id} • ${tx.customerName ?: "Umum"}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("${dateFmt.format(java.util.Date(tx.timestamp))} • ${tx.paymentMethod}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(formatRupiah(tx.totalPrice), fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = MaterialTheme.colorScheme.primary)
+                                        Text("Buka / Cetak", fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss, shape = RoundedCornerShape(8.dp)) {
+                Text("Tutup", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
 }
