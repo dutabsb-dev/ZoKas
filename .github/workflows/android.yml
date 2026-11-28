@@ -54,12 +54,38 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundlePlayRelease assembleSideloadRelease --no-daemon --no-configuration-cache
 
+      - name: Package Native Debug Symbols & Mapping
+        run: |
+          mkdir -p app/build/play-assets
+          if [ -f "app/build/outputs/mapping/playRelease/mapping.txt" ]; then
+            cp app/build/outputs/mapping/playRelease/mapping.txt app/build/play-assets/mapping.txt
+          elif [ -f "app/build/outputs/mapping/release/mapping.txt" ]; then
+            cp app/build/outputs/mapping/release/mapping.txt app/build/play-assets/mapping.txt
+          fi
+          SYM_SRC=""
+          if [ -d "app/build/intermediates/merged_native_libs/playRelease/out/lib" ]; then
+            SYM_SRC="app/build/intermediates/merged_native_libs/playRelease/out/lib"
+          elif [ -d "app/build/intermediates/stripped_native_libs/playRelease/out/lib" ]; then
+            SYM_SRC="app/build/intermediates/stripped_native_libs/playRelease/out/lib"
+          fi
+          if [ -n "$SYM_SRC" ]; then
+            (cd "$SYM_SRC" && zip -r "$GITHUB_WORKSPACE/app/build/play-assets/native-debug-symbols.zip" .) || true
+          fi
+
       - name: Upload Play Store AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ZoKas-Play-AAB
           path: app/build/outputs/bundle/playRelease/*.aab
           if-no-files-found: error
+
+      - name: Upload Play Deobfuscation & Native Debug Symbols Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZoKas-Play-Symbols-And-Mapping
+          path: app/build/play-assets/*
+          if-no-files-found: ignore
 
       - name: Upload Sideload APK Artifact
         uses: actions/upload-artifact@v4
