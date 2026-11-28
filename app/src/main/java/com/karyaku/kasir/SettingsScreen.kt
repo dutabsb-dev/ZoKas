@@ -89,6 +89,10 @@ fun SettingsScreen(
     var cfdThankYouMessage by remember { mutableStateOf(LocalCfdServerManager.getCustomThankYouMessage(context)) }
 
     var appModeState by remember { mutableStateOf(settingsManager.appMode) }
+    val featureConfigState by FeatureVisibilityManager.configFlow.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        FeatureVisibilityManager.ensureLoaded(context)
+    }
     var businessTypeState by remember { mutableStateOf(settingsManager.businessType) }
 
     var currentPaymentMethods by remember { mutableStateOf(settingsManager.paymentMethods) }
@@ -487,6 +491,30 @@ fun SettingsScreen(
                 language = language
             )
         }
+
+        if (currentUser.role == "OWNER") {
+            item {
+                SettingsFeatureVisibilityCard(
+                    config = featureConfigState,
+                    settingsManager = settingsManager,
+                    language = language,
+                    onConfigUpdated = { updatedCfg ->
+                        FeatureVisibilityManager.syncToSettingsManager(context, settingsManager, updatedCfg)
+                        appModeState = settingsManager.appMode
+                        enableBomModule = updatedCfg.bomAndRawMaterialEnabled
+                        isTableModeEnabled = updatedCfg.kitchenAndTableEnabled && settingsManager.businessType.equals("KULINER", ignoreCase = true)
+                        enableOrderTypes = updatedCfg.kitchenAndTableEnabled
+                        enableWholesale = updatedCfg.variantsAndStockEnabled
+                        enablePreOrder = updatedCfg.holdOrderEnabled
+                        enableSupplier = updatedCfg.supplierPoEnabled
+                        enableFinance = updatedCfg.cashFlowEnabled || updatedCfg.reportsAndProfitEnabled
+                        enableHrModule = updatedCfg.hrPayrollEnabled
+                        enableCrmModule = updatedCfg.crmEnabled
+                        enableMembership = updatedCfg.crmEnabled
+                    }
+                )
+            }
+        }
         item {
             SettingsAppearanceCard(
                 isDarkMode = isDarkMode, onToggleDarkMode = onToggleDarkMode,
@@ -625,7 +653,7 @@ fun SettingsScreen(
             }
         }
 
-        if (currentUser.role == "OWNER" && enableHrModule && appModeState == "LENGKAP") {
+        if (currentUser.role == "OWNER" && enableHrModule && featureConfigState.hrPayrollEnabled && appModeState == "LENGKAP") {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -679,7 +707,7 @@ fun SettingsScreen(
             }
         }
 
-        if (currentUser.role == "OWNER" && enableCrmModule && appModeState == "LENGKAP") {
+        if (currentUser.role == "OWNER" && enableCrmModule && featureConfigState.crmEnabled && appModeState == "LENGKAP") {
             item {
                 SettingsCrmCard(
                     enableBirthdayDiscount = enableBirthdayDiscount,
@@ -698,7 +726,7 @@ fun SettingsScreen(
             }
         }
 
-        if (appModeState == "LENGKAP") {
+        if (appModeState == "LENGKAP" && featureConfigState.remoteSyncEnabled) {
             item {
                 SettingsOwnerMonitorCard()
             }
@@ -781,7 +809,7 @@ fun SettingsScreen(
             )
         }
 
-        if (appModeState == "STANDAR" || appModeState == "LENGKAP") {
+        if ((appModeState == "STANDAR" || appModeState == "LENGKAP") && featureConfigState.reportsAndProfitEnabled) {
             item {
                 SettingsAuditLogCard(
                     auditLogs = auditLogs,
@@ -1556,6 +1584,382 @@ private fun SettingsCrmCard(
                         Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Kelola Data Pelanggan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsFeatureVisibilityCard(
+    config: FeatureVisibilityConfig,
+    settingsManager: SettingsManager,
+    language: String,
+    onConfigUpdated: (FeatureVisibilityConfig) -> Unit
+) {
+    val context = LocalContext.current
+    var isExpanded by remember { mutableStateOf(false) }
+    var showBusinessHelperDialog by remember { mutableStateOf(false) }
+    var showQuestionnairePopup by remember { mutableStateOf(false) }
+
+    val activePreset = remember(config.presetKey) { ZokasUsagePreset.fromKey(config.presetKey) }
+
+    if (showQuestionnairePopup) {
+        AlertDialog(
+            onDismissRequest = { showQuestionnairePopup = false },
+            icon = { Icon(Icons.Default.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = {
+                Text(
+                    zokasText("Panduan Ulang Kebutuhan Aplikasi", "Re-Run App Needs Guide", language),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        zokasText(
+                            "Pilih paket kebutuhan cepat sesuai alur kerja toko Anda saat ini. Semua data transaksi & produk tetap aman:",
+                            "Pick a quick need preset matching your current workflow. All transaction & product data remains safe:",
+                            language
+                        ),
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    listOf(
+                        ZokasUsagePreset.NOTA_SAJA,
+                        ZokasUsagePreset.KASIR_TUNAI_KILAT,
+                        ZokasUsagePreset.KASIR_MULTI_BAYAR,
+                        ZokasUsagePreset.STOK_DAN_PRODUKSI,
+                        ZokasUsagePreset.KULINER_MEJA_KDS,
+                        ZokasUsagePreset.LAPORAN_KEUANGAN,
+                        ZokasUsagePreset.LENGKAP_MULTI_UNIT
+                    ).forEach { preset ->
+                        OutlinedButton(
+                            onClick = {
+                                val isCul = settingsManager.businessType.equals("KULINER", ignoreCase = true)
+                                val nextCfg = FeatureVisibilityManager.configForPreset(preset, isCulinary = isCul)
+                                onConfigUpdated(nextCfg)
+                                showQuestionnairePopup = false
+                                Toast.makeText(
+                                    context,
+                                    zokasText("Preset '${preset.titleId}' diterapkan!", "Preset '${preset.titleEn}' applied!", language),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(zokasText(preset.titleId, preset.titleEn, language), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text(zokasText(preset.descId, preset.descEn, language), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showQuestionnairePopup = false }) {
+                    Text(zokasText("Tutup", "Close", language))
+                }
+            }
+        )
+    }
+
+    if (showBusinessHelperDialog) {
+        var bizQuery by remember { mutableStateOf("") }
+        val matches = remember(bizQuery) {
+            if (bizQuery.isBlank()) BusinessCatalog500.allBusinesses.take(50)
+            else BusinessCatalog500.allBusinesses.filter {
+                it.name.contains(bizQuery.trim(), ignoreCase = true) ||
+                    it.sectorGroup.contains(bizQuery.trim(), ignoreCase = true)
+            }.take(50)
+        }
+        AlertDialog(
+            onDismissRequest = { showBusinessHelperDialog = false },
+            title = {
+                Text(
+                    zokasText("Bantu Pilih Preset dari Jenis Usaha", "Suggest Preset by Business Type", language),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = bizQuery,
+                        onValueChange = { bizQuery = it },
+                        placeholder = { Text(zokasText("Cari dari ~2.000 jenis usaha...", "Search ~2,000 business types...", language), fontSize = 12.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(matches, key = { it.id }) { biz ->
+                            val (recPreset, recReason) = FeatureVisibilityManager.recommendPresetForBusiness(biz)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        settingsManager.businessType = biz.mappedBusinessType
+                                        settingsManager.businessDetailName = biz.name
+                                        val isCul = biz.mappedBusinessType.equals("KULINER", ignoreCase = true)
+                                        val nextCfg = FeatureVisibilityManager.configForPreset(recPreset, isCulinary = isCul)
+                                        onConfigUpdated(nextCfg)
+                                        showBusinessHelperDialog = false
+                                        Toast.makeText(
+                                            context,
+                                            zokasText("Saran '${recPreset.titleId}' diterapkan!", "Suggested '${recPreset.titleEn}' applied!", language),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(biz.name, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                    Text("${biz.sectorGroup} -> ${recPreset.titleId}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                                    Text(recReason, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBusinessHelperDialog = false }) {
+                    Text(zokasText("Tutup", "Close", language))
+                }
+            }
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    SettingsSectionLeadingIcon(Icons.Default.Tune, MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = zokasText("Kebutuhan & Visibilitas Fitur", "Feature Needs & Visibility", language),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${zokasText(activePreset.titleId, activePreset.titleEn, language)} • ${config.activeGroupCount()}/8 ${zokasText("kelompok aktif", "active groups", language)}",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded, enter = expandVertically(), exit = shrinkVertically()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                    shape = RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        // Bagian A: Ganti Preset Cepat
+                        Text(
+                            text = zokasText("A. Ganti Preset Fokus Cepat", "A. Quick Focus Preset", language),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        val quickPresets = listOf(
+                            ZokasUsagePreset.NOTA_SAJA,
+                            ZokasUsagePreset.KASIR_TUNAI_KILAT,
+                            ZokasUsagePreset.KASIR_MULTI_BAYAR,
+                            ZokasUsagePreset.STOK_DAN_PRODUKSI,
+                            ZokasUsagePreset.KULINER_MEJA_KDS,
+                            ZokasUsagePreset.LAPORAN_KEUANGAN,
+                            ZokasUsagePreset.LENGKAP_MULTI_UNIT
+                        )
+                        quickPresets.forEach { preset ->
+                            val selected = config.presetKey == preset.key
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val isCul = settingsManager.businessType.equals("KULINER", ignoreCase = true)
+                                        onConfigUpdated(FeatureVisibilityManager.configForPreset(preset, isCulinary = isCul))
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = selected,
+                                        onClick = {
+                                            val isCul = settingsManager.businessType.equals("KULINER", ignoreCase = true)
+                                            onConfigUpdated(FeatureVisibilityManager.configForPreset(preset, isCulinary = isCul))
+                                        }
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(zokasText(preset.titleId, preset.titleEn, language), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(zokasText(preset.descId, preset.descEn, language), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        // Bagian B: Bantu Pilih dari Jenis Usaha
+                        OutlinedButton(
+                            onClick = { showBusinessHelperDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                zokasText("B. Bantu Pilih Preset dari Jenis Usaha (~2.000)", "B. Suggest Preset from Business Type (~2,000)", language),
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        // Bagian C: Saklar Kebutuhan per Kelompok
+                        Text(
+                            text = zokasText("C. Saklar Kebutuhan per Kelompok", "C. Feature Group Toggles", language),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        val toggles = listOf(
+                            Triple(
+                                zokasText("Mode Fokus Nota & Struk Saja", "Notes & Receipts Only Mode", language),
+                                config.receiptOnlyMode
+                            ) { v: Boolean ->
+                                if (v) {
+                                    onConfigUpdated(FeatureVisibilityManager.configForPreset(ZokasUsagePreset.NOTA_SAJA, false))
+                                } else {
+                                    onConfigUpdated(config.copy(presetKey = ZokasUsagePreset.CUSTOM.key, receiptOnlyMode = false))
+                                }
+                            },
+                            Triple(
+                                zokasText("Shift Kasir, Kas Laci & Arus Kas", "Cashier Shifts, Drawer & Cash Flow", language),
+                                config.shiftAndDrawerEnabled
+                            ) { v: Boolean ->
+                                onConfigUpdated(config.copy(presetKey = ZokasUsagePreset.CUSTOM.key, receiptOnlyMode = false, shiftAndDrawerEnabled = v, cashFlowEnabled = v))
+                            },
+                            Triple(
+                                zokasText("Tab Produk, Varian & Audit Stok", "Products Tab, Variants & Stock Audit", language),
+                                config.productCatalogEnabled
+                            ) { v: Boolean ->
+                                onConfigUpdated(config.copy(presetKey = ZokasUsagePreset.CUSTOM.key, productCatalogEnabled = v, variantsAndStockEnabled = v))
+                            },
+                            Triple(
+                                zokasText("Bahan Baku, Resep (BOM) & Supplier PO", "Raw Materials, BOM & Supplier PO", language),
+                                config.bomAndRawMaterialEnabled || config.supplierPoEnabled
+                            ) { v: Boolean ->
+                                onConfigUpdated(config.copy(presetKey = ZokasUsagePreset.CUSTOM.key, bomAndRawMaterialEnabled = v, supplierPoEnabled = v))
+                            },
+                            Triple(
+                                zokasText("Meja Restoran, Tipe Pesanan & Dapur (KDS)", "Restaurant Tables, Order Types & Kitchen", language),
+                                config.kitchenAndTableEnabled
+                            ) { v: Boolean ->
+                                onConfigUpdated(config.copy(presetKey = ZokasUsagePreset.CUSTOM.key, kitchenAndTableEnabled = v))
+                            },
+                            Triple(
+                                zokasText("Tab Laporan Laba Rugi & Pembukuan", "Profit Reports & Bookkeeping Tab", language),
+                                config.reportsAndProfitEnabled
+                            ) { v: Boolean ->
+                                onConfigUpdated(config.copy(presetKey = ZokasUsagePreset.CUSTOM.key, reportsAndProfitEnabled = v, bookkeepingExportEnabled = v))
+                            },
+                            Triple(
+                                zokasText("CRM Pelanggan, HR Karyawan, Cabang & Owner Monitor", "CRM, HR Staff, Multi-Branch & Owner Monitor", language),
+                                config.crmEnabled || config.hrPayrollEnabled || config.multiBranchEnabled
+                            ) { v: Boolean ->
+                                onConfigUpdated(
+                                    config.copy(
+                                        presetKey = ZokasUsagePreset.CUSTOM.key,
+                                        crmEnabled = v,
+                                        hrPayrollEnabled = v,
+                                        multiBranchEnabled = v,
+                                        remoteSyncEnabled = v
+                                    )
+                                )
+                            }
+                        )
+
+                        toggles.forEach { (label, checked, onToggle) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onToggle(!checked) }
+                                    .padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(label, fontSize = 12.sp, modifier = Modifier.weight(1f).padding(end = 8.dp))
+                                Switch(checked = checked, onCheckedChange = onToggle)
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        // Bagian D: Aksi Cepat & Reset Aman
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showQuestionnairePopup = true },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(zokasText("Ulangi Kuisioner", "Re-run Guide", language), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    onConfigUpdated(FeatureVisibilityManager.configForPreset(ZokasUsagePreset.LENGKAP_MULTI_UNIT, isCulinary = settingsManager.businessType.equals("KULINER", ignoreCase = true)))
+                                    Toast.makeText(context, zokasText("Semua fitur dikembalikan ke Mode Lengkap.", "All features restored to Full Mode.", language), Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(zokasText("Mode Lengkap", "Full Mode", language), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }

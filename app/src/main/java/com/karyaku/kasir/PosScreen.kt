@@ -103,6 +103,10 @@ fun PosScreen(
     onCartScannerModeChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val featureConfig by FeatureVisibilityManager.configFlow.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        FeatureVisibilityManager.ensureLoaded(context)
+    }
     val configuration = LocalConfiguration.current
     val isPhone = configuration.screenWidthDp < 600
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -268,8 +272,10 @@ fun PosScreen(
         }
     }
 
-    LaunchedEffect(currentOpenShift, showShiftReport, currentBranchId, isShiftExplicitlyClosed) {
-        if (currentOpenShift != null) {
+    LaunchedEffect(currentOpenShift, showShiftReport, currentBranchId, isShiftExplicitlyClosed, featureConfig.receiptOnlyMode, featureConfig.shiftAndDrawerEnabled) {
+        if (featureConfig.receiptOnlyMode || !featureConfig.shiftAndDrawerEnabled) {
+            showOpenShiftDialog = false
+        } else if (currentOpenShift != null) {
             showOpenShiftDialog = false
             if (!ProactiveGuideManager.hasSeenGuide(context, ProactiveGuideManager.KEY_POS_SCREEN)) {
                 showProactiveGuide = true
@@ -1101,10 +1107,10 @@ fun PosScreen(
                                         cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
                                         selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                                         selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher,
-                                        voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
-                                        enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
-                                        customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                        enableCrm = isCrmEnabled,
+                                        voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled && featureConfig.kitchenAndTableEnabled,
+                                        enableOrderTypes = settingsManager.enableOrderTypes && featureConfig.kitchenAndTableEnabled, enablePreOrder = settingsManager.enablePreOrder && featureConfig.holdOrderEnabled,
+                                        customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership && featureConfig.crmEnabled,
+                                        enableCrm = isCrmEnabled && featureConfig.crmEnabled,
                                         onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                         onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
                                         onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },
@@ -1185,10 +1191,10 @@ fun PosScreen(
                                     cart = cart, subtotal = subtotal, discount = totalDiscount, taxAmount = taxAmount, serviceCharge = serviceChargeAmount, totalPrice = totalPrice,
                                     selectedCustomer = selectedCustomer, pointsUsed = pointsUsed, selectedTable = selectedTable,
                                     selectedOrderType = selectedOrderType, pickupDate = pickupDate, appliedVoucher = appliedVoucher,
-                                    voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled,
-                                    enableOrderTypes = settingsManager.enableOrderTypes, enablePreOrder = settingsManager.enablePreOrder,
-                                    customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership,
-                                    enableCrm = isCrmEnabled,
+                                    voucherDiscount = voucherDiscount, isSplitBillMode = isSplitBillMode, isTableModeEnabled = settingsManager.isTableModeEnabled && featureConfig.kitchenAndTableEnabled,
+                                    enableOrderTypes = settingsManager.enableOrderTypes && featureConfig.kitchenAndTableEnabled, enablePreOrder = settingsManager.enablePreOrder && featureConfig.holdOrderEnabled,
+                                    customerMemberships = customerMemberships, enableMembership = settingsManager.enableMembership && featureConfig.crmEnabled,
+                                    enableCrm = isCrmEnabled && featureConfig.crmEnabled,
                                     onOrderTypeChange = { type: String -> viewModel.setOrderType(type) }, onPickupDateChange = { date: Long -> viewModel.setPickupDate(date) },
                                     onToggleSplitMode = { isSplitBillMode = !isSplitBillMode }, onToggleSplitSelection = { item: CartItem -> viewModel.toggleSplitSelection(item.product, item.selectedVariation) },
                                     onTableClick = { showTableSelector = true }, onVoucherClick = { showVoucherDialog = true },

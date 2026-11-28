@@ -445,7 +445,13 @@ fun MainNavigation(
     language: String, onToggleLanguage: () -> Unit,
     onHideTopHeaderChange: (Boolean) -> Unit = {}
 ) {
-    val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true)
+    val context = LocalContext.current
+    val activity = LocalActivity.current
+    val featureConfig by FeatureVisibilityManager.configFlow.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        FeatureVisibilityManager.ensureLoaded(context)
+    }
+    val isKuliner = settingsManager.businessType.equals("KULINER", ignoreCase = true) && featureConfig.kitchenAndTableEnabled
     val defaultHomeTab = if (currentUser.role == "STAFF" && isKuliner) 4 else 0
     var selectedTab by rememberSaveable { mutableStateOf(defaultHomeTab) }
     var showCfdDialog by remember { mutableStateOf(false) }
@@ -455,8 +461,6 @@ fun MainNavigation(
     var posActionTrigger by remember { mutableStateOf<String?>(null) }
     var showBranchManagementDialog by remember { mutableStateOf(false) }
     var showStockTransferDialog by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val activity = LocalActivity.current
     var lastBackPressTime by remember { mutableStateOf(0L) }
     BackHandler(enabled = true) {
         if (selectedTab != defaultHomeTab) {
@@ -473,7 +477,10 @@ fun MainNavigation(
         }
     }
 
-    LaunchedEffect(currentUser.role, selectedTab) {
+    LaunchedEffect(currentUser.role, selectedTab, featureConfig, isKuliner) {
+        if (selectedTab == 1 && !featureConfig.productCatalogEnabled) selectedTab = 0
+        if (selectedTab == 2 && !featureConfig.reportsAndProfitEnabled) selectedTab = 0
+        if (selectedTab == 4 && !isKuliner) selectedTab = 0
         if (currentUser.role == "CASHIER" && selectedTab != 0) selectedTab = 0
         if (currentUser.role == "SUPERVISOR" && selectedTab != 0 && selectedTab != 2 && !(isKuliner && selectedTab == 4)) {
             selectedTab = 0
@@ -841,25 +848,29 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                                             onClick = { posActionTrigger = "MERGE"; showMenu = false }
                                         )
                                     }
-                                    DropdownMenuItem(
-                                        text = { Text(LanguageManager.tr("buka_laci", language)) },
-                                        leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { posActionTrigger = "DRAWER"; showMenu = false }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text(LanguageManager.tr("pesanan_parkir", language)) },
-                                        leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { posActionTrigger = "HOLD"; showMenu = false }
-                                    )
-                                    if (currentUser.role == "OWNER") {
+                                    if (featureConfig.shiftAndDrawerEnabled) {
+                                        DropdownMenuItem(
+                                            text = { Text(LanguageManager.tr("buka_laci", language)) },
+                                            leadingIcon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { posActionTrigger = "DRAWER"; showMenu = false }
+                                        )
+                                    }
+                                    if (featureConfig.holdOrderEnabled) {
+                                        DropdownMenuItem(
+                                            text = { Text(LanguageManager.tr("pesanan_parkir", language)) },
+                                            leadingIcon = { Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                            onClick = { posActionTrigger = "HOLD"; showMenu = false }
+                                        )
+                                    }
+                                    if (currentUser.role == "OWNER" && featureConfig.cashFlowEnabled) {
                                         DropdownMenuItem(
                                             text = { Text(LanguageManager.tr("kas_masuk_keluar", language)) },
                                             leadingIcon = { Icon(Icons.Default.AccountBox, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                                             onClick = { posActionTrigger = "CASHFLOW"; showMenu = false }
                                         )
                                     }
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                    if (currentUser.role == "OWNER") {
+                                    if (currentUser.role == "OWNER" && featureConfig.multiBranchEnabled) {
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                         DropdownMenuItem(
                                             text = { Text(zokasText("Kelola Cabang", "Manage Branches", language)) },
                                             leadingIcon = { Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
@@ -871,11 +882,13 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                                             onClick = { showStockTransferDialog = true; showMenu = false }
                                         )
                                     }
-                                    DropdownMenuItem(
-                                        text = { Text(zokasText("Tutup Kasir (Close Harian)", "Close Shift (Daily Closing)", language)) },
-                                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
-                                        onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }
-                                    )
+                                    if (featureConfig.shiftAndDrawerEnabled) {
+                                        DropdownMenuItem(
+                                            text = { Text(zokasText("Tutup Kasir (Close Harian)", "Close Shift (Daily Closing)", language)) },
+                                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                                            onClick = { posActionTrigger = "CLOSE_SHIFT"; showMenu = false }
+                                        )
+                                    }
                                     DropdownMenuItem(
                                         text = { Text(LanguageManager.tr("logout", language), color = MaterialTheme.colorScheme.error) },
                                         leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
@@ -910,18 +923,22 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                     onClick = { selectedTab = 0 }
                 )
                 if (currentUser.role == "OWNER") {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
-                        label = { Text(LanguageManager.tr("produk", language)) },
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 }
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
-                        label = { Text(LanguageManager.tr("laporan", language)) },
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 }
-                    )
+                    if (featureConfig.productCatalogEnabled) {
+                        NavigationBarItem(
+                            icon = { Icon(Icons.Default.Inventory, contentDescription = "Products") },
+                            label = { Text(LanguageManager.tr("produk", language)) },
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 }
+                        )
+                    }
+                    if (featureConfig.reportsAndProfitEnabled) {
+                        NavigationBarItem(
+                            icon = { Icon(Icons.Default.Assessment, contentDescription = "Reports") },
+                            label = { Text(LanguageManager.tr("laporan", language)) },
+                            selected = selectedTab == 2,
+                            onClick = { selectedTab = 2 }
+                        )
+                    }
                     if (isKuliner) {
                         NavigationBarItem(
                             icon = { Icon(Icons.Default.Restaurant, contentDescription = "Kitchen") },

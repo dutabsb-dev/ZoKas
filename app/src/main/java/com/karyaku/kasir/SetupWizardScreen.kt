@@ -221,7 +221,7 @@ fun SetupWizardScreen(
     val activity = LocalActivity.current as? FragmentActivity
 
     var acceptedPolicy by remember { mutableStateOf(false) }
-    var showFullPolicyExpanded by remember { mutableStateOf(true) }
+    var showFullPolicyExpanded by remember { mutableStateOf(false) }
     var selectedLang by remember { mutableStateOf(LanguageManager.normalizeLang(settingsManager.language)) }
 
     var businessSearch by remember { mutableStateOf("") }
@@ -242,6 +242,10 @@ fun SetupWizardScreen(
     }
     val enabledOptionalModules = remember { mutableStateMapOf<String, Boolean>() }
     var selectedMode by remember { mutableStateOf("AWAM") }
+    var selectedPreset by remember { mutableStateOf(ZokasUsagePreset.KASIR_TUNAI_KILAT) }
+    var visibilityConfig by remember {
+        mutableStateOf(FeatureVisibilityManager.configForPreset(ZokasUsagePreset.KASIR_TUNAI_KILAT, isCulinary = false))
+    }
 
     var storeNameInput by remember { mutableStateOf(settingsManager.storeName ?: "") }
     var storeAddressInput by remember { mutableStateOf(settingsManager.storeAddress ?: "") }
@@ -506,13 +510,106 @@ fun SetupWizardScreen(
                             )
                         )
                     }
-                    Text(
-                        text = if (showFullPolicyExpanded) fullPolicyText else fullPolicyText.take(280) + "...",
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(10.dp)
-                    )
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (showFullPolicyExpanded) {
+                                fullPolicyText + "\n\n" + wizardText(
+                                    selectedLang,
+                                    id = (
+                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
+                                        "8.1 Seluruh hak cipta, desain antarmuka, dan struktur sistem aplikasi ZoKas berada pada pengembang resmi (DBSB Studio - dbsb-studio.my.id).\n" +
+                                        "8.2 Fitur cetak struk/nota, ekspor laporan, backup/restore, serta integrasi kanal eksternal beroperasi mengikuti kapasitas perangkat dan layanan pihak ketiga yang dipilih pengguna.\n" +
+                                        "8.3 Kebijakan privasi dan ketentuan layanan versi web resmi tersedia dan diperbarui secara berkala di https://dbsb-studio.my.id."
+                                    ),
+                                    en = (
+                                        "ARTICLE 8 - TECHNICAL SUPPORT, INTELLECTUAL PROPERTY & SUPPORTING SERVICES\n" +
+                                        "8.1 All copyrights, UI designs, and system structures of ZoKas belong to the official developer (DBSB Studio - dbsb-studio.my.id).\n" +
+                                        "8.2 Receipt/note printing, report exports, backup/restore, and external channel integrations operate according to device capabilities and third-party services selected by the user.\n" +
+                                        "8.3 The official web version of the privacy policy and terms is published and updated periodically at https://dbsb-studio.my.id."
+                                    ),
+                                    jv = (
+                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
+                                        "8.1 Kabeh hak cipta, desain tampilan, lan struktur sistem aplikasi ZoKas kagungan pangembang resmi (DBSB Studio - dbsb-studio.my.id).\n" +
+                                        "8.2 Fitur nyithak struk/nota, ekspor laporan, backup/restore, lan sambungan layanan njaba mlaku manut kemampuan HP lan layanan sing dipilih panganggo.\n" +
+                                        "8.3 Kebijakan privasi lan katemtuan versi web resmi kasedhiya ing https://dbsb-studio.my.id."
+                                    ),
+                                    su = (
+                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
+                                        "8.1 Sadaya hak cipta, desain tampilan, sareng struktur sistem aplikasi ZoKas kagungan pamekar resmi (DBSB Studio - dbsb-studio.my.id).\n" +
+                                        "8.2 Fitur nyitak struk/nota, ekspor laporan, backup/restore, sareng sambungan layanan luar jalan saluyu kamampuan alat sareng layanan anu dipilih pamake.\n" +
+                                        "8.3 Kabijakan privasi sareng katangtuan versi wéb resmi sayogi di https://dbsb-studio.my.id."
+                                    ),
+                                    mad = (
+                                        "PASAL 8 - DUKUNGAN TEKNIS, HAK CIPTA & LAYANAN PENDUKUNG\n" +
+                                        "8.1 Sakabbhina hak cipta, desain tampilan, ban struktur sistem aplikasi ZoKas andhi'na pangembang resmi (DBSB Studio - dbsb-studio.my.id).\n" +
+                                        "8.2 Fitur nyetak struk/nota, ekspor laporan, backup/restore, ban sambungan layanan lowar ajhalan asessuae kamampuan HP ban layanan se epele angghuy.\n" +
+                                        "8.3 Kabijakan privasi ban katantoan versi web resmi bada e https://dbsb-studio.my.id."
+                                    )
+                                )
+                            } else {
+                                wizardText(
+                                    selectedLang,
+                                    "Ringkasan Kebijakan Privasi & Ketentuan ZoKas (diminimalkan). Ketuk 'Baca Lengkap' untuk membuka seluruh pasal atau buka tautan resmi di dbsb-studio.my.id.",
+                                    "ZoKas Privacy Policy & Terms summary (minimized). Tap 'Read Full' to expand all clauses or open the official link at dbsb-studio.my.id.",
+                                    "Ringkesan Kebijakan & Katemtuan ZoKas (diminimalkan). Tutul 'Baca Lengkap' kanggo mbukak kabeh pasal utawa bukak tautan ing dbsb-studio.my.id.",
+                                    "Ringkesan Kabijakan & Katangtuan ZoKas (diminimalkan). Toel 'Baca Lengkap' kanggo muka sadaya pasal atanapi buka tautan di dbsb-studio.my.id.",
+                                    "Ringkesan Kabijakan & Katantoan ZoKas (diminimalkan). Teken 'Baca Lengkap' kaangguy mbukak sakabbhina pasal otaba bukak tautan e dbsb-studio.my.id."
+                                )
+                            },
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = { showFullPolicyExpanded = !showFullPolicyExpanded },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(
+                                    text = if (showFullPolicyExpanded) {
+                                        wizardText(selectedLang, "Kecilkan", "Minimize", "Cilikake", "Kecilkeun", "Kene'aghi")
+                                    } else {
+                                        wizardText(selectedLang, "Baca Lengkap", "Read Full", "Baca Lengkap", "Baca Lengkap", "Baca Lengkap")
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            TextButton(
+                                onClick = {
+                                    runCatching {
+                                        val intent = android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            Uri.parse("https://dbsb-studio.my.id")
+                                        ).apply {
+                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    }.onFailure {
+                                        Toast.makeText(context, "https://dbsb-studio.my.id", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "dbsb-studio.my.id",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Row(
@@ -723,13 +820,208 @@ fun SetupWizardScreen(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
+
+                val (recommendedPreset, recommendedReason) = remember(selectedBusiness.id) {
+                    FeatureVisibilityManager.recommendPresetForBusiness(selectedBusiness)
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.32f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = wizardText(
+                                selectedLang,
+                                "Saran Preset untuk Usaha Ini: ${recommendedPreset.titleId}",
+                                "Recommended Preset for This Business: ${recommendedPreset.titleEn}",
+                                "Saran Preset kanggo Usaha Iki: ${recommendedPreset.titleId}",
+                                "Saran Preset pikeun Usaha Ieu: ${recommendedPreset.titleId}",
+                                "Saran Preset kaangguy Usaha Areya: ${recommendedPreset.titleId}"
+                            ),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = recommendedReason,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                selectedPreset = recommendedPreset
+                                val isCul = selectedBusiness.mappedBusinessType.equals("KULINER", ignoreCase = true)
+                                visibilityConfig = FeatureVisibilityManager.configForPreset(recommendedPreset, isCulinary = isCul)
+                                if (recommendedPreset == ZokasUsagePreset.NOTA_SAJA) {
+                                    selectedMode = "AWAM"
+                                } else if (recommendedPreset == ZokasUsagePreset.LENGKAP_MULTI_UNIT) {
+                                    selectedMode = "LENGKAP"
+                                }
+                                Toast.makeText(
+                                    context,
+                                    wizardText(
+                                        selectedLang,
+                                        "Preset '${recommendedPreset.titleId}' diterapkan!",
+                                        "Preset '${recommendedPreset.titleEn}' applied!",
+                                        "Preset '${recommendedPreset.titleId}' diterapake!",
+                                        "Preset '${recommendedPreset.titleId}' diterapkeun!",
+                                        "Preset '${recommendedPreset.titleId}' eterrapaghi!"
+                                    ),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = wizardText(
+                                    selectedLang,
+                                    "Terapkan Saran Preset",
+                                    "Apply Suggested Preset",
+                                    "Terapake Saran Preset",
+                                    "Terapkeun Saran Preset",
+                                    "Terrapaghi Saran Preset"
+                                ),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
         }
 
-        // 4. REKOMENDASI MODUL (DEFAULT OFF)
+        // 4. REKOMENDASI MODUL (DEFAULT OFF) + HELPER POPUP KUISIONER AWAM
+        var showQuestionnaireHelperPopup by remember { mutableStateOf(true) }
+        var questionnairePopupDismissedOnce by remember { mutableStateOf(false) }
+
+        if (showQuestionnaireHelperPopup && !questionnairePopupDismissedOnce) {
+            AlertDialog(
+                onDismissRequest = {
+                    showQuestionnaireHelperPopup = false
+                    questionnairePopupDismissedOnce = true
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.HelpOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                title = {
+                    Text(
+                        text = wizardText(
+                            selectedLang,
+                            "Panduan Pengisian Kuisioner Kebutuhan",
+                            "Questionnaire Filling Helper",
+                            "Pandhuan Ngisi Kuisioner Kabutuhan",
+                            "Panduan Ngeusian Kuisioner Kabutuhan",
+                            "Panduan Ngisse'e Kuisioner Kabutohan"
+                        ),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = wizardText(
+                                selectedLang,
+                                "Tidak perlu bingung memilih fitur satu per satu. Ikuti langkah singkat berikut:",
+                                "No need to worry about picking every feature manually. Follow these quick tips:",
+                                "Ora perlu bingung milih fitur siji-siji. Gatekna tips cekak iki:",
+                                "Teu kedah bingung milih fitur hiji-hiji. Perhatoskeun tips pondok ieu:",
+                                "Ta' parlo bingong meleh fitur settong-settong. Etore'e tips pandha' areya:"
+                            ),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = wizardText(
+                                selectedLang,
+                                "• Jika hanya butuh cetak/kirim nota atau struk: cukup pilih mode/kebutuhan nota dan biarkan fitur lain tetap OFF.
+" +
+                                    "• Jika masih ragu: ketik jenis usaha Anda pada kolom pencarian di atas untuk mendapat saran otomatis.
+" +
+                                    "• Pilihan ini tidak mengunci data—kapan saja bisa diubah di menu Pengaturan.",
+                                "• If you only need to create/print/share notes or receipts: keep only note/receipt needs active and leave extra modules OFF.
+" +
+                                    "• If unsure: search your business type above for tailored suggestions.
+" +
+                                    "• Nothing is permanently locked—you can adjust it anytime in Settings.",
+                                "• Yen mung butuh nota/struk: cukup aktifake kabutuhan nota lan fitur liyane tetep OFF.
+" +
+                                    "• Yen isih bingung: goleki jinis usaha sampeyan ing kolom panelusuran.
+" +
+                                    "• Pilihan bisa diowahi kapan wae ing menu Setelan.",
+                                "• Upami mung peryogi nota/struk: cekap aktipkeun kabutuhan nota sareng fitur sanes tetep OFF.
+" +
+                                    "• Upami masih ragu: pilarian jenis usaha anjeun dina kolom milarian.
+" +
+                                    "• Tiasa dirobah iraha wae dina menu Setelan.",
+                                "• Mon coma parlo nota/struk: cokop aktifaghi kabutohan nota ban fitur laen pagghun OFF.
+" +
+                                    "• Mon gita yakin: sare macem usaha sampeyan e kolom panyareyan.
+" +
+                                    "• Bisa eoba bila bhai e menu Atoran."
+                            ),
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showQuestionnaireHelperPopup = false
+                            questionnairePopupDismissedOnce = true
+                        },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = wizardText(selectedLang, "MENGERTI", "GOT IT", "MANGERTI", "NGARTOS", "NGARTE"),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            )
+        }
+
         Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(LanguageManager.tr("wizard_sec_modules", selectedLang), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        LanguageManager.tr("wizard_sec_modules", selectedLang),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = {
+                            questionnairePopupDismissedOnce = false
+                            showQuestionnaireHelperPopup = true
+                        },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = wizardText(selectedLang, "Bantuan", "Help", "Bantuan", "Bantuan", "Bantoan"),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 Text(
                     text = wizardText(
                         selectedLang,
@@ -742,6 +1034,177 @@ fun SetupWizardScreen(
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                // Pilihan Preset Fokus & Khusus (Upgrade A)
+                Text(
+                    text = wizardText(
+                        selectedLang,
+                        "Pilih Paket / Preset Kebutuhan Utama:",
+                        "Choose Primary Need Preset:",
+                        "Pilih Paket / Preset Kabutuhan Utama:",
+                        "Pilih Paket / Preset Kabutuhan Utama:",
+                        "Pele Paket / Preset Kabutohan Otama:"
+                    ),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                val wizardPresets = remember {
+                    listOf(
+                        ZokasUsagePreset.NOTA_SAJA,
+                        ZokasUsagePreset.KASIR_TUNAI_KILAT,
+                        ZokasUsagePreset.KASIR_MULTI_BAYAR,
+                        ZokasUsagePreset.STOK_DAN_PRODUKSI,
+                        ZokasUsagePreset.KULINER_MEJA_KDS,
+                        ZokasUsagePreset.LAPORAN_KEUANGAN,
+                        ZokasUsagePreset.LENGKAP_MULTI_UNIT
+                    )
+                }
+
+                wizardPresets.forEach { preset ->
+                    val isSelectedPreset = selectedPreset == preset
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedPreset = preset
+                                val isCul = selectedBusiness.mappedBusinessType.equals("KULINER", ignoreCase = true)
+                                visibilityConfig = FeatureVisibilityManager.configForPreset(preset, isCulinary = isCul)
+                                if (preset == ZokasUsagePreset.NOTA_SAJA) selectedMode = "AWAM"
+                                else if (preset == ZokasUsagePreset.LENGKAP_MULTI_UNIT) selectedMode = "LENGKAP"
+                            },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelectedPreset) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            width = if (isSelectedPreset) 1.5.dp else 1.dp,
+                            color = if (isSelectedPreset) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelectedPreset,
+                                onClick = {
+                                    selectedPreset = preset
+                                    val isCul = selectedBusiness.mappedBusinessType.equals("KULINER", ignoreCase = true)
+                                    visibilityConfig = FeatureVisibilityManager.configForPreset(preset, isCulinary = isCul)
+                                    if (preset == ZokasUsagePreset.NOTA_SAJA) selectedMode = "AWAM"
+                                    else if (preset == ZokasUsagePreset.LENGKAP_MULTI_UNIT) selectedMode = "LENGKAP"
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = zokasText(preset.titleId, preset.titleEn, selectedLang),
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = zokasText(preset.descId, preset.descEn, selectedLang),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                Text(
+                    text = wizardText(
+                        selectedLang,
+                        "Sesuaikan Kelompok Fitur yang Ditampilkan:",
+                        "Customize Visible Feature Groups:",
+                        "Atur Kelompok Fitur sing Ditampilake:",
+                        "Saluyukeun Kelompok Fitur anu Ditembongkeun:",
+                        "Ator Kalompok Fitur se Etampilaghi:"
+                    ),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                val groupItems = listOf(
+                    Triple(
+                        wizardText(selectedLang, "Hanya Nota & Struk (Tanpa Shift/Stok Wajib)", "Notes & Receipts Only (No Shift/Stock Lock)", "Mung Nota & Struk", "Mung Nota & Struk", "Coma Nota & Struk"),
+                        visibilityConfig.receiptOnlyMode
+                    ) { v: Boolean ->
+                        visibilityConfig = if (v) {
+                            FeatureVisibilityManager.configForPreset(ZokasUsagePreset.NOTA_SAJA, false)
+                        } else {
+                            visibilityConfig.copy(presetKey = ZokasUsagePreset.CUSTOM.key, receiptOnlyMode = false)
+                        }
+                        selectedPreset = if (v) ZokasUsagePreset.NOTA_SAJA else ZokasUsagePreset.CUSTOM
+                    },
+                    Triple(
+                        wizardText(selectedLang, "Shift Kasir, Kas Laci & Arus Kas", "Cashier Shifts, Drawer & Cash Flow", "Shift Kasir & Kas Laci", "Shift Kasir & Kas Laci", "Shift Kasir & Kas Laci"),
+                        visibilityConfig.shiftAndDrawerEnabled
+                    ) { v: Boolean ->
+                        selectedPreset = ZokasUsagePreset.CUSTOM
+                        visibilityConfig = visibilityConfig.copy(presetKey = ZokasUsagePreset.CUSTOM.key, receiptOnlyMode = false, shiftAndDrawerEnabled = v, cashFlowEnabled = v)
+                    },
+                    Triple(
+                        wizardText(selectedLang, "Katalog Produk, Varian & Audit Stok", "Product Catalog, Variants & Stock Audit", "Katalog & Stok", "Katalog & Stok", "Katalog & Stok"),
+                        visibilityConfig.variantsAndStockEnabled
+                    ) { v: Boolean ->
+                        selectedPreset = ZokasUsagePreset.CUSTOM
+                        visibilityConfig = visibilityConfig.copy(presetKey = ZokasUsagePreset.CUSTOM.key, productCatalogEnabled = true, variantsAndStockEnabled = v)
+                    },
+                    Triple(
+                        wizardText(selectedLang, "Bahan Baku, Resep (BOM) & Supplier PO", "Raw Materials, BOM & Supplier PO", "Bahan Baku & BOM", "Bahan Baku & BOM", "Bahan Baku & BOM"),
+                        visibilityConfig.bomAndRawMaterialEnabled || visibilityConfig.supplierPoEnabled
+                    ) { v: Boolean ->
+                        selectedPreset = ZokasUsagePreset.CUSTOM
+                        visibilityConfig = visibilityConfig.copy(presetKey = ZokasUsagePreset.CUSTOM.key, bomAndRawMaterialEnabled = v, supplierPoEnabled = v)
+                    },
+                    Triple(
+                        wizardText(selectedLang, "Meja Restoran, Tipe Pesanan & Dapur (KDS)", "Restaurant Tables, Order Types & Kitchen (KDS)", "Meja & Pawon (KDS)", "Meja & Dapur (KDS)", "Meja & Dapor (KDS)"),
+                        visibilityConfig.kitchenAndTableEnabled
+                    ) { v: Boolean ->
+                        selectedPreset = ZokasUsagePreset.CUSTOM
+                        visibilityConfig = visibilityConfig.copy(presetKey = ZokasUsagePreset.CUSTOM.key, kitchenAndTableEnabled = v)
+                    },
+                    Triple(
+                        wizardText(selectedLang, "Laporan Laba Rugi & Ekspor Buku Pembukuan", "Profit & Loss Reports & Bookkeeping Export", "Laporan & Pembukuan", "Laporan & Pembukuan", "Laporan & Pembukuan"),
+                        visibilityConfig.reportsAndProfitEnabled
+                    ) { v: Boolean ->
+                        selectedPreset = ZokasUsagePreset.CUSTOM
+                        visibilityConfig = visibilityConfig.copy(presetKey = ZokasUsagePreset.CUSTOM.key, reportsAndProfitEnabled = v, bookkeepingExportEnabled = v)
+                    },
+                    Triple(
+                        wizardText(selectedLang, "Pelanggan (CRM), Karyawan (HR), Cabang & Pantauan Owner", "CRM, Staff HR, Multi-Branch & Owner Monitor", "CRM, HR, Cabang & Owner", "CRM, HR, Cabang & Owner", "CRM, HR, Cabang & Owner"),
+                        visibilityConfig.crmEnabled || visibilityConfig.hrPayrollEnabled || visibilityConfig.multiBranchEnabled
+                    ) { v: Boolean ->
+                        selectedPreset = ZokasUsagePreset.CUSTOM
+                        visibilityConfig = visibilityConfig.copy(
+                            presetKey = ZokasUsagePreset.CUSTOM.key,
+                            crmEnabled = v,
+                            hrPayrollEnabled = v,
+                            multiBranchEnabled = v,
+                            remoteSyncEnabled = v
+                        )
+                    }
+                )
+
+                groupItems.forEach { (gTitle, gChecked, onGChange) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onGChange(!gChecked) }
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(gTitle, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f).padding(end = 8.dp))
+                        Switch(checked = gChecked, onCheckedChange = onGChange)
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
                 moduleOptions.forEach { mod ->
                     val isOn = enabledOptionalModules[mod.key] ?: false
                     Row(
@@ -1329,6 +1792,15 @@ fun SetupWizardScreen(
                 }
 
                 settingsManager.isBiometricEnabled = (loginMethod == "BIOMETRIC" && biometricReady)
+                val finalVisibility = visibilityConfig.copy(
+                    presetKey = selectedPreset.key,
+                    crmEnabled = visibilityConfig.crmEnabled || (enabledOptionalModules["crm"] == true),
+                    supplierPoEnabled = visibilityConfig.supplierPoEnabled || (enabledOptionalModules["supplier"] == true),
+                    kitchenAndTableEnabled = visibilityConfig.kitchenAndTableEnabled || (enabledOptionalModules["table_mode"] == true),
+                    variantsAndStockEnabled = visibilityConfig.variantsAndStockEnabled || (enabledOptionalModules["wholesale"] == true),
+                    cashFlowEnabled = visibilityConfig.cashFlowEnabled || (enabledOptionalModules["finance"] == true)
+                )
+                FeatureVisibilityManager.syncToSettingsManager(context, settingsManager, finalVisibility)
                 settingsManager.isSetupCompleted = true
 
                 val adminEntity = UserEntity(
