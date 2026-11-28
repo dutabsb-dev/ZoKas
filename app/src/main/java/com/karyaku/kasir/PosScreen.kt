@@ -230,6 +230,9 @@ fun PosScreen(
     var showTableSelector by remember { mutableStateOf(false) }
     var showVoucherDialog by remember { mutableStateOf(false) }
     var isSplitBillMode by remember { mutableStateOf(false) }
+    var showPreCloseTargetDialog by remember { mutableStateOf(false) }
+    var showEditTargetDialog by remember { mutableStateOf(false) }
+    var targetCheckpointApproved by remember { mutableStateOf(false) }
 
     // =========================================================================
     // FIX TOTAL SIKLUS SHIFT (BUKA KASIR & TUTUP KASIR):
@@ -867,9 +870,6 @@ fun PosScreen(
             )
         }
 
-        var showPreCloseTargetDialog by remember { mutableStateOf(false) }
-        var showEditTargetDialog by remember { mutableStateOf(false) }
-        var targetCheckpointApproved by remember { mutableStateOf(false) }
 
         LaunchedEffect(showCloseShiftDialog, currentOpenShift) {
             if (showCloseShiftDialog && currentOpenShift != null && !targetCheckpointApproved) {
