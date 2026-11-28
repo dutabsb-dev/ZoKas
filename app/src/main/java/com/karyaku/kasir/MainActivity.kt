@@ -1759,6 +1759,19 @@ fun ReceiptHistoryDialog(
         }
     }
 
+    var notaKontanTx by remember { mutableStateOf<com.karyaku.kasir.data.local.TransactionEntity?>(null) }
+
+    if (notaKontanTx != null) {
+        NotaKontanViewDialog(
+            transaction = notaKontanTx!!,
+            viewModel = viewModel,
+            storeName = storeName,
+            storeAddress = storeAddress,
+            storePhone = storePhone,
+            onDismiss = { notaKontanTx = null }
+        )
+    }
+
     if (selectedReceiptTx != null) {
         ReceiptDialog(
             transaction = selectedReceiptTx!!,
@@ -1819,7 +1832,24 @@ fun ReceiptHistoryDialog(
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(formatRupiah(tx.totalPrice), fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = MaterialTheme.colorScheme.primary)
-                                        Text("Buka / Cetak", fontSize = 10.sp, color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text(
+                                                "Struk",
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.tertiary,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.clickable { selectedReceiptTx = tx }
+                                            )
+                                            if (NotaKontanFormatter.isEnabled(context)) {
+                                                Text(
+                                                    "Nota Kontan",
+                                                    fontSize = 10.sp,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.clickable { notaKontanTx = tx }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1831,6 +1861,146 @@ fun ReceiptHistoryDialog(
         confirmButton = {
             Button(onClick = onDismiss, shape = RoundedCornerShape(8.dp)) {
                 Text("Tutup", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+
+@Composable
+fun NotaKontanViewDialog(
+    transaction: com.karyaku.kasir.data.local.TransactionEntity,
+    viewModel: PosViewModel,
+    storeName: String,
+    storeAddress: String,
+    storePhone: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val txItems by viewModel.transactionItemDao.getItemsByTransaction(transaction.id)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val minRows = remember { NotaKontanFormatter.getMinRows(context) }
+
+    val doc = remember(transaction, txItems, storeName, storeAddress, storePhone, minRows) {
+        NotaKontanFormatter.buildDocument(
+            transaction = transaction,
+            items = txItems,
+            storeName = storeName,
+            storeAddress = storeAddress,
+            storePhone = storePhone,
+            minRows = minRows
+        )
+    }
+    val formattedText = remember(doc) { NotaKontanFormatter.renderFormattedText(doc) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(doc.title, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text(doc.noteNumber, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(doc.dateLine, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text(doc.recipientLine, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                // Header kolom tabel (NO | BANYAKNYA | NAMA BARANG | HARGA | JUMLAH)
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp)) {
+                        Text("NO", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(24.dp))
+                        Text("BANYAKNYA", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(56.dp))
+                        Text("NAMA BARANG", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                        Text("HARGA", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.End, modifier = Modifier.width(58.dp))
+                        Text("JUMLAH", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.End, modifier = Modifier.width(64.dp))
+                    }
+                }
+
+                // Baris tabel 1..N (default 15 baris seperti contoh nota kontan)
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 310.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    items(doc.rows, key = { it.no }) { r ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                            shape = RoundedCornerShape(0.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("${r.no}.", fontSize = 10.sp, modifier = Modifier.width(24.dp))
+                                Text(r.qtyText, fontSize = 10.sp, modifier = Modifier.width(56.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(r.itemName, fontSize = 10.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(r.unitPriceText, fontSize = 9.5.sp, textAlign = TextAlign.End, modifier = Modifier.width(58.dp), maxLines = 1)
+                                Text(r.lineTotalText, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, modifier = Modifier.width(64.dp), maxLines = 1)
+                            }
+                        }
+                    }
+                }
+
+                // Footer: Hormat kami | Kotak syarat retur | JUMLAH Rp.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(doc.signOffLabel, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        ) {
+                            Text(
+                                text = doc.disclaimerBoxText,
+                                fontSize = 8.5.sp,
+                                lineHeight = 11.sp,
+                                modifier = Modifier.padding(5.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("JUMLAH Rp.", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(doc.totalAmountText, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nota Kontan", formattedText))
+                        Toast.makeText(context, "Format Nota Kontan disalin (teks/tabel).", Toast.LENGTH_SHORT).show()
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Salin Teks", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Button(onClick = onDismiss, shape = RoundedCornerShape(8.dp)) {
+                    Text("Tutup", fontWeight = FontWeight.Bold)
+                }
             }
         }
     )
