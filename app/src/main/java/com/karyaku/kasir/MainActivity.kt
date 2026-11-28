@@ -1833,7 +1833,7 @@ fun ReceiptHistoryDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        if (featureConfig.receiptOnlyMode) notaKontanTx = tx
+                                        if (FeatureVisibilityManager.getConfig(context).receiptOnlyMode) notaKontanTx = tx
                                         else selectedReceiptTx = tx
                                     }
                             ) {
