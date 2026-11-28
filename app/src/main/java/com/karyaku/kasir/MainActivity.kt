@@ -1883,6 +1883,8 @@ fun ReceiptHistoryDialog(
 }
 
 
+
+
 @Composable
 fun NotaKontanViewDialog(
     transaction: com.karyaku.kasir.data.local.TransactionEntity,
@@ -1893,9 +1895,11 @@ fun NotaKontanViewDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val settingsManager = remember { SettingsManager(context) }
     val txItems by viewModel.transactionItemDao.getItemsByTransaction(transaction.id)
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val minRows = remember { NotaKontanFormatter.getMinRows(context) }
+    var showPrinterError by remember { mutableStateOf(false) }
 
     val doc = remember(transaction, txItems, storeName, storeAddress, storePhone, minRows) {
         NotaKontanFormatter.buildDocument(
@@ -1908,6 +1912,10 @@ fun NotaKontanViewDialog(
         )
     }
     val formattedText = remember(doc) { NotaKontanFormatter.renderFormattedText(doc) }
+
+    if (showPrinterError) {
+        PrinterErrorDialog { showPrinterError = false }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1928,25 +1936,28 @@ fun NotaKontanViewDialog(
                     Text(doc.recipientLine, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
 
-                // Header kolom tabel (NO | BANYAKNYA | NAMA BARANG | HARGA | JUMLAH)
+                // Header kolom tabel sejajar satu baris
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(6.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp)) {
-                        Text("NO", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(24.dp))
-                        Text("BANYAKNYA", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(56.dp))
-                        Text("NAMA BARANG", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                        Text("HARGA", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.End, modifier = Modifier.width(58.dp))
-                        Text("JUMLAH", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.End, modifier = Modifier.width(64.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("NO", fontSize = 8.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, modifier = Modifier.width(22.dp))
+                        Text("BANYAKNYA", fontSize = 8.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, modifier = Modifier.width(52.dp))
+                        Text("NAMA BARANG", fontSize = 8.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, modifier = Modifier.weight(1f))
+                        Text("HARGA", fontSize = 8.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
+                        Text("JUMLAH", fontSize = 8.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, textAlign = TextAlign.End, modifier = Modifier.width(60.dp))
                     }
                 }
 
                 // Baris tabel 1..N (default 15 baris seperti contoh nota kontan)
                 LazyColumn(
-                    modifier = Modifier.heightIn(max = 310.dp),
+                    modifier = Modifier.heightIn(max = 240.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     items(doc.rows, key = { it.no }) { r ->
@@ -1957,28 +1968,28 @@ fun NotaKontanViewDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 5.dp),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("${r.no}.", fontSize = 10.sp, modifier = Modifier.width(24.dp))
-                                Text(r.qtyText, fontSize = 10.sp, modifier = Modifier.width(56.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(r.itemName, fontSize = 10.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(r.unitPriceText, fontSize = 9.5.sp, textAlign = TextAlign.End, modifier = Modifier.width(58.dp), maxLines = 1)
-                                Text(r.lineTotalText, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, modifier = Modifier.width(64.dp), maxLines = 1)
+                                Text("${r.no}.", fontSize = 9.5.sp, modifier = Modifier.width(22.dp))
+                                Text(r.qtyText, fontSize = 9.5.sp, modifier = Modifier.width(52.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(r.itemName, fontSize = 9.5.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(r.unitPriceText, fontSize = 9.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp), maxLines = 1)
+                                Text(r.lineTotalText, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, modifier = Modifier.width(60.dp), maxLines = 1)
                             }
                         }
                     }
                 }
 
-                // Footer: Hormat kami | Kotak syarat retur | JUMLAH Rp.
+                // Footer: Hormat kami + Kotak syarat retur | JUMLAH Rp. + Bayar + Kembalian
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(doc.signOffLabel, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Surface(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                             shape = RoundedCornerShape(4.dp),
@@ -1994,28 +2005,108 @@ fun NotaKontanViewDialog(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(horizontalAlignment = Alignment.End) {
-                        Text("JUMLAH Rp.", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("JUMLAH Rp.", fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold)
                         Text(doc.totalAmountText, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text("Bayar: ${doc.cashReceivedText}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Kembali: ${doc.changeAmountText}", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
                     }
                 }
             }
         },
         confirmButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nota Kontan", formattedText))
-                        Toast.makeText(context, "Format Nota Kontan disalin (teks/tabel).", Toast.LENGTH_SHORT).show()
-                    },
-                    shape = RoundedCornerShape(8.dp)
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Salin Teks", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = { NotaKontanFormatter.sendViaWhatsApp(context, formattedText) },
+                        modifier = Modifier.weight(1f).height(42.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("KIRIM WA (TEKS)", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            NotaKontanFormatter.sharePdfViaWhatsApp(
+                                context = context,
+                                formattedText = formattedText,
+                                transactionId = transaction.id,
+                                storeName = doc.storeName
+                            )
+                        },
+                        modifier = Modifier.weight(1f).height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("KIRIM PDF / WA", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
                 }
-                Button(onClick = onDismiss, shape = RoundedCornerShape(8.dp)) {
-                    Text("Tutup", fontWeight = FontWeight.Bold)
+
+                Button(
+                    onClick = {
+                        val isCash = transaction.paymentMethod.equals("CASH", ignoreCase = true)
+                        NotaKontanFormatter.printNotaKontan(
+                            context = context,
+                            settingsManager = settingsManager,
+                            formattedText = formattedText,
+                            isCashPayment = isCash
+                        ) { success, msg ->
+                            if (success) {
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                onDismiss()
+                            } else if (settingsManager.printerMacAddress.isNullOrBlank()) {
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            } else {
+                                showPrinterError = true
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("CETAK NOTA THERMAL", fontWeight = FontWeight.Bold)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Nota Kontan", formattedText))
+                            Toast.makeText(context, "Teks Nota Kontan disalin!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f).height(38.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Salin Teks", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).height(38.dp)
+                    ) {
+                        Text("Tutup Nota", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
