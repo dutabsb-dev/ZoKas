@@ -838,6 +838,19 @@ val allProductsForAlerts by viewModel.products.collectAsStateWithLifecycle()
                         }
 
                         if (selectedTab == 0) {
+                            if (featureConfig.receiptOnlyMode || featureConfig.receiptHistoryEnabled) {
+                                IconButton(
+                                    onClick = { showReceiptHistoryDialog = true },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ReceiptLong,
+                                        contentDescription = zokasText("Nota Kontan", "Cash Note", language),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                             IconButton(onClick = { showSearchDialog = true }, modifier = Modifier.size(36.dp)) {
                                 Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
@@ -1819,7 +1832,10 @@ fun ReceiptHistoryDialog(
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { selectedReceiptTx = tx }
+                                    .clickable {
+                                        if (featureConfig.receiptOnlyMode) notaKontanTx = tx
+                                        else selectedReceiptTx = tx
+                                    }
                             ) {
                                 Row(
                                     modifier = Modifier.padding(10.dp),

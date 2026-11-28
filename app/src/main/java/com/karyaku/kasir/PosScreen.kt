@@ -1069,12 +1069,23 @@ fun PosScreen(
         }
 
         if (completedTransaction != null) {
-            ReceiptDialog(
-                transaction = completedTransaction!!, viewModel = viewModel,
-                storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "",
-                storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "",
-                settingsManager = settingsManager, onDismiss = { completedTransaction = null }
-            )
+            if (featureConfig.receiptOnlyMode) {
+                NotaKontanViewDialog(
+                    transaction = completedTransaction!!,
+                    viewModel = viewModel,
+                    storeName = settingsManager.storeName ?: "ZoKas",
+                    storeAddress = settingsManager.storeAddress ?: "",
+                    storePhone = settingsManager.storePhone ?: "",
+                    onDismiss = { completedTransaction = null }
+                )
+            } else {
+                ReceiptDialog(
+                    transaction = completedTransaction!!, viewModel = viewModel,
+                    storeName = settingsManager.storeName ?: "ZoKas", storeAddress = settingsManager.storeAddress ?: "",
+                    storePhone = settingsManager.storePhone ?: "", storeFooter = settingsManager.storeFooter ?: "",
+                    settingsManager = settingsManager, onDismiss = { completedTransaction = null }
+                )
+            }
         }
 
         if (productToDelete != null) {
