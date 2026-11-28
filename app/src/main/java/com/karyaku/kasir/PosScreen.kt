@@ -790,7 +790,7 @@ fun PosScreen(
                     if (qty > 0) {
                         val totalSmallestQty = qty * packMult
                         viewModel.addStock(targetRestock, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, zokasText("Stok berhasil ditambahkan (+$totalSmallestQty)", "Stock berhasil ditambahkan (+$totalSmallestQty"), Toast.LENGTH_SHORT).show())
+                        Toast.makeText(context, zokasText("Stok berhasil ditambahkan (+$totalSmallestQty)", "Stock berhasil ditambahkan (+$totalSmallestQty)"), Toast.LENGTH_SHORT).show()
                     }
                     productToRestock = null
                     variantToProcess = ""
@@ -822,7 +822,7 @@ fun PosScreen(
                     if (qty > 0 && qty <= maxAvailableStock) {
                         val totalSmallestQty = qty * packMult
                         viewModel.recordWaste(targetProd, variantToProcess, totalSmallestQty, currentUser)
-                        Toast.makeText(context, zokasText("Barang rusak tercatat (-$totalSmallestQty)", "Barang rusak tercatat (-$totalSmallestQty"), Toast.LENGTH_SHORT).show())
+                        Toast.makeText(context, zokasText("Barang rusak tercatat (-$totalSmallestQty)", "Barang rusak tercatat (-$totalSmallestQty)"), Toast.LENGTH_SHORT).show()
                         productToWaste = null
                         variantToProcess = ""
                     } else {
