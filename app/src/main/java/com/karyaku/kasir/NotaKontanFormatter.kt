@@ -123,7 +123,7 @@ object NotaKontanFormatter {
             title = "NOTA KONTAN",
             noteNumber = "No. ${transaction.id}",
             dateLine = "Tgl. ${fmtDate.format(Date(transaction.timestamp))}",
-            recipientLine = "Tuan / Toko: ${transaction.customerName?.takeIf { it.isNotBlank() } ?: "Umum"}",
+            recipientLine = "Kepada Yth.: ${transaction.customerName?.takeIf { it.isNotBlank() } ?: "Umum"}",
             storeName = storeName.ifBlank { "TOKO" },
             storeAddress = storeAddress,
             storePhone = storePhone,

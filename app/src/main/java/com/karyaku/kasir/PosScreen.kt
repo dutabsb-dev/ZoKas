@@ -1135,7 +1135,7 @@ fun PosScreen(
                                 products = filteredProducts, categories = categories, selectedCategory = selectedCategory,
                                 onCategorySelect = { category: String -> viewModel.setCategory(category) }, searchQuery = searchQuery, onSearchChange = { query: String -> viewModel.setSearchQuery(query) },
                                 onProductClick = { prod: ProductEntity ->
-                                    val clickProd = if (featureConfig.receiptOnlyMode && prod.stock <= 0 && !prod.isService) prod.copy(stock = 999999) else prod
+                                    val clickProd = if (featureConfig.receiptOnlyMode && !prod.isService) prod.copy(stock = 999999) else prod
                                     if (clickProd.variations.contains("|")) productToSelectMatrix = clickProd
                                     else if (clickProd.variations.isNotEmpty()) productToSelectVariant = clickProd
                                     else viewModel.addToCart(clickProd)

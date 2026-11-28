@@ -535,7 +535,14 @@ fun PosViewModel.processPayment(
                         android.content.Context::class.java.isAssignableFrom(it.type)
                     }?.apply { isAccessible = true }
                     val ctx = ctxField?.get(this) as? android.content.Context
-                    ctx?.let { FeatureVisibilityManager.getConfig(it).receiptOnlyMode } ?: false
+                    if (ctx != null) {
+                        val cfg = FeatureVisibilityManager.getConfig(ctx)
+                        val rawJson = ctx.getSharedPreferences("zokas_feature_visibility_v1", android.content.Context.MODE_PRIVATE)
+                            .getString("feature_visibility_json", "") ?: ""
+                        cfg.receiptOnlyMode || rawJson.contains("\"receiptOnlyMode\":true")
+                    } else {
+                        false
+                    }
                 }.getOrDefault(false)
 
                 // A. Potong Stok Produk secara presisi desimal (dilewati pada Mode Hanya Nota agar stok tidak berkurang)
